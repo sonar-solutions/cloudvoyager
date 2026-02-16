@@ -79,7 +79,8 @@ Add `--verbose` to any command for more detail.
 ```
 
 ## Limitations
-- TO BE FILLED UP
+- Each project's past historical metrics (purely just historical metrics and not the actual issues itself), found in each project's **Activity** tab in the SonarQube Dashboard Web UI, cannot be migrated.
+
 
 ## Further Reading
 
