@@ -1,0 +1,42 @@
+name: Build Binaries
+
+on:
+  workflow_call:
+    outputs:
+      tag:
+        description: The generated release tag
+        value: ${{ jobs.build.outputs.tag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 18
+
+      - name: Restore node_modules cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Build binaries for all platforms
+        run: npm run package
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}-$(date +'%Y%m%d%H%M%S')"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: binaries
+          path: dist/bin/*
