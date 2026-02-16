@@ -1,0 +1,18 @@
+{
+  "sonarqube": {
+    "url": "https://sonarqube.example.com",
+    "token": "sqp_your_sonarqube_token_here",
+    "projectKey": "my-project-key"
+  },
+  "sonarcloud": {
+    "url": "https://sonarcloud.io",
+    "token": "your_sonarcloud_token_here",
+    "organization": "my-organization",
+    "projectKey": "my-project-key"
+  },
+  "transfer": {
+    "mode": "incremental",
+    "stateFile": "./.seawhale-state.json",
+    "batchSize": 100
+  }
+}

@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# State files
+.seawhale-state.json
+*.state.json
+
+# Config files with credentials
+config.json
+*.config.json
+!config.example.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+
+# Generated files
+proto/generated/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Local Only files
+settings.json
+config.json
+
+# Claude Code related stuff
+**/*.md
+!README.md
+scripts/
+debug/
