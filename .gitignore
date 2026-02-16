@@ -48,6 +48,7 @@ config.json
 # Claude Code related stuff
 **/*.md
 !README.md
+!docs/**/*.md
 scripts/
 debug/
 archives/
