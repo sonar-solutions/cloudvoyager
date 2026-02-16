@@ -8,19 +8,29 @@ This tool copies your projects, issues, metrics, and source code from SonarQube 
 
 ## Quick Start
 
-### 1. Install
+### 1. Download
+
+Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
+
+| Platform | Binary |
+|----------|--------|
+| macOS (Apple Silicon) | `cloudvoyager-macos-arm64` |
+| macOS (Intel) | `cloudvoyager-macos-x64` |
+| Linux (x64) | `cloudvoyager-linux-x64` |
+| Linux (ARM64) | `cloudvoyager-linux-arm64` |
+| Windows (x64) | `cloudvoyager-win-x64.exe` |
+
+Make the binary executable (macOS/Linux):
 
 ```bash
-npm install
+chmod +x cloudvoyager-*
 ```
 
 ### 2. Create a config file
 
-Copy the example and fill in your details:
+You'll need API tokens from both SonarQube and SonarCloud - Ensure that you have **Admin Access** to both your SonarQube Server and SonarCloud organization, and that you have API tokens for both.
 
-```bash
-cp examples/config.example.json config.json
-```
+Create a `config.json` file with your details:
 
 ```json
 {
@@ -38,18 +48,16 @@ cp examples/config.example.json config.json
 }
 ```
 
-You'll need API tokens from both SonarQube and SonarCloud.
-
 ### 3. Test your connections
 
 ```bash
-node src/index.js test -c config.json
+./cloudvoyager test -c config.json
 ```
 
 ### 4. Run the transfer
 
 ```bash
-node src/index.js transfer -c config.json
+./cloudvoyager transfer -c config.json
 ```
 
 That's it! Your data will appear in SonarCloud once the transfer completes.
@@ -65,6 +73,13 @@ That's it! Your data will appear in SonarCloud once the transfer completes.
 | `reset` | Clear sync history and start fresh |
 
 Add `--verbose` to any command for more detail.
+
+```bash
+./cloudvoyager transfer -c config.json --verbose
+```
+
+## Limitations
+- TO BE FILLED UP
 
 ## Further Reading
 
