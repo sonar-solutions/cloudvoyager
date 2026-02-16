@@ -15,7 +15,20 @@
     "status": "node src/index.js status -c config.json",
     "reset": "node src/index.js reset -c config.json",
     "lint": "eslint src/**/*.js",
-    "lint:fix": "eslint src/**/*.js --fix"
+    "lint:fix": "eslint src/**/*.js --fix",
+    "build": "node scripts/build.js",
+    "package": "node scripts/build.js --package",
+    "package:linux-x64": "node scripts/build.js --package --target=linux-x64",
+    "package:linux-arm64": "node scripts/build.js --package --target=linux-arm64",
+    "package:macos-x64": "node scripts/build.js --package --target=macos-x64",
+    "package:macos-arm64": "node scripts/build.js --package --target=macos-arm64",
+    "package:win-x64": "node scripts/build.js --package --target=win-x64"
+  },
+  "pkg": {
+    "assets": [
+      "dist/schema/**"
+    ],
+    "outputPath": "dist/bin"
   },
   "keywords": [
     "sonarqube",
@@ -37,7 +50,9 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "eslint": "^8.56.0"
+    "esbuild": "^0.27.3",
+    "eslint": "^8.56.0",
+    "pkg": "^5.8.1"
   },
   "engines": {
     "node": ">=18.0.0"
