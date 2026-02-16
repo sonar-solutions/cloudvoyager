@@ -4,7 +4,7 @@ package-lock.json
 yarn.lock
 
 # State files
-.seawhale-state.json
+.cloudvoyager-state.json
 *.state.json
 
 # Config files with credentials

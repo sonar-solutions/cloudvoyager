@@ -350,6 +350,15 @@ export class SonarQubeClient {
   }
 
   /**
+   * List all projects in SonarQube
+   * @returns {Promise<Array>} All projects
+   */
+  async listAllProjects() {
+    logger.info('Fetching all projects from SonarQube...');
+    return await this.getPaginated('/api/projects/search', {}, 'components');
+  }
+
+  /**
    * Test connection to SonarQube
    */
   async testConnection() {

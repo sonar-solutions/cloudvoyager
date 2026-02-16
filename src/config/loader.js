@@ -49,7 +49,7 @@ export async function loadConfig(configPath) {
     }
 
     if (!config.transfer.stateFile) {
-      config.transfer.stateFile = './.seawhale-state.json';
+      config.transfer.stateFile = './.cloudvoyager-state.json';
     }
 
     if (!config.transfer.batchSize) {
@@ -111,6 +111,20 @@ function applyEnvironmentOverrides(config) {
  * @returns {boolean} True if valid
  * @throws {ValidationError} If validation fails
  */
+/**
+ * Validate that project keys are present in config (for single-project commands)
+ * @param {object} config - Validated config object
+ * @throws {ConfigurationError} If project keys are missing
+ */
+export function requireProjectKeys(config) {
+  if (!config.sonarqube.projectKey) {
+    throw new ConfigurationError('sonarqube.projectKey is required for this command');
+  }
+  if (!config.sonarcloud.projectKey) {
+    throw new ConfigurationError('sonarcloud.projectKey is required for this command');
+  }
+}
+
 export function validateConfig(config) {
   const valid = validate(config);
 

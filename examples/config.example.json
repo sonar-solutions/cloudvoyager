@@ -12,7 +12,7 @@
   },
   "transfer": {
     "mode": "incremental",
-    "stateFile": "./.seawhale-state.json",
+    "stateFile": "./.cloudvoyager-state.json",
     "batchSize": 100
   }
 }

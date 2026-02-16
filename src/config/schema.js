@@ -7,7 +7,7 @@ export const configSchema = {
   properties: {
     sonarqube: {
       type: 'object',
-      required: ['url', 'token', 'projectKey'],
+      required: ['url', 'token'],
       properties: {
         url: {
           type: 'string',
@@ -29,7 +29,7 @@ export const configSchema = {
     },
     sonarcloud: {
       type: 'object',
-      required: ['token', 'organization', 'projectKey'],
+      required: ['token', 'organization'],
       properties: {
         url: {
           type: 'string',
@@ -66,7 +66,7 @@ export const configSchema = {
         },
         stateFile: {
           type: 'string',
-          default: './.seawhale-state.json',
+          default: './.cloudvoyager-state.json',
           description: 'Path to state file for incremental transfers'
         },
         batchSize: {
@@ -75,6 +75,29 @@ export const configSchema = {
           maximum: 500,
           default: 100,
           description: 'Number of items to process in each batch'
+        }
+      },
+      additionalProperties: false
+    },
+    transferAll: {
+      type: 'object',
+      properties: {
+        projectKeyPrefix: {
+          type: 'string',
+          default: '',
+          description: 'Prefix to prepend to SonarQube project keys for SonarCloud'
+        },
+        projectKeyMapping: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+          default: {},
+          description: 'Explicit mapping from SonarQube project key to SonarCloud project key'
+        },
+        excludeProjects: {
+          type: 'array',
+          items: { type: 'string' },
+          default: [],
+          description: 'SonarQube project keys to exclude from transfer-all'
         }
       },
       additionalProperties: false

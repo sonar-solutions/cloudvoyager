@@ -13,8 +13,8 @@ export async function extractChangesets(client, sourceFiles, components) {
 
   const changesets = new Map();
   const timestamp = Date.now(); // Current timestamp in milliseconds
-  const stubRevision = 'seawhale0000000000000000000000000000000'; // 40-char stub hash
-  const stubAuthor = 'seawhale-migration@sonarcloud.io';
+  const stubRevision = 'cloudvoyager000000000000000000000000000'; // 40-char stub hash
+  const stubAuthor = 'cloudvoyager-migration@sonarcloud.io';
 
   // Create minimal changeset data for each source file
   for (const file of sourceFiles) {

@@ -1,10 +1,10 @@
 {
-  "name": "seawhale-to-skywhale",
+  "name": "cloudvoyager",
   "version": "1.0.0",
   "description": "CLI tool to migrate data from SonarQube to SonarCloud",
   "main": "src/index.js",
   "bin": {
-    "seawhale": "./src/index.js"
+    "cloudvoyager": "./src/index.js"
   },
   "type": "module",
   "scripts": {
@@ -14,6 +14,8 @@
     "test:connection": "node src/index.js test -c config.json",
     "status": "node src/index.js status -c config.json",
     "reset": "node src/index.js reset -c config.json",
+    "transfer-all": "node src/index.js transfer-all -c config.json --verbose",
+    "transfer-all:dry-run": "node src/index.js transfer-all -c config.json --verbose --dry-run",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "build": "node scripts/build.js",
