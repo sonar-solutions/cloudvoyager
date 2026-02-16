@@ -1,5 +1,5 @@
 import logger from '../../utils/logger.js';
-import { MeasureData, ComponentData } from '../models.js';
+import { createMeasureData, createComponentData } from '../models.js';
 
 /**
  * Extract measures for project
@@ -14,7 +14,7 @@ export async function extractMeasures(client, metricKeys, branch = null) {
   const projectMeasures = await client.getMeasures(branch, metricKeys);
 
   const measures = (projectMeasures.measures || []).map(
-    measure => new MeasureData(measure, projectMeasures.key)
+    measure => createMeasureData(measure, projectMeasures.key)
   );
 
   logger.info(`Extracted ${measures.length} project-level measures`);
@@ -37,7 +37,7 @@ export async function extractComponentMeasures(client, metricKeys, branch = null
 
   const components = await client.getComponentTree(branch, metricKeys);
 
-  const componentData = components.map(component => new ComponentData(component));
+  const componentData = components.map(component => createComponentData(component));
 
   logger.info(`Extracted measures for ${componentData.length} components`);
 

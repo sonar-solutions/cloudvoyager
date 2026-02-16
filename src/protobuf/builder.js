@@ -92,7 +92,7 @@ export class ProtobufBuilder {
         const info = sourceInfo.get(comp.key) || {};
         // IMPORTANT: Use actual source file line count, NOT the SonarQube measures value.
         // The measures API may report a different line count than what the source API returns.
-        const lineCount = info.lineCount || parseInt(comp.measures.find(m => m.metric === 'lines')?.value) || 0;
+        const lineCount = info.lineCount || Number.parseInt(comp.measures.find(m => m.metric === 'lines')?.value) || 0;
         componentsMap.set(comp.key, {
           ref: ref,
           type: 4, // ComponentType.FILE
@@ -147,7 +147,7 @@ export class ProtobufBuilder {
 
     this.data.issues.forEach(issue => {
       // Skip issues for components we don't have source code for
-      if (!this.validComponentKeys || !this.validComponentKeys.has(issue.component)) {
+      if (!this.validComponentKeys?.has(issue.component)) {
         skippedIssues++;
         return;
       }
@@ -252,24 +252,28 @@ export class ProtobufBuilder {
     } else if (typeof rawValue === 'boolean') {
       msg.booleanValue = { value: rawValue };
     } else {
-      // Try to parse as number (SonarQube API returns all numeric values as strings)
-      const parsed = Number(rawValue);
-      if (!isNaN(parsed) && rawValue !== '' && rawValue !== null && rawValue !== undefined) {
-        if (Number.isInteger(parsed)) {
-          if (parsed >= -2147483648 && parsed <= 2147483647) {
-            msg.intValue = { value: parsed };
-          } else {
-            msg.longValue = { value: parsed };
-          }
-        } else {
-          msg.doubleValue = { value: parsed };
-        }
-      } else {
-        msg.stringValue = { value: String(rawValue) };
-      }
+      Object.assign(msg, this.parseMeasureValue(rawValue));
     }
 
     return msg;
+  }
+
+  /**
+   * Parse a raw measure value into the correct protobuf value wrapper.
+   * SonarQube API returns all numeric values as strings, so we must detect the type.
+   */
+  parseMeasureValue(rawValue) {
+    const parsed = Number(rawValue);
+    if (Number.isNaN(parsed) || rawValue === '' || rawValue === null || rawValue === undefined) {
+      return { stringValue: { value: String(rawValue) } };
+    }
+    if (Number.isInteger(parsed)) {
+      if (parsed >= -2147483648 && parsed <= 2147483647) {
+        return { intValue: { value: parsed } };
+      }
+      return { longValue: { value: parsed } };
+    }
+    return { doubleValue: { value: parsed } };
   }
 
   /**
@@ -322,7 +326,7 @@ export class ProtobufBuilder {
     this.data.activeRules.forEach(rule => {
       // Strip repo prefix from ruleKey if present (e.g., "javascript:S121" -> "S121")
       let ruleKey = rule.ruleKey;
-      if (ruleKey && ruleKey.includes(':')) {
+      if (ruleKey?.includes(':')) {
         ruleKey = ruleKey.split(':').pop();
       }
 
@@ -375,8 +379,8 @@ export class ProtobufBuilder {
 
     // Get unique languages from source files and active rules
     const languages = [...new Set([
-      ...this.data.activeRules.map(r => r.language).filter(lang => lang),
-      ...this.data.sources.map(s => s.language).filter(lang => lang)
+      ...this.data.activeRules.map(r => r.language).filter(Boolean),
+      ...this.data.sources.map(s => s.language).filter(Boolean)
     ])];
 
     languages.forEach(language => {

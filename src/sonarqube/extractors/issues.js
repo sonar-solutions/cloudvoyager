@@ -1,5 +1,5 @@
 import logger from '../../utils/logger.js';
-import { IssueData } from '../models.js';
+import { createIssueData } from '../models.js';
 
 /**
  * Extract issues from SonarQube
@@ -28,7 +28,7 @@ export async function extractIssues(client, state = null, branch = null) {
   logger.info(`Extracted ${issues.length} issues`);
 
   // Convert to IssueData models
-  const issueData = issues.map(issue => new IssueData(issue));
+  const issueData = issues.map(issue => createIssueData(issue));
 
   // Log issue breakdown by severity
   const severityCounts = {};

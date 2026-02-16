@@ -3,68 +3,66 @@
  */
 
 export class ProjectData {
-  constructor() {
-    this.project = null;
-    this.branches = [];
-    this.qualityGate = null;
-  }
+  project = null;
+  branches = [];
+  qualityGate = null;
 }
 
-export class IssueData {
-  constructor(issue) {
-    this.key = issue.key;
-    this.rule = issue.rule;
-    this.severity = issue.severity;
-    this.component = issue.component;
-    this.project = issue.project;
-    this.line = issue.line;
-    this.hash = issue.hash;
-    this.textRange = issue.textRange;
-    this.flows = issue.flows || [];
-    this.status = issue.status;
-    this.message = issue.message;
-    this.effort = issue.effort;
-    this.debt = issue.debt;
-    this.author = issue.author;
-    this.tags = issue.tags || [];
-    this.creationDate = issue.creationDate;
-    this.updateDate = issue.updateDate;
-    this.type = issue.type;
-  }
+export function createIssueData(issue) {
+  return {
+    key: issue.key,
+    rule: issue.rule,
+    severity: issue.severity,
+    component: issue.component,
+    project: issue.project,
+    line: issue.line,
+    hash: issue.hash,
+    textRange: issue.textRange,
+    flows: issue.flows || [],
+    status: issue.status,
+    message: issue.message,
+    effort: issue.effort,
+    debt: issue.debt,
+    author: issue.author,
+    tags: issue.tags || [],
+    creationDate: issue.creationDate,
+    updateDate: issue.updateDate,
+    type: issue.type,
+  };
 }
 
-export class MetricData {
-  constructor(metric) {
-    this.key = metric.key;
-    this.name = metric.name;
-    this.description = metric.description;
-    this.domain = metric.domain;
-    this.type = metric.type;
-    this.direction = metric.direction;
-    this.qualitative = metric.qualitative;
-    this.hidden = metric.hidden;
-  }
+export function createMetricData(metric) {
+  return {
+    key: metric.key,
+    name: metric.name,
+    description: metric.description,
+    domain: metric.domain,
+    type: metric.type,
+    direction: metric.direction,
+    qualitative: metric.qualitative,
+    hidden: metric.hidden,
+  };
 }
 
-export class MeasureData {
-  constructor(measure, componentKey) {
-    this.metric = measure.metric;
-    this.value = measure.value;
-    this.component = componentKey;
-    this.bestValue = measure.bestValue;
-    this.period = measure.period;
-  }
+export function createMeasureData(measure, componentKey) {
+  return {
+    metric: measure.metric,
+    value: measure.value,
+    component: componentKey,
+    bestValue: measure.bestValue,
+    period: measure.period,
+  };
 }
 
-export class ComponentData {
-  constructor(component) {
-    this.key = component.key;
-    this.name = component.name;
-    this.qualifier = component.qualifier;
-    this.path = component.path;
-    this.language = component.language;
-    this.measures = component.measures || [];
-  }
+export function createComponentData(component) {
+  return {
+    key: component.key,
+    name: component.name,
+    qualifier: component.qualifier,
+    path: component.path,
+    language: component.language,
+    measures: component.measures || [],
+  };
 }
 
 export class SourceFileData {
@@ -73,5 +71,9 @@ export class SourceFileData {
     this.content = content;
     this.lines = content.split('\n');
     this.language = language;
+  }
+
+  get lineCount() {
+    return this.lines.length;
   }
 }

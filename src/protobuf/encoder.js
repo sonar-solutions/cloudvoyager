@@ -1,6 +1,6 @@
 import protobuf from 'protobufjs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import logger from '../utils/logger.js';
 import { ProtobufEncodingError } from '../utils/errors.js';
 
@@ -11,9 +11,7 @@ const __dirname = dirname(__filename);
  * Encode data to protobuf format
  */
 export class ProtobufEncoder {
-  constructor() {
-    this.root = null;
-  }
+  root = null;
 
   /**
    * Load protobuf schemas

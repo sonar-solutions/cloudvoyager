@@ -83,7 +83,7 @@ export class DataExtractor {
 
       // 7. Extract source code (optional, can be limited)
       logger.info('Step 7/7: Extracting source code...');
-      const maxFiles = process.env.MAX_SOURCE_FILES ? parseInt(process.env.MAX_SOURCE_FILES) : 0;
+      const maxFiles = process.env.MAX_SOURCE_FILES ? Number.parseInt(process.env.MAX_SOURCE_FILES) : 0;
       extractedData.sources = await extractSources(this.client, null, maxFiles);
 
       // 8. Extract changesets (SCM blame data)

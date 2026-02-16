@@ -10,25 +10,9 @@ export async function extractActiveRules(client, components = []) {
   logger.info('Extracting active rules from quality profiles...');
 
   try {
-    // Determine which languages are actually used in the project
-    const usedLanguages = new Set();
-    components.forEach(comp => {
-      if (comp.language) {
-        usedLanguages.add(comp.language.toLowerCase());
-      }
-    });
-
-    // Add common related languages
-    if (usedLanguages.has('js') || usedLanguages.has('javascript')) {
-      usedLanguages.add('js');
-      usedLanguages.add('javascript');
-      usedLanguages.add('ts');  // TypeScript often analyzed together
-      usedLanguages.add('web');  // HTML/Web files
-    }
-
+    const usedLanguages = detectUsedLanguages(components);
     logger.info(`Project uses languages: ${Array.from(usedLanguages).join(', ')}`);
 
-    // Get all quality profiles for the project
     const profiles = await client.getQualityProfiles();
     logger.info(`Found ${profiles.length} quality profiles`);
 
@@ -37,70 +21,10 @@ export async function extractActiveRules(client, components = []) {
       return [];
     }
 
-    // Extract active rules from all profiles
-    const allActiveRules = [];
-    const ruleMap = new Map(); // To deduplicate rules across profiles
-
-    for (const profile of profiles) {
-      // Skip profiles for languages not used in the project
-      if (usedLanguages.size > 0 && !usedLanguages.has(profile.language.toLowerCase())) {
-        logger.debug(`Skipping profile for unused language: ${profile.language}`);
-        continue;
-      }
-
-      logger.info(`Extracting rules from profile: ${profile.name} (${profile.language})`);
-
-      // Get active rules for this profile
-      const rules = await client.getActiveRules(profile.key);
-      logger.info(`  Found ${rules.length} active rules`);
-
-      // Process each rule
-      for (const rule of rules) {
-        const ruleId = `${rule.repo || rule.repository}:${rule.key}`;
-
-        // Skip if we've already processed this rule
-        if (ruleMap.has(ruleId)) {
-          continue;
-        }
-
-        // Extract active rule data
-        // Convert params array to map
-        const paramsMap = {};
-        if (rule.params && Array.isArray(rule.params)) {
-          rule.params.forEach(param => {
-            paramsMap[param.key] = param.defaultValue || param.value || '';
-          });
-        }
-
-        const activeRule = {
-          ruleRepository: rule.repo || rule.repository || 'unknown',
-          ruleKey: rule.key,
-          severity: mapSeverity(rule.severity),
-          paramsByKey: paramsMap,
-          createdAt: rule.createdAt ? new Date(rule.createdAt).getTime() : Date.now(),
-          updatedAt: rule.updatedAt ? new Date(rule.updatedAt).getTime() : Date.now(),
-          qProfileKey: profile.key,
-          language: profile.language,  // ADD LANGUAGE FROM PROFILE
-          impacts: extractImpacts(rule)
-        };
-
-        allActiveRules.push(activeRule);
-        ruleMap.set(ruleId, activeRule);
-      }
-    }
+    const allActiveRules = await extractRulesFromProfiles(client, profiles, usedLanguages);
 
     logger.info(`Extracted ${allActiveRules.length} unique active rules`);
-
-    // Log breakdown by repository
-    const repoCounts = {};
-    allActiveRules.forEach(rule => {
-      repoCounts[rule.ruleRepository] = (repoCounts[rule.ruleRepository] || 0) + 1;
-    });
-
-    logger.info('Active rules breakdown by repository:');
-    Object.entries(repoCounts).forEach(([repo, count]) => {
-      logger.info(`  ${repo}: ${count}`);
-    });
+    logRuleBreakdown(allActiveRules);
 
     return allActiveRules;
 
@@ -108,6 +32,86 @@ export async function extractActiveRules(client, components = []) {
     logger.error(`Failed to extract active rules: ${error.message}`);
     throw error;
   }
+}
+
+function detectUsedLanguages(components) {
+  const usedLanguages = new Set();
+  components.forEach(comp => {
+    if (comp.language) {
+      usedLanguages.add(comp.language.toLowerCase());
+    }
+  });
+
+  if (usedLanguages.has('js') || usedLanguages.has('javascript')) {
+    usedLanguages.add('js');
+    usedLanguages.add('javascript');
+    usedLanguages.add('ts');
+    usedLanguages.add('web');
+  }
+
+  return usedLanguages;
+}
+
+async function extractRulesFromProfiles(client, profiles, usedLanguages) {
+  const allActiveRules = [];
+  const ruleMap = new Map();
+
+  for (const profile of profiles) {
+    if (usedLanguages.size > 0 && !usedLanguages.has(profile.language.toLowerCase())) {
+      logger.debug(`Skipping profile for unused language: ${profile.language}`);
+      continue;
+    }
+
+    logger.info(`Extracting rules from profile: ${profile.name} (${profile.language})`);
+    const rules = await client.getActiveRules(profile.key);
+    logger.info(`  Found ${rules.length} active rules`);
+
+    for (const rule of rules) {
+      const ruleId = `${rule.repo || rule.repository}:${rule.key}`;
+      if (ruleMap.has(ruleId)) {
+        continue;
+      }
+
+      const activeRule = buildActiveRule(rule, profile);
+      allActiveRules.push(activeRule);
+      ruleMap.set(ruleId, activeRule);
+    }
+  }
+
+  return allActiveRules;
+}
+
+function buildActiveRule(rule, profile) {
+  const paramsMap = {};
+  if (rule.params && Array.isArray(rule.params)) {
+    rule.params.forEach(param => {
+      paramsMap[param.key] = param.defaultValue || param.value || '';
+    });
+  }
+
+  return {
+    ruleRepository: rule.repo || rule.repository || 'unknown',
+    ruleKey: rule.key,
+    severity: mapSeverity(rule.severity),
+    paramsByKey: paramsMap,
+    createdAt: rule.createdAt ? new Date(rule.createdAt).getTime() : Date.now(),
+    updatedAt: rule.updatedAt ? new Date(rule.updatedAt).getTime() : Date.now(),
+    qProfileKey: profile.key,
+    language: profile.language,
+    impacts: extractImpacts(rule)
+  };
+}
+
+function logRuleBreakdown(allActiveRules) {
+  const repoCounts = {};
+  allActiveRules.forEach(rule => {
+    repoCounts[rule.ruleRepository] = (repoCounts[rule.ruleRepository] || 0) + 1;
+  });
+
+  logger.info('Active rules breakdown by repository:');
+  Object.entries(repoCounts).forEach(([repo, count]) => {
+    logger.info(`  ${repo}: ${count}`);
+  });
 }
 
 /**

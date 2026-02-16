@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { loadConfig, validateConfig, requireProjectKeys } from './config/loader.js';
+import { loadConfig, requireProjectKeys } from './config/loader.js';
 import { SonarQubeClient } from './sonarqube/api-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
@@ -76,144 +76,24 @@ program
       logger.info('=== CloudVoyager - Transfer All Projects ===');
 
       const config = await loadConfig(options.config);
-
-      // Read transferAll settings
-      const transferAllConfig = config.transferAll || {};
-      const projectKeyPrefix = transferAllConfig.projectKeyPrefix || '';
-      const projectKeyMapping = transferAllConfig.projectKeyMapping || {};
-      const excludeProjects = new Set(transferAllConfig.excludeProjects || []);
-
-      // Create a discovery client (no projectKey needed)
-      const discoveryClient = new SonarQubeClient({
-        url: config.sonarqube.url,
-        token: config.sonarqube.token
-      });
-
-      // Test connections
-      await discoveryClient.testConnection();
-      const sonarCloudTestClient = new SonarCloudClient({
-        url: config.sonarcloud.url || 'https://sonarcloud.io',
-        token: config.sonarcloud.token,
-        organization: config.sonarcloud.organization
-      });
-      await sonarCloudTestClient.testConnection();
-
-      // Discover all projects
-      logger.info('Discovering all SonarQube projects...');
-      const allProjects = await discoveryClient.listAllProjects();
-      logger.info(`Found ${allProjects.length} projects in SonarQube`);
-
-      // Filter out excluded projects
-      const projects = allProjects.filter(p => !excludeProjects.has(p.key));
-      if (projects.length !== allProjects.length) {
-        logger.info(`Excluded ${allProjects.length - projects.length} projects, ${projects.length} remaining`);
-      }
+      const { projects, projectKeyPrefix, projectKeyMapping } = await discoverProjects(config);
 
       if (projects.length === 0) {
         logger.warn('No projects to transfer');
         return;
       }
 
-      // Log project list with mappings
-      logger.info('Projects to transfer:');
-      projects.forEach((project, index) => {
-        const scKey = projectKeyMapping[project.key] || `${projectKeyPrefix}${project.key}`;
-        logger.info(`  ${index + 1}. ${project.key} -> ${scKey} (${project.name})`);
-      });
+      logProjectList(projects, projectKeyMapping, projectKeyPrefix);
 
       if (options.dryRun) {
         logger.info('Dry run complete. No projects were transferred.');
         return;
       }
 
-      // Transfer each project
-      const results = [];
-      const startTime = Date.now();
+      const { results, startTime } = await executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options);
+      const failedCount = logTransferSummary(results, startTime);
 
-      for (let i = 0; i < projects.length; i++) {
-        const project = projects[i];
-        const sqProjectKey = project.key;
-        const scProjectKey = projectKeyMapping[sqProjectKey] || `${projectKeyPrefix}${sqProjectKey}`;
-
-        // Per-project state file
-        const baseStateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
-        const ext = baseStateFile.endsWith('.json') ? '.json' : '';
-        const base = ext ? baseStateFile.slice(0, -ext.length) : baseStateFile;
-        const perProjectStateFile = `${base}.${sqProjectKey}${ext}`;
-
-        logger.info(`\n========================================`);
-        logger.info(`Project ${i + 1}/${projects.length}: ${sqProjectKey}`);
-        logger.info(`  SonarCloud key: ${scProjectKey}`);
-        logger.info(`  State file: ${perProjectStateFile}`);
-        logger.info(`========================================`);
-
-        try {
-          const result = await transferProject({
-            sonarqubeConfig: {
-              url: config.sonarqube.url,
-              token: config.sonarqube.token,
-              projectKey: sqProjectKey
-            },
-            sonarcloudConfig: {
-              url: config.sonarcloud.url || 'https://sonarcloud.io',
-              token: config.sonarcloud.token,
-              organization: config.sonarcloud.organization,
-              projectKey: scProjectKey
-            },
-            transferConfig: {
-              mode: config.transfer?.mode || 'incremental',
-              stateFile: perProjectStateFile,
-              batchSize: config.transfer?.batchSize || 100
-            },
-            wait: options.wait,
-            skipConnectionTest: true
-          });
-
-          results.push({ ...result, success: true });
-          logger.info(`Project ${sqProjectKey} transferred successfully`);
-
-        } catch (error) {
-          logger.error(`Project ${sqProjectKey} FAILED: ${error.message}`);
-          if (options.verbose) {
-            logger.debug(error.stack);
-          }
-          results.push({
-            projectKey: sqProjectKey,
-            sonarCloudProjectKey: scProjectKey,
-            success: false,
-            error: error.message
-          });
-        }
-      }
-
-      // Print summary
-      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      const succeeded = results.filter(r => r.success);
-      const failed = results.filter(r => !r.success);
-
-      logger.info('\n=== Transfer All Summary ===');
-      logger.info(`Total projects: ${results.length}`);
-      logger.info(`Succeeded: ${succeeded.length}`);
-      logger.info(`Failed: ${failed.length}`);
-      logger.info(`Duration: ${duration}s`);
-
-      if (succeeded.length > 0) {
-        logger.info('\nSuccessful transfers:');
-        succeeded.forEach(r => {
-          logger.info(`  ${r.projectKey} -> ${r.sonarCloudProjectKey} (${r.stats.issuesTransferred} issues, ${r.stats.componentsTransferred} components, ${r.stats.sourcesTransferred} sources)`);
-        });
-      }
-
-      if (failed.length > 0) {
-        logger.info('\nFailed transfers:');
-        failed.forEach(r => {
-          logger.error(`  ${r.projectKey}: ${r.error}`);
-        });
-      }
-
-      logger.info('=== Transfer All Complete ===');
-
-      if (failed.length > 0) {
+      if (failedCount > 0) {
         process.exit(1);
       }
 
@@ -355,6 +235,138 @@ program
       process.exit(1);
     }
   });
+
+/**
+ * Discover and filter projects for transfer-all command
+ */
+async function discoverProjects(config) {
+  const transferAllConfig = config.transferAll || {};
+  const projectKeyPrefix = transferAllConfig.projectKeyPrefix || '';
+  const projectKeyMapping = transferAllConfig.projectKeyMapping || {};
+  const excludeProjects = new Set(transferAllConfig.excludeProjects || []);
+
+  const discoveryClient = new SonarQubeClient({
+    url: config.sonarqube.url,
+    token: config.sonarqube.token
+  });
+
+  await discoveryClient.testConnection();
+  const sonarCloudTestClient = new SonarCloudClient({
+    url: config.sonarcloud.url || 'https://sonarcloud.io',
+    token: config.sonarcloud.token,
+    organization: config.sonarcloud.organization
+  });
+  await sonarCloudTestClient.testConnection();
+
+  logger.info('Discovering all SonarQube projects...');
+  const allProjects = await discoveryClient.listAllProjects();
+  logger.info(`Found ${allProjects.length} projects in SonarQube`);
+
+  const projects = allProjects.filter(p => !excludeProjects.has(p.key));
+  if (projects.length !== allProjects.length) {
+    logger.info(`Excluded ${allProjects.length - projects.length} projects, ${projects.length} remaining`);
+  }
+
+  return { projects, projectKeyPrefix, projectKeyMapping };
+}
+
+function logProjectList(projects, projectKeyMapping, projectKeyPrefix) {
+  logger.info('Projects to transfer:');
+  projects.forEach((project, index) => {
+    const scKey = projectKeyMapping[project.key] || `${projectKeyPrefix}${project.key}`;
+    logger.info(`  ${index + 1}. ${project.key} -> ${scKey} (${project.name})`);
+  });
+}
+
+async function executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options) {
+  const results = [];
+  const startTime = Date.now();
+
+  for (let i = 0; i < projects.length; i++) {
+    const project = projects[i];
+    const sqProjectKey = project.key;
+    const scProjectKey = projectKeyMapping[sqProjectKey] || `${projectKeyPrefix}${sqProjectKey}`;
+
+    const baseStateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
+    const ext = baseStateFile.endsWith('.json') ? '.json' : '';
+    const base = ext ? baseStateFile.slice(0, -ext.length) : baseStateFile;
+    const perProjectStateFile = `${base}.${sqProjectKey}${ext}`;
+
+    logger.info(`\n========================================`);
+    logger.info(`Project ${i + 1}/${projects.length}: ${sqProjectKey}`);
+    logger.info(`  SonarCloud key: ${scProjectKey}`);
+    logger.info(`  State file: ${perProjectStateFile}`);
+    logger.info(`========================================`);
+
+    try {
+      const result = await transferProject({
+        sonarqubeConfig: {
+          url: config.sonarqube.url,
+          token: config.sonarqube.token,
+          projectKey: sqProjectKey
+        },
+        sonarcloudConfig: {
+          url: config.sonarcloud.url || 'https://sonarcloud.io',
+          token: config.sonarcloud.token,
+          organization: config.sonarcloud.organization,
+          projectKey: scProjectKey
+        },
+        transferConfig: {
+          mode: config.transfer?.mode || 'incremental',
+          stateFile: perProjectStateFile,
+          batchSize: config.transfer?.batchSize || 100
+        },
+        wait: options.wait,
+        skipConnectionTest: true
+      });
+
+      results.push({ ...result, success: true });
+      logger.info(`Project ${sqProjectKey} transferred successfully`);
+    } catch (error) {
+      logger.error(`Project ${sqProjectKey} FAILED: ${error.message}`);
+      if (options.verbose) {
+        logger.debug(error.stack);
+      }
+      results.push({
+        projectKey: sqProjectKey,
+        sonarCloudProjectKey: scProjectKey,
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  return { results, startTime };
+}
+
+function logTransferSummary(results, startTime) {
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  const succeeded = results.filter(r => r.success);
+  const failed = results.filter(r => !r.success);
+
+  logger.info('\n=== Transfer All Summary ===');
+  logger.info(`Total projects: ${results.length}`);
+  logger.info(`Succeeded: ${succeeded.length}`);
+  logger.info(`Failed: ${failed.length}`);
+  logger.info(`Duration: ${duration}s`);
+
+  if (succeeded.length > 0) {
+    logger.info('\nSuccessful transfers:');
+    succeeded.forEach(r => {
+      logger.info(`  ${r.projectKey} -> ${r.sonarCloudProjectKey} (${r.stats.issuesTransferred} issues, ${r.stats.componentsTransferred} components, ${r.stats.sourcesTransferred} sources)`);
+    });
+  }
+
+  if (failed.length > 0) {
+    logger.info('\nFailed transfers:');
+    failed.forEach(r => {
+      logger.error(`  ${r.projectKey}: ${r.error}`);
+    });
+  }
+
+  logger.info('=== Transfer All Complete ===');
+  return failed.length;
+}
 
 // Parse command line arguments
 program.parse();

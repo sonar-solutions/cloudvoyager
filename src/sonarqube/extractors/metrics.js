@@ -1,5 +1,5 @@
 import logger from '../../utils/logger.js';
-import { MetricData } from '../models.js';
+import { createMetricData } from '../models.js';
 
 /**
  * Common metrics to extract
@@ -36,7 +36,7 @@ export async function extractMetrics(client) {
   logger.info(`Extracted ${metrics.length} metric definitions`);
 
   // Convert to MetricData models
-  const metricData = metrics.map(metric => new MetricData(metric));
+  const metricData = metrics.map(metric => createMetricData(metric));
 
   return metricData;
 }
@@ -47,8 +47,8 @@ export async function extractMetrics(client) {
  * @returns {Array<string>}
  */
 export function getCommonMetricKeys(allMetrics) {
-  const availableKeys = allMetrics.map(m => m.key);
-  const commonKeys = COMMON_METRICS.filter(key => availableKeys.includes(key));
+  const availableKeys = new Set(allMetrics.map(m => m.key));
+  const commonKeys = COMMON_METRICS.filter(key => availableKeys.has(key));
 
   logger.info(`Selected ${commonKeys.length} common metrics for extraction`);
   return commonKeys;

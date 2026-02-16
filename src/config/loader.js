@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile } from 'node:fs/promises';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { configSchema } from './schema.js';

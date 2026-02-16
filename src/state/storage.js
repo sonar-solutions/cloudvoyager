@@ -1,5 +1,5 @@
-import { readFile, writeFile, unlink } from 'fs/promises';
-import { existsSync } from 'fs';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import logger from '../utils/logger.js';
 import { StateError } from '../utils/errors.js';
 

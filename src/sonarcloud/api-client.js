@@ -131,7 +131,9 @@ export class SonarCloudClient {
 
     const exists = await this.projectExists();
 
-    if (!exists) {
+    if (exists) {
+      logger.info('Project already exists');
+    } else {
       logger.info('Project does not exist, creating...');
 
       await this.client.post('/api/projects/create', null, {
@@ -143,8 +145,6 @@ export class SonarCloudClient {
       });
 
       logger.info('Project created successfully');
-    } else {
-      logger.info('Project already exists');
     }
   }
 
