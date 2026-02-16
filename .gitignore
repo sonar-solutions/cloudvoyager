@@ -45,7 +45,7 @@ temp/
 settings.json
 config.json
 
-# Claude Code related stuff
+# Dev Related stuff
 **/*.md
 !README.md
 !docs/**/*.md
@@ -53,3 +53,5 @@ scripts/
 debug/
 archives/
 proto/
+.scannerwork/
+compliance/sonar_scan_local.sh
