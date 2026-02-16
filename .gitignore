@@ -48,7 +48,6 @@ config.json
 **/*.md
 !README.md
 !docs/**/*.md
-scripts/
 debug/
 archives/
 proto/
