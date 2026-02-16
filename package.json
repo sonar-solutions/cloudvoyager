@@ -9,6 +9,11 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "transfer": "node src/index.js transfer -c config.json --verbose",
+    "validate": "node src/index.js validate -c config.json",
+    "test:connection": "node src/index.js test -c config.json",
+    "status": "node src/index.js status -c config.json",
+    "reset": "node src/index.js reset -c config.json",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix"
   },

@@ -61,6 +61,9 @@ program
       await sonarQubeClient.testConnection();
       await sonarCloudClient.testConnection();
 
+      // Ensure SonarCloud project exists (create if needed)
+      await sonarCloudClient.ensureProject();
+
       // Extract data from SonarQube
       logger.info('Starting data extraction from SonarQube...');
       const extractor = new DataExtractor(
