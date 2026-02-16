@@ -49,3 +49,5 @@ config.json
 !README.md
 scripts/
 debug/
+archives/
+proto/

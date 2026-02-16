@@ -2,10 +2,12 @@
 
 A Node.js CLI tool to migrate data from self-hosted SonarQube instances to SonarCloud.
 
+**Status: Working** - Successfully tested with full report transfers (metadata, components, sources, active rules, measures, issues, and changesets) accepted by SonarCloud.
+
 ## Overview
 
 Seawhale to Skywhale acts as a "pseudo sonarscanner" that:
-1. Extracts all relevant data (code, issues, metrics, active rules) from SonarQube via its REST API
+1. Extracts all relevant data (code, issues, metrics, active rules, changesets) from SonarQube via its REST API
 2. Packages this data into protobuf format matching SonarCloud's scanner report schema
 3. Submits the packaged data to SonarCloud's Compute Engine endpoint
 
@@ -13,10 +15,11 @@ This enables organizations to migrate their analysis history and metrics from So
 
 ## Features
 
-- **Full Data Extraction** - Projects, branches, quality gates, issues, metrics, measures, source code
-- **Active Rules with Smart Filtering** - Extracts quality profile rules, filtered by project languages (84% size reduction)
-- **Protobuf Encoding** - Scanner report format using the official SonarCloud protobuf schema
+- **Full Data Extraction** - Projects, branches, quality gates, issues, metrics, measures, source code, changesets
+- **Active Rules with Smart Filtering** - Extracts quality profile rules, filtered by project languages (~84% size reduction)
+- **Protobuf Encoding** - Scanner report format matching SonarCloud's expected schema with proper encoding (length-delimited for issues, measures, and active rules)
 - **SCM Revision Tracking** - Includes git commit hash for duplicate detection and analysis history
+- **Branch Name Resolution** - Automatically uses SonarCloud's main branch name to avoid mismatches with SonarQube
 - **Incremental Transfers** - State management for incremental sync with history tracking
 - **Configuration Validation** - JSON schema validation with environment variable support
 
@@ -24,14 +27,17 @@ This enables organizations to migrate their analysis history and metrics from So
 
 ```
 scanner-report.zip:
-├── metadata.pb          - Analysis metadata with SCM revision ID
-├── activerules.pb       - Language-filtered quality profile rules
-├── context-props.pb     - SCM and CI detection metadata
-├── component-{ref}.pb   - Component definitions (project + files)
-├── issues-{ref}.pb      - Code issues with text ranges and flows
-├── measures-{ref}.pb    - Metrics and measurements per component
+├── metadata.pb          - Analysis metadata with SCM revision ID (single message)
+├── activerules.pb       - Language-filtered quality profile rules (length-delimited)
+├── context-props.pb     - SCM and CI detection metadata (empty file)
+├── component-{ref}.pb   - Component definitions, flat structure (single message each)
+├── issues-{ref}.pb      - Code issues with text ranges and flows (length-delimited)
+├── measures-{ref}.pb    - Metrics and measurements per file component (length-delimited)
+├── changesets-{ref}.pb  - SCM changeset info per file component (single message each)
 └── source-{ref}.txt     - Source code files (plain text)
 ```
+
+Note: Measures are only generated for file components (no project-level `measures-1.pb`). Components use a flat structure where all files are direct children of the project (no directory components).
 
 ## Requirements
 
@@ -173,15 +179,19 @@ src/
 │   ├── loader.js         # Config loading and validation (Ajv)
 │   └── schema.js         # JSON schema definition
 ├── sonarqube/
-│   ├── api-client.js     # HTTP client with pagination and auth
-│   ├── models.js         # Data models
+│   ├── api-client.js     # HTTP client with pagination, auth, SCM revision
+│   ├── models.js         # Data models (with language support)
 │   └── extractors/       # Specialized data extractors
 │       ├── index.js      # DataExtractor orchestrator
 │       ├── projects.js   # Project metadata, branches, quality gates
 │       ├── issues.js     # Issues with pagination
 │       ├── metrics.js    # Metric definitions
 │       ├── measures.js   # Project and component measures
-│       └── sources.js    # Source code files
+│       ├── sources.js    # Source code files (with language info)
+│       ├── rules.js      # Active rules extraction
+│       ├── changesets.js  # SCM changeset data per file
+│       ├── symbols.js    # Symbol references
+│       └── syntax-highlighting.js  # Syntax highlighting data
 ├── protobuf/
 │   ├── builder.js        # Transforms extracted data into protobuf messages
 │   ├── encoder.js        # Encodes messages using protobufjs
@@ -189,7 +199,7 @@ src/
 │       ├── scanner-report.proto
 │       └── constants.proto
 ├── sonarcloud/
-│   ├── api-client.js     # SonarCloud HTTP client
+│   ├── api-client.js     # SonarCloud HTTP client (quality profiles, branch name)
 │   └── uploader.js       # Report packaging and CE submission
 ├── state/
 │   ├── storage.js        # File-based state persistence
@@ -230,7 +240,11 @@ The state file (`.seawhale-state.json` by default) contains:
 
 ## Technical Details
 
-### Protobuf Field Names
+### Protobuf Encoding
+
+The scanner report uses two encoding styles:
+- **Single message** (no length delimiter): `metadata.pb`, `component-{ref}.pb`, `changesets-{ref}.pb`
+- **Length-delimited** (multiple messages): `issues-{ref}.pb`, `measures-{ref}.pb`, `activerules.pb`
 
 protobufjs automatically converts snake_case field names to camelCase in JavaScript:
 - `analysis_date` becomes `analysisDate`
@@ -239,13 +253,30 @@ protobufjs automatically converts snake_case field names to camelCase in JavaScr
 
 All field names in the codebase use camelCase to match this convention.
 
-### Language Filtering
+### Measure Type Mapping
 
-Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size. This improves upload speed and reduces SonarCloud processing time.
+Measures use typed value fields based on metric type:
+- **Integer metrics** (`intValue`): `functions`, `statements`, `classes`, `ncloc`, `comment_lines`, `complexity`, `cognitive_complexity`, `violations`, `sqale_index`
+- **String metrics** (`stringValue`): `executable_lines_data`, `ncloc_data`, `alert_status`
+- **Float/percentage metrics** (`doubleValue`): `coverage`, `line_coverage`, `branch_coverage`, `duplicated_lines_density`, ratings
+
+### Active Rules
+
+- Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size
+- Rule keys are stripped of the repository prefix (e.g., `S7788` not `jsarchitecture:S7788`)
+- Quality profile keys are mapped to SonarCloud profile keys (not SonarQube keys)
+
+### Component Structure
+
+Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube measures API values.
 
 ### SCM Revision Tracking
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
+
+### Branch Name Resolution
+
+The tool fetches the main branch name from SonarCloud (via `getMainBranchName()` API) rather than using the SonarQube branch name. This avoids mismatches where SonarQube uses "main" but SonarCloud expects "master" (or vice versa).
 
 ## Troubleshooting
 
@@ -254,6 +285,16 @@ The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud us
 - Check that tokens haven't expired
 - Ensure the project key exists in SonarQube
 - Verify the organization key is correct in SonarCloud
+
+### Generic "Issue whilst processing" Error
+This vague SonarCloud error can be caused by:
+- **Branch name mismatch** - SonarQube and SonarCloud have different main branch names. The tool handles this automatically via `getMainBranchName()`, but verify your SonarCloud project's branch configuration
+- **Line count mismatch** - Source file line counts don't match component metadata. The tool uses actual source content line counts to avoid this
+
+### Report Rejected by SonarCloud
+- **Empty ScmInfo** - Ensure `changesetIndexByLine` is populated for ADDED files (array of zeros, one per line)
+- **Issue gap field** - The `gap` field should not be included in issues (it's scanner-computed, not from SonarQube)
+- **Duplicate report** - SonarCloud rejects reports with the same `scm_revision_id`. Use a different commit or update the source project
 
 ### Connection Timeouts
 - Check network connectivity to both servers
