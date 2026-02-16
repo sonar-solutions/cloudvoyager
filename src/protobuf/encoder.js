@@ -124,11 +124,11 @@ export class ProtobufEncoder {
    * @param {object} messages - Output from ProtobufBuilder.buildAll()
    * @returns {object} Encoded protobuf messages as buffers
    */
-  async encodeAll(messages) {
+  encodeAll(messages) {
     logger.info('Encoding all messages to protobuf...');
 
     if (!this.root) {
-      await this.loadSchemas();
+      throw new ProtobufEncodingError('Schemas not loaded. Call loadSchemas() before encodeAll().');
     }
 
     try {

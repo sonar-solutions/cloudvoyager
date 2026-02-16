@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import logger from '../utils/logger.js';
 import { ProtobufEncodingError } from '../utils/errors.js';
 
@@ -47,9 +48,7 @@ export class ProtobufBuilder {
    * Generate a fake but valid-looking commit hash for testing
    */
   generateFakeCommitHash() {
-    const timestamp = Date.now().toString(16);
-    const random = Math.random().toString(16).substring(2);
-    const hash = (timestamp + random + '0'.repeat(40)).substring(0, 40);
+    const hash = randomBytes(20).toString('hex');
     logger.debug(`Generated fake commit hash: ${hash}`);
     return hash;
   }
