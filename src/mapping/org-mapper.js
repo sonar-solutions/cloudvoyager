@@ -11,84 +11,87 @@ import logger from '../utils/logger.js';
  * @returns {object} Organization mapping result
  */
 export function mapProjectsToOrganizations(projects, bindings, targetOrgs) {
-  // Group projects by their DevOps binding org/group
-  const bindingGroups = new Map();
-  const unboundProjects = [];
-
-  for (const project of projects) {
-    const binding = bindings.get(project.key);
-
-    if (binding) {
-      const groupKey = buildBindingGroupKey(binding);
-      if (!bindingGroups.has(groupKey)) {
-        bindingGroups.set(groupKey, {
-          alm: binding.alm,
-          identifier: groupKey,
-          url: binding.url || '',
-          projects: []
-        });
-      }
-      bindingGroups.get(groupKey).projects.push(project);
-    } else {
-      unboundProjects.push(project);
-    }
-  }
+  const { bindingGroups, unboundProjects } = groupProjectsByBinding(projects, bindings);
 
   logger.info(`Project grouping: ${bindingGroups.size} binding groups, ${unboundProjects.length} unbound projects`);
 
-  // Map binding groups to target organizations
-  const orgAssignments = new Map(); // orgKey -> { org, projects, bindingGroup }
-
-  if (targetOrgs.length === 1) {
-    // Single target org: all projects go there
-    const org = targetOrgs[0];
-    orgAssignments.set(org.key, {
-      org,
-      projects: [...projects],
-      bindingGroups: [...bindingGroups.values()]
-    });
-  } else {
-    // Multiple target orgs: match by binding group
-    // Default: first org gets unbound projects
-    for (const org of targetOrgs) {
-      orgAssignments.set(org.key, {
-        org,
-        projects: [],
-        bindingGroups: []
-      });
-    }
-
-    // Assign binding groups to orgs (by matching org key to binding identifier)
-    for (const [groupKey, group] of bindingGroups) {
-      let assigned = false;
-      for (const org of targetOrgs) {
-        if (groupKey.toLowerCase().includes(org.key.toLowerCase())) {
-          orgAssignments.get(org.key).projects.push(...group.projects);
-          orgAssignments.get(org.key).bindingGroups.push(group);
-          assigned = true;
-          break;
-        }
-      }
-
-      // If no match, assign to first org
-      if (!assigned && targetOrgs.length > 0) {
-        const defaultOrg = targetOrgs[0];
-        orgAssignments.get(defaultOrg.key).projects.push(...group.projects);
-        orgAssignments.get(defaultOrg.key).bindingGroups.push(group);
-      }
-    }
-
-    // Assign unbound projects to first org
-    if (unboundProjects.length > 0 && targetOrgs.length > 0) {
-      orgAssignments.get(targetOrgs[0].key).projects.push(...unboundProjects);
-    }
-  }
+  const orgAssignments = (targetOrgs.length === 1)
+    ? buildSingleOrgAssignments(targetOrgs[0], projects, bindingGroups)
+    : buildMultiOrgAssignments(targetOrgs, bindingGroups, unboundProjects);
 
   return {
     bindingGroups: [...bindingGroups.values()],
     unboundProjects,
     orgAssignments: [...orgAssignments.values()]
   };
+}
+
+function groupProjectsByBinding(projects, bindings) {
+  const bindingGroups = new Map();
+  const unboundProjects = [];
+
+  for (const project of projects) {
+    const binding = bindings.get(project.key);
+
+    if (!binding) {
+      unboundProjects.push(project);
+      continue;
+    }
+
+    const groupKey = buildBindingGroupKey(binding);
+    if (!bindingGroups.has(groupKey)) {
+      bindingGroups.set(groupKey, {
+        alm: binding.alm,
+        identifier: groupKey,
+        url: binding.url || '',
+        projects: []
+      });
+    }
+    bindingGroups.get(groupKey).projects.push(project);
+  }
+
+  return { bindingGroups, unboundProjects };
+}
+
+function buildSingleOrgAssignments(org, projects, bindingGroups) {
+  const orgAssignments = new Map();
+  orgAssignments.set(org.key, {
+    org,
+    projects: [...projects],
+    bindingGroups: [...bindingGroups.values()]
+  });
+  return orgAssignments;
+}
+
+function buildMultiOrgAssignments(targetOrgs, bindingGroups, unboundProjects) {
+  const orgAssignments = new Map();
+
+  for (const org of targetOrgs) {
+    orgAssignments.set(org.key, { org, projects: [], bindingGroups: [] });
+  }
+
+  assignBindingGroupsToOrgs(bindingGroups, targetOrgs, orgAssignments);
+
+  // Assign unbound projects to first org
+  if (unboundProjects.length > 0 && targetOrgs.length > 0) {
+    orgAssignments.get(targetOrgs[0].key).projects.push(...unboundProjects);
+  }
+
+  return orgAssignments;
+}
+
+function assignBindingGroupsToOrgs(bindingGroups, targetOrgs, orgAssignments) {
+  for (const [groupKey, group] of bindingGroups) {
+    const matchingOrg = targetOrgs.find(org =>
+      groupKey.toLowerCase().includes(org.key.toLowerCase())
+    );
+
+    const targetOrg = matchingOrg || targetOrgs[0];
+    if (targetOrg) {
+      orgAssignments.get(targetOrg.key).projects.push(...group.projects);
+      orgAssignments.get(targetOrg.key).bindingGroups.push(group);
+    }
+  }
 }
 
 /**

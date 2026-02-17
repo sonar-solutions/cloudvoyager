@@ -52,12 +52,29 @@ function detectUsedLanguages(components) {
   return usedLanguages;
 }
 
+function isProfileLanguageUsed(profile, usedLanguages) {
+  return usedLanguages.size === 0 || usedLanguages.has(profile.language.toLowerCase());
+}
+
+function addNewRules(rules, profile, ruleMap, allActiveRules) {
+  for (const rule of rules) {
+    const ruleId = `${rule.repo || rule.repository}:${rule.key}`;
+    if (ruleMap.has(ruleId)) {
+      continue;
+    }
+
+    const activeRule = buildActiveRule(rule, profile);
+    allActiveRules.push(activeRule);
+    ruleMap.set(ruleId, activeRule);
+  }
+}
+
 async function extractRulesFromProfiles(client, profiles, usedLanguages) {
   const allActiveRules = [];
   const ruleMap = new Map();
 
   for (const profile of profiles) {
-    if (usedLanguages.size > 0 && !usedLanguages.has(profile.language.toLowerCase())) {
+    if (!isProfileLanguageUsed(profile, usedLanguages)) {
       logger.debug(`Skipping profile for unused language: ${profile.language}`);
       continue;
     }
@@ -66,16 +83,7 @@ async function extractRulesFromProfiles(client, profiles, usedLanguages) {
     const rules = await client.getActiveRules(profile.key);
     logger.info(`  Found ${rules.length} active rules`);
 
-    for (const rule of rules) {
-      const ruleId = `${rule.repo || rule.repository}:${rule.key}`;
-      if (ruleMap.has(ruleId)) {
-        continue;
-      }
-
-      const activeRule = buildActiveRule(rule, profile);
-      allActiveRules.push(activeRule);
-      ruleMap.set(ruleId, activeRule);
-    }
+    addNewRules(rules, profile, ruleMap, allActiveRules);
   }
 
   return allActiveRules;
@@ -137,8 +145,6 @@ function mapSeverity(severity) {
  * @returns {Array} Array of impact objects
  */
 function extractImpacts(rule) {
-  const impacts = [];
-
   // SonarQube 9.9+ has impacts array
   if (rule.impacts && Array.isArray(rule.impacts)) {
     return rule.impacts.map(impact => ({
@@ -148,17 +154,23 @@ function extractImpacts(rule) {
   }
 
   // Fallback: infer from rule type and severity
-  if (rule.type) {
-    const quality = inferQualityFromType(rule.type);
-    if (quality > 0) {
-      impacts.push({
-        softwareQuality: quality,
-        severity: mapImpactSeverityFromRuleSeverity(rule.severity)
-      });
-    }
+  return inferImpactsFromType(rule);
+}
+
+function inferImpactsFromType(rule) {
+  if (!rule.type) {
+    return [];
   }
 
-  return impacts;
+  const quality = inferQualityFromType(rule.type);
+  if (quality <= 0) {
+    return [];
+  }
+
+  return [{
+    softwareQuality: quality,
+    severity: mapImpactSeverityFromRuleSeverity(rule.severity)
+  }];
 }
 
 /**

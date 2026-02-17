@@ -163,6 +163,30 @@ export class SonarCloudClient {
   }
 
   /**
+   * Check if a project key exists globally across all organizations.
+   * Returns the owning organization key if taken, or null if available.
+   * @param {string} projectKey - Project key to check
+   * @returns {Promise<{taken: boolean, owner: string|null}>}
+   */
+  async isProjectKeyTakenGlobally(projectKey) {
+    try {
+      const response = await this.client.get('/api/components/show', {
+        params: { component: projectKey }
+      });
+
+      const component = response.data.component;
+      return { taken: true, owner: component?.organization || 'unknown' };
+    } catch (error) {
+      if (error.status === 404 || error.message?.includes('not found')) {
+        return { taken: false, owner: null };
+      }
+      // On unexpected errors, assume taken to be safe
+      logger.debug(`Could not check global key availability for ${projectKey}: ${error.message}`);
+      return { taken: true, owner: 'unknown' };
+    }
+  }
+
+  /**
    * Create project if it doesn't exist
    * @param {string} [projectName] - Human-readable project name (defaults to projectKey if not provided)
    */
@@ -720,22 +744,8 @@ export class SonarCloudClient {
     return response.data.link;
   }
 
-  /**
-   * Set new code period definition
-   * @param {string} projectKey - Project key
-   * @param {string} type - Type (days, previous_version, reference_branch, specific_analysis)
-   * @param {string} [value] - Value (number of days, branch name, etc.)
-   * @param {string} [branch] - Branch name (for branch-level definitions)
-   */
-  async setNewCodePeriod(projectKey, type, value = null, branch = null) {
-    logger.debug(`Setting new code period for ${projectKey}: ${type}${value ? `=${value}` : ''}`);
-
-    const params = { project: projectKey, type };
-    if (value) params.value = value;
-    if (branch) params.branch = branch;
-
-    await this.client.post('/api/new_code_periods/set', null, { params });
-  }
+  // New code periods are set via setProjectSetting('sonar.leak.period', ...)
+  // since SonarCloud does not have the /api/new_code_periods/* endpoints.
 
   /**
    * Set project DevOps binding (GitHub)

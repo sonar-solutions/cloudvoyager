@@ -15,40 +15,8 @@ export async function migrateQualityGates(extractedGates, client) {
 
   for (const gate of customGates) {
     try {
-      // Create the gate
-      const created = await client.createQualityGate(gate.name);
-      const scGateId = created.id;
+      const scGateId = await createGateWithConfig(gate, client);
       gateMapping.set(gate.name, String(scGateId));
-
-      // Create conditions
-      for (const condition of gate.conditions) {
-        try {
-          await client.createQualityGateCondition(scGateId, condition.metric, condition.op, condition.error);
-        } catch (error) {
-          logger.warn(`Failed to create condition ${condition.metric} on gate ${gate.name}: ${error.message}`);
-        }
-      }
-
-      // Set as default if applicable
-      if (gate.isDefault) {
-        try {
-          await client.setDefaultQualityGate(scGateId);
-        } catch (error) {
-          logger.warn(`Failed to set gate ${gate.name} as default: ${error.message}`);
-        }
-      }
-
-      // Set permissions
-      for (const group of (gate.permissions.groups || [])) {
-        if (group.selected) {
-          try {
-            await client.addGroupPermission(group.name, 'gateadmin');
-          } catch (error) {
-            logger.debug(`Failed to set gate permission for group ${group.name}: ${error.message}`);
-          }
-        }
-      }
-
       logger.info(`Migrated quality gate: ${gate.name} (${gate.conditions.length} conditions)`);
     } catch (error) {
       logger.error(`Failed to migrate quality gate ${gate.name}: ${error.message}`);
@@ -56,6 +24,49 @@ export async function migrateQualityGates(extractedGates, client) {
   }
 
   return gateMapping;
+}
+
+async function createGateWithConfig(gate, client) {
+  const created = await client.createQualityGate(gate.name);
+  const scGateId = created.id;
+
+  await createGateConditions(scGateId, gate, client);
+  await setGateDefault(scGateId, gate, client);
+  await setGatePermissions(gate, client);
+
+  return scGateId;
+}
+
+async function createGateConditions(scGateId, gate, client) {
+  for (const condition of gate.conditions) {
+    try {
+      await client.createQualityGateCondition(scGateId, condition.metric, condition.op, condition.error);
+    } catch (error) {
+      logger.warn(`Failed to create condition ${condition.metric} on gate ${gate.name}: ${error.message}`);
+    }
+  }
+}
+
+async function setGateDefault(scGateId, gate, client) {
+  if (!gate.isDefault) return;
+
+  try {
+    await client.setDefaultQualityGate(scGateId);
+  } catch (error) {
+    logger.warn(`Failed to set gate ${gate.name} as default: ${error.message}`);
+  }
+}
+
+async function setGatePermissions(gate, client) {
+  for (const group of (gate.permissions.groups || [])) {
+    if (!group.selected) continue;
+
+    try {
+      await client.addGroupPermission(group.name, 'gateadmin');
+    } catch (error) {
+      logger.debug(`Failed to set gate permission for group ${group.name}: ${error.message}`);
+    }
+  }
 }
 
 /**

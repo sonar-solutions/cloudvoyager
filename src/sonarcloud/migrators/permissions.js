@@ -53,48 +53,56 @@ export async function migratePermissionTemplates(templateData, client) {
   logger.info(`Migrating ${templates.length} permission templates`);
 
   for (const template of templates) {
-    try {
-      const created = await client.createPermissionTemplate(
-        template.name,
-        template.description,
-        template.projectKeyPattern
-      );
-
-      const scTemplateId = created.id;
-      templateMapping.set(template.id, scTemplateId);
-
-      // Add group permissions to template
-      for (const perm of template.permissions) {
-        if (perm.groupsCount > 0) {
-          // The template permissions include group names in the data
-          for (const groupName of (perm.groups || [])) {
-            try {
-              await client.addGroupToTemplate(scTemplateId, groupName, perm.key);
-            } catch (error) {
-              logger.debug(`Failed to add group ${groupName} to template: ${error.message}`);
-            }
-          }
-        }
-      }
-
-      logger.info(`Migrated permission template: ${template.name}`);
-    } catch (error) {
-      logger.warn(`Failed to migrate template ${template.name}: ${error.message}`);
-    }
+    await migrateOneTemplate(template, templateMapping, client);
   }
 
-  // Set defaults
-  for (const defaultTemplate of defaultTemplates) {
-    const scTemplateId = templateMapping.get(defaultTemplate.templateId);
-    if (scTemplateId) {
-      try {
-        await client.setDefaultTemplate(scTemplateId, defaultTemplate.qualifier);
-        logger.info(`Set default template for qualifier ${defaultTemplate.qualifier}`);
-      } catch (error) {
-        logger.warn(`Failed to set default template: ${error.message}`);
-      }
-    }
-  }
+  await applyDefaultTemplates(defaultTemplates, templateMapping, client);
 
   return templateMapping;
+}
+
+async function migrateOneTemplate(template, templateMapping, client) {
+  try {
+    const created = await client.createPermissionTemplate(
+      template.name,
+      template.description,
+      template.projectKeyPattern
+    );
+
+    const scTemplateId = created.id;
+    templateMapping.set(template.id, scTemplateId);
+
+    await addTemplateGroupPermissions(scTemplateId, template.permissions, client);
+    logger.info(`Migrated permission template: ${template.name}`);
+  } catch (error) {
+    logger.warn(`Failed to migrate template ${template.name}: ${error.message}`);
+  }
+}
+
+async function addTemplateGroupPermissions(scTemplateId, permissions, client) {
+  for (const perm of permissions) {
+    if (perm.groupsCount <= 0) continue;
+
+    for (const groupName of (perm.groups || [])) {
+      try {
+        await client.addGroupToTemplate(scTemplateId, groupName, perm.key);
+      } catch (error) {
+        logger.debug(`Failed to add group ${groupName} to template: ${error.message}`);
+      }
+    }
+  }
+}
+
+async function applyDefaultTemplates(defaultTemplates, templateMapping, client) {
+  for (const defaultTemplate of defaultTemplates) {
+    const scTemplateId = templateMapping.get(defaultTemplate.templateId);
+    if (!scTemplateId) continue;
+
+    try {
+      await client.setDefaultTemplate(scTemplateId, defaultTemplate.qualifier);
+      logger.info(`Set default template for qualifier ${defaultTemplate.qualifier}`);
+    } catch (error) {
+      logger.warn(`Failed to set default template: ${error.message}`);
+    }
+  }
 }

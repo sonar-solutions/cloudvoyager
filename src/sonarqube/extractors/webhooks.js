@@ -8,7 +8,8 @@ import logger from '../../utils/logger.js';
  */
 export async function extractWebhooks(client, projectKey = null) {
   const webhooks = await client.getWebhooks(projectKey);
-  logger.info(`Found ${webhooks.length} webhooks${projectKey ? ` for project ${projectKey}` : ' (server-level)'}`);
+  const scope = projectKey ? ' for project ' + projectKey : ' (server-level)';
+  logger.info(`Found ${webhooks.length} webhooks${scope}`);
 
   return webhooks.map(w => ({
     key: w.key,

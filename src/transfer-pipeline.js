@@ -80,14 +80,9 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
   // Encode to protobuf format
   logger.info('Encoding to protobuf format...');
-  let encodedReport;
-  if (performanceConfig.workerThreads > 0) {
-    encodedReport = await ProtobufEncoder.encodeAllInWorker(messages);
-  } else {
-    const encoder = new ProtobufEncoder();
-    await encoder.loadSchemas();
-    encodedReport = encoder.encodeAll(messages);
-  }
+  const encoder = new ProtobufEncoder();
+  await encoder.loadSchemas();
+  const encodedReport = encoder.encodeAll(messages);
 
   // Upload to SonarCloud
   logger.info('Uploading to SonarCloud...');

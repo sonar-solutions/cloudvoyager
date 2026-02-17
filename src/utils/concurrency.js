@@ -1,4 +1,10 @@
-import { availableParallelism, totalmem } from 'node:os';
+import { availableParallelism as _availableParallelism, cpus, totalmem } from 'node:os';
+
+// availableParallelism() was added in Node 18.14.0; pkg bundles an older 18.x runtime
+// that lacks it, so fall back to cpus().length.
+const availableParallelism = typeof _availableParallelism === 'function'
+  ? _availableParallelism
+  : () => cpus().length;
 import { spawnSync } from 'node:child_process';
 import v8 from 'node:v8';
 import logger from './logger.js';
@@ -87,7 +93,6 @@ function getAutoTuneDefaults() {
   return {
     maxConcurrency: cpuCount,
     maxMemoryMB: safeMemoryMB,
-    workerThreads: Math.max(1, Math.floor(cpuCount / 4)),
     sourceExtraction: { concurrency: cpuCount * 2 },
     hotspotExtraction: { concurrency: cpuCount * 2 },
     issueSync: { concurrency: cpuCount },
@@ -109,7 +114,6 @@ export function resolvePerformanceConfig(perfConfig = {}) {
   const defaults = perfConfig.autoTune ? getAutoTuneDefaults() : {
     maxConcurrency: Math.min(cpuCount, 8),
     maxMemoryMB: 0,
-    workerThreads: 0,
     sourceExtraction: { concurrency: 10 },
     hotspotExtraction: { concurrency: 10 },
     issueSync: { concurrency: 5 },
@@ -121,7 +125,6 @@ export function resolvePerformanceConfig(perfConfig = {}) {
     autoTune: perfConfig.autoTune || false,
     maxConcurrency: perfConfig.maxConcurrency || defaults.maxConcurrency,
     maxMemoryMB: perfConfig.maxMemoryMB || defaults.maxMemoryMB,
-    workerThreads: perfConfig.workerThreads ?? defaults.workerThreads,
     sourceExtraction: {
       concurrency: perfConfig.sourceExtraction?.concurrency || defaults.sourceExtraction.concurrency
     },
@@ -220,5 +223,5 @@ export function logSystemInfo(perfConfig) {
   ].join(', ');
 
   const tuneLabel = perfConfig.autoTune ? 'Performance (auto-tuned)' : 'Performance';
-  logger.info(`${tuneLabel}: concurrency=[${concurrencyInfo}], workerThreads=${perfConfig.workerThreads}`);
+  logger.info(`${tuneLabel}: concurrency=[${concurrencyInfo}]`);
 }

@@ -431,23 +431,39 @@ export class SonarQubeClient {
   }
 
   /**
-   * Get new code period definitions for project
+   * Get new code period definitions for project.
+   * Returns both the project-level definition (from /show) and branch-level overrides (from /list).
    * @param {string} projectKey - Project key (defaults to this.projectKey)
+   * @returns {Promise<{projectLevel: object|null, branchOverrides: Array}>}
    */
   async getNewCodePeriods(projectKey = null) {
     const key = projectKey || this.projectKey;
     logger.info(`Fetching new code periods for: ${key}`);
 
+    let projectLevel = null;
+    let branchOverrides = [];
+
+    // Get project-level definition via /show
+    try {
+      const response = await this.client.get('/api/new_code_periods/show', {
+        params: { project: key }
+      });
+      projectLevel = response.data;
+    } catch (error) {
+      logger.debug(`No project-level new code period for ${key}: ${error.message}`);
+    }
+
+    // Get branch-level overrides via /list
     try {
       const response = await this.client.get('/api/new_code_periods/list', {
         params: { project: key }
       });
-
-      return response.data.newCodePeriods || [];
+      branchOverrides = response.data.newCodePeriods || [];
     } catch (error) {
-      logger.warn(`Failed to get new code periods: ${error.message}`);
-      return [];
+      logger.debug(`Failed to get branch-level new code periods for ${key}: ${error.message}`);
     }
+
+    return { projectLevel, branchOverrides };
   }
 
   /**
@@ -708,7 +724,8 @@ export class SonarQubeClient {
    * @param {string} projectKey - Project key (optional, omit for server-level)
    */
   async getWebhooks(projectKey = null) {
-    logger.info(`Fetching webhooks${projectKey ? ` for project: ${projectKey}` : ' (server-level)'}`);
+    const scope = projectKey ? ' for project: ' + projectKey : ' (server-level)';
+    logger.info(`Fetching webhooks${scope}`);
 
     const params = {};
     if (projectKey) {

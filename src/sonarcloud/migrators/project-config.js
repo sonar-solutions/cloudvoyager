@@ -62,27 +62,59 @@ export async function migrateProjectLinks(projectKey, links, client) {
 }
 
 /**
- * Migrate new code period definitions
+ * Migrate new code period definitions.
+ * SonarCloud staging does not have /api/new_code_periods/* endpoints.
+ * Instead, we set sonar.leak.period via the settings API.
+ * Supported types: NUMBER_OF_DAYS (value = number), PREVIOUS_VERSION (value = "previous_version").
+ *
+ * Strategy:
+ *   1. If the project-level definition is mappable, use it.
+ *   2. Otherwise, fall back to the main branch override (if mappable).
+ *   3. Warn about unsupported types (e.g. REFERENCE_BRANCH, SPECIFIC_ANALYSIS).
+ *
  * @param {string} projectKey - SonarCloud project key
- * @param {Array} periods - New code period definitions from SonarQube
+ * @param {{projectLevel: object|null, branchOverrides: Array}} newCodeData - Extracted new code period data
  * @param {import('../api-client.js').SonarCloudClient} client
  */
-export async function migrateNewCodePeriods(projectKey, periods, client) {
-  if (!periods || periods.length === 0) return;
+export async function migrateNewCodePeriods(projectKey, newCodeData, client) {
+  if (!newCodeData) return;
 
-  // Only migrate non-inherited periods
-  const ownPeriods = periods.filter(p => !p.inherited);
-  if (ownPeriods.length === 0) return;
+  const { projectLevel, branchOverrides } = newCodeData;
+  if (!projectLevel && (!branchOverrides || branchOverrides.length === 0)) return;
 
-  logger.info(`Migrating ${ownPeriods.length} new code period definitions for ${projectKey}`);
+  // Try project-level first
+  let leakPeriodValue = null;
+  let sourceLabel = null;
 
-  for (const period of ownPeriods) {
-    try {
-      await client.setNewCodePeriod(projectKey, period.type, period.value, period.branchKey);
-      logger.debug(`Set new code period: ${period.type}${period.branchKey ? ` (branch: ${period.branchKey})` : ''}`);
-    } catch (error) {
-      logger.debug(`Failed to set new code period: ${error.message}`);
+  if (projectLevel && projectLevel.leakPeriodValue) {
+    leakPeriodValue = projectLevel.leakPeriodValue;
+    sourceLabel = `project-level ${projectLevel.type}`;
+  }
+
+  // Fall back to main branch override if project-level isn't mappable
+  if (!leakPeriodValue && branchOverrides && branchOverrides.length > 0) {
+    // Prefer the main branch, otherwise use the first available
+    const mainBranch = branchOverrides.find(b => b.branchKey === 'main' || b.branchKey === 'master');
+    const fallback = mainBranch || branchOverrides[0];
+    if (fallback.leakPeriodValue) {
+      leakPeriodValue = fallback.leakPeriodValue;
+      sourceLabel = `branch-level ${fallback.type} (branch: ${fallback.branchKey})`;
     }
+  }
+
+  if (!leakPeriodValue) {
+    const types = [projectLevel?.type, ...((branchOverrides || []).map(b => b.type))].filter(Boolean);
+    logger.warn(`Cannot migrate new code definition for ${projectKey}: unsupported type(s) ${types.join(', ')} (only NUMBER_OF_DAYS and PREVIOUS_VERSION are supported)`);
+    return;
+  }
+
+  logger.info(`Setting new code definition for ${projectKey}: sonar.leak.period=${leakPeriodValue} (from ${sourceLabel})`);
+
+  try {
+    await client.setProjectSetting('sonar.leak.period', leakPeriodValue, projectKey);
+  } catch (error) {
+    logger.warn(`Failed to set new code definition for ${projectKey}: ${error.message}`);
+    throw error;
   }
 }
 

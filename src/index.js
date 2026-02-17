@@ -27,9 +27,9 @@ program
   .requiredOption('-c, --config <path>', 'Path to configuration file')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--no-wait', 'Do not wait for analysis to complete')
-  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
-  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
-  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
+
   .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
@@ -84,10 +84,10 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--no-wait', 'Do not wait for analysis to complete')
   .option('--dry-run', 'List projects that would be transferred without transferring')
-  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
-  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
-  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
-  .option('--project-concurrency <n>', 'Max concurrent project migrations', parseInt)
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
+
+  .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
   .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
@@ -117,7 +117,7 @@ program
         ...(options.autoTune && { autoTune: true }),
         ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency } }),
         ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
-        ...(options.workers && { workerThreads: options.workers }),
+
         ...(options.projectConcurrency && { projectMigration: { concurrency: options.projectConcurrency } })
       });
       ensureHeapSize(perfConfig.maxMemoryMB);
@@ -281,10 +281,10 @@ program
   .option('--dry-run', 'Extract data and generate mappings without migrating')
   .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
   .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
-  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
-  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
-  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
-  .option('--project-concurrency <n>', 'Max concurrent project migrations', parseInt)
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
+
+  .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
   .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
@@ -306,7 +306,7 @@ program
         ...(options.autoTune && { autoTune: true }),
         ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency }, issueSync: { concurrency: options.concurrency }, hotspotSync: { concurrency: Math.min(options.concurrency, 3) } }),
         ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
-        ...(options.workers && { workerThreads: options.workers }),
+
         ...(options.projectConcurrency && { projectMigration: { concurrency: options.projectConcurrency } })
       });
       ensureHeapSize(perfConfig.maxMemoryMB);
@@ -352,8 +352,8 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
   .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
-  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
-  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
   .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {

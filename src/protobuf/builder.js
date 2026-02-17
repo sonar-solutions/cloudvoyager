@@ -314,7 +314,7 @@ export class ProtobufBuilder {
 
     // Build a map from language to SonarCloud profile key
     const langToSCProfileKey = new Map();
-    if (this.sonarCloudProfiles && this.sonarCloudProfiles.length > 0) {
+    if (this.sonarCloudProfiles?.length > 0) {
       this.sonarCloudProfiles.forEach(p => {
         langToSCProfileKey.set(p.language.toLowerCase(), p.key);
       });
@@ -346,7 +346,7 @@ export class ProtobufBuilder {
       };
 
       // Only include impacts if non-empty
-      if (rule.impacts && rule.impacts.length > 0) {
+      if (rule.impacts?.length > 0) {
         activeRule.impacts = rule.impacts.map(impact => ({
           softwareQuality: impact.softwareQuality,
           severity: impact.severity

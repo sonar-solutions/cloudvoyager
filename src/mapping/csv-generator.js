@@ -1,5 +1,5 @@
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import logger from '../utils/logger.js';
 
 /**
@@ -34,7 +34,7 @@ function escapeCsv(value) {
   if (value == null) return '';
   const str = String(value);
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
+    return `"${str.replaceAll('"', '""')}"`;
   }
   return str;
 }

@@ -23,13 +23,6 @@ const performanceSchema = {
       default: 0,
       description: 'Max heap size in MB (0 = Node.js default). Auto-restarts the process with increased heap if needed.'
     },
-    workerThreads: {
-      type: 'integer',
-      minimum: 0,
-      maximum: 16,
-      default: 0,
-      description: 'Number of worker threads for CPU-intensive operations like protobuf encoding (0 = disabled, run in main thread)'
-    },
     sourceExtraction: {
       type: 'object',
       properties: {

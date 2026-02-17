@@ -1,26 +1,31 @@
 #!/usr/bin/env node
 
 import esbuild from 'esbuild';
-import { cpSync, mkdirSync, readdirSync, renameSync, rmSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const BINARY_NAME = 'cloudvoyager';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 
-const targets = {
-  'linux-x64': 'node18-linux-x64',
-  'linux-arm64': 'node18-linux-arm64',
-  'macos-x64': 'node18-macos-x64',
-  'macos-arm64': 'node18-macos-arm64',
-  'win-x64': 'node18-win-x64',
-};
-
 const args = process.argv.slice(2);
 const shouldPackage = args.includes('--package');
-const requestedTarget = args.find(a => a.startsWith('--target='))?.split('=')[1];
+
+/**
+ * Detect the current platform identifier (e.g. "macos-arm64", "linux-x64").
+ */
+function detectPlatform() {
+  const platform = { darwin: 'macos', linux: 'linux', win32: 'win' }[process.platform];
+  const arch = { x64: 'x64', arm64: 'arm64' }[process.arch];
+  if (!platform || !arch) {
+    console.error(`Unsupported platform: ${process.platform}-${process.arch}`);
+    process.exit(1);
+  }
+  return `${platform}-${arch}`;
+}
 
 async function build() {
   const distDir = join(rootDir, 'dist');
@@ -29,87 +34,84 @@ async function build() {
   rmSync(distDir, { recursive: true, force: true });
   mkdirSync(distDir, { recursive: true });
 
-  const esbuildConfig = {
+  // Bundle everything into a single CJS file.
+  // Proto schemas are inlined as text strings via the .proto loader.
+  console.log('Bundling CLI...');
+  await esbuild.build({
+    entryPoints: [join(rootDir, 'src', 'index.js')],
+    outfile: join(distDir, 'cli.cjs'),
     bundle: true,
     platform: 'node',
     format: 'cjs',
     target: 'node18',
     external: [],
+    loader: { '.proto': 'text' },
     define: { 'import.meta.url': 'importMetaUrl' },
     banner: {
       js: 'const importMetaUrl = require("url").pathToFileURL(__filename).href;',
     },
-  };
-
-  // Step 1a: Bundle main CLI
-  console.log('Bundling CLI...');
-  await esbuild.build({
-    ...esbuildConfig,
-    entryPoints: [join(rootDir, 'src', 'index.js')],
-    outfile: join(distDir, 'cli.cjs'),
-  });
-
-  // Step 1b: Bundle encoder worker (runs in a separate thread, must be a separate file)
-  console.log('Bundling encoder worker...');
-  await esbuild.build({
-    ...esbuildConfig,
-    entryPoints: [join(rootDir, 'src', 'protobuf', 'encoder-worker.js')],
-    outfile: join(distDir, 'encoder-worker.js'),
-  });
-
-  // Step 2: Copy protobuf schema files next to the bundle
-  // The bundled code resolves proto files via join(__dirname, 'schema', '...')
-  // Since __dirname in the CJS bundle = dist/, proto files go to dist/schema/
-  console.log('Copying protobuf schemas...');
-  const schemaDir = join(distDir, 'schema');
-  mkdirSync(schemaDir, { recursive: true });
-  cpSync(join(rootDir, 'src', 'protobuf', 'schema'), schemaDir, {
-    recursive: true,
-    filter: (src) => !src.endsWith('.backup'),
   });
 
   console.log('Bundle created: dist/cli.cjs');
 
-  // Step 3: Package with pkg (if requested)
+  // Package as Node.js Single Executable Application (SEA)
   if (shouldPackage) {
-    const { execSync } = await import('child_process');
-
-    let pkgTargets;
-    if (requestedTarget) {
-      pkgTargets = targets[requestedTarget];
-      if (!pkgTargets) {
-        console.error(`Unknown target: ${requestedTarget}`);
-        console.error(`Available targets: ${Object.keys(targets).join(', ')}`);
-        process.exit(1);
-      }
-    } else {
-      // All platforms
-      pkgTargets = Object.values(targets).join(',');
-    }
-
+    const platformId = detectPlatform();
     const binDir = join(distDir, 'bin');
     mkdirSync(binDir, { recursive: true });
 
-    console.log(`Packaging binaries for: ${pkgTargets}...`);
+    const seaConfig = {
+      main: join(distDir, 'cli.cjs'),
+      output: join(distDir, 'sea-prep.blob'),
+      disableExperimentalSEAWarning: true,
+    };
+
+    // 1. Write SEA config
+    const seaConfigPath = join(distDir, 'sea-config.json');
+    writeFileSync(seaConfigPath, JSON.stringify(seaConfig, null, 2));
+
+    // 2. Generate the SEA blob
+    console.log('Generating SEA blob...');
+    execSync(`node --experimental-sea-config ${seaConfigPath}`, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+
+    // 3. Copy the node binary
+    const ext = process.platform === 'win32' ? '.exe' : '';
+    const binaryPath = join(binDir, `${BINARY_NAME}-${platformId}${ext}`);
+    console.log(`Copying node binary to ${BINARY_NAME}-${platformId}${ext}...`);
+    copyFileSync(process.execPath, binaryPath);
+
+    // 4. On macOS, remove the existing signature before injecting
+    if (process.platform === 'darwin') {
+      console.log('Removing macOS code signature...');
+      execSync(`codesign --remove-signature "${binaryPath}"`, { stdio: 'inherit' });
+    }
+
+    // 5. Inject the SEA blob using postject
+    console.log('Injecting SEA blob...');
+    const sentinelFlag = process.platform === 'darwin'
+      ? '--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA'
+      : '--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
     execSync(
-      `npx pkg ${join(distDir, 'cli.cjs')} --targets ${pkgTargets} --out-path ${binDir} --config ${join(rootDir, 'package.json')}`,
+      `npx postject "${binaryPath}" NODE_SEA_BLOB "${seaConfig.output}" --overwrite ${sentinelFlag}`,
       { cwd: rootDir, stdio: 'inherit' }
     );
 
-    // Rename binaries from package name to desired binary name
-    const packageName = 'cloudvoyager';
-    for (const file of readdirSync(binDir)) {
-      if (file.startsWith(packageName)) {
-        const newName = file.replace(packageName, BINARY_NAME);
-        renameSync(join(binDir, file), join(binDir, newName));
-      }
+    // 6. On macOS, re-sign the binary (ad-hoc)
+    if (process.platform === 'darwin') {
+      console.log('Re-signing macOS binary...');
+      execSync(`codesign --sign - "${binaryPath}"`, { stdio: 'inherit' });
     }
 
-    console.log(`Binaries created in: dist/bin/`);
+    console.log(`Binary created: dist/bin/${BINARY_NAME}-${platformId}${ext}`);
   }
 }
 
-build().catch((err) => {
+try {
+  await build();
+} catch (err) {
   console.error('Build failed:', err);
   process.exit(1);
-});
+}
