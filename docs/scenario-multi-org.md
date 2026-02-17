@@ -1,0 +1,244 @@
+# 🏢 Migrate Everything to Multiple SonarCloud Organizations
+
+Use this when you want to migrate **all projects and configuration** from your SonarQube server to **multiple** SonarCloud organizations — for example, when different teams or business units each have their own SonarCloud org.
+
+---
+
+## 📦 What Gets Migrated
+
+| Category | Details |
+|----------|---------|
+| **Projects** | All projects with code, issues, hotspots, settings, tags, and links |
+| **Quality Gates** | Gate definitions, conditions, default assignments, and permissions |
+| **Quality Profiles** | Profile rules, defaults per language, and permissions |
+| **Groups & Permissions** | User groups, org-level and project-level permissions, permission templates |
+| **Portfolios** | Portfolio definitions and project membership |
+| **DevOps Bindings** | GitHub, GitLab, Azure DevOps, and Bitbucket integrations |
+| **New Code Definitions** | Per-project and per-branch new code period settings |
+| **Server Info** | Server version, plugins, settings, and webhooks (saved as reference files) |
+
+### How projects are assigned to orgs
+
+CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list.
+
+---
+
+## ✅ Prerequisites
+
+1. **Admin access** to your SonarQube server
+2. **Admin access** to **each** target SonarCloud organization
+3. **API tokens** for SonarQube and for each SonarCloud organization
+
+> **How to get your tokens:**
+> - **SonarQube:** Go to `My Account > Security > Generate Tokens` in your SonarQube web UI
+> - **SonarCloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io) — you need a token with admin permissions for **each** target org
+
+---
+
+## 📥 Step 1: Download
+
+Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
+
+| Platform | Binary |
+|----------|--------|
+| macOS (Apple Silicon) | `cloudvoyager-macos-arm64` |
+| macOS (Intel) | `cloudvoyager-macos-x64` |
+| Linux (x64) | `cloudvoyager-linux-x64` |
+| Linux (ARM64) | `cloudvoyager-linux-arm64` |
+| Windows (x64) | `cloudvoyager-win-x64.exe` |
+
+On macOS/Linux, make the binary executable:
+
+```bash
+chmod +x cloudvoyager-*
+```
+
+## 📝 Step 2: Create a config file
+
+Create a file called `migrate-config.json` with an entry for **each** target organization:
+
+```json
+{
+  "sonarqube": {
+    "url": "https://your-sonarqube-server.com",
+    "token": "your_sonarqube_admin_token"
+  },
+  "sonarcloud": {
+    "organizations": [
+      {
+        "key": "org-one",
+        "token": "your_sonarcloud_token_for_org_one",
+        "url": "https://sonarcloud.io"
+      },
+      {
+        "key": "org-two",
+        "token": "your_sonarcloud_token_for_org_two",
+        "url": "https://sonarcloud.io"
+      },
+      {
+        "key": "org-three",
+        "token": "your_sonarcloud_token_for_org_three",
+        "url": "https://sonarcloud.io"
+      }
+    ]
+  },
+  "migrate": {
+    "outputDir": "./migration-output"
+  }
+}
+```
+
+See [`examples/migrate-config.example.json`](../examples/migrate-config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
+
+### Config fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `sonarqube.url` | Yes | Full URL of your SonarQube server |
+| `sonarqube.token` | Yes | SonarQube admin API token |
+| `sonarcloud.organizations[].key` | Yes | SonarCloud organization key |
+| `sonarcloud.organizations[].token` | Yes | SonarCloud admin API token for this org |
+| `sonarcloud.organizations[].url` | No | SonarCloud URL (default: `https://sonarcloud.io`) |
+| `migrate.outputDir` | No | Directory for mapping CSVs and reports (default: `./migration-output`) |
+
+> **Tip:** You can set the SonarQube token via the `SONARQUBE_TOKEN` environment variable. SonarCloud tokens must be specified per-org in the config.
+
+> **Project keys:** By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
+
+## 🧪 Step 3: Do a dry run (recommended)
+
+A dry run extracts all data and generates mapping CSVs so you can review **which projects go to which org**, without changing anything in SonarCloud:
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --dry-run
+```
+
+Check `./migration-output/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
+
+## 🚀 Step 4: Run the full migration
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose
+```
+
+This may take a while for large servers. Progress is logged per-project and per-org throughout.
+
+---
+
+## ⚡ Speed up the migration (optional)
+
+You can skip metadata sync during the initial migration and do it separately afterward:
+
+```bash
+# Step 1: Migrate everything except metadata (fastest)
+./cloudvoyager migrate -c migrate-config.json --skip-issue-metadata-sync --skip-hotspot-metadata-sync --verbose
+
+# Step 2: Sync metadata separately afterward
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+```
+
+Or skip just the slowest part:
+
+```bash
+# Skip hotspot metadata sync only
+./cloudvoyager migrate -c migrate-config.json --skip-hotspot-metadata-sync --verbose
+
+# Then sync hotspot metadata later
+./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
+```
+
+### Performance tuning
+
+The easiest way to optimize performance is to use `--auto-tune`, which detects your hardware (CPU cores and RAM) and sets optimal values automatically:
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune
+```
+
+Or manually set specific values:
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --max-memory 8192
+```
+
+Or add a `performance` section to your config file. Here are recommended settings by migration size:
+
+**Small migration (< 10 projects, < 1000 issues):**
+Use defaults — no `performance` section needed.
+
+**Medium migration (10-50 projects, 1K-50K issues):**
+```json
+{
+  "performance": {
+    "sourceExtraction": { "concurrency": 15 },
+    "issueSync": { "concurrency": 8 },
+    "projectMigration": { "concurrency": 2 }
+  }
+}
+```
+
+**Large migration (50+ projects, 50K+ issues):**
+```json
+{
+  "performance": {
+    "maxMemoryMB": 8192,
+    "workerThreads": 1,
+    "sourceExtraction": { "concurrency": 20 },
+    "hotspotExtraction": { "concurrency": 15 },
+    "issueSync": { "concurrency": 10 },
+    "hotspotSync": { "concurrency": 5 },
+    "projectMigration": { "concurrency": 3 }
+  }
+}
+```
+
+Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See the [Configuration Reference](configuration.md#performance-settings) for all options.
+
+---
+
+## 📄 Generated Output Files
+
+| File | What's in it |
+|------|-------------|
+| `organizations.csv` | Projects grouped by target organization |
+| `projects.csv` | All projects with their metadata |
+| `group-mappings.csv` | Groups mapped to target organizations |
+| `profile-mappings.csv` | Quality profiles mapped to target organizations |
+| `gate-mappings.csv` | Quality gates mapped to target organizations |
+| `portfolio-mappings.csv` | Portfolios mapped to target organizations |
+| `template-mappings.csv` | Permission templates mapped to target organizations |
+| `migration-report.txt` | Human-readable report with per-project, per-step results |
+| `migration-report.json` | Machine-readable report (same data, structured JSON) |
+
+Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
+
+---
+
+## 🚩 All CLI Flags
+
+| Flag | What it does |
+|------|-------------|
+| `--verbose` | Show detailed progress logs |
+| `--dry-run` | Extract data and generate mappings without migrating |
+| `--skip-issue-metadata-sync` | Skip syncing issue statuses, comments, assignments, tags |
+| `--skip-hotspot-metadata-sync` | Skip syncing hotspot statuses and comments |
+| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
+| `--concurrency <n>` | Override max concurrency for I/O operations |
+| `--project-concurrency <n>` | Max concurrent project migrations |
+| `--max-memory <mb>` | Set max heap size in MB |
+| `--workers <n>` | Number of worker threads for protobuf encoding |
+
+---
+
+## ⚠️ Limitations
+
+- Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
+
+---
+
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them

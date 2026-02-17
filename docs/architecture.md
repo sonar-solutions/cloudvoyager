@@ -1,6 +1,6 @@
-# Architecture
+# 🏗️ Architecture
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
@@ -39,7 +39,8 @@ src/
 │       └── webhooks.js        # Server and project-level webhooks
 ├── protobuf/
 │   ├── builder.js            # Transforms extracted data into protobuf messages
-│   ├── encoder.js            # Encodes messages using protobufjs
+│   ├── encoder.js            # Encodes messages using protobufjs (+ worker thread support)
+│   ├── encoder-worker.js     # Worker thread for CPU-intensive protobuf encoding
 │   └── schema/               # Protocol buffer definitions (.proto files)
 │       ├── scanner-report.proto
 │       └── constants.proto
@@ -63,10 +64,11 @@ src/
 │   └── tracker.js            # Incremental transfer state tracking
 └── utils/
     ├── logger.js             # Winston-based logging
-    └── errors.js             # Custom error classes
+    ├── errors.js             # Custom error classes
+    └── concurrency.js        # Concurrency primitives (limiter, mapConcurrent, progress)
 ```
 
-## Commands and Pipelines
+## 🔄 Commands and Pipelines
 
 ### `transfer` — Single Project
 
@@ -103,6 +105,7 @@ Uses `migrate-pipeline.js`:
    - Restore quality profiles (via backup XML)
    - Create permission templates
    - For each project:
+     - Resolve project key (use original SonarQube key; fall back to `{org}_{key}` if taken globally)
      - Upload scanner report (via transfer pipeline)
      - Sync issue statuses, assignments, comments, tags
      - Sync hotspot statuses and comments
@@ -112,7 +115,7 @@ Uses `migrate-pipeline.js`:
      - Set project-level permissions
    - Create portfolios and assign projects
 
-## Key Design Patterns
+## 🧩 Key Design Patterns
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
 - **Migrator Pattern** — specialized modules for each SonarCloud migration target
@@ -120,8 +123,60 @@ Uses `migrate-pipeline.js`:
 - **Builder Pattern** — ProtobufBuilder constructs complex message structures
 - **State Pattern** — StateTracker manages transfer state for incremental sync
 - **Error Hierarchy** — custom error classes provide specific error handling
+- **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
 
-## Generated Report Structure
+## ⚡ Concurrency and Performance
+
+CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js`) for parallel I/O:
+
+- **`createLimiter(concurrency)`** — p-limit equivalent for bounding concurrent async operations
+- **`mapConcurrent(items, fn, opts)`** — parallel map with concurrency limit, `settled` mode (continue on errors), and progress callbacks
+- **`resolvePerformanceConfig(rawConfig)`** — merges user config with CPU-aware defaults
+- **`createProgressLogger(label, total)`** — progress logging callback for long-running concurrent ops
+
+Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). The `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
+
+For CPU-intensive protobuf encoding, `encoder-worker.js` provides an optional worker thread via `encodeAllInWorker()`, offloading encoding from the main event loop.
+
+## 📦 Build and Packaging
+
+CloudVoyager uses esbuild to bundle the ESM source into CJS, and pkg to create standalone binaries.
+
+### Build Process (`scripts/build.js`)
+
+1. **Bundle CLI** — esbuild bundles `src/index.js` (and all imports) into `dist/cli.cjs`
+2. **Bundle worker** — esbuild bundles `src/protobuf/encoder-worker.js` separately into `dist/encoder-worker.js` (runs in its own thread, must be a separate file)
+3. **Copy schemas** — protobuf `.proto` files are copied to `dist/schema/`
+4. **Package binaries** (optional) — pkg compiles `dist/cli.cjs` into standalone executables for 5 platforms
+
+### Output Structure
+
+```
+dist/
+├── cli.cjs              # Bundled CLI (CJS)
+├── encoder-worker.js    # Bundled worker thread (CJS)
+├── schema/              # Protobuf schema files
+│   ├── scanner-report.proto
+│   └── constants.proto
+└── bin/                 # Standalone binaries (when --package is used)
+    ├── cloudvoyager-linux-x64
+    ├── cloudvoyager-linux-arm64
+    ├── cloudvoyager-macos-x64
+    ├── cloudvoyager-macos-arm64
+    └── cloudvoyager-win-x64.exe
+```
+
+### Build Commands
+
+```bash
+npm run build                    # Bundle only (dist/cli.cjs + worker + schemas)
+npm run package                  # Bundle + all platform binaries
+npm run package:macos-arm64      # Bundle + single platform binary
+```
+
+All CLI flags (`--concurrency`, `--max-memory`, `--workers`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
+
+## 📄 Generated Report Structure
 
 ```
 scanner-report.zip:

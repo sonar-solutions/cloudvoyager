@@ -1,8 +1,8 @@
-# Configuration
+# ⚙️ Configuration
 
 CloudVoyager supports three configuration formats depending on the command you're using.
 
-## Single Project Config
+## 📋 Single Project Config
 
 Used by: `transfer`, `test`, `validate`, `status`, `reset`
 
@@ -29,7 +29,7 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
 
 See `examples/config.example.json` for a complete example.
 
-## Transfer-All Config
+## 📋 Transfer-All Config
 
 Used by: `transfer-all`
 
@@ -63,7 +63,7 @@ Transfers all projects from a SonarQube server to a single SonarCloud organizati
 
 See `examples/transfer-all-config.example.json` for a complete example.
 
-## Migration Config
+## 📋 Migration Config
 
 Used by: `migrate`, `sync-metadata`
 
@@ -106,7 +106,7 @@ See `examples/migrate-config.example.json` for a complete example.
 
 ---
 
-## Configuration Options
+## 🔧 Configuration Options
 
 ### SonarQube Settings
 
@@ -125,7 +125,7 @@ Used by `transfer`, `transfer-all`, `test`, `validate`, `status`, `reset`.
 | `url` | No | SonarCloud server URL (default: `https://sonarcloud.io`) |
 | `token` | Yes | SonarCloud API token (or set via `SONARCLOUD_TOKEN` env var) |
 | `organization` | Yes | SonarCloud organization key |
-| `projectKey` | For `transfer` only | Destination project key |
+| `projectKey` | For `transfer` only | Destination project key. The display name is automatically carried over from SonarQube |
 
 ### SonarCloud Settings (Multi-Org)
 
@@ -149,8 +149,8 @@ Used by `migrate`. Instead of a single org, you provide an array of target organ
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `projectKeyPrefix` | `""` | Prefix to prepend to SonarQube project keys for SonarCloud |
-| `projectKeyMapping` | `{}` | Explicit mapping from SonarQube project key to SonarCloud project key |
+| `projectKeyPrefix` | `""` | Prefix to prepend to SonarQube project keys for SonarCloud. The original project display name from SonarQube is always preserved |
+| `projectKeyMapping` | `{}` | Explicit mapping from SonarQube project key to SonarCloud project key. Only affects the key — the display name is always carried over from SonarQube |
 | `excludeProjects` | `[]` | SonarQube project keys to exclude from transfer |
 
 ### Migrate Settings
@@ -161,6 +161,8 @@ Used by `migrate`. Instead of a single org, you provide an array of target organ
 | `skipIssueMetadataSync` | `false` | Skip syncing issue metadata (statuses, assignments, comments, tags) |
 | `skipHotspotMetadataSync` | `false` | Skip syncing hotspot metadata (statuses, comments) |
 | `dryRun` | `false` | Extract and generate mappings without migrating |
+
+> **Project key behavior (migrate command):** By default, the `migrate` command uses the original SonarQube project key on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org}_{key}`) and logs a warning. Key conflicts are listed in the migration report.
 
 ### Rate Limit Settings
 
@@ -194,7 +196,61 @@ Controls retry and throttling behavior for SonarCloud API requests. By default, 
 }
 ```
 
-## Environment Variables
+### Performance Settings
+
+Controls CPU, memory, and concurrency tuning. Add a `performance` section to any config file. All settings are optional — defaults are tuned for safe, moderate parallelism.
+
+```json
+{
+  "performance": {
+    "autoTune": false,
+    "maxConcurrency": 8,
+    "maxMemoryMB": 8192,
+    "workerThreads": 0,
+    "sourceExtraction": { "concurrency": 10 },
+    "hotspotExtraction": { "concurrency": 10 },
+    "issueSync": { "concurrency": 5 },
+    "hotspotSync": { "concurrency": 3 },
+    "projectMigration": { "concurrency": 1 }
+  }
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `autoTune` | `false` | Auto-detect CPU and RAM and set optimal values. When enabled, uses 75% of total RAM (max 16GB) and scales concurrency based on CPU cores. Explicit settings override auto-tuned values. |
+| `maxConcurrency` | `8` | General concurrency limit for parallel I/O operations (1–64) |
+| `maxMemoryMB` | `0` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
+| `workerThreads` | `0` | Number of worker threads for CPU-intensive protobuf encoding. `0` = disabled (run in main thread). Enable for large reports (10K+ issues). |
+| `sourceExtraction.concurrency` | `10` | Max concurrent source file fetches from SonarQube (1–50) |
+| `hotspotExtraction.concurrency` | `10` | Max concurrent hotspot detail fetches from SonarQube (1–50) |
+| `issueSync.concurrency` | `5` | Max concurrent issue metadata sync operations to SonarCloud (1–20) |
+| `hotspotSync.concurrency` | `3` | Max concurrent hotspot sync operations to SonarCloud (1–20). Lower default due to rate limiting sensitivity. |
+| `projectMigration.concurrency` | `1` | Max concurrent project migrations (1–8). Default `1` = sequential (backward-compatible). |
+
+**CLI overrides:** Performance settings can be overridden via CLI flags on `transfer`, `transfer-all`, `migrate`, and `sync-metadata` commands:
+
+| Flag | Description |
+|------|-------------|
+| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
+| `--concurrency <n>` | Override max concurrency for all I/O operations |
+| `--max-memory <mb>` | Set max heap size in MB |
+| `--workers <n>` | Number of worker threads for CPU-intensive work |
+| `--project-concurrency <n>` | Max concurrent project migrations |
+
+**Example: high-performance migration:**
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --workers 16
+```
+
+**Example: applying max memory (auto-restarts with increased heap):**
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose --max-memory 8192
+```
+
+## 🌍 Environment Variables
 
 | Variable | Description |
 |----------|-------------|
@@ -203,8 +259,9 @@ Controls retry and throttling behavior for SonarCloud API requests. By default, 
 | `LOG_LEVEL` | Set logging level (`debug`, `info`, `warn`, `error`) |
 | `LOG_FILE` | Path to log file (optional) |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
+| `NODE_OPTIONS` | Set V8 flags manually (usually not needed — use `maxMemoryMB` in config or `--max-memory` flag instead) |
 
-## npm Scripts
+## 📜 npm Scripts
 
 All commands are available as npm scripts for convenience:
 
@@ -225,8 +282,10 @@ All commands are available as npm scripts for convenience:
 | `npm run sync-metadata` | Sync issue & hotspot metadata only (for already-migrated projects) |
 | `npm run sync-metadata:issues-only` | Sync only issue metadata |
 | `npm run sync-metadata:hotspots-only` | Sync only hotspot metadata |
+| `npm run migrate:high-memory` | Migrate with 8GB heap (for large datasets) |
+| `npm run migrate:fast` | Migrate with 8GB heap, high concurrency (50), parallel projects (8), 16 worker threads |
 
-## Incremental Transfers
+## 🔄 Incremental Transfers
 
 When using incremental mode, the tool:
 1. Tracks the last successful sync timestamp
