@@ -12,9 +12,9 @@ export class SonarCloudClient {
     this.organization = config.organization;
     this.projectKey = config.projectKey;
 
-    // Rate limit configuration (from config.rateLimit or defaults — disabled by default)
+    // Rate limit configuration (from config.rateLimit or defaults)
     const rateLimit = config.rateLimit || {};
-    this._maxRetries = rateLimit.maxRetries ?? 0;
+    this._maxRetries = rateLimit.maxRetries ?? 3;
     this._baseDelay = rateLimit.baseDelay ?? 1000; // ms, doubles each retry
     this._minRequestInterval = rateLimit.minRequestInterval ?? 0; // ms between POST requests
     this._lastPostTime = 0;

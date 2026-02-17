@@ -26,7 +26,7 @@ This vague SonarCloud error can be caused by:
 
 SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
 
-Rate limiting is **disabled by default**. To enable automatic retries and request throttling, add a `rateLimit` section to your config file:
+By default, CloudVoyager retries rate-limited requests up to 3 times with exponential backoff. You can tune this via the `rateLimit` section in your config file:
 
 ```json
 {
@@ -38,9 +38,9 @@ Rate limiting is **disabled by default**. To enable automatic retries and reques
 }
 ```
 
-- **`maxRetries`** - Number of retry attempts on 503/429 with exponential backoff (0 = disabled)
+- **`maxRetries`** - Number of retry attempts on 503/429 with exponential backoff (default: `3`, set to `0` to disable)
 - **`baseDelay`** - Initial delay in ms before retrying (doubles each attempt: 1s, 2s, 4s, 8s, 16s)
-- **`minRequestInterval`** - Minimum ms between POST requests to avoid triggering limits (0 = disabled)
+- **`minRequestInterval`** - Minimum ms between POST requests to avoid triggering limits (default: `0` = disabled)
 
 If you still encounter rate limit errors after all retries are exhausted, consider:
 - Increasing `maxRetries` and `baseDelay`

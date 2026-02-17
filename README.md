@@ -215,21 +215,21 @@ If you're running from source (for development), all commands are also available
 
 ## Rate Limiting
 
-Rate limiting is **disabled by default**. If SonarCloud throttles your requests (503/429 errors), you can enable it by adding a `rateLimit` section to your config file:
+By default, CloudVoyager retries rate-limited requests (503/429) up to 3 times with exponential backoff. You can customize this via the `rateLimit` section in your config file:
 
 ```json
 {
   "rateLimit": {
-    "maxRetries": 5,
+    "maxRetries": 3,
     "baseDelay": 1000,
-    "minRequestInterval": 150
+    "minRequestInterval": 0
   }
 }
 ```
 
 | Option | Default | What it does |
 |--------|---------|-------------|
-| `maxRetries` | `0` (off) | Retry on 503/429 up to N times with exponential backoff |
+| `maxRetries` | `3` | Retry on 503/429 up to N times with exponential backoff (0 to disable) |
 | `baseDelay` | `1000` | Initial retry delay in ms (doubles each attempt: 1s, 2s, 4s...) |
 | `minRequestInterval` | `0` (off) | Minimum ms between write requests to avoid triggering limits |
 

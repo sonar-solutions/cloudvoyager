@@ -298,27 +298,27 @@ npm run migrate:minimal       # Skip both — just projects, gates, profiles, pe
 
 ## Rate Limiting (Optional)
 
-By default, CloudVoyager does **not** apply any rate limiting or request throttling. If you encounter 503 or 429 errors from SonarCloud (common during large migrations with many issues/hotspots), you can enable rate limiting by adding a `rateLimit` section to **any** config file:
+By default, CloudVoyager retries rate-limited requests (503/429) up to 3 times with exponential backoff, but does not throttle request frequency. You can customize this by adding a `rateLimit` section to **any** config file:
 
 ```json
 {
   "rateLimit": {
-    "maxRetries": 5,
+    "maxRetries": 3,
     "baseDelay": 1000,
-    "minRequestInterval": 150
+    "minRequestInterval": 0
   }
 }
 ```
 
 | Field | Default | What it does |
 |-------|---------|-------------|
-| `maxRetries` | `0` (off) | How many times to retry a request that gets a 503 or 429 response. Each retry waits longer (exponential backoff). |
+| `maxRetries` | `3` | How many times to retry a request that gets a 503 or 429 response. Each retry waits longer (exponential backoff). Set to `0` to disable retries. |
 | `baseDelay` | `1000` | How long to wait (in ms) before the first retry. Doubles each attempt: 1s → 2s → 4s → 8s → 16s. |
 | `minRequestInterval` | `0` (off) | Minimum time (in ms) to wait between write (POST) requests. Helps prevent hitting rate limits in the first place. |
 
-> **When to enable it:** If you see 503 errors in the logs during issue or hotspot sync, add the `rateLimit` section above. Start with the values shown — they work well for most migrations.
+> **For large migrations:** If you're still hitting 503 errors, increase `maxRetries` (e.g. `5` or `10`) and add a `minRequestInterval` (e.g. `150`).
 
-> **When to leave it off:** For small migrations or if you're not hitting rate limits, the default (no throttling) gives you the fastest transfer speed.
+> **To disable retries entirely:** Set `maxRetries` to `0`.
 
 ---
 

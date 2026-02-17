@@ -8,7 +8,7 @@ const rateLimitSchema = {
       type: 'integer',
       minimum: 0,
       maximum: 20,
-      default: 0,
+      default: 3,
       description: 'Max retry attempts on 503/429 rate limit errors (0 = no retries)'
     },
     baseDelay: {
