@@ -2,13 +2,29 @@
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed.
 
-## How It Works
+## What Is This?
 
-This tool copies your projects, issues, metrics, and source code from SonarQube and uploads them to SonarCloud in the format it expects.
+If your team is moving from a self-hosted SonarQube server to SonarCloud, this tool saves you from having to re-scan all your projects from scratch. It copies everything — your projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud.
 
-## Quick Start
+## Prerequisites
 
-### 1. Download
+Before you begin, make sure you have:
+
+1. **Admin access** to your SonarQube server
+2. **Admin access** to your SonarCloud organization
+3. **API tokens** for both SonarQube and SonarCloud (you'll put these in a config file)
+
+> **How to get your tokens:**
+> - **SonarQube:** Go to `My Account > Security > Generate Tokens` in your SonarQube web UI
+> - **SonarCloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io)
+
+---
+
+## Quick Start (Single Project)
+
+Use this if you just want to migrate one project.
+
+### Step 1: Download
 
 Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
 
@@ -20,17 +36,15 @@ Download the latest binary for your platform from the [Releases](https://github.
 | Linux (ARM64) | `cloudvoyager-linux-arm64` |
 | Windows (x64) | `cloudvoyager-win-x64.exe` |
 
-Make the binary executable (macOS/Linux):
+On macOS/Linux, make the binary executable:
 
 ```bash
 chmod +x cloudvoyager-*
 ```
 
-### 2. Create a config file
+### Step 2: Create a config file
 
-You'll need API tokens from both SonarQube and SonarCloud - Ensure that you have **Admin Access** to both your SonarQube Server and SonarCloud organization, and that you have API tokens for both.
-
-Create a `config.json` file with your details:
+Create a file called `config.json` and fill in your details:
 
 ```json
 {
@@ -48,19 +62,121 @@ Create a `config.json` file with your details:
 }
 ```
 
-### 3. Test your connections
+> **Where to find your project key:** In SonarQube, go to your project's **Project Information** page — the key is shown there. You can use the same key for SonarCloud, or choose a new one.
+
+### Step 3: Test your connections
+
+Run this to make sure CloudVoyager can reach both servers:
 
 ```bash
 ./cloudvoyager test -c config.json
 ```
 
-### 4. Run the transfer
+You should see a success message for both SonarQube and SonarCloud. If not, double-check your URLs and tokens.
+
+### Step 4: Run the transfer
 
 ```bash
 ./cloudvoyager transfer -c config.json
 ```
 
-That's it! Your data will appear in SonarCloud once the transfer completes.
+That's it! Your project data will appear in SonarCloud once the transfer completes. Add `--verbose` for detailed progress output.
+
+---
+
+## Full Organization Migration (All Projects at Once)
+
+Use this if you want to migrate **everything** from your SonarQube server to one or more SonarCloud organizations — including all projects, quality gates, quality profiles, groups, permissions, and more.
+
+### What Gets Migrated
+
+| Category | Details |
+|----------|---------|
+| **Projects** | All projects with their code, issues, hotspots, settings, tags, and links |
+| **Quality Gates** | Gate definitions, conditions, default assignments, and permissions |
+| **Quality Profiles** | Profile rules, defaults per language, and permissions |
+| **Groups & Permissions** | User groups, org-level and project-level permissions, permission templates |
+| **Portfolios** | Portfolio definitions and project membership |
+| **DevOps Bindings** | GitHub, GitLab, Azure DevOps, and Bitbucket integrations |
+| **New Code Definitions** | Per-project and per-branch new code period settings |
+| **Server Info** | Server version, plugins, settings, and webhooks (saved as reference files, not migrated) |
+
+### Step 1: Create a migration config file
+
+Create a file called `migrate-config.json`:
+
+```json
+{
+  "sonarqube": {
+    "url": "https://your-sonarqube-server.com",
+    "token": "your_sonarqube_admin_token"
+  },
+  "sonarcloud": {
+    "organizations": [
+      {
+        "key": "your-org-key",
+        "token": "your_sonarcloud_token",
+        "url": "https://sonarcloud.io"
+      }
+    ]
+  },
+  "migrate": {
+    "outputDir": "./migration-output",
+    "skipIssueSync": false,
+    "skipHotspotSync": false
+  }
+}
+```
+
+> **Migrating to multiple orgs?** Just add more entries to the `organizations` array — each with its own key and token.
+
+### Step 2: Do a dry run first (recommended)
+
+A dry run extracts all data and generates mapping CSV files so you can review what will be migrated, without actually changing anything in SonarCloud:
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --dry-run
+```
+
+Check the generated files in `./migration-output/` to make sure everything looks right.
+
+### Step 3: Run the full migration
+
+```bash
+./cloudvoyager migrate -c migrate-config.json --verbose
+```
+
+This may take a while for large servers with many projects. Progress is logged throughout.
+
+### Speed up the migration (optional)
+
+If you want to skip syncing issue/hotspot metadata (statuses, comments, assignments), you can speed things up:
+
+```bash
+# Skip hotspot sync only (the slowest part)
+./cloudvoyager migrate -c migrate-config.json --skip-hotspot-sync
+
+# Skip both issue and hotspot sync (fastest — just projects, gates, profiles, permissions)
+./cloudvoyager migrate -c migrate-config.json --skip-issue-sync --skip-hotspot-sync
+```
+
+### Generated Output Files
+
+The migration generates mapping files in your output directory for review:
+
+| File | What's in it |
+|------|-------------|
+| `organizations.csv` | Projects grouped by target organization |
+| `projects.csv` | All projects with their metadata |
+| `group-mappings.csv` | Groups mapped to target organizations |
+| `profile-mappings.csv` | Quality profiles mapped to target organizations |
+| `gate-mappings.csv` | Quality gates mapped to target organizations |
+| `portfolio-mappings.csv` | Portfolios mapped to target organizations |
+| `template-mappings.csv` | Permission templates mapped to target organizations |
+
+Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files for your records.
+
+---
 
 ## All Commands
 
@@ -74,146 +190,61 @@ That's it! Your data will appear in SonarCloud once the transfer completes.
 | `status` | See what's been synced so far |
 | `reset` | Clear sync history and start fresh |
 
-Add `--verbose` to any command for more detail.
+Add `--verbose` to any command for detailed output.
 
-```bash
-./cloudvoyager transfer -c config.json --verbose
-```
+### npm Scripts
+
+If you're running from source (for development), all commands are also available as npm scripts:
+
+| Script | What it does |
+|--------|-------------|
+| `npm run validate` | Validate `config.json` |
+| `npm run test:connection` | Test connections using `config.json` |
+| `npm run transfer` | Transfer a single project using `config.json` |
+| `npm run transfer-all` | Transfer all projects using `config.json` |
+| `npm run transfer-all:dry-run` | Dry run transfer-all |
+| `npm run status` | Show sync status |
+| `npm run reset` | Clear sync history |
+| `npm run migrate` | Full migration using `migrate-config.json` |
+| `npm run migrate:dry-run` | Dry run migration |
+| `npm run migrate:skip-hotspots` | Migrate without hotspot sync |
+| `npm run migrate:skip-issues` | Migrate without issue sync |
+| `npm run migrate:minimal` | Migrate without issue or hotspot sync |
 
 ---
 
-## Full Organization Migration (Single SonarQube Server to Multiple SonarCloud Organizations)
+## Rate Limiting
 
-The `migrate` command performs a comprehensive migration of an entire SonarQube server to one or more SonarCloud organizations, including all projects, configuration, and metadata.
+SonarCloud may throttle requests if too many are sent in a short period. CloudVoyager handles this automatically — no configuration needed:
 
-### What Gets Migrated
-
-#### Projects & Project Configuration
-- **Projects** — keys, names, metadata, visibility
-- **Project issues** — all issues with assignments, comments, tags, and status (Open, Fixed, Accepted, etc.)
-- **Project hotspots** — all security hotspots with status (Safe, Acknowledged, Fixed, To Review), assignments, and comments
-- **Project settings** — non-inherited, project-level configuration values
-- **Project tags** — custom tags assigned to projects
-- **Project links** — external links configured on projects
-- **New code definitions** — per-project and per-branch (`NUMBER_OF_DAYS` → `days`, `PREVIOUS_VERSION` → `previous_version`)
-- **DevOps bindings** — GitHub, GitLab, Azure DevOps, Bitbucket integrations
-- **Branches** — main branch plus all branch and pull request scans (issues & hotspots)
-- **Monorepo configuration** — handled via branch-level DevOps bindings
-
-#### Quality Gates
-- Quality gate definitions (names, conditions, metrics)
-- Default gate assignments per organization
-- Project-to-gate associations
-- Gate permissions (group and user-level)
-
-#### Quality Profiles
-- Quality profile definitions (name, language, parent relationships)
-- Active and deactivated rules within each profile
-- Profile restoration via backup/restore XML
-- Default profile assignments per language
-- Profile permissions (group and user-level)
-- Parent profile inheritance chains
-
-#### Users, Groups & Permissions
-- All user group definitions
-- Organization-level group permissions (admin, scan, etc.)
-- Project-level group permissions (scanners, viewers, custom roles)
-- Permission templates with group assignments
-- Default template assignments
-
-#### Portfolios
-- Portfolio definitions (name, description, visibility)
-- Portfolio project membership
-- Portfolio branch labeling configuration
-
-#### Server & Infrastructure Data (extracted for reference, not migrated)
-- Server info (version, edition, metadata)
-- Server settings
-- Installed plugins and versions
-- Webhooks (server and project-level)
-
-### Migration Config
-
-Create a `migrate-config.json` with multi-org support:
-
-```json
-{
-  "sonarqube": {
-    "url": "https://your-sonarqube-server.com",
-    "token": "your_sonarqube_admin_token"
-  },
-  "sonarcloud": {
-    "organizations": [
-      {
-        "key": "org-one",
-        "token": "sonarcloud_token_for_org_one",
-        "url": "https://sonarcloud.io"
-      },
-      {
-        "key": "org-two",
-        "token": "sonarcloud_token_for_org_two",
-        "url": "https://sonarcloud.io"
-      }
-    ]
-  },
-  "migrate": {
-    "outputDir": "./migration-output",
-    "skipIssueSync": false,
-    "skipHotspotSync": false
-  }
-}
-```
-
-### Run the Migration
-
-```bash
-# Dry run — extract data and generate mapping CSVs without migrating
-./cloudvoyager migrate -c migrate-config.json --dry-run
-
-# Full migration
-./cloudvoyager migrate -c migrate-config.json --verbose
-
-# Skip issue/hotspot metadata sync for faster migration
-./cloudvoyager migrate -c migrate-config.json --skip-issue-sync --skip-hotspot-sync
-```
-
-### Auto-Generated Mapping CSVs
-
-The `migrate` command generates organizational mapping files in the output directory:
-
-| File | Contents |
-|------|----------|
-| `organizations.csv` | Projects grouped by DevOps binding → target org |
-| `projects.csv` | All projects with metadata for migration planning |
-| `group-mappings.csv` | Groups mapped to target organizations |
-| `profile-mappings.csv` | Quality profiles mapped to target organizations |
-| `gate-mappings.csv` | Quality gates mapped to target organizations |
-| `portfolio-mappings.csv` | Portfolios mapped to target organizations |
-| `template-mappings.csv` | Permission templates mapped to target organizations |
-
-Use `--dry-run` to generate these mappings for review before executing the full migration.
-
-### Server Info Output
-
-Server and infrastructure data is saved to `{outputDir}/server-info/` as JSON files for reference:
-- `system.json` — server version, edition, status
-- `plugins.json` — installed plugins and versions
-- `settings.json` — server-level configuration
-- `webhooks.json` — webhook configurations
-- `alm-settings.json` — DevOps platform configurations
+- **Automatic retries** — if a request is rate-limited, it waits and retries up to 5 times with increasing delays (1s, 2s, 4s, 8s, 16s)
+- **Request throttling** — write requests are automatically spaced apart to avoid triggering limits in the first place
 
 ---
 
 ## Limitations
-- Each project's past historical metrics (purely just historical metrics and not the actual issues itself), found in each project's **Activity** tab in the SonarQube Dashboard Web UI, cannot be migrated.
 
+- Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
+
+---
+
+## Example Configs
+
+See the `examples/` folder for ready-to-use config templates:
+
+| File | Use with |
+|------|----------|
+| `examples/config.example.json` | `transfer`, `test`, `validate`, `status`, `reset` |
+| `examples/transfer-all-config.example.json` | `transfer-all` |
+| `examples/migrate-config.example.json` | `migrate` |
 
 ## Further Reading
 
-- [Configuration Guide](docs/configuration.md) — all config options, env vars, incremental transfers
+- [Usage Guide](docs/usage-guide.md) — step-by-step walkthrough of each config file and how to use it
+- [Configuration Reference](docs/configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](docs/architecture.md) — project structure, data flow, report format
 - [Technical Details](docs/technical-details.md) — protobuf encoding, measure types, active rules
-- [Troubleshooting](docs/troubleshooting.md) — common errors and fixes
+- [Troubleshooting](docs/troubleshooting.md) — common errors and how to fix them
 
 ## License
 

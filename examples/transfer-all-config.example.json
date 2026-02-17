@@ -1,0 +1,25 @@
+{
+  "sonarqube": {
+    "url": "https://your-sonarqube-server.com",
+    "token": "sqp_your_sonarqube_token_here"
+  },
+  "sonarcloud": {
+    "url": "https://sonarcloud.io",
+    "token": "your_sonarcloud_token_here",
+    "organization": "your-org"
+  },
+  "transfer": {
+    "mode": "full",
+    "stateFile": "./.cloudvoyager-state.json",
+    "batchSize": 100
+  },
+  "transferAll": {
+    "projectKeyPrefix": "",
+    "projectKeyMapping": {
+      "old-project-key": "new-project-key"
+    },
+    "excludeProjects": [
+      "project-to-skip"
+    ]
+  }
+}

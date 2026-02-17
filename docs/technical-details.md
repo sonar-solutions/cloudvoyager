@@ -42,6 +42,8 @@ The tool fetches the main branch name from SonarCloud (via `getMainBranchName()`
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
 
+Note: some SonarQube APIs enforce a lower maximum page size of 100 (e.g., permissions, tags, profile permissions, gate permissions). The extractors handle this automatically.
+
 ## Rate Limit Handling
 
 The SonarCloud API client uses a two-layer strategy to handle rate limiting:
@@ -49,3 +51,32 @@ The SonarCloud API client uses a two-layer strategy to handle rate limiting:
 1. **Exponential backoff retry** - When a 503 or 429 response is received, the request is retried up to 5 times with exponentially increasing delays (1s → 2s → 4s → 8s → 16s). If all retries are exhausted, the error is propagated to the caller.
 
 2. **Write request throttling** - All POST requests are spaced at least 150ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits, particularly during high-volume operations like issue sync and hotspot sync.
+
+## Issue Sync
+
+The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
+1. Searches for a matching issue in SonarCloud by rule, component, and text range
+2. Transitions the issue status (Open, Confirmed, Accepted/Won't Fix, False Positive)
+3. Sets the assignee
+4. Copies comments
+5. Sets tags
+
+## Hotspot Sync
+
+Similar to issue sync, hotspot metadata is matched and synced:
+1. Matches hotspots by rule, component, and text range
+2. Transitions status (To Review, Acknowledged, Safe, Fixed)
+3. Sets assignee
+4. Copies comments
+
+## Organization Mapping
+
+The `migrate` command maps projects to target SonarCloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
+
+## Quality Profile Migration
+
+Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
+
+## Quality Gate Migration
+
+Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.

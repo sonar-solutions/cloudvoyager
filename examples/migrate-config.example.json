@@ -1,0 +1,30 @@
+{
+  "sonarqube": {
+    "url": "https://your-sonarqube-server.com",
+    "token": "sqp_your_sonarqube_admin_token"
+  },
+  "sonarcloud": {
+    "organizations": [
+      {
+        "key": "org-one",
+        "token": "your_sonarcloud_token_for_org_one",
+        "url": "https://sonarcloud.io"
+      },
+      {
+        "key": "org-two",
+        "token": "your_sonarcloud_token_for_org_two",
+        "url": "https://sonarcloud.io"
+      }
+    ]
+  },
+  "transfer": {
+    "mode": "full",
+    "batchSize": 100
+  },
+  "migrate": {
+    "outputDir": "./migration-output",
+    "skipIssueSync": false,
+    "skipHotspotSync": false,
+    "dryRun": false
+  }
+}
