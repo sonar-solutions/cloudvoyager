@@ -31,5 +31,16 @@
     "maxRetries": 5,
     "baseDelay": 1000,
     "minRequestInterval": 150
+  },
+  "performance": {
+    "autoTune": false,
+    "maxConcurrency": 8,
+    "maxMemoryMB": 0,
+    "workerThreads": 0,
+    "sourceExtraction": { "concurrency": 10 },
+    "hotspotExtraction": { "concurrency": 10 },
+    "issueSync": { "concurrency": 5 },
+    "hotspotSync": { "concurrency": 3 },
+    "projectMigration": { "concurrency": 1 }
   }
 }

@@ -26,6 +26,7 @@ import { syncHotspots } from './sonarcloud/migrators/hotspot-sync.js';
 import { migratePortfolios } from './sonarcloud/migrators/portfolios.js';
 import { mapProjectsToOrganizations, mapResourcesToOrganizations } from './mapping/org-mapper.js';
 import { generateMappingCsvs } from './mapping/csv-generator.js';
+import { resolvePerformanceConfig } from './utils/concurrency.js';
 import logger from './utils/logger.js';
 
 /**
@@ -36,6 +37,7 @@ import logger from './utils/logger.js';
  * @param {Array} options.sonarcloudOrgs - Array of { key, token, url }
  * @param {object} options.migrateConfig - { outputDir, skipIssueSync, skipHotspotSync, dryRun }
  * @param {object} options.transferConfig - { mode, stateFile, batchSize }
+ * @param {object} [options.performanceConfig] - Performance tuning options (concurrency, workers, memory)
  * @param {boolean} [options.wait=true] - Whether to wait for analysis completion
  * @returns {Promise<object>} Migration results
  */
@@ -46,8 +48,11 @@ export async function migrateAll(options) {
     migrateConfig = {},
     transferConfig = { mode: 'full', batchSize: 100 },
     rateLimitConfig,
+    performanceConfig: rawPerfConfig = {},
     wait = true
   } = options;
+
+  const perfConfig = resolvePerformanceConfig(rawPerfConfig);
 
   const outputDir = migrateConfig.outputDir || './migration-output';
   const dryRun = migrateConfig.dryRun || false;
@@ -171,7 +176,9 @@ export async function migrateAll(options) {
     try {
       logger.info('Extracting DevOps bindings...');
       almSettings = await extractAlmSettings(sqClient);
-      projectBindings = await extractAllProjectBindings(sqClient, allProjects);
+      projectBindings = await extractAllProjectBindings(sqClient, allProjects, {
+        concurrency: perfConfig.maxConcurrency
+      });
       results.serverSteps.push({ step: 'Extract DevOps bindings', status: 'success' });
     } catch (error) {
       results.serverSteps.push({ step: 'Extract DevOps bindings', status: 'failed', error: error.message });
@@ -378,8 +385,10 @@ export async function migrateAll(options) {
             sonarqubeConfig: { url: sonarqubeConfig.url, token: sonarqubeConfig.token, projectKey: project.key },
             sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: rateLimitConfig },
             transferConfig: { mode: transferConfig.mode, stateFile, batchSize: transferConfig.batchSize },
+            performanceConfig: perfConfig,
             wait,
-            skipConnectionTest: true
+            skipConnectionTest: true,
+            projectName: project.name
           });
           projectResult.steps.push({ step: 'Upload scanner report', status: 'success' });
           reportUploadOk = true;
@@ -396,7 +405,9 @@ export async function migrateAll(options) {
             try {
               logger.info('Syncing issue metadata...');
               const sqIssues = await projectSqClient.getIssuesWithComments();
-              const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient);
+              const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, {
+                concurrency: perfConfig.issueSync.concurrency
+              });
               results.issueSyncStats.matched += issueStats.matched;
               results.issueSyncStats.transitioned += issueStats.transitioned;
               projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned` });
@@ -416,8 +427,12 @@ export async function migrateAll(options) {
           } else {
             try {
               logger.info('Syncing hotspot metadata...');
-              const sqHotspots = await extractHotspots(projectSqClient);
-              const hotspotStats = await syncHotspots(scProjectKey, sqHotspots, projectScClient);
+              const sqHotspots = await extractHotspots(projectSqClient, null, {
+                concurrency: perfConfig.hotspotExtraction.concurrency
+              });
+              const hotspotStats = await syncHotspots(scProjectKey, sqHotspots, projectScClient, {
+                concurrency: perfConfig.hotspotSync.concurrency
+              });
               results.hotspotSyncStats.matched += hotspotStats.matched;
               results.hotspotSyncStats.statusChanged += hotspotStats.statusChanged;
               projectResult.steps.push({ step: 'Sync hotspots', status: 'success', detail: `${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed` });

@@ -1,4 +1,105 @@
 /**
+ * Shared performance schema for CPU, memory, and concurrency tuning
+ */
+const performanceSchema = {
+  type: 'object',
+  properties: {
+    autoTune: {
+      type: 'boolean',
+      default: false,
+      description: 'Automatically detect CPU and RAM and set optimal performance values. Explicit settings override auto-tuned values.'
+    },
+    maxConcurrency: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 64,
+      default: 8,
+      description: 'General concurrency limit for parallel I/O operations'
+    },
+    maxMemoryMB: {
+      type: 'integer',
+      minimum: 256,
+      maximum: 32768,
+      default: 0,
+      description: 'Max heap size in MB (0 = Node.js default). Auto-restarts the process with increased heap if needed.'
+    },
+    workerThreads: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 16,
+      default: 0,
+      description: 'Number of worker threads for CPU-intensive operations like protobuf encoding (0 = disabled, run in main thread)'
+    },
+    sourceExtraction: {
+      type: 'object',
+      properties: {
+        concurrency: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 50,
+          default: 10,
+          description: 'Max concurrent source file fetches from SonarQube'
+        }
+      },
+      additionalProperties: false
+    },
+    hotspotExtraction: {
+      type: 'object',
+      properties: {
+        concurrency: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 50,
+          default: 10,
+          description: 'Max concurrent hotspot detail fetches from SonarQube'
+        }
+      },
+      additionalProperties: false
+    },
+    issueSync: {
+      type: 'object',
+      properties: {
+        concurrency: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 20,
+          default: 5,
+          description: 'Max concurrent issue metadata sync operations to SonarCloud'
+        }
+      },
+      additionalProperties: false
+    },
+    hotspotSync: {
+      type: 'object',
+      properties: {
+        concurrency: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 20,
+          default: 3,
+          description: 'Max concurrent hotspot sync operations to SonarCloud (lower default due to rate limiting)'
+        }
+      },
+      additionalProperties: false
+    },
+    projectMigration: {
+      type: 'object',
+      properties: {
+        concurrency: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 8,
+          default: 1,
+          description: 'Max concurrent project migrations (1 = sequential, backward-compatible)'
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  additionalProperties: false
+};
+
+/**
  * Shared rateLimit schema used by both configSchema and migrateConfigSchema
  */
 const rateLimitSchema = {
@@ -159,7 +260,8 @@ export const configSchema = {
       },
       additionalProperties: false
     },
-    rateLimit: rateLimitSchema
+    rateLimit: rateLimitSchema,
+    performance: performanceSchema
   },
   additionalProperties: false
 };
@@ -269,7 +371,8 @@ export const migrateConfigSchema = {
       },
       additionalProperties: false
     },
-    rateLimit: rateLimitSchema
+    rateLimit: rateLimitSchema,
+    performance: performanceSchema
   },
   additionalProperties: false
 };

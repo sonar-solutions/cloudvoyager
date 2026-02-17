@@ -29,26 +29,32 @@ async function build() {
   rmSync(distDir, { recursive: true, force: true });
   mkdirSync(distDir, { recursive: true });
 
-  // Step 1: Bundle with esbuild
-  console.log('Bundling with esbuild...');
-  await esbuild.build({
-    entryPoints: [join(rootDir, 'src', 'index.js')],
+  const esbuildConfig = {
     bundle: true,
     platform: 'node',
     format: 'cjs',
-    outfile: join(distDir, 'cli.cjs'),
     target: 'node18',
-    // Keep Node built-ins external
     external: [],
-    // Handle import.meta.url in CJS output
-    define: {
-      'import.meta.url': 'importMetaUrl',
-    },
+    define: { 'import.meta.url': 'importMetaUrl' },
     banner: {
-      js: [
-        'const importMetaUrl = require("url").pathToFileURL(__filename).href;',
-      ].join('\n'),
+      js: 'const importMetaUrl = require("url").pathToFileURL(__filename).href;',
     },
+  };
+
+  // Step 1a: Bundle main CLI
+  console.log('Bundling CLI...');
+  await esbuild.build({
+    ...esbuildConfig,
+    entryPoints: [join(rootDir, 'src', 'index.js')],
+    outfile: join(distDir, 'cli.cjs'),
+  });
+
+  // Step 1b: Bundle encoder worker (runs in a separate thread, must be a separate file)
+  console.log('Bundling encoder worker...');
+  await esbuild.build({
+    ...esbuildConfig,
+    entryPoints: [join(rootDir, 'src', 'protobuf', 'encoder-worker.js')],
+    outfile: join(distDir, 'encoder-worker.js'),
   });
 
   // Step 2: Copy protobuf schema files next to the bundle

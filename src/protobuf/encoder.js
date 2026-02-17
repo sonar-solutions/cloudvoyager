@@ -1,4 +1,5 @@
 import protobuf from 'protobufjs';
+import { Worker } from 'node:worker_threads';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import logger from '../utils/logger.js';
@@ -192,5 +193,57 @@ export class ProtobufEncoder {
     } catch (error) {
       throw new ProtobufEncodingError(`Failed to encode messages: ${error.message}`);
     }
+  }
+
+  /**
+   * Encode all messages in a worker thread to offload CPU from the main thread.
+   * Useful for large reports with 10K+ issues or 1000+ components.
+   *
+   * @param {object} messages - Output from ProtobufBuilder.buildAll()
+   * @returns {Promise<object>} Encoded protobuf messages as buffers
+   */
+  static encodeAllInWorker(messages) {
+    logger.info('Encoding messages in worker thread...');
+
+    return new Promise((resolve, reject) => {
+      // Serialize Maps to arrays for structured clone transfer
+      const workerData = {
+        metadata: messages.metadata,
+        components: messages.components,
+        issuesByComponent: Array.from(messages.issuesByComponent.entries()),
+        measuresByComponent: Array.from(messages.measuresByComponent.entries()),
+        sourceFiles: messages.sourceFiles,
+        activeRules: messages.activeRules,
+        changesetsByComponent: Array.from(messages.changesetsByComponent.entries())
+      };
+
+      const workerPath = new URL('./encoder-worker.js', import.meta.url);
+      const worker = new Worker(workerPath, { workerData });
+
+      worker.on('message', (result) => {
+        if (result.error) {
+          reject(new ProtobufEncodingError(`Worker encoding failed: ${result.error}`));
+          return;
+        }
+
+        // Reconstruct Maps from serialized arrays
+        const encoded = {
+          metadata: result.metadata,
+          components: result.components,
+          issues: new Map(result.issues),
+          measures: new Map(result.measures),
+          sourceFilesText: result.sourceFilesText,
+          activeRules: result.activeRules,
+          changesets: new Map(result.changesets)
+        };
+
+        logger.info('Worker thread encoding completed');
+        resolve(encoded);
+      });
+
+      worker.on('error', (error) => {
+        reject(new ProtobufEncodingError(`Worker thread error: ${error.message}`));
+      });
+    });
   }
 }

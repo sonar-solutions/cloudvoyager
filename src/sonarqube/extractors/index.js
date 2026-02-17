@@ -14,10 +14,11 @@ import { extractSyntaxHighlighting } from './syntax-highlighting.js';
  * Coordinates extraction of all data from SonarQube
  */
 export class DataExtractor {
-  constructor(client, config, state = null) {
+  constructor(client, config, state = null, performanceConfig = {}) {
     this.client = client;
     this.config = config;
     this.state = state;
+    this.performanceConfig = performanceConfig;
   }
 
   /**
@@ -84,7 +85,9 @@ export class DataExtractor {
       // 7. Extract source code (optional, can be limited)
       logger.info('Step 7/7: Extracting source code...');
       const maxFiles = process.env.MAX_SOURCE_FILES ? Number.parseInt(process.env.MAX_SOURCE_FILES) : 0;
-      extractedData.sources = await extractSources(this.client, null, maxFiles);
+      extractedData.sources = await extractSources(this.client, null, maxFiles, {
+        concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
+      });
 
       // 8. Extract changesets (SCM blame data)
       logger.info('Step 8/10: Extracting changesets...');
@@ -136,7 +139,9 @@ export class DataExtractor {
     extractedData.issues = await extractIssues(this.client, this.state, branch);
     extractedData.measures = await extractMeasures(this.client, metricKeys, branch);
     extractedData.components = await extractComponentMeasures(this.client, metricKeys, branch);
-    extractedData.sources = await extractSources(this.client, branch);
+    extractedData.sources = await extractSources(this.client, branch, 0, {
+      concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
+    });
 
     return extractedData;
   }

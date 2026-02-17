@@ -164,8 +164,9 @@ export class SonarCloudClient {
 
   /**
    * Create project if it doesn't exist
+   * @param {string} [projectName] - Human-readable project name (defaults to projectKey if not provided)
    */
-  async ensureProject() {
+  async ensureProject(projectName = null) {
     logger.info(`Ensuring project exists: ${this.projectKey}`);
 
     const exists = await this.projectExists();
@@ -173,12 +174,13 @@ export class SonarCloudClient {
     if (exists) {
       logger.info('Project already exists');
     } else {
-      logger.info('Project does not exist, creating...');
+      const displayName = projectName || this.projectKey;
+      logger.info(`Project does not exist, creating with name: ${displayName}`);
 
       await this.client.post('/api/projects/create', null, {
         params: {
           project: this.projectKey,
-          name: this.projectKey,
+          name: displayName,
           organization: this.organization
         }
       });

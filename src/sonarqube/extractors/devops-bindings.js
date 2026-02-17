@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { mapConcurrent } from '../../utils/concurrency.js';
 
 /**
  * Extract ALM/DevOps platform settings and project bindings
@@ -46,16 +47,28 @@ export async function extractProjectBinding(client, projectKey) {
  * Extract DevOps bindings for all projects
  * @param {import('../api-client.js').SonarQubeClient} client
  * @param {Array} projects - List of projects with .key property
+ * @param {object} [options] - Performance options
+ * @param {number} [options.concurrency=10] - Max concurrent binding fetches
  * @returns {Promise<Map<string, object>>} Map of projectKey -> binding
  */
-export async function extractAllProjectBindings(client, projects) {
-  logger.info(`Extracting DevOps bindings for ${projects.length} projects...`);
+export async function extractAllProjectBindings(client, projects, options = {}) {
+  const concurrency = options.concurrency || 10;
+
+  logger.info(`Extracting DevOps bindings for ${projects.length} projects (concurrency=${concurrency})...`);
+
+  const results = await mapConcurrent(
+    projects,
+    async (project) => {
+      const binding = await extractProjectBinding(client, project.key);
+      return { key: project.key, binding };
+    },
+    { concurrency, settled: true }
+  );
 
   const bindings = new Map();
-  for (const project of projects) {
-    const binding = await extractProjectBinding(client, project.key);
-    if (binding) {
-      bindings.set(project.key, binding);
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.binding) {
+      bindings.set(r.value.key, r.value.binding);
     }
   }
 

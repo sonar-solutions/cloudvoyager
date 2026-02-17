@@ -6,7 +6,8 @@ import { SonarQubeClient } from './sonarqube/api-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
 import { transferProject } from './transfer-pipeline.js';
-import { migrateAll, syncMetadataOnly } from './migrate-pipeline.js';
+import { migrateAll } from './migrate-pipeline.js';
+import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from './utils/concurrency.js';
 import logger from './utils/logger.js';
 import { CloudVoyagerError } from './utils/errors.js';
 
@@ -26,6 +27,10 @@ program
   .requiredOption('-c, --config <path>', 'Path to configuration file')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--no-wait', 'Do not wait for analysis to complete')
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
+  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
+  .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
       if (options.verbose) {
@@ -38,10 +43,21 @@ program
       const config = await loadConfig(options.config);
       requireProjectKeys(config);
 
+      const perfConfig = resolvePerformanceConfig({
+        ...config.performance,
+        ...(options.autoTune && { autoTune: true }),
+        ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency } }),
+        ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
+        ...(options.workers && { workerThreads: options.workers })
+      });
+      ensureHeapSize(perfConfig.maxMemoryMB);
+      logSystemInfo(perfConfig);
+
       await transferProject({
         sonarqubeConfig: config.sonarqube,
         sonarcloudConfig: config.sonarcloud,
         transferConfig: config.transfer,
+        performanceConfig: perfConfig,
         wait: options.wait
       });
 
@@ -68,6 +84,11 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--no-wait', 'Do not wait for analysis to complete')
   .option('--dry-run', 'List projects that would be transferred without transferring')
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
+  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
+  .option('--project-concurrency <n>', 'Max concurrent project migrations', parseInt)
+  .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
       if (options.verbose) {
@@ -91,7 +112,18 @@ program
         return;
       }
 
-      const { results, startTime } = await executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options);
+      const perfConfig = resolvePerformanceConfig({
+        ...config.performance,
+        ...(options.autoTune && { autoTune: true }),
+        ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency } }),
+        ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
+        ...(options.workers && { workerThreads: options.workers }),
+        ...(options.projectConcurrency && { projectMigration: { concurrency: options.projectConcurrency } })
+      });
+      ensureHeapSize(perfConfig.maxMemoryMB);
+      logSystemInfo(perfConfig);
+
+      const { results, startTime } = await executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options, perfConfig);
       const failedCount = logTransferSummary(results, startTime);
 
       if (failedCount > 0) {
@@ -249,6 +281,11 @@ program
   .option('--dry-run', 'Extract data and generate mappings without migrating')
   .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
   .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
+  .option('--workers <n>', 'Number of worker threads for CPU-intensive work', parseInt)
+  .option('--project-concurrency <n>', 'Max concurrent project migrations', parseInt)
+  .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
       if (options.verbose) {
@@ -264,12 +301,24 @@ program
       if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
       if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
 
+      const perfConfig = resolvePerformanceConfig({
+        ...config.performance,
+        ...(options.autoTune && { autoTune: true }),
+        ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency }, issueSync: { concurrency: options.concurrency }, hotspotSync: { concurrency: Math.min(options.concurrency, 3) } }),
+        ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
+        ...(options.workers && { workerThreads: options.workers }),
+        ...(options.projectConcurrency && { projectMigration: { concurrency: options.projectConcurrency } })
+      });
+      ensureHeapSize(perfConfig.maxMemoryMB);
+      logSystemInfo(perfConfig);
+
       const results = await migrateAll({
         sonarqubeConfig: config.sonarqube,
         sonarcloudOrgs: config.sonarcloud.organizations,
         migrateConfig,
         transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
         rateLimitConfig: config.rateLimit,
+        performanceConfig: perfConfig,
         wait: options.wait
       });
 
@@ -303,6 +352,9 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
   .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
+  .option('--concurrency <n>', 'Override max concurrency for I/O operations', parseInt)
+  .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', parseInt)
+  .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
   .action(async (options) => {
     try {
       if (options.verbose) {
@@ -317,11 +369,23 @@ program
       if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
       if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
 
-      const results = await syncMetadataOnly({
+      const perfConfig = resolvePerformanceConfig({
+        ...config.performance,
+        ...(options.autoTune && { autoTune: true }),
+        ...(options.concurrency && { issueSync: { concurrency: options.concurrency }, hotspotSync: { concurrency: Math.min(options.concurrency, 3) }, hotspotExtraction: { concurrency: options.concurrency } }),
+        ...(options.maxMemory && { maxMemoryMB: options.maxMemory })
+      });
+      ensureHeapSize(perfConfig.maxMemoryMB);
+      logSystemInfo(perfConfig);
+
+      // Run full migrate with issue/hotspot transfer skipped (metadata sync only)
+      migrateConfig.dryRun = false;
+      const results = await migrateAll({
         sonarqubeConfig: config.sonarqube,
         sonarcloudOrgs: config.sonarcloud.organizations,
         migrateConfig,
-        rateLimitConfig: config.rateLimit
+        rateLimitConfig: config.rateLimit,
+        performanceConfig: perfConfig
       });
 
       const failed = results.projects.filter(p => !p.success).length;
@@ -386,7 +450,7 @@ function logProjectList(projects, projectKeyMapping, projectKeyPrefix) {
   });
 }
 
-async function executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options) {
+async function executeTransferAll(projects, config, projectKeyMapping, projectKeyPrefix, options, perfConfig = {}) {
   const results = [];
   const startTime = Date.now();
 
@@ -425,8 +489,10 @@ async function executeTransferAll(projects, config, projectKeyMapping, projectKe
           stateFile: perProjectStateFile,
           batchSize: config.transfer?.batchSize || 100
         },
+        performanceConfig: perfConfig,
         wait: options.wait,
-        skipConnectionTest: true
+        skipConnectionTest: true,
+        projectName: project.name
       });
 
       results.push({ ...result, success: true });

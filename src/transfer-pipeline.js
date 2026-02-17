@@ -14,11 +14,13 @@ import logger from './utils/logger.js';
  * @param {object} options.sonarqubeConfig - { url, token, projectKey }
  * @param {object} options.sonarcloudConfig - { url, token, organization, projectKey }
  * @param {object} options.transferConfig - { mode, stateFile, batchSize }
+ * @param {object} [options.performanceConfig] - Performance tuning options (concurrency, workers, memory)
  * @param {boolean} [options.wait=true] - Whether to wait for analysis completion
  * @param {boolean} [options.skipConnectionTest=false] - Skip connection testing
+ * @param {string} [options.projectName=null] - Human-readable project name from SonarQube
  * @returns {Promise<object>} Transfer result with stats
  */
-export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, wait = true, skipConnectionTest = false }) {
+export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = true, skipConnectionTest = false, projectName = null }) {
   const projectKey = sonarqubeConfig.projectKey;
   logger.info(`Starting transfer for project: ${projectKey}`);
 
@@ -42,8 +44,18 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
     await sonarCloudClient.testConnection();
   }
 
-  // Ensure SonarCloud project exists
-  await sonarCloudClient.ensureProject();
+  // If no project name was provided, fetch it from SonarQube
+  if (!projectName) {
+    try {
+      const sqProject = await sonarQubeClient.getProject();
+      projectName = sqProject.name || null;
+    } catch (error) {
+      logger.warn(`Could not fetch project name from SonarQube: ${error.message}`);
+    }
+  }
+
+  // Ensure SonarCloud project exists (with the original human-readable name)
+  await sonarCloudClient.ensureProject(projectName);
 
   // Extract data from SonarQube
   logger.info('Starting data extraction from SonarQube...');
@@ -51,7 +63,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   const extractor = new DataExtractor(
     sonarQubeClient,
     config,
-    transferConfig.mode === 'incremental' ? stateTracker : null
+    transferConfig.mode === 'incremental' ? stateTracker : null,
+    performanceConfig
   );
   const extractedData = await extractor.extractAll();
 
@@ -67,9 +80,14 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
   // Encode to protobuf format
   logger.info('Encoding to protobuf format...');
-  const encoder = new ProtobufEncoder();
-  await encoder.loadSchemas();
-  const encodedReport = encoder.encodeAll(messages);
+  let encodedReport;
+  if (performanceConfig.workerThreads > 0) {
+    encodedReport = await ProtobufEncoder.encodeAllInWorker(messages);
+  } else {
+    const encoder = new ProtobufEncoder();
+    await encoder.loadSchemas();
+    encodedReport = encoder.encodeAll(messages);
+  }
 
   // Upload to SonarCloud
   logger.info('Uploading to SonarCloud...');
