@@ -55,3 +55,4 @@ proto/
 compliance/sonar_scan_local.sh
 migrate-config.json
 migration-output/
+.claude/

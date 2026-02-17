@@ -24,6 +24,8 @@
     "sync-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose",
     "sync-metadata:issues-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
     "sync-metadata:hotspots-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync",
+    "migrate:high-memory": "NODE_OPTIONS='--max-old-space-size=8192' node src/index.js migrate -c migrate-config.json --verbose",
+    "migrate:fast": "NODE_OPTIONS='--max-old-space-size=8192' node src/index.js migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --workers 16",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "build": "node scripts/build.js",
@@ -36,7 +38,8 @@
   },
   "pkg": {
     "assets": [
-      "dist/schema/**"
+      "dist/schema/**",
+      "dist/encoder-worker.js"
     ],
     "outputPath": "dist/bin"
   },
