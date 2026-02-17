@@ -10,38 +10,28 @@
   "scripts": {
     "start": "node src/index.js",
     "transfer": "node src/index.js transfer -c config.json --verbose",
+    "transfer:auto-tune": "node src/index.js transfer -c config.json --verbose --auto-tune",
     "validate": "node src/index.js validate -c config.json",
     "test:connection": "node src/index.js test -c config.json",
     "status": "node src/index.js status -c config.json",
     "reset": "node src/index.js reset -c config.json",
     "transfer-all": "node src/index.js transfer-all -c config.json --verbose",
     "transfer-all:dry-run": "node src/index.js transfer-all -c config.json --verbose --dry-run",
+    "transfer-all:auto-tune": "node src/index.js transfer-all -c config.json --verbose --auto-tune",
     "migrate": "node src/index.js migrate -c migrate-config.json --verbose",
     "migrate:dry-run": "node src/index.js migrate -c migrate-config.json --verbose --dry-run",
     "migrate:skip-hotspot-metadata": "node src/index.js migrate -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
     "migrate:skip-issue-metadata": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync",
     "migrate:skip-all-metadata": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync",
+    "migrate:auto-tune": "node src/index.js migrate -c migrate-config.json --verbose --auto-tune",
+    "migrate:skip-all-metadata:auto-tune": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune",
     "sync-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose",
     "sync-metadata:issues-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
     "sync-metadata:hotspots-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync",
-    "migrate:high-memory": "NODE_OPTIONS='--max-old-space-size=8192' node src/index.js migrate -c migrate-config.json --verbose",
-    "migrate:fast": "NODE_OPTIONS='--max-old-space-size=8192' node src/index.js migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --workers 16",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "build": "node scripts/build.js",
-    "package": "node scripts/build.js --package",
-    "package:linux-x64": "node scripts/build.js --package --target=linux-x64",
-    "package:linux-arm64": "node scripts/build.js --package --target=linux-arm64",
-    "package:macos-x64": "node scripts/build.js --package --target=macos-x64",
-    "package:macos-arm64": "node scripts/build.js --package --target=macos-arm64",
-    "package:win-x64": "node scripts/build.js --package --target=win-x64"
-  },
-  "pkg": {
-    "assets": [
-      "dist/schema/**",
-      "dist/encoder-worker.js"
-    ],
-    "outputPath": "dist/bin"
+    "package": "node scripts/build.js --package"
   },
   "keywords": [
     "sonarqube",
@@ -65,7 +55,7 @@
   "devDependencies": {
     "esbuild": "^0.27.3",
     "eslint": "^8.56.0",
-    "pkg": "^5.8.1"
+    "postject": "^1.0.0-alpha.6"
   },
   "engines": {
     "node": ">=18.0.0"
