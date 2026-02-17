@@ -129,7 +129,7 @@ Used by `transfer`, `transfer-all`, `test`, `validate`, `status`, `reset`.
 
 ### SonarCloud Settings (Multi-Org)
 
-Used by `migrate`. Instead of a single org, you provide an array of target organizations.
+Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an array of target organizations.
 
 | Option | Required | Description |
 |--------|----------|-------------|
@@ -234,7 +234,12 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
 | `--max-memory <mb>` | Set max heap size in MB | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
 | `--project-concurrency <n>` | Max concurrent project migrations | `transfer-all`, `migrate` |
-| `--no-wait` | Do not wait for analysis to complete | `transfer`, `transfer-all`, `migrate` |
+
+**Other CLI flags:**
+
+| Flag | Description | Available on |
+|------|-------------|-------------|
+| `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `transfer-all`, `migrate` |
 
 **Example: high-performance migration:**
 
@@ -266,7 +271,7 @@ CloudVoyager can be run in two ways:
 1. **Via npm** (requires source checkout + `npm install`): `npm run <script>`
 2. **Via standalone binary** (no Node.js required): `./cloudvoyager <command> [options]`
 
-All CLI flags work identically in both modes. The table below shows every available command in both forms:
+All CLI flags work identically in both modes. The table below shows every available CLI command in both forms:
 
 | What it does | npm script | Binary equivalent |
 |-------------|-----------|-------------------|

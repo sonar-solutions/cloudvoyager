@@ -108,7 +108,9 @@ You should see a success message for both SonarQube and SonarCloud. If not, doub
 ./cloudvoyager transfer -c config.json --verbose
 ```
 
-That's it! Your project data will appear in SonarCloud once the transfer completes.
+That's it! The tool uploads the report and returns immediately — it does not wait for SonarCloud to finish processing. Your project data will appear in SonarCloud once the analysis completes in the background.
+
+> **Tip:** If you want the command to block until SonarCloud finishes processing, add `--wait`.
 
 ---
 
@@ -153,7 +155,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 | `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--max-memory <mb>` | Set max heap size in MB |
-| `--no-wait` | Do not wait for analysis to complete |
+| `--wait` | Wait for analysis to complete before returning (default: does not wait) |
 
 ---
 

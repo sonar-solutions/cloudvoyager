@@ -15,12 +15,12 @@ import logger from './utils/logger.js';
  * @param {object} options.sonarcloudConfig - { url, token, organization, projectKey }
  * @param {object} options.transferConfig - { mode, stateFile, batchSize }
  * @param {object} [options.performanceConfig] - Performance tuning options (concurrency, workers, memory)
- * @param {boolean} [options.wait=true] - Whether to wait for analysis completion
+ * @param {boolean} [options.wait=false] - Whether to wait for analysis completion
  * @param {boolean} [options.skipConnectionTest=false] - Skip connection testing
  * @param {string} [options.projectName=null] - Human-readable project name from SonarQube
  * @returns {Promise<object>} Transfer result with stats
  */
-export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = true, skipConnectionTest = false, projectName = null }) {
+export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null }) {
   const projectKey = sonarqubeConfig.projectKey;
   logger.info(`Starting transfer for project: ${projectKey}`);
 

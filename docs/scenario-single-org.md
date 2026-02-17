@@ -115,6 +115,8 @@ Run the actual migration with metadata sync disabled and auto-tuned performance.
 
 Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
+> **Note:** By default, the tool does not wait for each project's analysis to complete on SonarCloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
+
 ### Step 3c: Sync metadata separately
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step:
@@ -207,7 +209,7 @@ Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/serv
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--project-concurrency <n>` | Max concurrent project migrations |
 | `--max-memory <mb>` | Set max heap size in MB |
-| `--no-wait` | Do not wait for analysis to complete |
+| `--wait` | Wait for analysis to complete before returning (default: does not wait) |
 
 ---
 

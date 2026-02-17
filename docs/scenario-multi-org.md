@@ -19,7 +19,7 @@ Use this when you want to migrate **all projects and configuration** from your S
 
 ### How projects are assigned to orgs
 
-CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list.
+CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list. **You can review and adjust the project-to-org assignments in the generated `organizations.csv` file before running the actual migration.**
 
 ---
 
@@ -129,6 +129,8 @@ Run the actual migration with metadata sync disabled and auto-tuned performance.
 
 Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
+> **Note:** By default, the tool does not wait for each project's analysis to complete on SonarCloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
+
 ### Step 3c: Sync metadata separately
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step:
@@ -221,7 +223,7 @@ Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/serv
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--project-concurrency <n>` | Max concurrent project migrations |
 | `--max-memory <mb>` | Set max heap size in MB |
-| `--no-wait` | Do not wait for analysis to complete |
+| `--wait` | Wait for analysis to complete before returning (default: does not wait) |
 
 ---
 

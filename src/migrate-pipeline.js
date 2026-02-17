@@ -38,7 +38,7 @@ import logger from './utils/logger.js';
  * @param {object} options.migrateConfig - { outputDir, skipIssueSync, skipHotspotSync, dryRun }
  * @param {object} options.transferConfig - { mode, stateFile, batchSize }
  * @param {object} [options.performanceConfig] - Performance tuning options (concurrency, workers, memory)
- * @param {boolean} [options.wait=true] - Whether to wait for analysis completion
+ * @param {boolean} [options.wait=false] - Whether to wait for analysis completion
  * @returns {Promise<object>} Migration results
  */
 export async function migrateAll(options) {
@@ -49,7 +49,7 @@ export async function migrateAll(options) {
     transferConfig = { mode: 'full', batchSize: 100 },
     rateLimitConfig,
     performanceConfig: rawPerfConfig = {},
-    wait = true
+    wait = false
   } = options;
 
   const perfConfig = resolvePerformanceConfig(rawPerfConfig);

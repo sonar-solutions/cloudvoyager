@@ -28,8 +28,8 @@ export async function extractNewCodePeriods(client, projectKey = null) {
 
   const result = { projectLevel: null, branchOverrides: [] };
 
-  // Process project-level definition
-  if (projectLevel && !projectLevel.inherited) {
+  // Process project-level definition (include inherited to preserve effective setting)
+  if (projectLevel) {
     const mapper = LEAK_PERIOD_VALUE_MAP[projectLevel.type];
     result.projectLevel = {
       type: projectLevel.type,
@@ -37,12 +37,12 @@ export async function extractNewCodePeriods(client, projectKey = null) {
       leakPeriodValue: mapper ? mapper(projectLevel) : null,
     };
     const valueSuffix = projectLevel.value ? '=' + projectLevel.value : '';
-    logger.info(`Project-level new code definition: ${projectLevel.type}${valueSuffix}`);
+    const inheritedLabel = projectLevel.inherited ? ' (inherited from instance)' : '';
+    logger.info(`Project-level new code definition: ${projectLevel.type}${valueSuffix}${inheritedLabel}`);
   }
 
-  // Process branch-level overrides
+  // Process branch-level overrides (include inherited to preserve effective settings)
   for (const branch of branchOverrides) {
-    if (branch.inherited) continue;
     const mapper = LEAK_PERIOD_VALUE_MAP[branch.type];
     result.branchOverrides.push({
       branchKey: branch.branchKey,

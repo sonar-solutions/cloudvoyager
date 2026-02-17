@@ -26,7 +26,7 @@ program
   .description('Transfer data from SonarQube to SonarCloud')
   .requiredOption('-c, --config <path>', 'Path to configuration file')
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('--no-wait', 'Do not wait for analysis to complete')
+  .option('--wait', 'Wait for analysis to complete before returning')
   .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
   .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
 
@@ -58,7 +58,7 @@ program
         sonarcloudConfig: config.sonarcloud,
         transferConfig: config.transfer,
         performanceConfig: perfConfig,
-        wait: options.wait
+        wait: options.wait || false
       });
 
       logger.info('=== Transfer completed successfully ===');
@@ -82,7 +82,7 @@ program
   .description('Transfer ALL projects from SonarQube to SonarCloud')
   .requiredOption('-c, --config <path>', 'Path to configuration file')
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('--no-wait', 'Do not wait for analysis to complete')
+  .option('--wait', 'Wait for analysis to complete before returning')
   .option('--dry-run', 'List projects that would be transferred without transferring')
   .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
   .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
@@ -277,7 +277,7 @@ program
   .description('Full migration from SonarQube to one or more SonarCloud organizations')
   .requiredOption('-c, --config <path>', 'Path to migration configuration file')
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('--no-wait', 'Do not wait for analysis to complete')
+  .option('--wait', 'Wait for analysis to complete before returning')
   .option('--dry-run', 'Extract data and generate mappings without migrating')
   .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
   .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
@@ -319,7 +319,7 @@ program
         transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
         rateLimitConfig: config.rateLimit,
         performanceConfig: perfConfig,
-        wait: options.wait
+        wait: options.wait || false
       });
 
       const partial = results.projects.filter(p => p.status === 'partial').length;
@@ -490,7 +490,7 @@ async function executeTransferAll(projects, config, projectKeyMapping, projectKe
           batchSize: config.transfer?.batchSize || 100
         },
         performanceConfig: perfConfig,
-        wait: options.wait,
+        wait: options.wait || false,
         skipConnectionTest: true,
         projectName: project.name
       });
