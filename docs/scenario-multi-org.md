@@ -105,7 +105,11 @@ See [`examples/migrate-config.example.json`](../examples/migrate-config.example.
 
 > **Project keys:** By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
 
-## 🧪 Step 3: Do a dry run (recommended)
+## 🚀 Step 3: Run the migration (recommended 3-step approach)
+
+We recommend a 3-step migration: dry run, migrate without metadata, then sync metadata separately. This gives you the best combination of safety, speed, and reliability.
+
+### Step 3a: Dry run — verify everything
 
 A dry run extracts all data and generates mapping CSVs so you can review **which projects go to which org**, without changing anything in SonarCloud:
 
@@ -115,47 +119,39 @@ A dry run extracts all data and generates mapping CSVs so you can review **which
 
 Check `./migration-output/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
 
-## 🚀 Step 4: Run the full migration
+### Step 3b: Migrate without metadata + auto-tune
+
+Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
 
 ```bash
-./cloudvoyager migrate -c migrate-config.json --verbose
+./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune
 ```
 
-This may take a while for large servers. Progress is logged per-project and per-org throughout.
+Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
----
+### Step 3c: Sync metadata separately
 
-## ⚡ Speed up the migration (optional)
-
-You can skip metadata sync during the initial migration and do it separately afterward:
+Once all projects are migrated, sync issue and hotspot metadata as a standalone step:
 
 ```bash
-# Step 1: Migrate everything except metadata (fastest)
-./cloudvoyager migrate -c migrate-config.json --skip-issue-metadata-sync --skip-hotspot-metadata-sync --verbose
-
-# Step 2: Sync metadata separately afterward
 ./cloudvoyager sync-metadata -c migrate-config.json --verbose
 ```
 
-Or skip just the slowest part:
+This step is safely retryable — if it hits rate limits, just run it again. You can also sync just one type at a time:
 
 ```bash
-# Skip hotspot metadata sync only
-./cloudvoyager migrate -c migrate-config.json --skip-hotspot-metadata-sync --verbose
+# Sync only issue metadata
+./cloudvoyager sync-metadata -c migrate-config.json --skip-hotspot-metadata-sync --verbose
 
-# Then sync hotspot metadata later
+# Sync only hotspot metadata
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
-### Performance tuning
+---
 
-The easiest way to optimize performance is to use `--auto-tune`, which detects your hardware (CPU cores and RAM) and sets optimal values automatically:
+## ⚡ Performance tuning (optional)
 
-```bash
-./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune
-```
-
-Or manually set specific values:
+The `--auto-tune` flag (used in Step 3b) detects your hardware (CPU cores and RAM) and sets optimal values automatically. You can also manually set specific values:
 
 ```bash
 ./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --max-memory 8192
@@ -182,7 +178,6 @@ Use defaults — no `performance` section needed.
 {
   "performance": {
     "maxMemoryMB": 8192,
-    "workerThreads": 1,
     "sourceExtraction": { "concurrency": 20 },
     "hotspotExtraction": { "concurrency": 15 },
     "issueSync": { "concurrency": 10 },
@@ -226,7 +221,7 @@ Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/serv
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--project-concurrency <n>` | Max concurrent project migrations |
 | `--max-memory <mb>` | Set max heap size in MB |
-| `--workers <n>` | Number of worker threads for protobuf encoding |
+| `--no-wait` | Do not wait for analysis to complete |
 
 ---
 

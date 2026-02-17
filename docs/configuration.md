@@ -141,8 +141,8 @@ Used by `migrate`. Instead of a single org, you provide an array of target organ
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `mode` | `incremental` | `"incremental"` or `"full"` |
-| `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers |
+| `mode` | `incremental` | `"incremental"` or `"full"`. Note: defaults to `"full"` when using the `migrate` or `sync-metadata` commands |
+| `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers. Only applies to `transfer` and `transfer-all` commands (not `migrate` or `sync-metadata`) |
 | `batchSize` | `100` | Number of items per batch (1–500) |
 
 ### Transfer-All Settings
@@ -206,7 +206,6 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
     "autoTune": false,
     "maxConcurrency": 8,
     "maxMemoryMB": 8192,
-    "workerThreads": 0,
     "sourceExtraction": { "concurrency": 10 },
     "hotspotExtraction": { "concurrency": 10 },
     "issueSync": { "concurrency": 5 },
@@ -221,27 +220,26 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `autoTune` | `false` | Auto-detect CPU and RAM and set optimal values. When enabled, uses 75% of total RAM (max 16GB) and scales concurrency based on CPU cores. Explicit settings override auto-tuned values. |
 | `maxConcurrency` | `8` | General concurrency limit for parallel I/O operations (1–64) |
 | `maxMemoryMB` | `0` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
-| `workerThreads` | `0` | Number of worker threads for CPU-intensive protobuf encoding. `0` = disabled (run in main thread). Enable for large reports (10K+ issues). |
 | `sourceExtraction.concurrency` | `10` | Max concurrent source file fetches from SonarQube (1–50) |
 | `hotspotExtraction.concurrency` | `10` | Max concurrent hotspot detail fetches from SonarQube (1–50) |
 | `issueSync.concurrency` | `5` | Max concurrent issue metadata sync operations to SonarCloud (1–20) |
 | `hotspotSync.concurrency` | `3` | Max concurrent hotspot sync operations to SonarCloud (1–20). Lower default due to rate limiting sensitivity. |
 | `projectMigration.concurrency` | `1` | Max concurrent project migrations (1–8). Default `1` = sequential (backward-compatible). |
 
-**CLI overrides:** Performance settings can be overridden via CLI flags on `transfer`, `transfer-all`, `migrate`, and `sync-metadata` commands:
+**CLI overrides:** Performance settings can be overridden via CLI flags. Available flags vary by command:
 
-| Flag | Description |
-|------|-------------|
-| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
-| `--concurrency <n>` | Override max concurrency for all I/O operations |
-| `--max-memory <mb>` | Set max heap size in MB |
-| `--workers <n>` | Number of worker threads for CPU-intensive work |
-| `--project-concurrency <n>` | Max concurrent project migrations |
+| Flag | Description | Available on |
+|------|-------------|-------------|
+| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
+| `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
+| `--max-memory <mb>` | Set max heap size in MB | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
+| `--project-concurrency <n>` | Max concurrent project migrations | `transfer-all`, `migrate` |
+| `--no-wait` | Do not wait for analysis to complete | `transfer`, `transfer-all`, `migrate` |
 
 **Example: high-performance migration:**
 
 ```bash
-./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8 --workers 16
+./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8
 ```
 
 **Example: applying max memory (auto-restarts with increased heap):**
@@ -261,29 +259,92 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
 | `NODE_OPTIONS` | Set V8 flags manually (usually not needed — use `maxMemoryMB` in config or `--max-memory` flag instead) |
 
-## 📜 npm Scripts
+## 📜 npm Scripts vs Binary Commands
 
-All commands are available as npm scripts for convenience:
+CloudVoyager can be run in two ways:
 
-| Script | What it does |
-|--------|-------------|
-| `npm run validate` | Validate `config.json` |
-| `npm run test:connection` | Test connections using `config.json` |
-| `npm run transfer` | Transfer a single project using `config.json` |
-| `npm run transfer-all` | Transfer all projects using `config.json` |
-| `npm run transfer-all:dry-run` | Dry run transfer-all |
-| `npm run status` | Show sync status |
-| `npm run reset` | Clear sync history |
-| `npm run migrate` | Full migration using `migrate-config.json` |
-| `npm run migrate:dry-run` | Dry run migration |
-| `npm run migrate:skip-hotspot-metadata` | Migrate without hotspot metadata sync |
-| `npm run migrate:skip-issue-metadata` | Migrate without issue metadata sync |
-| `npm run migrate:skip-all-metadata` | Migrate without any metadata sync |
-| `npm run sync-metadata` | Sync issue & hotspot metadata only (for already-migrated projects) |
-| `npm run sync-metadata:issues-only` | Sync only issue metadata |
-| `npm run sync-metadata:hotspots-only` | Sync only hotspot metadata |
-| `npm run migrate:high-memory` | Migrate with 8GB heap (for large datasets) |
-| `npm run migrate:fast` | Migrate with 8GB heap, high concurrency (50), parallel projects (8), 16 worker threads |
+1. **Via npm** (requires source checkout + `npm install`): `npm run <script>`
+2. **Via standalone binary** (no Node.js required): `./cloudvoyager <command> [options]`
+
+All CLI flags work identically in both modes. The table below shows every available command in both forms:
+
+| What it does | npm script | Binary equivalent |
+|-------------|-----------|-------------------|
+| Validate `config.json` | `npm run validate` | `./cloudvoyager validate -c config.json` |
+| Test connections | `npm run test:connection` | `./cloudvoyager test -c config.json` |
+| Transfer a single project | `npm run transfer` | `./cloudvoyager transfer -c config.json --verbose` |
+| Transfer all projects | `npm run transfer-all` | `./cloudvoyager transfer-all -c config.json --verbose` |
+| Dry run transfer-all | `npm run transfer-all:dry-run` | `./cloudvoyager transfer-all -c config.json --verbose --dry-run` |
+| Show sync status | `npm run status` | `./cloudvoyager status -c config.json` |
+| Clear sync history | `npm run reset` | `./cloudvoyager reset -c config.json` |
+| Full migration | `npm run migrate` | `./cloudvoyager migrate -c migrate-config.json --verbose` |
+| Dry run migration | `npm run migrate:dry-run` | `./cloudvoyager migrate -c migrate-config.json --verbose --dry-run` |
+| Migrate without hotspot metadata sync | `npm run migrate:skip-hotspot-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
+| Migrate without issue metadata sync | `npm run migrate:skip-issue-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync` |
+| Migrate without any metadata sync | `npm run migrate:skip-all-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync` |
+| Sync issue & hotspot metadata only | `npm run sync-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose` |
+| Sync only issue metadata | `npm run sync-metadata:issues-only` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
+| Sync only hotspot metadata | `npm run sync-metadata:hotspots-only` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync` |
+| Transfer single project (auto-tuned) | `npm run transfer:auto-tune` | `./cloudvoyager transfer -c config.json --verbose --auto-tune` |
+| Transfer all projects (auto-tuned) | `npm run transfer-all:auto-tune` | `./cloudvoyager transfer-all -c config.json --verbose --auto-tune` |
+| Full migration (auto-tuned) | `npm run migrate:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune` |
+| Migrate without metadata (auto-tuned) | `npm run migrate:skip-all-metadata:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune` |
+
+> **Note:** The npm scripts use hardcoded config file paths (`config.json` or `migrate-config.json`). When using the binary directly, you can specify any config file path with `-c <path>`.
+
+## 🚀 Recommended Migration Workflow
+
+For multi-project migrations (`migrate` command), we recommend the following 3-step approach. This gives you the best combination of safety, speed, and reliability.
+
+### Step 1: Dry run — verify everything
+
+Run a dry run first to extract all data, generate mapping CSVs, and validate your config without touching SonarCloud:
+
+```bash
+# npm
+npm run migrate:dry-run
+
+# binary
+./cloudvoyager migrate -c migrate-config.json --verbose --dry-run
+```
+
+Check the generated files in `./migration-output/` (especially `organizations.csv`) to verify project-to-org assignments look correct.
+
+### Step 2: Migrate without metadata + auto-tune
+
+Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
+
+```bash
+# npm
+npm run migrate:skip-all-metadata:auto-tune
+
+# binary
+./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune
+```
+
+Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
+
+### Step 3: Sync metadata separately
+
+Once all projects are migrated, sync issue and hotspot metadata as a standalone step. This transitions issue statuses, copies comments, sets assignees, and syncs tags:
+
+```bash
+# npm
+npm run sync-metadata
+
+# binary
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+```
+
+This step is safely retryable — if it hits rate limits, just run it again. Already-synced items are matched by rule+file+line and won't be duplicated.
+
+### Why this approach?
+
+| Step | What it does | Why |
+|------|-------------|-----|
+| Dry run | Validates config, generates mappings | Catches errors before committing |
+| Migrate skip-all-metadata | Transfers reports + org-level config | Fast, avoids rate limits on SC |
+| Sync metadata | Transitions issue/hotspot statuses | Retryable, isolated from main migration |
 
 ## 🔄 Incremental Transfers
 

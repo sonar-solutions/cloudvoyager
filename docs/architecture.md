@@ -39,8 +39,7 @@ src/
 │       └── webhooks.js        # Server and project-level webhooks
 ├── protobuf/
 │   ├── builder.js            # Transforms extracted data into protobuf messages
-│   ├── encoder.js            # Encodes messages using protobufjs (+ worker thread support)
-│   ├── encoder-worker.js     # Worker thread for CPU-intensive protobuf encoding
+│   ├── encoder.js            # Encodes messages using protobufjs
 │   └── schema/               # Protocol buffer definitions (.proto files)
 │       ├── scanner-report.proto
 │       └── constants.proto
@@ -136,45 +135,36 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). The `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
-For CPU-intensive protobuf encoding, `encoder-worker.js` provides an optional worker thread via `encodeAllInWorker()`, offloading encoding from the main event loop.
-
 ## 📦 Build and Packaging
 
-CloudVoyager uses esbuild to bundle the ESM source into CJS, and pkg to create standalone binaries.
+CloudVoyager uses esbuild to bundle the ESM source into a single CJS file (with protobuf schemas inlined as text), and Node.js Single Executable Applications (SEA) to create standalone binaries.
 
 ### Build Process (`scripts/build.js`)
 
-1. **Bundle CLI** — esbuild bundles `src/index.js` (and all imports) into `dist/cli.cjs`
-2. **Bundle worker** — esbuild bundles `src/protobuf/encoder-worker.js` separately into `dist/encoder-worker.js` (runs in its own thread, must be a separate file)
-3. **Copy schemas** — protobuf `.proto` files are copied to `dist/schema/`
-4. **Package binaries** (optional) — pkg compiles `dist/cli.cjs` into standalone executables for 5 platforms
+1. **Bundle CLI** — esbuild bundles `src/index.js` (and all imports, including `.proto` schemas as text) into `dist/cli.cjs`
+2. **Package binary** (optional) — generates a Node.js SEA blob, copies the `node` binary, and injects the blob using `postject`
 
 ### Output Structure
 
 ```
 dist/
-├── cli.cjs              # Bundled CLI (CJS)
-├── encoder-worker.js    # Bundled worker thread (CJS)
-├── schema/              # Protobuf schema files
-│   ├── scanner-report.proto
-│   └── constants.proto
-└── bin/                 # Standalone binaries (when --package is used)
-    ├── cloudvoyager-linux-x64
-    ├── cloudvoyager-linux-arm64
-    ├── cloudvoyager-macos-x64
-    ├── cloudvoyager-macos-arm64
-    └── cloudvoyager-win-x64.exe
+├── cli.cjs              # Bundled CLI (CJS, self-contained)
+├── sea-config.json      # SEA configuration (when --package is used)
+├── sea-prep.blob        # SEA blob (when --package is used)
+└── bin/                 # Standalone binary (when --package is used)
+    └── cloudvoyager-{platform}-{arch}
 ```
 
 ### Build Commands
 
 ```bash
-npm run build                    # Bundle only (dist/cli.cjs + worker + schemas)
-npm run package                  # Bundle + all platform binaries
-npm run package:macos-arm64      # Bundle + single platform binary
+npm run build            # Bundle only (dist/cli.cjs)
+npm run package          # Bundle + standalone binary for current platform
 ```
 
-All CLI flags (`--concurrency`, `--max-memory`, `--workers`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
+Multi-platform binaries are built via CI (GitHub Actions matrix), since Node.js SEA can only build for the platform it's running on.
+
+All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
 ## 📄 Generated Report Structure
 

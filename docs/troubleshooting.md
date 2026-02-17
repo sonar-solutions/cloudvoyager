@@ -115,7 +115,7 @@ grep "SKIP\|skipping" migration.log
 
 The migration can be re-run safely. Projects that already exist in SonarCloud will be updated (not duplicated). To fix specific failures:
 
-- **Rate limit errors on hotspot sync** — re-run with `--skip-issue-sync` (issues already synced) and increase rate limit config
+- **Rate limit errors on hotspot sync** — re-run with `--skip-issue-metadata-sync` (issues already synced) and increase rate limit config
 - **Report upload failures** — check the specific error, fix the root cause, and re-run
 - **Partial failures** — re-run the full migration; steps that already succeeded (like creating a group that already exists) will either succeed again or fail gracefully
 
@@ -221,10 +221,10 @@ Or set it permanently in your config file:
 }
 ```
 
-You can also use the `migrate:high-memory` npm script:
+Or use the `migrate:auto-tune` npm script, which detects your hardware and sets optimal values automatically:
 
 ```bash
-npm run migrate:high-memory
+npm run migrate:auto-tune
 ```
 
 ## 🐢 Slow Migration Performance
@@ -242,12 +242,6 @@ Or manually increase concurrency via CLI flags:
 ./cloudvoyager migrate -c migrate-config.json --verbose --concurrency 50 --project-concurrency 8
 ```
 
-Or use the `migrate:fast` npm script:
-
-```bash
-npm run migrate:fast
-```
-
 For persistent config, add a `performance` section to your config file. See the [Configuration Reference](configuration.md#performance-settings) for all options.
 
 Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits.
@@ -258,7 +252,7 @@ Limit source file extraction for testing:
 
 ```bash
 export MAX_SOURCE_FILES=10
-node src/index.js transfer -c config.json
+./cloudvoyager transfer -c config.json
 ```
 
 ## 🔄 Migration-Specific Issues

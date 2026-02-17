@@ -103,10 +103,6 @@ All extractors and migrators use `mapConcurrent` instead of sequential `for...of
 
 Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.cpus()`. When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count (e.g., `sourceExtraction = cores * 2`, `issueSync = cores`, `hotspotSync = min(cores/2, 5)`). Explicit config values always override auto-tuned defaults.
 
-## 🧵 Worker Threads
-
-For CPU-intensive protobuf encoding on large reports (10K+ issues), CloudVoyager supports offloading encoding to a worker thread via `src/protobuf/encoder-worker.js`. The main thread sends extracted data to the worker, which returns the encoded binary buffers.
-
-Enable with `workerThreads: 1` in config or `--workers 1` on the CLI. When disabled (default), encoding runs on the main thread.
+## 💾 Memory Management
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.

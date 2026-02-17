@@ -66,11 +66,11 @@ See [`examples/config.example.json`](../examples/config.example.json) for a read
 |-------|----------|-------------|
 | `sonarqube.url` | Yes | Full URL of your SonarQube server |
 | `sonarqube.token` | Yes | SonarQube API token (starts with `sqp_` on newer versions) |
-| `sonarqube.projectKey` | Yes | Project key in SonarQube |
+| `sonarqube.projectKey` | Yes (for `transfer`) | Project key in SonarQube |
 | `sonarcloud.url` | No | SonarCloud URL (default: `https://sonarcloud.io`) |
 | `sonarcloud.token` | Yes | SonarCloud API token |
 | `sonarcloud.organization` | Yes | SonarCloud organization key |
-| `sonarcloud.projectKey` | Yes | Project key to use in SonarCloud |
+| `sonarcloud.projectKey` | Yes (for `transfer`) | Project key to use in SonarCloud |
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
 
@@ -153,7 +153,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 | `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--max-memory <mb>` | Set max heap size in MB |
-| `--workers <n>` | Number of worker threads for protobuf encoding |
+| `--no-wait` | Do not wait for analysis to complete |
 
 ---
 

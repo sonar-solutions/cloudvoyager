@@ -31,7 +31,6 @@
     "autoTune": false,
     "maxConcurrency": 8,
     "maxMemoryMB": 0,
-    "workerThreads": 0,
     "sourceExtraction": { "concurrency": 10 },
     "hotspotExtraction": { "concurrency": 10 },
     "projectMigration": { "concurrency": 1 }
