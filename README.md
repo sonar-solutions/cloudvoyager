@@ -122,8 +122,8 @@ Create a file called `migrate-config.json`:
   },
   "migrate": {
     "outputDir": "./migration-output",
-    "skipIssueSync": false,
-    "skipHotspotSync": false
+    "skipIssueMetadataSync": false,
+    "skipHotspotMetadataSync": false
   }
 }
 ```
@@ -150,14 +150,24 @@ This may take a while for large servers with many projects. Progress is logged t
 
 ### Speed up the migration (optional)
 
-If you want to skip syncing issue/hotspot metadata (statuses, comments, assignments), you can speed things up:
+If you want to skip syncing issue/hotspot metadata (statuses, comments, assignments), you can split it into two steps:
 
 ```bash
-# Skip hotspot sync only (the slowest part)
-./cloudvoyager migrate -c migrate-config.json --skip-hotspot-sync
+# Step 1: Migrate everything except metadata (fastest)
+./cloudvoyager migrate -c migrate-config.json --skip-issue-metadata-sync --skip-hotspot-metadata-sync --verbose
 
-# Skip both issue and hotspot sync (fastest — just projects, gates, profiles, permissions)
-./cloudvoyager migrate -c migrate-config.json --skip-issue-sync --skip-hotspot-sync
+# Step 2: Sync the metadata separately afterward
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+```
+
+Or skip just the slowest part:
+
+```bash
+# Skip hotspot metadata sync only (the slowest part)
+./cloudvoyager migrate -c migrate-config.json --skip-hotspot-metadata-sync
+
+# Then sync hotspot metadata later
+./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
 ### Generated Output Files
@@ -173,8 +183,12 @@ The migration generates mapping files in your output directory for review:
 | `gate-mappings.csv` | Quality gates mapped to target organizations |
 | `portfolio-mappings.csv` | Portfolios mapped to target organizations |
 | `template-mappings.csv` | Permission templates mapped to target organizations |
+| `migration-report.txt` | Human-readable report with per-project, per-step results |
+| `migration-report.json` | Machine-readable report (same data as above, structured JSON) |
 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files for your records.
+
+The migration report is always generated at the end of a run (even if the migration crashes partway through). Open `migration-report.txt` to quickly see which projects succeeded, partially succeeded, or failed — and exactly which step failed for each.
 
 ---
 
@@ -187,6 +201,7 @@ Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/serv
 | `transfer` | Migrate a single project |
 | `transfer-all` | Migrate all projects to a single SonarCloud org |
 | `migrate` | Full migration to one or more SonarCloud organizations |
+| `sync-metadata` | Sync only issue & hotspot metadata for already-migrated projects |
 | `status` | See what's been synced so far |
 | `reset` | Clear sync history and start fresh |
 
@@ -207,9 +222,12 @@ If you're running from source (for development), all commands are also available
 | `npm run reset` | Clear sync history |
 | `npm run migrate` | Full migration using `migrate-config.json` |
 | `npm run migrate:dry-run` | Dry run migration |
-| `npm run migrate:skip-hotspots` | Migrate without hotspot sync |
-| `npm run migrate:skip-issues` | Migrate without issue sync |
-| `npm run migrate:minimal` | Migrate without issue or hotspot sync |
+| `npm run migrate:skip-hotspot-metadata` | Migrate without hotspot metadata sync |
+| `npm run migrate:skip-issue-metadata` | Migrate without issue metadata sync |
+| `npm run migrate:skip-all-metadata` | Migrate without any metadata sync |
+| `npm run sync-metadata` | Sync issue & hotspot metadata only (for already-migrated projects) |
+| `npm run sync-metadata:issues-only` | Sync only issue metadata |
+| `npm run sync-metadata:hotspots-only` | Sync only hotspot metadata |
 
 ---
 

@@ -65,9 +65,9 @@ See `examples/transfer-all-config.example.json` for a complete example.
 
 ## Migration Config
 
-Used by: `migrate`
+Used by: `migrate`, `sync-metadata`
 
-Performs a full migration from a SonarQube server to one or more SonarCloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more.
+Performs a full migration from a SonarQube server to one or more SonarCloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more. The `sync-metadata` command uses the same config to sync only issue and hotspot metadata for already-migrated projects.
 
 ```json
 {
@@ -95,8 +95,8 @@ Performs a full migration from a SonarQube server to one or more SonarCloud orga
   },
   "migrate": {
     "outputDir": "./migration-output",
-    "skipIssueSync": false,
-    "skipHotspotSync": false,
+    "skipIssueMetadataSync": false,
+    "skipHotspotMetadataSync": false,
     "dryRun": false
   }
 }
@@ -158,8 +158,8 @@ Used by `migrate`. Instead of a single org, you provide an array of target organ
 | Option | Default | Description |
 |--------|---------|-------------|
 | `outputDir` | `./migration-output` | Directory for mapping CSVs and server info output |
-| `skipIssueSync` | `false` | Skip syncing issue statuses, assignments, and comments |
-| `skipHotspotSync` | `false` | Skip syncing hotspot statuses and comments |
+| `skipIssueMetadataSync` | `false` | Skip syncing issue metadata (statuses, assignments, comments, tags) |
+| `skipHotspotMetadataSync` | `false` | Skip syncing hotspot metadata (statuses, comments) |
 | `dryRun` | `false` | Extract and generate mappings without migrating |
 
 ### Rate Limit Settings
@@ -219,9 +219,12 @@ All commands are available as npm scripts for convenience:
 | `npm run reset` | Clear sync history |
 | `npm run migrate` | Full migration using `migrate-config.json` |
 | `npm run migrate:dry-run` | Dry run migration |
-| `npm run migrate:skip-hotspots` | Migrate without hotspot sync |
-| `npm run migrate:skip-issues` | Migrate without issue sync |
-| `npm run migrate:minimal` | Migrate without issue or hotspot sync |
+| `npm run migrate:skip-hotspot-metadata` | Migrate without hotspot metadata sync |
+| `npm run migrate:skip-issue-metadata` | Migrate without issue metadata sync |
+| `npm run migrate:skip-all-metadata` | Migrate without any metadata sync |
+| `npm run sync-metadata` | Sync issue & hotspot metadata only (for already-migrated projects) |
+| `npm run sync-metadata:issues-only` | Sync only issue metadata |
+| `npm run sync-metadata:hotspots-only` | Sync only hotspot metadata |
 
 ## Incremental Transfers
 

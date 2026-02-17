@@ -1,5 +1,126 @@
 # Troubleshooting
 
+## Debugging a Migration Run
+
+After every `migrate` run (whether it succeeds, partially succeeds, or crashes), CloudVoyager writes two report files to your output directory:
+
+| File | Purpose |
+|------|---------|
+| `migration-report.txt` | Human-readable report — open this first |
+| `migration-report.json` | Machine-readable structured data for scripting |
+
+### Where to start
+
+1. **Open `migration-report.txt`** — it's structured top-down so you can quickly find problems:
+
+   - **SUMMARY** — overall counts (succeeded / partial / failed)
+   - **SERVER-WIDE STEPS** — did extraction from SonarQube work?
+   - **ORGANIZATION** — did org-level setup (groups, gates, profiles) work?
+   - **FAILED / PARTIAL PROJECTS (DETAILED)** — step-by-step breakdown for every project that had issues, showing exactly which step failed and why
+   - **ALL PROJECTS** — compact one-line-per-project list with failed step names
+
+2. **Search for `[FAIL]`** in the text report to jump directly to errors.
+
+3. **Check `migration-report.json`** if you need to script post-migration analysis (e.g., count how many projects failed at "Sync hotspots" vs "Upload scanner report").
+
+### Example report output
+
+```
+FAILED / PARTIAL PROJECTS (DETAILED)
+----------------------------------------------------------------------
+  [FAIL   ] my-legacy-project -> org_my-legacy-project
+    [FAIL] Upload scanner report
+           Analysis failed: Issue whilst processing the report
+    [SKIP] Sync issues -- Report upload failed
+    [SKIP] Sync hotspots -- Report upload failed
+    [OK  ] Project settings
+    [OK  ] Project tags
+    [OK  ] Project links
+    [OK  ] New code definitions
+    [OK  ] DevOps binding
+    [OK  ] Assign quality gate
+    [OK  ] Project permissions
+
+  [PARTIAL] big-project -> org_big-project
+    [OK  ] Upload scanner report
+    [OK  ] Sync issues
+    [FAIL] Sync hotspots
+           Rate limited (503), exhausted all 3 retries
+    [OK  ] Project settings
+    [OK  ] Project tags
+    [OK  ] Project links
+    [OK  ] New code definitions
+    [OK  ] DevOps binding
+    [OK  ] Assign quality gate
+    [OK  ] Project permissions
+```
+
+From this you can see:
+- `my-legacy-project` failed at the scanner report upload (likely a protobuf/format issue) — but settings, tags, links, etc. still succeeded
+- `big-project` succeeded except for hotspot sync (rate limited) — you can re-run with only hotspot sync later
+
+### Project statuses
+
+| Status | Meaning |
+|--------|---------|
+| **success** | All steps completed without errors |
+| **partial** | Some steps succeeded, some failed — check the report for which ones |
+| **failed** | All non-skipped steps failed |
+
+### Per-project migration steps
+
+Each project goes through these steps (in order). If the scanner report upload fails, issue/hotspot sync are automatically skipped (they depend on uploaded data), but remaining steps still run:
+
+| Step | What it does | Depends on report upload? |
+|------|-------------|--------------------------|
+| Upload scanner report | Extracts code, issues, metrics from SQ and uploads to SC | — |
+| Sync issues | Matches issues by rule+file+line, syncs status/comments/tags | Yes |
+| Sync hotspots | Matches hotspots by rule+file+line, syncs status/comments | Yes |
+| Project settings | Copies non-inherited project settings | No |
+| Project tags | Sets custom project tags | No |
+| Project links | Creates external links (homepage, CI, etc.) | No |
+| New code definitions | Sets new code period per project/branch | No |
+| DevOps binding | Links project to GitHub/GitLab/Azure/Bitbucket | No |
+| Assign quality gate | Assigns the matching quality gate | No |
+| Project permissions | Sets group-level project permissions | No |
+
+### Using log files for deeper investigation
+
+For detailed debugging beyond the report, save the full log to a file:
+
+```bash
+LOG_FILE=./migration.log ./cloudvoyager migrate -c migrate-config.json --verbose
+```
+
+The `--verbose` flag enables `debug`-level logging, which includes:
+- Individual API request/response details
+- Per-issue and per-hotspot sync results (matched, skipped, failed)
+- Per-setting, per-tag, per-link migration details
+- Rate limit retry attempts with timing
+
+You can then search the log file for specific projects or error patterns:
+
+```bash
+# Find all errors for a specific project
+grep "my-project" migration.log | grep -i "error\|fail"
+
+# Find all rate limit retries
+grep "Rate limited" migration.log
+
+# Find all skipped items
+grep "SKIP\|skipping" migration.log
+```
+
+### Re-running after failures
+
+The migration can be re-run safely. Projects that already exist in SonarCloud will be updated (not duplicated). To fix specific failures:
+
+- **Rate limit errors on hotspot sync** — re-run with `--skip-issue-sync` (issues already synced) and increase rate limit config
+- **Report upload failures** — check the specific error, fix the root cause, and re-run
+- **Partial failures** — re-run the full migration; steps that already succeeded (like creating a group that already exists) will either succeed again or fail gracefully
+
+---
+
 ## Authentication Errors
 - Verify your tokens have the correct permissions
 - Check that tokens haven't expired
@@ -45,7 +166,7 @@ By default, CloudVoyager retries rate-limited requests up to 3 times with expone
 If you still encounter rate limit errors after all retries are exhausted, consider:
 - Increasing `maxRetries` and `baseDelay`
 - Running the migration during off-peak hours
-- Using `--skip-hotspot-sync` to skip the most rate-limit-prone operation
+- Using `--skip-hotspot-metadata-sync` to skip the most rate-limit-prone operation
 
 ## Quality Gate / Profile Permission Errors (400)
 
@@ -78,7 +199,11 @@ node src/index.js transfer -c config.json
 
 ### Partial Migration Failures
 
-The `migrate` command continues to the next project if one fails. Check the migration summary at the end for a list of failed projects and their error messages. You can re-run the migration — it will re-process all projects.
+The `migrate` command continues to the next project (and the next step within each project) if one fails. After the run completes, check `migration-report.txt` in your output directory for a detailed breakdown of what succeeded and what failed per project, per step.
+
+Projects with the status **partial** had some steps succeed and others fail. Projects with the status **failed** had all steps fail. Both are listed in the "FAILED / PARTIAL PROJECTS (DETAILED)" section of the report.
+
+You can re-run the migration — it will re-process all projects.
 
 ### Dry Run for Planning
 
@@ -88,10 +213,24 @@ Always run with `--dry-run` first to generate mapping CSVs and verify organizati
 ./cloudvoyager migrate -c migrate-config.json --dry-run
 ```
 
-### Skipping Issue/Hotspot Sync
+### Skipping Issue/Hotspot Metadata Sync
 
-If issue or hotspot sync is causing rate limit errors on large projects, you can skip them for a faster migration:
+If issue or hotspot metadata sync is causing rate limit errors on large projects, you can skip them during migration and sync them separately afterward:
 
 ```bash
-./cloudvoyager migrate -c migrate-config.json --skip-issue-sync --skip-hotspot-sync
+# Step 1: Migrate without metadata sync
+./cloudvoyager migrate -c migrate-config.json --skip-issue-metadata-sync --skip-hotspot-metadata-sync
+
+# Step 2: Sync metadata separately (can retry as needed)
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+```
+
+You can also sync just one type of metadata at a time:
+
+```bash
+# Sync only issue metadata
+./cloudvoyager sync-metadata -c migrate-config.json --skip-hotspot-metadata-sync --verbose
+
+# Sync only hotspot metadata
+./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```

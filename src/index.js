@@ -6,7 +6,7 @@ import { SonarQubeClient } from './sonarqube/api-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
 import { transferProject } from './transfer-pipeline.js';
-import { migrateAll } from './migrate-pipeline.js';
+import { migrateAll, syncMetadataOnly } from './migrate-pipeline.js';
 import logger from './utils/logger.js';
 import { CloudVoyagerError } from './utils/errors.js';
 
@@ -247,8 +247,8 @@ program
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--no-wait', 'Do not wait for analysis to complete')
   .option('--dry-run', 'Extract data and generate mappings without migrating')
-  .option('--skip-issue-sync', 'Skip syncing issue statuses, assignments, and comments')
-  .option('--skip-hotspot-sync', 'Skip syncing hotspot statuses and comments')
+  .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
+  .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
   .action(async (options) => {
     try {
       if (options.verbose) {
@@ -261,8 +261,8 @@ program
 
       const migrateConfig = config.migrate || {};
       if (options.dryRun) migrateConfig.dryRun = true;
-      if (options.skipIssueSync) migrateConfig.skipIssueSync = true;
-      if (options.skipHotspotSync) migrateConfig.skipHotspotSync = true;
+      if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
+      if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
 
       const results = await migrateAll({
         sonarqubeConfig: config.sonarqube,
@@ -273,9 +273,10 @@ program
         wait: options.wait
       });
 
-      const failed = results.projects.filter(p => !p.success).length;
-      if (failed > 0) {
-        logger.error(`${failed} project(s) failed to migrate`);
+      const partial = results.projects.filter(p => p.status === 'partial').length;
+      const failed = results.projects.filter(p => p.status === 'failed').length;
+      if (failed > 0 || partial > 0) {
+        logger.error(`${failed} project(s) failed, ${partial} project(s) partially migrated -- see migration report for details`);
         process.exit(1);
       }
 
@@ -284,6 +285,56 @@ program
     } catch (error) {
       if (error instanceof CloudVoyagerError) {
         logger.error(`Migration failed: ${error.message}`);
+      } else {
+        logger.error(`Unexpected error: ${error.message}`);
+        logger.debug(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+/**
+ * Sync metadata command - Sync only issue/hotspot metadata for already-migrated projects
+ */
+program
+  .command('sync-metadata')
+  .description('Sync issue and hotspot metadata (statuses, comments, assignments, tags) for already-migrated projects')
+  .requiredOption('-c, --config <path>', 'Path to migration configuration file')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
+  .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
+  .action(async (options) => {
+    try {
+      if (options.verbose) {
+        logger.level = 'debug';
+      }
+
+      logger.info('=== CloudVoyager - Issue & Hotspot Metadata Sync ===');
+
+      const config = await loadMigrateConfig(options.config);
+
+      const migrateConfig = config.migrate || {};
+      if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
+      if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
+
+      const results = await syncMetadataOnly({
+        sonarqubeConfig: config.sonarqube,
+        sonarcloudOrgs: config.sonarcloud.organizations,
+        migrateConfig,
+        rateLimitConfig: config.rateLimit
+      });
+
+      const failed = results.projects.filter(p => !p.success).length;
+      if (failed > 0) {
+        logger.error(`${failed} project(s) failed metadata sync`);
+        process.exit(1);
+      }
+
+      logger.info('=== Metadata sync completed successfully ===');
+
+    } catch (error) {
+      if (error instanceof CloudVoyagerError) {
+        logger.error(`Metadata sync failed: ${error.message}`);
       } else {
         logger.error(`Unexpected error: ${error.message}`);
         logger.debug(error.stack);

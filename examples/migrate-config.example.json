@@ -23,8 +23,8 @@
   },
   "migrate": {
     "outputDir": "./migration-output",
-    "skipIssueSync": false,
-    "skipHotspotSync": false,
+    "skipIssueMetadataSync": false,
+    "skipHotspotMetadataSync": false,
     "dryRun": false
   },
   "rateLimit": {

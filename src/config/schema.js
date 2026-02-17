@@ -141,15 +141,15 @@ export const configSchema = {
           default: './migration-output',
           description: 'Directory for mapping CSVs and server info output'
         },
-        skipIssueSync: {
+        skipIssueMetadataSync: {
           type: 'boolean',
           default: false,
-          description: 'Skip syncing issue statuses, assignments, and comments'
+          description: 'Skip syncing issue metadata (statuses, assignments, comments, tags)'
         },
-        skipHotspotSync: {
+        skipHotspotMetadataSync: {
           type: 'boolean',
           default: false,
-          description: 'Skip syncing hotspot statuses and comments'
+          description: 'Skip syncing hotspot metadata (statuses, comments)'
         },
         dryRun: {
           type: 'boolean',
@@ -251,15 +251,15 @@ export const migrateConfigSchema = {
           default: './migration-output',
           description: 'Directory for mapping CSVs and server info output'
         },
-        skipIssueSync: {
+        skipIssueMetadataSync: {
           type: 'boolean',
           default: false,
-          description: 'Skip syncing issue statuses, assignments, and comments'
+          description: 'Skip syncing issue metadata (statuses, assignments, comments, tags)'
         },
-        skipHotspotSync: {
+        skipHotspotMetadataSync: {
           type: 'boolean',
           default: false,
-          description: 'Skip syncing hotspot statuses and comments'
+          description: 'Skip syncing hotspot metadata (statuses, comments)'
         },
         dryRun: {
           type: 'boolean',

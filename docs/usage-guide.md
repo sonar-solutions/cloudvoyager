@@ -219,8 +219,8 @@ cp examples/migrate-config.example.json migrate-config.json
   },
   "migrate": {
     "outputDir": "./migration-output",
-    "skipIssueSync": false,
-    "skipHotspotSync": false,
+    "skipIssueMetadataSync": false,
+    "skipHotspotMetadataSync": false,
     "dryRun": false
   }
 }
@@ -236,8 +236,8 @@ cp examples/migrate-config.example.json migrate-config.json
 | `transfer.mode` | Use `"full"` for a complete migration |
 | `transfer.batchSize` | Items per batch (default `100`) |
 | `migrate.outputDir` | Where to save mapping CSVs and server info files |
-| `migrate.skipIssueSync` | Set to `true` to skip syncing issue statuses, comments, and assignments |
-| `migrate.skipHotspotSync` | Set to `true` to skip syncing hotspot statuses and comments |
+| `migrate.skipIssueMetadataSync` | Set to `true` to skip syncing issue metadata (statuses, comments, assignments, tags) |
+| `migrate.skipHotspotMetadataSync` | Set to `true` to skip syncing hotspot metadata (statuses, comments) |
 | `migrate.dryRun` | Set to `true` to extract data and generate mappings without actually migrating |
 
 **For each organization in the array:**
@@ -266,11 +266,11 @@ cp examples/migrate-config.example.json migrate-config.json
 Or with npm scripts:
 
 ```bash
-npm run migrate:dry-run       # Dry run only
-npm run migrate               # Full migration
-npm run migrate:skip-hotspots # Skip hotspot sync (the slowest part)
-npm run migrate:skip-issues   # Skip issue sync
-npm run migrate:minimal       # Skip both — just projects, gates, profiles, permissions
+npm run migrate:dry-run              # Dry run only
+npm run migrate                      # Full migration
+npm run migrate:skip-hotspot-metadata  # Skip hotspot metadata sync (the slowest part)
+npm run migrate:skip-issue-metadata    # Skip issue metadata sync
+npm run migrate:skip-all-metadata      # Skip all metadata sync — just projects, gates, profiles, permissions
 ```
 
 ### What the flags do
@@ -279,8 +279,31 @@ npm run migrate:minimal       # Skip both — just projects, gates, profiles, pe
 |------|-------------|----------------|
 | `--verbose` | Show detailed progress logs | Always recommended — helps you monitor progress |
 | `--dry-run` | Extract data and generate mapping CSVs without migrating | Use this first to review what will be migrated |
-| `--skip-issue-sync` | Skip syncing issue statuses, comments, tags, assignments | When you don't need issue metadata or want a faster migration |
-| `--skip-hotspot-sync` | Skip syncing hotspot statuses and comments | When hotspot sync is hitting rate limits or not needed |
+| `--skip-issue-metadata-sync` | Skip syncing issue metadata (statuses, comments, tags, assignments) | When you don't need issue metadata or want a faster migration |
+| `--skip-hotspot-metadata-sync` | Skip syncing hotspot metadata (statuses, comments) | When hotspot sync is hitting rate limits or not needed |
+
+### Syncing metadata separately
+
+If you skipped metadata sync during migration, you can sync it afterward as a separate step:
+
+```bash
+# Sync both issue and hotspot metadata
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+
+# Sync only issue metadata
+./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync
+
+# Sync only hotspot metadata
+./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync
+```
+
+Or with npm scripts:
+
+```bash
+npm run sync-metadata                # Sync all metadata
+npm run sync-metadata:issues-only    # Sync issue metadata only
+npm run sync-metadata:hotspots-only  # Sync hotspot metadata only
+```
 
 ---
 
@@ -291,6 +314,7 @@ npm run migrate:minimal       # Skip both — just projects, gates, profiles, pe
 | Migrate one project | `config.json` | `transfer` |
 | Migrate all projects (data only) | `config.json` with `transferAll` | `transfer-all` |
 | Migrate everything (projects + config + permissions) | `migrate-config.json` | `migrate` |
+| Sync only issue/hotspot metadata (after migration) | `migrate-config.json` | `sync-metadata` |
 | Just test my connections | `config.json` | `test` |
 | Check my config file for errors | `config.json` | `validate` |
 
