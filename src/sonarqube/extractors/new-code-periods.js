@@ -1,17 +1,23 @@
 import logger from '../../utils/logger.js';
 
 /**
- * Map SonarQube new code period types to sonar.leak.period values for SonarCloud.
+ * Map SonarQube new code period types to SonarCloud settings.
  * SonarCloud staging does not have the /api/new_code_periods/* endpoints.
- * Instead, new code definitions are set via api/settings/set with key=sonar.leak.period.
+ * Instead, new code definitions are set via api/settings/set with key=sonar.leak.period:
+ *   - PREVIOUS_VERSION → sonar.leak.period=previous_version
+ *   - NUMBER_OF_DAYS   → sonar.leak.period=<number>
  *
- * sonar.leak.period accepts:
- *   - A number (number of days, e.g. "30")
- *   - "previous_version"
+ * Returns the value to set for sonar.leak.period.
  */
-const LEAK_PERIOD_VALUE_MAP = {
-  'NUMBER_OF_DAYS': (period) => period.value,
-  'PREVIOUS_VERSION': () => 'previous_version',
+const LEAK_PERIOD_MAP = {
+  'NUMBER_OF_DAYS': (period) => [
+    { key: 'sonar.leak.period', value: period.value },
+    { key: 'sonar.leak.period.type', value: 'days' },
+  ],
+  'PREVIOUS_VERSION': () => [
+    { key: 'sonar.leak.period', value: 'previous_version' },
+    { key: 'sonar.leak.period.type', value: 'previous_version' },
+  ],
 };
 
 /**
@@ -30,11 +36,11 @@ export async function extractNewCodePeriods(client, projectKey = null) {
 
   // Process project-level definition (include inherited to preserve effective setting)
   if (projectLevel) {
-    const mapper = LEAK_PERIOD_VALUE_MAP[projectLevel.type];
+    const mapper = LEAK_PERIOD_MAP[projectLevel.type];
     result.projectLevel = {
       type: projectLevel.type,
       value: projectLevel.value || null,
-      leakPeriodValue: mapper ? mapper(projectLevel) : null,
+      settings: mapper ? mapper(projectLevel) : null,
     };
     const valueSuffix = projectLevel.value ? '=' + projectLevel.value : '';
     const inheritedLabel = projectLevel.inherited ? ' (inherited from instance)' : '';
@@ -43,12 +49,12 @@ export async function extractNewCodePeriods(client, projectKey = null) {
 
   // Process branch-level overrides (include inherited to preserve effective settings)
   for (const branch of branchOverrides) {
-    const mapper = LEAK_PERIOD_VALUE_MAP[branch.type];
+    const mapper = LEAK_PERIOD_MAP[branch.type];
     result.branchOverrides.push({
       branchKey: branch.branchKey,
       type: branch.type,
       value: branch.value || null,
-      leakPeriodValue: mapper ? mapper(branch) : null,
+      settings: mapper ? mapper(branch) : null,
     });
   }
 
