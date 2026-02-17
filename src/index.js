@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { loadConfig, requireProjectKeys } from './config/loader.js';
+import { loadConfig, loadMigrateConfig, requireProjectKeys } from './config/loader.js';
 import { SonarQubeClient } from './sonarqube/api-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
 import { transferProject } from './transfer-pipeline.js';
+import { migrateAll } from './migrate-pipeline.js';
 import logger from './utils/logger.js';
 import { CloudVoyagerError } from './utils/errors.js';
 
@@ -232,6 +233,60 @@ program
 
     } catch (error) {
       logger.error(`Connection test failed: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Migrate command - Full multi-org migration (projects, gates, profiles, permissions, etc.)
+ */
+program
+  .command('migrate')
+  .description('Full migration from SonarQube to one or more SonarCloud organizations')
+  .requiredOption('-c, --config <path>', 'Path to migration configuration file')
+  .option('-v, --verbose', 'Enable verbose logging')
+  .option('--no-wait', 'Do not wait for analysis to complete')
+  .option('--dry-run', 'Extract data and generate mappings without migrating')
+  .option('--skip-issue-sync', 'Skip syncing issue statuses, assignments, and comments')
+  .option('--skip-hotspot-sync', 'Skip syncing hotspot statuses and comments')
+  .action(async (options) => {
+    try {
+      if (options.verbose) {
+        logger.level = 'debug';
+      }
+
+      logger.info('=== CloudVoyager - Full Organization Migration ===');
+
+      const config = await loadMigrateConfig(options.config);
+
+      const migrateConfig = config.migrate || {};
+      if (options.dryRun) migrateConfig.dryRun = true;
+      if (options.skipIssueSync) migrateConfig.skipIssueSync = true;
+      if (options.skipHotspotSync) migrateConfig.skipHotspotSync = true;
+
+      const results = await migrateAll({
+        sonarqubeConfig: config.sonarqube,
+        sonarcloudOrgs: config.sonarcloud.organizations,
+        migrateConfig,
+        transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
+        wait: options.wait
+      });
+
+      const failed = results.projects.filter(p => !p.success).length;
+      if (failed > 0) {
+        logger.error(`${failed} project(s) failed to migrate`);
+        process.exit(1);
+      }
+
+      logger.info('=== Migration completed successfully ===');
+
+    } catch (error) {
+      if (error instanceof CloudVoyagerError) {
+        logger.error(`Migration failed: ${error.message}`);
+      } else {
+        logger.error(`Unexpected error: ${error.message}`);
+        logger.debug(error.stack);
+      }
       process.exit(1);
     }
   });

@@ -22,6 +22,18 @@ This vague SonarCloud error can be caused by:
 - Verify firewall rules allow access
 - Use `--verbose` flag for detailed connection logs
 
+## Rate Limiting (503 / 429 Errors)
+
+SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
+
+The SonarCloud API client handles this automatically with:
+- **Exponential backoff retry** - On 503/429, retries up to 5 times with delays of 1s, 2s, 4s, 8s, and 16s
+- **Write request throttling** - POST requests are spaced at least 150ms apart to proactively avoid triggering rate limits
+
+If you still encounter rate limit errors after all retries are exhausted, consider:
+- Running the migration during off-peak hours
+- Splitting large projects into smaller batches
+
 ## Large Reports
 
 Limit source file extraction for testing:

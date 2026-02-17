@@ -30,7 +30,7 @@ src/
 │       ├── scanner-report.proto
 │       └── constants.proto
 ├── sonarcloud/
-│   ├── api-client.js     # SonarCloud HTTP client (quality profiles, branch name)
+│   ├── api-client.js     # SonarCloud HTTP client (retry, throttle, quality profiles)
 │   └── uploader.js       # Report packaging and CE submission
 ├── state/
 │   ├── storage.js        # File-based state persistence

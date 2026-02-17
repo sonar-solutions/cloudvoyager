@@ -41,3 +41,11 @@ The tool fetches the main branch name from SonarCloud (via `getMainBranchName()`
 ## API Pagination
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
+
+## Rate Limit Handling
+
+The SonarCloud API client uses a two-layer strategy to handle rate limiting:
+
+1. **Exponential backoff retry** - When a 503 or 429 response is received, the request is retried up to 5 times with exponentially increasing delays (1s → 2s → 4s → 8s → 16s). If all retries are exhausted, the error is propagated to the caller.
+
+2. **Write request throttling** - All POST requests are spaced at least 150ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits, particularly during high-volume operations like issue sync and hotspot sync.

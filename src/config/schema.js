@@ -101,6 +101,141 @@ export const configSchema = {
         }
       },
       additionalProperties: false
+    },
+    migrate: {
+      type: 'object',
+      properties: {
+        outputDir: {
+          type: 'string',
+          default: './migration-output',
+          description: 'Directory for mapping CSVs and server info output'
+        },
+        skipIssueSync: {
+          type: 'boolean',
+          default: false,
+          description: 'Skip syncing issue statuses, assignments, and comments'
+        },
+        skipHotspotSync: {
+          type: 'boolean',
+          default: false,
+          description: 'Skip syncing hotspot statuses and comments'
+        },
+        dryRun: {
+          type: 'boolean',
+          default: false,
+          description: 'Extract and generate mappings without migrating'
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  additionalProperties: false
+};
+
+/**
+ * JSON schema for multi-org migration configuration
+ * Used by the `migrate` command which supports multiple target SonarCloud organizations
+ */
+export const migrateConfigSchema = {
+  type: 'object',
+  required: ['sonarqube', 'sonarcloud'],
+  properties: {
+    sonarqube: {
+      type: 'object',
+      required: ['url', 'token'],
+      properties: {
+        url: {
+          type: 'string',
+          format: 'uri',
+          description: 'SonarQube server URL'
+        },
+        token: {
+          type: 'string',
+          minLength: 1,
+          description: 'SonarQube API token'
+        }
+      },
+      additionalProperties: false
+    },
+    sonarcloud: {
+      type: 'object',
+      required: ['organizations'],
+      properties: {
+        organizations: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            type: 'object',
+            required: ['key', 'token'],
+            properties: {
+              key: {
+                type: 'string',
+                minLength: 1,
+                description: 'SonarCloud organization key'
+              },
+              token: {
+                type: 'string',
+                minLength: 1,
+                description: 'SonarCloud API token'
+              },
+              url: {
+                type: 'string',
+                format: 'uri',
+                default: 'https://sonarcloud.io',
+                description: 'SonarCloud server URL'
+              }
+            },
+            additionalProperties: false
+          },
+          description: 'Target SonarCloud organizations'
+        }
+      },
+      additionalProperties: false
+    },
+    transfer: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['full', 'incremental'],
+          default: 'full',
+          description: 'Transfer mode'
+        },
+        batchSize: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 500,
+          default: 100,
+          description: 'Batch size'
+        }
+      },
+      additionalProperties: false
+    },
+    migrate: {
+      type: 'object',
+      properties: {
+        outputDir: {
+          type: 'string',
+          default: './migration-output',
+          description: 'Directory for mapping CSVs and server info output'
+        },
+        skipIssueSync: {
+          type: 'boolean',
+          default: false,
+          description: 'Skip syncing issue statuses, assignments, and comments'
+        },
+        skipHotspotSync: {
+          type: 'boolean',
+          default: false,
+          description: 'Skip syncing hotspot statuses and comments'
+        },
+        dryRun: {
+          type: 'boolean',
+          default: false,
+          description: 'Extract and generate mappings without migrating'
+        }
+      },
+      additionalProperties: false
     }
   },
   additionalProperties: false

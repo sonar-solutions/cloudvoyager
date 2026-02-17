@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { configSchema } from './schema.js';
+import { configSchema, migrateConfigSchema } from './schema.js';
 import { ConfigurationError, ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 
@@ -136,4 +136,72 @@ export function validateConfig(config) {
   }
 
   return true;
+}
+
+/**
+ * Load and validate migration configuration (multi-org format)
+ * @param {string} configPath - Path to configuration file
+ * @returns {Promise<object>} Validated migration configuration
+ */
+export async function loadMigrateConfig(configPath) {
+  try {
+    logger.info(`Loading migration configuration from: ${configPath}`);
+
+    const configContent = await readFile(configPath, 'utf-8');
+    const config = JSON.parse(configContent);
+
+    // Apply environment variable overrides
+    if (process.env.SONARQUBE_TOKEN) {
+      config.sonarqube.token = process.env.SONARQUBE_TOKEN;
+    }
+    if (process.env.SONARQUBE_URL) {
+      config.sonarqube.url = process.env.SONARQUBE_URL;
+    }
+
+    // Validate against migrate schema
+    const migrateValidate = ajv.compile(migrateConfigSchema);
+    const valid = migrateValidate(config);
+
+    if (!valid) {
+      const errors = migrateValidate.errors.map(err => `${err.instancePath} ${err.message}`);
+      throw new ValidationError('Migration configuration validation failed', errors);
+    }
+
+    // Apply defaults
+    if (!config.transfer) {
+      config.transfer = { mode: 'full', batchSize: 100 };
+    }
+    if (!config.migrate) {
+      config.migrate = {};
+    }
+    if (!config.migrate.outputDir) {
+      config.migrate.outputDir = './migration-output';
+    }
+
+    // Apply defaults to each organization
+    for (const org of config.sonarcloud.organizations) {
+      if (!org.url) {
+        org.url = 'https://sonarcloud.io';
+      }
+    }
+
+    logger.info('Migration configuration loaded and validated successfully');
+    return config;
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      logger.error('Migration configuration validation failed:');
+      error.errors.forEach(err => logger.error(`  - ${err}`));
+      throw error;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new ConfigurationError(`Invalid JSON in configuration file: ${error.message}`);
+    }
+
+    if (error.code === 'ENOENT') {
+      throw new ConfigurationError(`Configuration file not found: ${configPath}`);
+    }
+
+    throw new ConfigurationError(`Failed to load configuration: ${error.message}`);
+  }
 }

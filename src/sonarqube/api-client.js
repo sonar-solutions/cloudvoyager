@@ -315,7 +315,7 @@ export class SonarQubeClient {
 
     const params = {
       qprofile: profileKey,
-      ps: 500 // Page size
+      ps: 100 // Page size
     };
 
     return await this.getPaginated('/api/rules/search', params, 'rules');
@@ -356,6 +356,388 @@ export class SonarQubeClient {
   async listAllProjects() {
     logger.info('Fetching all projects from SonarQube...');
     return await this.getPaginated('/api/projects/search', {}, 'components');
+  }
+
+  /**
+   * Search security hotspots for project
+   * @param {object} filters - Additional filters (branch, status, etc.)
+   */
+  async getHotspots(filters = {}) {
+    logger.info(`Fetching hotspots for project: ${this.projectKey}`);
+
+    const params = {
+      projectKey: this.projectKey,
+      ...filters
+    };
+
+    return await this.getPaginated('/api/hotspots/search', params, 'hotspots');
+  }
+
+  /**
+   * Get hotspot details including comments
+   * @param {string} hotspotKey - Hotspot key
+   */
+  async getHotspotDetails(hotspotKey) {
+    logger.debug(`Fetching hotspot details: ${hotspotKey}`);
+
+    const response = await this.client.get('/api/hotspots/show', {
+      params: { hotspot: hotspotKey }
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Get project-level settings (non-inherited)
+   * @param {string} projectKey - Project key (defaults to this.projectKey)
+   */
+  async getProjectSettings(projectKey = null) {
+    const key = projectKey || this.projectKey;
+    logger.info(`Fetching project settings for: ${key}`);
+
+    const response = await this.client.get('/api/settings/values', {
+      params: { component: key }
+    });
+
+    return response.data.settings || [];
+  }
+
+  /**
+   * Get project tags
+   */
+  async getProjectTags() {
+    logger.info('Fetching project tags');
+
+    const response = await this.client.get('/api/project_tags/search', {
+      params: { ps: 100 }
+    });
+
+    return response.data.tags || [];
+  }
+
+  /**
+   * Get project links
+   * @param {string} projectKey - Project key (defaults to this.projectKey)
+   */
+  async getProjectLinks(projectKey = null) {
+    const key = projectKey || this.projectKey;
+    logger.info(`Fetching project links for: ${key}`);
+
+    const response = await this.client.get('/api/project_links/search', {
+      params: { projectKey: key }
+    });
+
+    return response.data.links || [];
+  }
+
+  /**
+   * Get new code period definitions for project
+   * @param {string} projectKey - Project key (defaults to this.projectKey)
+   */
+  async getNewCodePeriods(projectKey = null) {
+    const key = projectKey || this.projectKey;
+    logger.info(`Fetching new code periods for: ${key}`);
+
+    try {
+      const response = await this.client.get('/api/new_code_periods/list', {
+        params: { project: key }
+      });
+
+      return response.data.newCodePeriods || [];
+    } catch (error) {
+      logger.warn(`Failed to get new code periods: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get ALM/DevOps platform settings
+   */
+  async getAlmSettings() {
+    logger.info('Fetching ALM/DevOps settings');
+
+    try {
+      const response = await this.client.get('/api/alm_settings/list_definitions');
+      return response.data;
+    } catch (error) {
+      logger.warn(`Failed to get ALM settings: ${error.message}`);
+      return {};
+    }
+  }
+
+  /**
+   * Get project DevOps binding
+   * @param {string} projectKey - Project key (defaults to this.projectKey)
+   */
+  async getProjectBinding(projectKey = null) {
+    const key = projectKey || this.projectKey;
+    logger.debug(`Fetching project binding for: ${key}`);
+
+    try {
+      const response = await this.client.get('/api/alm_settings/get_binding', {
+        params: { project: key }
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.debug(`No binding found for project ${key}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get all quality gates
+   */
+  async getQualityGates() {
+    logger.info('Fetching all quality gates');
+
+    const response = await this.client.get('/api/qualitygates/list');
+    return response.data;
+  }
+
+  /**
+   * Get quality gate details with conditions
+   * @param {string} name - Quality gate name
+   */
+  async getQualityGateDetails(name) {
+    logger.debug(`Fetching quality gate details: ${name}`);
+
+    const response = await this.client.get('/api/qualitygates/show', {
+      params: { name }
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Get quality gate permissions (users and groups)
+   * @param {string} gateName - Quality gate name
+   */
+  async getQualityGatePermissions(gateName) {
+    logger.debug(`Fetching quality gate permissions for: ${gateName}`);
+
+    const permissions = { users: [], groups: [] };
+
+    try {
+      const usersResponse = await this.client.get('/api/qualitygates/search_users', {
+        params: { gateName, ps: 100 }
+      });
+      permissions.users = usersResponse.data.users || [];
+    } catch (error) {
+      logger.debug(`Failed to get gate user permissions: ${error.message}`);
+    }
+
+    try {
+      const groupsResponse = await this.client.get('/api/qualitygates/search_groups', {
+        params: { gateName, ps: 100 }
+      });
+      permissions.groups = groupsResponse.data.groups || [];
+    } catch (error) {
+      logger.debug(`Failed to get gate group permissions: ${error.message}`);
+    }
+
+    return permissions;
+  }
+
+  /**
+   * Get all quality profiles (server-wide, no project filter)
+   */
+  async getAllQualityProfiles() {
+    logger.info('Fetching all quality profiles');
+
+    const response = await this.client.get('/api/qualityprofiles/search');
+    return response.data.profiles || [];
+  }
+
+  /**
+   * Get quality profile backup as XML
+   * @param {string} language - Profile language key (e.g. "js", "java")
+   * @param {string} qualityProfile - Profile name (e.g. "Sonar way")
+   */
+  async getQualityProfileBackup(language, qualityProfile) {
+    logger.debug(`Fetching quality profile backup: ${qualityProfile} (${language})`);
+
+    const response = await this.client.get('/api/qualityprofiles/backup', {
+      params: { language, qualityProfile },
+      responseType: 'text'
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Get quality profile permissions (users and groups)
+   * @param {string} language - Profile language key
+   * @param {string} qualityProfile - Profile name
+   */
+  async getQualityProfilePermissions(language, qualityProfile) {
+    logger.debug(`Fetching quality profile permissions for: ${qualityProfile} (${language})`);
+
+    const permissions = { users: [], groups: [] };
+
+    try {
+      const usersResponse = await this.client.get('/api/qualityprofiles/search_users', {
+        params: { qualityProfile, language, ps: 100 }
+      });
+      permissions.users = usersResponse.data.users || [];
+    } catch (error) {
+      logger.debug(`Failed to get profile user permissions: ${error.message}`);
+    }
+
+    try {
+      const groupsResponse = await this.client.get('/api/qualityprofiles/search_groups', {
+        params: { qualityProfile, language, ps: 100 }
+      });
+      permissions.groups = groupsResponse.data.groups || [];
+    } catch (error) {
+      logger.debug(`Failed to get profile group permissions: ${error.message}`);
+    }
+
+    return permissions;
+  }
+
+  /**
+   * Get all user groups
+   */
+  async getGroups() {
+    logger.info('Fetching all user groups');
+
+    return await this.getPaginated('/api/user_groups/search', {}, 'groups');
+  }
+
+  /**
+   * Get global (organization-level) group permissions
+   */
+  async getGlobalPermissions() {
+    logger.info('Fetching global permissions');
+
+    return await this.getPaginated('/api/permissions/groups', { ps: 100 }, 'groups');
+  }
+
+  /**
+   * Get project-level group permissions
+   * @param {string} projectKey - Project key
+   */
+  async getProjectPermissions(projectKey) {
+    logger.debug(`Fetching project permissions for: ${projectKey}`);
+
+    return await this.getPaginated('/api/permissions/groups', {
+      projectKey,
+      ps: 100
+    }, 'groups');
+  }
+
+  /**
+   * Get permission templates
+   */
+  async getPermissionTemplates() {
+    logger.info('Fetching permission templates');
+
+    const response = await this.client.get('/api/permissions/search_templates');
+    return response.data;
+  }
+
+  /**
+   * Get all portfolios/views
+   */
+  async getPortfolios() {
+    logger.info('Fetching portfolios');
+
+    try {
+      const response = await this.client.get('/api/views/list');
+      return response.data.views || [];
+    } catch (error) {
+      logger.warn(`Failed to get portfolios (may require Enterprise edition): ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get portfolio details with projects
+   * @param {string} key - Portfolio key
+   */
+  async getPortfolioDetails(key) {
+    logger.debug(`Fetching portfolio details: ${key}`);
+
+    try {
+      const response = await this.client.get('/api/views/show', {
+        params: { key }
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.warn(`Failed to get portfolio details: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get system info (server version, edition, etc.)
+   */
+  async getSystemInfo() {
+    logger.info('Fetching system info');
+
+    try {
+      const response = await this.client.get('/api/system/info');
+      return response.data;
+    } catch (error) {
+      logger.warn(`Failed to get system info (may require admin): ${error.message}`);
+      // Fall back to system/status which doesn't require admin
+      const statusResponse = await this.client.get('/api/system/status');
+      return statusResponse.data;
+    }
+  }
+
+  /**
+   * Get installed plugins
+   */
+  async getInstalledPlugins() {
+    logger.info('Fetching installed plugins');
+
+    try {
+      const response = await this.client.get('/api/plugins/installed');
+      return response.data.plugins || [];
+    } catch (error) {
+      logger.warn(`Failed to get installed plugins: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get webhooks (server-level or project-level)
+   * @param {string} projectKey - Project key (optional, omit for server-level)
+   */
+  async getWebhooks(projectKey = null) {
+    logger.info(`Fetching webhooks${projectKey ? ` for project: ${projectKey}` : ' (server-level)'}`);
+
+    const params = {};
+    if (projectKey) {
+      params.project = projectKey;
+    }
+
+    try {
+      const response = await this.client.get('/api/webhooks/list', { params });
+      return response.data.webhooks || [];
+    } catch (error) {
+      logger.warn(`Failed to get webhooks: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get issues with full details including comments
+   * @param {object} filters - Additional filters
+   */
+  async getIssuesWithComments(filters = {}) {
+    logger.info(`Fetching issues with comments for project: ${this.projectKey}`);
+
+    const params = {
+      componentKeys: this.projectKey,
+      additionalFields: 'comments',
+      ...filters
+    };
+
+    return await this.getPaginated('/api/issues/search', params, 'issues');
   }
 
   /**
