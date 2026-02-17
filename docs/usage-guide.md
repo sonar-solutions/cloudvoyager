@@ -296,6 +296,32 @@ npm run migrate:minimal       # Skip both — just projects, gates, profiles, pe
 
 ---
 
+## Rate Limiting (Optional)
+
+By default, CloudVoyager does **not** apply any rate limiting or request throttling. If you encounter 503 or 429 errors from SonarCloud (common during large migrations with many issues/hotspots), you can enable rate limiting by adding a `rateLimit` section to **any** config file:
+
+```json
+{
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
+  }
+}
+```
+
+| Field | Default | What it does |
+|-------|---------|-------------|
+| `maxRetries` | `0` (off) | How many times to retry a request that gets a 503 or 429 response. Each retry waits longer (exponential backoff). |
+| `baseDelay` | `1000` | How long to wait (in ms) before the first retry. Doubles each attempt: 1s → 2s → 4s → 8s → 16s. |
+| `minRequestInterval` | `0` (off) | Minimum time (in ms) to wait between write (POST) requests. Helps prevent hitting rate limits in the first place. |
+
+> **When to enable it:** If you see 503 errors in the logs during issue or hotspot sync, add the `rateLimit` section above. Start with the values shown — they work well for most migrations.
+
+> **When to leave it off:** For small migrations or if you're not hitting rate limits, the default (no throttling) gives you the fastest transfer speed.
+
+---
+
 ## Environment Variables
 
 Instead of putting tokens directly in your config file, you can use environment variables:

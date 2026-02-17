@@ -45,6 +45,7 @@ export async function migrateAll(options) {
     sonarcloudOrgs,
     migrateConfig = {},
     transferConfig = { mode: 'full', batchSize: 100 },
+    rateLimitConfig,
     wait = true
   } = options;
 
@@ -184,7 +185,8 @@ export async function migrateAll(options) {
     const scClient = new SonarCloudClient({
       url: org.url || 'https://sonarcloud.io',
       token: org.token,
-      organization: org.key
+      organization: org.key,
+      rateLimit: rateLimitConfig
     });
 
     await scClient.testConnection();
@@ -234,14 +236,15 @@ export async function migrateAll(options) {
           url: org.url || 'https://sonarcloud.io',
           token: org.token,
           organization: org.key,
-          projectKey: scProjectKey
+          projectKey: scProjectKey,
+          rateLimit: rateLimitConfig
         });
 
         // i. Upload scanner report (existing pipeline)
         const stateFile = join(outputDir, `.state.${project.key}.json`);
         await transferProject({
           sonarqubeConfig: { url: sonarqubeConfig.url, token: sonarqubeConfig.token, projectKey: project.key },
-          sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey },
+          sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: rateLimitConfig },
           transferConfig: { mode: transferConfig.mode, stateFile, batchSize: transferConfig.batchSize },
           wait,
           skipConnectionTest: true

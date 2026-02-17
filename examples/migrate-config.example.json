@@ -26,5 +26,10 @@
     "skipIssueSync": false,
     "skipHotspotSync": false,
     "dryRun": false
+  },
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
   }
 }

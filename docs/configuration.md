@@ -162,6 +162,38 @@ Used by `migrate`. Instead of a single org, you provide an array of target organ
 | `skipHotspotSync` | `false` | Skip syncing hotspot statuses and comments |
 | `dryRun` | `false` | Extract and generate mappings without migrating |
 
+### Rate Limit Settings
+
+Controls retry and throttling behavior for SonarCloud API requests. **Disabled by default** — rate limiting is only active when you explicitly configure it. Add a `rateLimit` section to any config file to enable it.
+
+```json
+{
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
+  }
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `maxRetries` | `0` | Max retry attempts when SonarCloud returns 503 or 429. Set to `0` to disable retries. Retries use exponential backoff (delay doubles each attempt). |
+| `baseDelay` | `1000` | Initial delay in ms before the first retry. Doubles each retry: 1000ms → 2000ms → 4000ms → etc. Only applies when `maxRetries` > 0. |
+| `minRequestInterval` | `0` | Minimum ms to wait between POST (write) requests. Set to `0` to disable throttling. Values like `100`–`200` help avoid triggering rate limits during high-volume operations. |
+
+**Example: aggressive rate limiting for large migrations:**
+
+```json
+{
+  "rateLimit": {
+    "maxRetries": 10,
+    "baseDelay": 2000,
+    "minRequestInterval": 250
+  }
+}
+```
+
 ## Environment Variables
 
 | Variable | Description |

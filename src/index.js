@@ -225,7 +225,7 @@ program
 
       // Test SonarCloud
       logger.info('Testing SonarCloud connection...');
-      const sonarCloudClient = new SonarCloudClient(config.sonarcloud);
+      const sonarCloudClient = new SonarCloudClient({ ...config.sonarcloud, rateLimit: config.rateLimit });
       await sonarCloudClient.testConnection();
       logger.info('SonarCloud connection successful');
 
@@ -269,6 +269,7 @@ program
         sonarcloudOrgs: config.sonarcloud.organizations,
         migrateConfig,
         transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
+        rateLimitConfig: config.rateLimit,
         wait: options.wait
       });
 
@@ -309,7 +310,8 @@ async function discoverProjects(config) {
   const sonarCloudTestClient = new SonarCloudClient({
     url: config.sonarcloud.url || 'https://sonarcloud.io',
     token: config.sonarcloud.token,
-    organization: config.sonarcloud.organization
+    organization: config.sonarcloud.organization,
+    rateLimit: config.rateLimit
   });
   await sonarCloudTestClient.testConnection();
 
@@ -364,7 +366,8 @@ async function executeTransferAll(projects, config, projectKeyMapping, projectKe
           url: config.sonarcloud.url || 'https://sonarcloud.io',
           token: config.sonarcloud.token,
           organization: config.sonarcloud.organization,
-          projectKey: scProjectKey
+          projectKey: scProjectKey,
+          rateLimit: config.rateLimit
         },
         transferConfig: {
           mode: config.transfer?.mode || 'incremental',

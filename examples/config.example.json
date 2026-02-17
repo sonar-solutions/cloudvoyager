@@ -14,5 +14,10 @@
     "mode": "incremental",
     "stateFile": "./.cloudvoyager-state.json",
     "batchSize": 100
+  },
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
   }
 }

@@ -26,13 +26,26 @@ This vague SonarCloud error can be caused by:
 
 SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
 
-The SonarCloud API client handles this automatically with:
-- **Exponential backoff retry** - On 503/429, retries up to 5 times with delays of 1s, 2s, 4s, 8s, and 16s
-- **Write request throttling** - POST requests are spaced at least 150ms apart to proactively avoid triggering rate limits
+Rate limiting is **disabled by default**. To enable automatic retries and request throttling, add a `rateLimit` section to your config file:
+
+```json
+{
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
+  }
+}
+```
+
+- **`maxRetries`** - Number of retry attempts on 503/429 with exponential backoff (0 = disabled)
+- **`baseDelay`** - Initial delay in ms before retrying (doubles each attempt: 1s, 2s, 4s, 8s, 16s)
+- **`minRequestInterval`** - Minimum ms between POST requests to avoid triggering limits (0 = disabled)
 
 If you still encounter rate limit errors after all retries are exhausted, consider:
+- Increasing `maxRetries` and `baseDelay`
 - Running the migration during off-peak hours
-- Splitting large projects into smaller batches
+- Using `--skip-hotspot-sync` to skip the most rate-limit-prone operation
 
 ## Quality Gate / Profile Permission Errors (400)
 

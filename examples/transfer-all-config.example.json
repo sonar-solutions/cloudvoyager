@@ -21,5 +21,10 @@
     "excludeProjects": [
       "project-to-skip"
     ]
+  },
+  "rateLimit": {
+    "maxRetries": 5,
+    "baseDelay": 1000,
+    "minRequestInterval": 150
   }
 }

@@ -12,12 +12,11 @@ export class SonarCloudClient {
     this.organization = config.organization;
     this.projectKey = config.projectKey;
 
-    // Retry configuration
-    this._maxRetries = 5;
-    this._baseDelay = 1000; // 1 second, doubles each retry: 1s, 2s, 4s, 8s, 16s
-
-    // Throttle configuration for write requests
-    this._minRequestInterval = 150; // ms between POST requests
+    // Rate limit configuration (from config.rateLimit or defaults — disabled by default)
+    const rateLimit = config.rateLimit || {};
+    this._maxRetries = rateLimit.maxRetries ?? 0;
+    this._baseDelay = rateLimit.baseDelay ?? 1000; // ms, doubles each retry
+    this._minRequestInterval = rateLimit.minRequestInterval ?? 0; // ms between POST requests
     this._lastPostTime = 0;
 
     // Create axios instance with default config

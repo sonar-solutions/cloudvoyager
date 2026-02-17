@@ -1,4 +1,35 @@
 /**
+ * Shared rateLimit schema used by both configSchema and migrateConfigSchema
+ */
+const rateLimitSchema = {
+  type: 'object',
+  properties: {
+    maxRetries: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 20,
+      default: 0,
+      description: 'Max retry attempts on 503/429 rate limit errors (0 = no retries)'
+    },
+    baseDelay: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 60000,
+      default: 1000,
+      description: 'Initial delay in ms before first retry (doubles each retry: 1000 -> 1s, 2s, 4s, 8s, 16s)'
+    },
+    minRequestInterval: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 10000,
+      default: 0,
+      description: 'Minimum ms between POST requests (0 = no throttling)'
+    }
+  },
+  additionalProperties: false
+};
+
+/**
  * JSON schema for configuration validation
  */
 export const configSchema = {
@@ -127,7 +158,8 @@ export const configSchema = {
         }
       },
       additionalProperties: false
-    }
+    },
+    rateLimit: rateLimitSchema
   },
   additionalProperties: false
 };
@@ -236,7 +268,8 @@ export const migrateConfigSchema = {
         }
       },
       additionalProperties: false
-    }
+    },
+    rateLimit: rateLimitSchema
   },
   additionalProperties: false
 };
