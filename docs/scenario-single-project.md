@@ -29,6 +29,7 @@ Download the latest binary for your platform from the [Releases](https://github.
 | Linux (x64) | `cloudvoyager-linux-x64` |
 | Linux (ARM64) | `cloudvoyager-linux-arm64` |
 | Windows (x64) | `cloudvoyager-win-x64.exe` |
+| Windows (ARM64) | `cloudvoyager-win-arm64.exe` |
 
 On macOS/Linux, make the binary executable:
 
