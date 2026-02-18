@@ -1,6 +1,6 @@
 # ☁️ 🐋 CloudVoyager
 
-Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed.
+Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything form the ground up on Node.js.
 
 CloudVoyager copies everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud.
 
