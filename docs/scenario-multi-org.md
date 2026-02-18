@@ -118,7 +118,7 @@ A dry run extracts all data and generates mapping CSVs so you can review **which
 ./cloudvoyager migrate -c migrate-config.json --dry-run
 ```
 
-Check `./migration-output/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
+Check `./migration-output/mappings/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
 
 ### Step 3b: Migrate without metadata + auto-tune
 

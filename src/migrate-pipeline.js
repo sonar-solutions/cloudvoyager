@@ -66,6 +66,9 @@ export async function migrateAll(options) {
   logger.info(`Cleaning output directory: ${outputDir}`);
   await rm(outputDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
+  // Pre-create subdirectories that don't have their own mkdir calls
+  await mkdir(join(outputDir, 'state'), { recursive: true });
+  await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
 
   const results = createEmptyResults();
 
@@ -110,7 +113,7 @@ export async function migrateAll(options) {
   } finally {
     results.endTime = new Date().toISOString();
     try {
-      await writeAllReports(results, outputDir);
+      await writeAllReports(results, join(outputDir, 'reports'));
     } catch (reportError) {
       logger.error(`Failed to write migration report: ${reportError.message}`);
     }
@@ -233,7 +236,7 @@ async function generateOrgMappings(allProjects, extractedData, sonarcloudOrgs, o
     projectBindings: extractedData.projectBindings,
     projectMetadata: new Map(allProjects.map(p => [p.key, p])),
     resourceMappings
-  }, outputDir);
+  }, join(outputDir, 'mappings'));
 
   return { orgMapping, resourceMappings };
 }
@@ -331,7 +334,7 @@ async function migrateOrgWideResources(extractedData, scClient, sqClient, orgRes
   await runOrgStep(orgResult, 'Compare quality profiles', async () => {
     logger.info('Comparing quality profiles between SonarQube and SonarCloud...');
     const diffReport = await generateQualityProfileDiff(extractedData.qualityProfiles, sqClient, scClient);
-    const diffPath = join(ctx.outputDir, 'quality-profile-diff.json');
+    const diffPath = join(ctx.outputDir, 'quality-profiles', 'quality-profile-diff.json');
     await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
     logger.info(`Quality profile diff report written to ${diffPath}`);
     return `${diffReport.summary.languagesCompared} languages compared, ${diffReport.summary.totalMissingRules} missing rules, ${diffReport.summary.totalAddedRules} added rules`;
@@ -428,7 +431,7 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
 async function uploadScannerReport(project, scProjectKey, org, projectResult, ctx) {
   const start = Date.now();
   try {
-    const stateFile = join(ctx.outputDir, `.state.${project.key}.json`);
+    const stateFile = join(ctx.outputDir, 'state', `.state.${project.key}.json`);
     await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
