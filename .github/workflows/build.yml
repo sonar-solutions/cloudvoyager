@@ -20,8 +20,11 @@ jobs:
             platform: macos-arm64
           - os: macos-15
             platform: macos-x64
+            node-arch: x64
           - os: windows-latest
             platform: win-x64
+          - os: windows-11-arm
+            platform: win-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +32,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 21
+          architecture: ${{ matrix.node-arch }}
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
