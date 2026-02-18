@@ -29,6 +29,8 @@ import { mapProjectsToOrganizations, mapResourcesToOrganizations } from './mappi
 import { generateMappingCsvs } from './mapping/csv-generator.js';
 import { resolvePerformanceConfig } from './utils/concurrency.js';
 import logger from './utils/logger.js';
+import { writeAllReports } from './reports/index.js';
+import { formatDuration, getNewCodePeriodSkippedProjects } from './reports/shared.js';
 
 /**
  * Execute the full multi-organization migration pipeline
@@ -108,7 +110,7 @@ export async function migrateAll(options) {
   } finally {
     results.endTime = new Date().toISOString();
     try {
-      await writeMigrationReport(results, outputDir);
+      await writeAllReports(results, outputDir);
     } catch (reportError) {
       logger.error(`Failed to write migration report: ${reportError.message}`);
     }
@@ -137,12 +139,13 @@ function createEmptyResults() {
 }
 
 async function runFatalStep(results, stepName, fn) {
+  const start = Date.now();
   try {
     const result = await fn();
-    results.serverSteps.push({ step: stepName, status: 'success' });
+    results.serverSteps.push({ step: stepName, status: 'success', durationMs: Date.now() - start });
     return result;
   } catch (error) {
-    results.serverSteps.push({ step: stepName, status: 'failed', error: error.message });
+    results.serverSteps.push({ step: stepName, status: 'failed', error: error.message, durationMs: Date.now() - start });
     throw error;
   }
 }
@@ -257,6 +260,7 @@ async function migrateOneOrganization(assignment, extractedData, resourceMapping
   logger.info(`=== Migrating to organization: ${org.key} (${projects.length} projects) ===`);
   logger.info(`========================================`);
 
+  const orgStart = Date.now();
   const orgResult = { key: org.key, projectCount: projects.length, steps: [] };
   results.orgResults.push(orgResult);
 
@@ -288,6 +292,8 @@ async function migrateOneOrganization(assignment, extractedData, resourceMapping
 
   // Create portfolios
   await migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClient, orgResult, results);
+
+  orgResult.durationMs = Date.now() - orgStart;
 }
 
 async function migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx) {
@@ -340,11 +346,12 @@ async function migrateOrgWideResources(extractedData, scClient, sqClient, orgRes
 }
 
 async function runOrgStep(orgResult, stepName, fn) {
+  const start = Date.now();
   try {
     const detail = await fn();
-    orgResult.steps.push({ step: stepName, status: 'success', ...(detail && { detail }) });
+    orgResult.steps.push({ step: stepName, status: 'success', durationMs: Date.now() - start, ...(detail && { detail }) });
   } catch (error) {
-    orgResult.steps.push({ step: stepName, status: 'failed', error: error.message });
+    orgResult.steps.push({ step: stepName, status: 'failed', error: error.message, durationMs: Date.now() - start });
     logger.error(`Failed to ${stepName.toLowerCase()}: ${error.message}`);
   }
 }
@@ -388,6 +395,7 @@ async function resolveProjectKey(project, org, scClient) {
 }
 
 async function migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping }) {
+  const projectStart = Date.now();
   const projectResult = { projectKey: project.key, scProjectKey, status: 'success', steps: [], errors: [] };
 
   const projectSqClient = new SonarQubeClient({
@@ -412,11 +420,13 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
 
   // Determine overall status
   finalizeProjectResult(projectResult);
+  projectResult.durationMs = Date.now() - projectStart;
 
   return projectResult;
 }
 
 async function uploadScannerReport(project, scProjectKey, org, projectResult, ctx) {
+  const start = Date.now();
   try {
     const stateFile = join(ctx.outputDir, `.state.${project.key}.json`);
     await transferProject({
@@ -428,10 +438,10 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
       skipConnectionTest: true,
       projectName: project.name
     });
-    projectResult.steps.push({ step: 'Upload scanner report', status: 'success' });
+    projectResult.steps.push({ step: 'Upload scanner report', status: 'success', durationMs: Date.now() - start });
     return true;
   } catch (error) {
-    projectResult.steps.push({ step: 'Upload scanner report', status: 'failed', error: error.message });
+    projectResult.steps.push({ step: 'Upload scanner report', status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);
     return false;
   }
@@ -439,14 +449,15 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
 
 async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient) {
   if (ctx.skipIssueSync) {
-    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Disabled by config' });
+    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Disabled by config', durationMs: 0 });
     return;
   }
   if (!reportUploadOk) {
-    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Report upload failed' });
+    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Report upload failed', durationMs: 0 });
     return;
   }
 
+  const start = Date.now();
   try {
     logger.info('Syncing issue metadata...');
     const sqIssues = await projectSqClient.getIssuesWithComments();
@@ -455,23 +466,24 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
     });
     results.issueSyncStats.matched += issueStats.matched;
     results.issueSyncStats.transitioned += issueStats.transitioned;
-    projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned` });
+    projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned`, durationMs: Date.now() - start });
   } catch (error) {
-    projectResult.steps.push({ step: 'Sync issues', status: 'failed', error: error.message });
+    projectResult.steps.push({ step: 'Sync issues', status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);
   }
 }
 
 async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient) {
   if (ctx.skipHotspotSync) {
-    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Disabled by config' });
+    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Disabled by config', durationMs: 0 });
     return;
   }
   if (!reportUploadOk) {
-    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Report upload failed' });
+    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Report upload failed', durationMs: 0 });
     return;
   }
 
+  const start = Date.now();
   try {
     logger.info('Syncing hotspot metadata...');
     const sqHotspots = await extractHotspots(projectSqClient, null, {
@@ -482,23 +494,25 @@ async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, 
     });
     results.hotspotSyncStats.matched += hotspotStats.matched;
     results.hotspotSyncStats.statusChanged += hotspotStats.statusChanged;
-    projectResult.steps.push({ step: 'Sync hotspots', status: 'success', detail: `${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed` });
+    projectResult.steps.push({ step: 'Sync hotspots', status: 'success', detail: `${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed`, durationMs: Date.now() - start });
   } catch (error) {
-    projectResult.steps.push({ step: 'Sync hotspots', status: 'failed', error: error.message });
+    projectResult.steps.push({ step: 'Sync hotspots', status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);
   }
 }
 
 async function runProjectStep(projectResult, stepName, fn) {
+  const start = Date.now();
   try {
     const result = await fn();
+    const durationMs = Date.now() - start;
     if (result && result.skipped) {
-      projectResult.steps.push({ step: stepName, status: 'skipped', detail: result.detail || '' });
+      projectResult.steps.push({ step: stepName, status: 'skipped', detail: result.detail || '', durationMs });
     } else {
-      projectResult.steps.push({ step: stepName, status: 'success' });
+      projectResult.steps.push({ step: stepName, status: 'success', durationMs });
     }
   } catch (error) {
-    projectResult.steps.push({ step: stepName, status: 'failed', error: error.message });
+    projectResult.steps.push({ step: stepName, status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);
   }
 }
@@ -593,6 +607,7 @@ function recordProjectOutcome(project, projectResult, results) {
 }
 
 async function migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClient, orgResult, results) {
+  const start = Date.now();
   try {
     logger.info('Creating portfolios...');
     const portfolioMapping = await migratePortfolios(
@@ -601,9 +616,9 @@ async function migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClie
       scClient
     );
     results.portfolios += portfolioMapping.size;
-    orgResult.steps.push({ step: 'Create portfolios', status: 'success', detail: `${portfolioMapping.size} created` });
+    orgResult.steps.push({ step: 'Create portfolios', status: 'success', detail: `${portfolioMapping.size} created`, durationMs: Date.now() - start });
   } catch (error) {
-    orgResult.steps.push({ step: 'Create portfolios', status: 'failed', error: error.message });
+    orgResult.steps.push({ step: 'Create portfolios', status: 'failed', error: error.message, durationMs: Date.now() - start });
     logger.error(`Failed to create portfolios: ${error.message}`);
   }
 }
@@ -640,224 +655,3 @@ function logMigrationSummary(results, outputDir) {
   logger.info('========================');
 }
 
-// ============================================================
-// Migration Report Generation
-// ============================================================
-
-/**
- * Write migration report files (JSON for programmatic use + TXT for humans)
- */
-async function writeMigrationReport(results, outputDir) {
-  await mkdir(outputDir, { recursive: true });
-
-  const jsonPath = join(outputDir, 'migration-report.json');
-  await writeFile(jsonPath, JSON.stringify(results, null, 2));
-
-  const txtPath = join(outputDir, 'migration-report.txt');
-  await writeFile(txtPath, formatTextReport(results));
-
-  logger.info(`Migration report saved to: ${txtPath}`);
-}
-
-/**
- * Format results as a human-readable text report
- */
-function formatTextReport(results) {
-  const lines = [];
-  const sep = '='.repeat(70);
-  const subsep = '-'.repeat(70);
-
-  formatReportHeader(lines, results, sep);
-  formatReportSummary(lines, results, subsep);
-  formatKeyConflicts(lines, results, subsep);
-  formatNewCodePeriodWarnings(lines, results, subsep);
-  formatServerSteps(lines, results, subsep);
-  formatOrgResults(lines, results, subsep);
-  formatProblemProjects(lines, results, subsep);
-  formatAllProjects(lines, results, subsep);
-
-  lines.push(sep);
-  return lines.join('\n');
-}
-
-function formatReportHeader(lines, results, sep) {
-  lines.push(sep, 'CLOUDVOYAGER MIGRATION REPORT', sep, '',
-    `Started:  ${results.startTime}`, `Finished: ${results.endTime || 'In progress'}`);
-  if (results.startTime && results.endTime) {
-    const durationMs = new Date(results.endTime) - new Date(results.startTime);
-    lines.push(`Duration: ${formatDuration(durationMs)}`);
-  }
-  if (results.dryRun) {
-    lines.push('Mode:     DRY RUN (no data migrated)');
-  }
-  lines.push('');
-}
-
-function formatReportSummary(lines, results, subsep) {
-  const succeeded = results.projects.filter(p => p.status === 'success').length;
-  const partial = results.projects.filter(p => p.status === 'partial').length;
-  const failed = results.projects.filter(p => p.status === 'failed').length;
-
-  lines.push('SUMMARY', subsep);
-  if (results.projects.length > 0) {
-    lines.push(`  Projects:         ${succeeded} succeeded, ${partial} partial, ${failed} failed (${results.projects.length} total)`);
-  } else {
-    lines.push('  Projects:         0 (no projects migrated)');
-  }
-  lines.push(
-    `  Quality Gates:    ${results.qualityGates} migrated`,
-    `  Quality Profiles: ${results.qualityProfiles} migrated`,
-    `  Groups:           ${results.groups} created`,
-    `  Portfolios:       ${results.portfolios} created`,
-    `  Issues:           ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`,
-    `  Hotspots:         ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`,
-    '',
-  );
-}
-
-function formatKeyConflicts(lines, results, subsep) {
-  const keyWarnings = results.projectKeyWarnings || [];
-  if (keyWarnings.length === 0) return;
-
-  lines.push(
-    'PROJECT KEY CONFLICTS',
-    subsep,
-    `  ${keyWarnings.length} project(s) could not use the original SonarQube key because`,
-    '  the key is already taken by another organization on SonarCloud.',
-    '  The migration tool uses the original SonarQube project key by default.',
-    '  When a conflict is detected, it falls back to a prefixed key ({org}_{key}).',
-    '',
-  );
-  for (const w of keyWarnings) {
-    lines.push(`  [WARN] "${w.sqKey}" -> "${w.scKey}" (taken by org "${w.owner}")`);
-  }
-  lines.push('');
-}
-
-function formatNewCodePeriodWarnings(lines, results, subsep) {
-  const ncpSkipped = getNewCodePeriodSkippedProjects(results);
-  if (ncpSkipped.length === 0) return;
-
-  lines.push(
-    'NEW CODE PERIOD NOT SET',
-    subsep,
-    `  ${ncpSkipped.length} project(s) use unsupported new code period types (e.g. REFERENCE_BRANCH)`,
-    '  that cannot be migrated to SonarCloud. The new code period for these projects',
-    '  was NOT set — please configure it manually in SonarCloud.',
-    '',
-  );
-  for (const { projectKey, detail } of ncpSkipped) {
-    lines.push(`  [SKIP] ${projectKey}: ${detail}`);
-  }
-  lines.push('');
-}
-
-function formatStepLine(lines, step) {
-  const icon = step.status === 'success' ? 'OK  ' : 'FAIL';
-  const detail = step.detail ? ` (${step.detail})` : '';
-  lines.push(`  [${icon}] ${step.step}${detail}`);
-  if (step.error) {
-    lines.push(`         ${step.error}`);
-  }
-}
-
-function formatServerSteps(lines, results, subsep) {
-  if (results.serverSteps.length === 0) return;
-
-  lines.push('SERVER-WIDE STEPS', subsep);
-  for (const step of results.serverSteps) {
-    formatStepLine(lines, step);
-  }
-  lines.push('');
-}
-
-function formatOrgResults(lines, results, subsep) {
-  for (const org of (results.orgResults || [])) {
-    lines.push(`ORGANIZATION: ${org.key} (${org.projectCount} projects)`, subsep);
-    for (const step of (org.steps || [])) {
-      formatStepLine(lines, step);
-    }
-    lines.push('');
-  }
-}
-
-function formatProblemProjects(lines, results, subsep) {
-  const problemProjects = results.projects.filter(p => p.status !== 'success');
-  if (problemProjects.length === 0) return;
-
-  lines.push('FAILED / PARTIAL PROJECTS (DETAILED)', subsep);
-  for (const project of problemProjects) {
-    formatProblemProjectDetail(lines, project);
-  }
-}
-
-function formatProblemProjectDetail(lines, project) {
-  const statusLabel = project.status === 'failed' ? 'FAIL   ' : 'PARTIAL';
-  lines.push(`  [${statusLabel}] ${project.projectKey} -> ${project.scProjectKey}`);
-  for (const step of project.steps) {
-    if (step.status === 'success') {
-      lines.push(`    [OK  ] ${step.step}`);
-    } else if (step.status === 'failed') {
-      lines.push(`    [FAIL] ${step.step}`, `           ${step.error}`);
-    } else if (step.status === 'skipped') {
-      lines.push(`    [SKIP] ${step.step} -- ${step.detail || ''}`);
-    }
-  }
-  lines.push('');
-}
-
-function formatAllProjects(lines, results, subsep) {
-  if (results.projects.length === 0) return;
-
-  lines.push('ALL PROJECTS', subsep);
-  for (const project of results.projects) {
-    formatProjectSummaryLine(lines, project);
-  }
-  lines.push('');
-}
-
-/**
- * Collect projects where new code period was skipped due to unsupported types.
- */
-function getNewCodePeriodSkippedProjects(results) {
-  const skipped = [];
-  for (const project of results.projects) {
-    const ncpStep = project.steps.find(s => s.step === 'New code definitions' && s.status === 'skipped');
-    if (ncpStep) {
-      skipped.push({ projectKey: project.projectKey, detail: ncpStep.detail });
-    }
-  }
-  return skipped;
-}
-
-function getProjectStatusIcon(status) {
-  if (status === 'success') return 'OK     ';
-  if (status === 'partial') return 'PARTIAL';
-  return 'FAIL   ';
-}
-
-function formatProjectSummaryLine(lines, project) {
-  const failedSteps = project.steps.filter(s => s.status === 'failed');
-  const icon = getProjectStatusIcon(project.status);
-  const detail = failedSteps.length > 0
-    ? ` (failed: ${failedSteps.map(s => s.step).join(', ')})`
-    : '';
-  lines.push(`  [${icon}] ${project.projectKey}${detail}`);
-}
-
-/**
- * Format milliseconds as human-readable duration
- */
-function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  }
-  return `${seconds}s`;
-}
