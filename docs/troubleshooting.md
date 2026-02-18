@@ -82,6 +82,7 @@ Each project goes through these steps (in order). If the scanner report upload f
 | New code definitions | Sets new code period per project/branch | No |
 | DevOps binding | Links project to GitHub/GitLab/Azure/Bitbucket | No |
 | Assign quality gate | Assigns the matching quality gate | No |
+| Assign quality profiles | Assigns migrated built-in quality profiles per language | No |
 | Project permissions | Sets group-level project permissions | No |
 
 ### Using log files for deeper investigation
@@ -188,6 +189,12 @@ To fix already-migrated projects, you can rename them manually in SonarCloud via
 ## 🚧 Quality Gate / Profile Permission Errors (400)
 
 When migrating quality gates or profiles, permission APIs may return 400 errors for built-in gates/profiles. This is expected — built-in resources don't support custom permissions. The migrators handle this gracefully and skip these entries.
+
+## 📊 Issue Counts Differ Between SonarQube and SonarCloud
+
+If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube and SonarCloud quality profiles.
+
+The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way (SonarQube Migrated)") and assigns them to projects. However, some rules may not exist on SonarCloud (e.g., rules from third-party plugins). Check `quality-profile-diff.json` in the output directory to see which rules are missing or added per language.
 
 ## 📄 SonarQube API Pagination Limits
 

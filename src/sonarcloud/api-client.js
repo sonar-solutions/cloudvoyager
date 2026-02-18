@@ -439,6 +439,69 @@ export class SonarCloudClient {
     });
   }
 
+  /**
+   * Search quality profiles for the organization (not project-specific)
+   * @param {string} [language] - Optional language filter
+   * @returns {Promise<Array>} Quality profiles
+   */
+  async searchQualityProfiles(language = null) {
+    const params = { organization: this.organization };
+    if (language) params.language = language;
+
+    const response = await this.client.get('/api/qualityprofiles/search', { params });
+    return response.data.profiles || [];
+  }
+
+  /**
+   * Get active rules for a quality profile
+   * @param {string} profileKey - Quality profile key
+   * @returns {Promise<Array>} Active rules
+   */
+  async getActiveRules(profileKey) {
+    logger.debug(`Fetching active rules for SC profile: ${profileKey}`);
+
+    let allRules = [];
+    let page = 1;
+    const pageSize = 100;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const response = await this.client.get('/api/rules/search', {
+        params: {
+          qprofile: profileKey,
+          organization: this.organization,
+          activation: 'true',
+          ps: pageSize,
+          p: page
+        }
+      });
+
+      const rules = response.data.rules || [];
+      allRules = allRules.concat(rules);
+
+      const total = response.data.total || 0;
+      if (page * pageSize >= total || rules.length < pageSize) break;
+      page++;
+    }
+
+    logger.debug(`Retrieved ${allRules.length} active rules for profile ${profileKey}`);
+    return allRules;
+  }
+
+  /**
+   * Associate a quality profile with a project
+   * @param {string} language - Language key
+   * @param {string} qualityProfile - Profile name
+   * @param {string} projectKey - Project key
+   */
+  async addQualityProfileToProject(language, qualityProfile, projectKey) {
+    logger.debug(`Assigning profile "${qualityProfile}" (${language}) to project ${projectKey}`);
+
+    await this.client.post('/api/qualityprofiles/add_project', null, {
+      params: { language, qualityProfile, project: projectKey, organization: this.organization }
+    });
+  }
+
   // ==========================================
   // Group Management
   // ==========================================

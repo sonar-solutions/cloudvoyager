@@ -48,7 +48,8 @@ src/
 │   ├── uploader.js           # Report packaging and CE submission
 │   └── migrators/            # SonarCloud migration modules
 │       ├── quality-gates.js   # Create gates, assign to projects
-│       ├── quality-profiles.js # Restore profiles via backup XML
+│       ├── quality-profiles.js # Restore profiles via backup XML (including built-in as custom)
+│       ├── quality-profile-diff.js # Compare SQ vs SC active rules per language
 │       ├── groups.js          # Create user groups
 │       ├── permissions.js     # Global, project, and template permissions
 │       ├── portfolios.js      # Create portfolios, assign projects
@@ -101,7 +102,8 @@ Uses `migrate-pipeline.js`:
    - Create groups
    - Set global permissions
    - Create quality gates
-   - Restore quality profiles (via backup XML)
+   - Restore quality profiles (custom via backup XML, built-in as renamed custom profiles)
+   - Compare quality profiles and write diff report (`quality-profile-diff.json`)
    - Create permission templates
    - For each project:
      - Resolve project key (use original SonarQube key; fall back to `{org}_{key}` if taken globally)
@@ -111,6 +113,7 @@ Uses `migrate-pipeline.js`:
      - Set project settings, tags, links, new code periods
      - Set DevOps binding
      - Assign quality gate
+     - Assign migrated built-in quality profiles
      - Set project-level permissions
    - Create portfolios and assign projects
 

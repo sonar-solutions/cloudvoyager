@@ -206,6 +206,7 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 | `template-mappings.csv` | Permission templates mapped to target organizations |
 | `migration-report.txt` | Human-readable report with per-project, per-step results |
 | `migration-report.json` | Machine-readable report (same data, structured JSON) |
+| `quality-profile-diff.json` | Per-language diff of active rules between SonarQube and SonarCloud |
 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
 

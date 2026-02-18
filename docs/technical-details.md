@@ -88,6 +88,12 @@ The `migrate` command maps projects to target SonarCloud organizations based on 
 
 Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
 
+Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "Sonar way") cannot be overwritten on SonarCloud, so they are restored as custom profiles with a "(SonarQube Migrated)" suffix (e.g., "Sonar way (SonarQube Migrated)"). These migrated profiles are automatically assigned to each project to ensure the same rules are active as in SonarQube.
+
+After profile migration, a **quality profile diff report** (`quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
+- **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
+- **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
+
 ## 🚧 Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.

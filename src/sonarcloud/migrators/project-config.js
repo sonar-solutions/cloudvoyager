@@ -104,8 +104,9 @@ export async function migrateNewCodePeriods(projectKey, newCodeData, client) {
 
   if (!settings) {
     const types = [projectLevel?.type, ...((branchOverrides || []).map(b => b.type))].filter(Boolean);
-    logger.warn(`Cannot migrate new code definition for ${projectKey}: unsupported type(s) ${types.join(', ')} (only NUMBER_OF_DAYS and PREVIOUS_VERSION are supported)`);
-    return;
+    const reason = `unsupported type(s) ${types.join(', ')} (only NUMBER_OF_DAYS and PREVIOUS_VERSION are supported)`;
+    logger.warn(`Cannot migrate new code definition for ${projectKey}: ${reason}`);
+    return { skipped: true, detail: reason };
   }
 
   const settingsDesc = settings.map(s => `${s.key}=${s.value}`).join(', ');

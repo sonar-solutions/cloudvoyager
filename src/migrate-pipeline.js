@@ -18,6 +18,7 @@ import { extractWebhooks } from './sonarqube/extractors/webhooks.js';
 import { extractAlmSettings, extractAllProjectBindings } from './sonarqube/extractors/devops-bindings.js';
 import { migrateQualityGates, assignQualityGatesToProjects } from './sonarcloud/migrators/quality-gates.js';
 import { migrateQualityProfiles } from './sonarcloud/migrators/quality-profiles.js';
+import { generateQualityProfileDiff } from './sonarcloud/migrators/quality-profile-diff.js';
 import { migrateGroups } from './sonarcloud/migrators/groups.js';
 import { migrateGlobalPermissions, migrateProjectPermissions, migratePermissionTemplates } from './sonarcloud/migrators/permissions.js';
 import { migrateProjectSettings, migrateProjectTags, migrateProjectLinks, migrateNewCodePeriods, migrateDevOpsBinding } from './sonarcloud/migrators/project-config.js';
@@ -275,11 +276,12 @@ async function migrateOneOrganization(assignment, extractedData, resourceMapping
     return;
   }
 
-  const gateMapping = await migrateOrgWideResources(extractedData, scClient, orgResult, results);
+  const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
+  const { gateMapping, builtInProfileMapping } = await migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx);
 
   // Migrate each project
   const { projectKeyMap, projectKeyWarnings } = await migrateOrgProjects(
-    projects, org, scClient, gateMapping, extractedData, results, ctx
+    projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping
   );
 
   results.projectKeyWarnings.push(...projectKeyWarnings);
@@ -288,9 +290,10 @@ async function migrateOneOrganization(assignment, extractedData, resourceMapping
   await migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClient, orgResult, results);
 }
 
-async function migrateOrgWideResources(extractedData, scClient, orgResult, results) {
+async function migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx) {
   // Create groups
   let gateMapping = new Map();
+  let builtInProfileMapping = new Map();
 
   await runOrgStep(orgResult, 'Create groups', async () => {
     logger.info('Creating groups...');
@@ -313,9 +316,19 @@ async function migrateOrgWideResources(extractedData, scClient, orgResult, resul
 
   await runOrgStep(orgResult, 'Restore quality profiles', async () => {
     logger.info('Restoring quality profiles...');
-    const profileMapping = await migrateQualityProfiles(extractedData.qualityProfiles, scClient);
-    results.qualityProfiles += profileMapping.size;
-    return `${profileMapping.size} restored`;
+    const migrationResult = await migrateQualityProfiles(extractedData.qualityProfiles, scClient);
+    builtInProfileMapping = migrationResult.builtInProfileMapping;
+    results.qualityProfiles += migrationResult.profileMapping.size;
+    return `${migrationResult.profileMapping.size} restored (${builtInProfileMapping.size} built-in migrated)`;
+  });
+
+  await runOrgStep(orgResult, 'Compare quality profiles', async () => {
+    logger.info('Comparing quality profiles between SonarQube and SonarCloud...');
+    const diffReport = await generateQualityProfileDiff(extractedData.qualityProfiles, sqClient, scClient);
+    const diffPath = join(ctx.outputDir, 'quality-profile-diff.json');
+    await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
+    logger.info(`Quality profile diff report written to ${diffPath}`);
+    return `${diffReport.summary.languagesCompared} languages compared, ${diffReport.summary.totalMissingRules} missing rules, ${diffReport.summary.totalAddedRules} added rules`;
   });
 
   await runOrgStep(orgResult, 'Create permission templates', async () => {
@@ -323,7 +336,7 @@ async function migrateOrgWideResources(extractedData, scClient, orgResult, resul
     await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
   });
 
-  return gateMapping;
+  return { gateMapping, builtInProfileMapping };
 }
 
 async function runOrgStep(orgResult, stepName, fn) {
@@ -336,7 +349,7 @@ async function runOrgStep(orgResult, stepName, fn) {
   }
 }
 
-async function migrateOrgProjects(projects, org, scClient, gateMapping, extractedData, results, ctx) {
+async function migrateOrgProjects(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping) {
   const projectKeyMap = new Map();
   const projectKeyWarnings = [];
 
@@ -350,7 +363,7 @@ async function migrateOrgProjects(projects, org, scClient, gateMapping, extracte
     logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} -> ${scProjectKey} ---`);
 
     const projectResult = await migrateOneProject({
-      project, scProjectKey, org, gateMapping, extractedData, results, ctx
+      project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping
     });
 
     results.projects.push(projectResult);
@@ -374,7 +387,7 @@ async function resolveProjectKey(project, org, scClient) {
   return { scProjectKey, warning };
 }
 
-async function migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx }) {
+async function migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping }) {
   const projectResult = { projectKey: project.key, scProjectKey, status: 'success', steps: [], errors: [] };
 
   const projectSqClient = new SonarQubeClient({
@@ -395,7 +408,7 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
   await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
 
   // iv-x. Migrate project config
-  await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult);
+  await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping);
 
   // Determine overall status
   finalizeProjectResult(projectResult);
@@ -478,15 +491,19 @@ async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, 
 
 async function runProjectStep(projectResult, stepName, fn) {
   try {
-    await fn();
-    projectResult.steps.push({ step: stepName, status: 'success' });
+    const result = await fn();
+    if (result && result.skipped) {
+      projectResult.steps.push({ step: stepName, status: 'skipped', detail: result.detail || '' });
+    } else {
+      projectResult.steps.push({ step: stepName, status: 'success' });
+    }
   } catch (error) {
     projectResult.steps.push({ step: stepName, status: 'failed', error: error.message });
     projectResult.errors.push(error.message);
   }
 }
 
-async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult) {
+async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping) {
   await runProjectStep(projectResult, 'Project settings', async () => {
     const projectSettings = await extractProjectSettings(projectSqClient, project.key);
     await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
@@ -504,7 +521,7 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
 
   await runProjectStep(projectResult, 'New code definitions', async () => {
     const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
-    await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
+    return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
   });
 
   await runProjectStep(projectResult, 'DevOps binding', async () => {
@@ -518,6 +535,23 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
       await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
     }
   });
+
+  // Assign migrated built-in quality profiles to the project
+  if (builtInProfileMapping && builtInProfileMapping.size > 0) {
+    await runProjectStep(projectResult, 'Assign quality profiles', async () => {
+      let assigned = 0;
+      for (const [language, profileName] of builtInProfileMapping) {
+        try {
+          await projectScClient.addQualityProfileToProject(language, profileName, scProjectKey);
+          assigned++;
+        } catch (error) {
+          // Profile may not apply to this project's languages — that's OK
+          logger.debug(`Could not assign profile "${profileName}" (${language}) to ${scProjectKey}: ${error.message}`);
+        }
+      }
+      return `${assigned} profiles assigned`;
+    });
+  }
 
   await runProjectStep(projectResult, 'Project permissions', async () => {
     const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
@@ -595,6 +629,13 @@ function logMigrationSummary(results, outputDir) {
       logger.warn(`  "${w.sqKey}" -> "${w.scKey}" (key taken by org "${w.owner}")`);
     }
   }
+  const ncpSkipped = getNewCodePeriodSkippedProjects(results);
+  if (ncpSkipped.length > 0) {
+    logger.warn(`New code period NOT set: ${ncpSkipped.length} project(s) have unsupported new code period types (e.g. REFERENCE_BRANCH)`);
+    for (const { projectKey, detail } of ncpSkipped) {
+      logger.warn(`  ${projectKey}: ${detail}`);
+    }
+  }
   logger.info(`Output: ${outputDir}`);
   logger.info('========================');
 }
@@ -629,6 +670,7 @@ function formatTextReport(results) {
   formatReportHeader(lines, results, sep);
   formatReportSummary(lines, results, subsep);
   formatKeyConflicts(lines, results, subsep);
+  formatNewCodePeriodWarnings(lines, results, subsep);
   formatServerSteps(lines, results, subsep);
   formatOrgResults(lines, results, subsep);
   formatProblemProjects(lines, results, subsep);
@@ -688,6 +730,24 @@ function formatKeyConflicts(lines, results, subsep) {
   );
   for (const w of keyWarnings) {
     lines.push(`  [WARN] "${w.sqKey}" -> "${w.scKey}" (taken by org "${w.owner}")`);
+  }
+  lines.push('');
+}
+
+function formatNewCodePeriodWarnings(lines, results, subsep) {
+  const ncpSkipped = getNewCodePeriodSkippedProjects(results);
+  if (ncpSkipped.length === 0) return;
+
+  lines.push(
+    'NEW CODE PERIOD NOT SET',
+    subsep,
+    `  ${ncpSkipped.length} project(s) use unsupported new code period types (e.g. REFERENCE_BRANCH)`,
+    '  that cannot be migrated to SonarCloud. The new code period for these projects',
+    '  was NOT set — please configure it manually in SonarCloud.',
+    '',
+  );
+  for (const { projectKey, detail } of ncpSkipped) {
+    lines.push(`  [SKIP] ${projectKey}: ${detail}`);
   }
   lines.push('');
 }
@@ -754,6 +814,20 @@ function formatAllProjects(lines, results, subsep) {
     formatProjectSummaryLine(lines, project);
   }
   lines.push('');
+}
+
+/**
+ * Collect projects where new code period was skipped due to unsupported types.
+ */
+function getNewCodePeriodSkippedProjects(results) {
+  const skipped = [];
+  for (const project of results.projects) {
+    const ncpStep = project.steps.find(s => s.step === 'New code definitions' && s.status === 'skipped');
+    if (ncpStep) {
+      skipped.push({ projectKey: project.projectKey, detail: ncpStep.detail });
+    }
+  }
+  return skipped;
 }
 
 function getProjectStatusIcon(status) {
