@@ -1,21 +1,25 @@
-# Local Development
+# 🛠️ Local Development
 
-This guide covers how to build and run CloudVoyager locally from source.
+Use this guide to build and run CloudVoyager from source on your local machine.
 
-## Prerequisites
+---
 
-- **Node.js** >= 18.0.0
-- **npm** (comes with Node.js)
+## ✅ Prerequisites
 
-## Install Dependencies
+1. **Node.js** >= 18.0.0
+2. **npm** (comes with Node.js)
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-## Running from Source (No Build Required)
+---
 
-You can run CloudVoyager directly from source using Node.js:
+## 🚀 Running from Source (No Build Required)
+
+You can run CloudVoyager directly from source using Node.js — no build step needed:
 
 ```bash
 # General syntax
@@ -65,11 +69,15 @@ node src/index.js status -c config.json
 node src/index.js reset -c config.json
 ```
 
-## Building the Binary
+> **Tip:** Use `--verbose` on any command to enable debug-level logging.
+
+---
+
+## 📦 Building the Binary
 
 CloudVoyager can be compiled into a standalone binary using Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html). This produces a self-contained binary that does not require Node.js to be installed on the target machine.
 
-### Step 1: Bundle Only (No Binary)
+### Step 1: Bundle only (no binary)
 
 This creates a single bundled JavaScript file at `dist/cli.cjs`:
 
@@ -83,15 +91,15 @@ You can then run the bundle with Node.js:
 node dist/cli.cjs migrate -c migrate-config.json --verbose
 ```
 
-### Step 2: Build the Standalone Binary
+### Step 2: Build the standalone binary
 
-This bundles the code and packages it into a platform-specific binary:
+This bundles the code **and** packages it into a platform-specific binary:
 
 ```bash
 npm run package
 ```
 
-The binary will be created at `dist/bin/cloudvoyager-<platform>-<arch>`, for example:
+The binary will be created at `dist/bin/cloudvoyager-<platform>-<arch>`:
 
 | Platform | Output Binary |
 |----------|--------------|
@@ -102,9 +110,11 @@ The binary will be created at `dist/bin/cloudvoyager-<platform>-<arch>`, for exa
 | Windows (x64) | `dist/bin/cloudvoyager-win-x64.exe` |
 | Windows (ARM64) | `dist/bin/cloudvoyager-win-arm64.exe` |
 
-> **Note:** The binary is built for your current platform. To build for other platforms, run the build on that platform or use CI (see the GitHub Actions workflow).
+> **Note:** The binary is built for your current platform only. To build for other platforms, run the build on that platform or use CI (see the GitHub Actions workflow).
 
-### Running the Binary
+---
+
+## 🏃 Running the Binary
 
 Once built, make it executable (macOS/Linux) and run it directly:
 
@@ -116,7 +126,7 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 migrate -c migrate-config.json --verbose
 ```
 
-### Examples Using the Binary
+### Examples
 
 ```bash
 # Validate config
@@ -138,7 +148,9 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 sync-metadata -c migrate-config.json --verbose
 ```
 
-## Linting
+---
+
+## 🧹 Linting
 
 ```bash
 # Check for lint errors
@@ -148,7 +160,9 @@ npm run lint
 npm run lint:fix
 ```
 
-## Running Tests
+---
+
+## 🧪 Running Tests
 
 ```bash
 # Run tests with coverage
@@ -158,7 +172,9 @@ npm test
 npm run test:fast
 ```
 
-## Environment Variables
+---
+
+## 🌍 Environment Variables
 
 | Variable | Description |
 |----------|-------------|
@@ -168,7 +184,7 @@ npm run test:fast
 | `SONARCLOUD_TOKEN` | Override SonarCloud token from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
-### Example with Environment Variables
+### Examples with environment variables
 
 ```bash
 # Run with debug logging to a file
@@ -181,19 +197,32 @@ SONARQUBE_TOKEN=sqp_xxx SONARCLOUD_TOKEN=sqa_yyy node src/index.js transfer -c c
 MAX_SOURCE_FILES=10 node src/index.js transfer -c config.json --verbose
 ```
 
-## npm Script Shortcuts
+---
+
+## ⚡ npm Script Shortcuts
 
 For convenience, common commands are available as npm scripts:
 
-```bash
-npm run transfer              # Transfer single project (verbose)
-npm run transfer:auto-tune    # Transfer single project with auto-tune
-npm run transfer-all          # Transfer all projects (verbose)
-npm run transfer-all:dry-run  # Dry-run transfer all
-npm run migrate               # Full migration (verbose)
-npm run migrate:dry-run       # Dry-run migration
-npm run migrate:auto-tune     # Full migration with auto-tune
-npm run sync-metadata         # Sync metadata only
-```
+| What it does | npm script |
+|-------------|-----------|
+| Transfer single project (verbose) | `npm run transfer` |
+| Transfer single project (auto-tuned) | `npm run transfer:auto-tune` |
+| Transfer all projects (verbose) | `npm run transfer-all` |
+| Dry-run transfer all | `npm run transfer-all:dry-run` |
+| Full migration (verbose) | `npm run migrate` |
+| Dry-run migration | `npm run migrate:dry-run` |
+| Full migration (auto-tuned) | `npm run migrate:auto-tune` |
+| Sync metadata only | `npm run sync-metadata` |
+| Sync only issue metadata | `npm run sync-metadata:issues-only` |
+| Sync only hotspot metadata | `npm run sync-metadata:hotspots-only` |
 
-> **Note:** These npm scripts expect a `config.json` or `migrate-config.json` file in the project root. See [configuration.md](configuration.md) for config file details.
+> **Note:** These npm scripts expect a `config.json` or `migrate-config.json` file in the project root. See the [Configuration Reference](configuration.md) for config file details.
+
+---
+
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
