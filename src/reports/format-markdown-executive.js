@@ -36,7 +36,7 @@ function formatHeader(results, durationMs) {
     lines.push(`**Duration:** ${formatDuration(durationMs)}  `);
   }
   if (results.dryRun) {
-    lines.push(`**Mode:** DRY RUN (no data migrated)  `);
+    lines.push('**Mode:** DRY RUN (no data migrated)  ');
   }
   const orgCount = (results.orgResults || []).length;
   if (orgCount > 0) {
@@ -102,22 +102,22 @@ function formatWarningsAndRisks(results, stats) {
   const lines = ['## Warnings & Risks\n'];
 
   if (keyWarnings.length > 0) {
-    lines.push(`### Project Key Conflicts\n`);
+    lines.push('### Project Key Conflicts\n');
     lines.push(`**${keyWarnings.length} project(s)** required a renamed key on SonarCloud due to global key conflicts. This may affect CI/CD pipeline configurations that reference the original project key.\n`);
   }
 
   if (ncpSkipped.length > 0) {
-    lines.push(`### New Code Period Configuration\n`);
+    lines.push('### New Code Period Configuration\n');
     lines.push(`**${ncpSkipped.length} project(s)** have unsupported new code period types (e.g. \`REFERENCE_BRANCH\`) and require manual configuration in SonarCloud.\n`);
   }
 
   if (stats.failed > 0) {
-    lines.push(`### Failed Projects\n`);
+    lines.push('### Failed Projects\n');
     lines.push(`**${stats.failed} project(s)** failed to migrate entirely. Review the detailed migration report for root cause analysis.\n`);
   }
 
   if (stats.partial > 0) {
-    lines.push(`### Partially Migrated Projects\n`);
+    lines.push('### Partially Migrated Projects\n');
     lines.push(`**${stats.partial} project(s)** had one or more steps fail. These projects may need manual intervention to complete migration.\n`);
   }
 
