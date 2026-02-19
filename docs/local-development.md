@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-Use this guide to build and run CloudVoyager from source on your local machine.
+Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
 ---
 
@@ -17,85 +17,11 @@ npm install
 
 ---
 
-## 🚀 Running from Source (No Build Required)
-
-You can run CloudVoyager directly from source using Node.js — no build step needed:
-
-```bash
-# General syntax
-node src/index.js <command> [options]
-
-# Or via npm
-npm start -- <command> [options]
-```
-
-### Examples
-
-```bash
-# Validate a config file
-node src/index.js validate -c config.json
-
-# Test connections to SonarQube and SonarCloud
-node src/index.js test -c config.json
-
-# Transfer a single project
-node src/index.js transfer -c config.json --verbose
-
-# Transfer all projects
-node src/index.js transfer-all -c config.json --verbose
-
-# Dry-run a full migration (no changes made)
-node src/index.js migrate -c migrate-config.json --verbose --dry-run
-
-# Run a full migration
-node src/index.js migrate -c migrate-config.json --verbose
-
-# Run a full migration with auto-tuning (adjusts concurrency/batch sizes automatically)
-node src/index.js migrate -c migrate-config.json --verbose --auto-tune
-
-# Sync metadata only (issues + hotspots)
-node src/index.js sync-metadata -c migrate-config.json --verbose
-
-# Sync only issue metadata (skip hotspots)
-node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync
-
-# Sync only hotspot metadata (skip issues)
-node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync
-
-# Check transfer status
-node src/index.js status -c config.json
-
-# Reset state (clear sync history)
-node src/index.js reset -c config.json
-```
-
-> **Tip:** Use `--verbose` on any command to enable debug-level logging.
-
-See the [CLI Reference](#-cli-reference) section below for all available flags and exhaustive usage examples.
-
----
-
 ## 📦 Building the Binary
 
-CloudVoyager can be compiled into a standalone binary using Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html). This produces a self-contained binary that does not require Node.js to be installed on the target machine.
+CloudVoyager is compiled into a standalone binary using Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html). This produces a self-contained binary that does not require Node.js to be installed on the target machine.
 
-### Step 1: Bundle only (no binary)
-
-This creates a single bundled JavaScript file at `dist/cli.cjs`:
-
-```bash
-npm run build
-```
-
-You can then run the bundle with Node.js:
-
-```bash
-node dist/cli.cjs migrate -c migrate-config.json --verbose
-```
-
-### Step 2: Build the standalone binary
-
-This bundles the code **and** packages it into a platform-specific binary:
+Build the binary:
 
 ```bash
 npm run package
@@ -114,11 +40,19 @@ The binary will be created at `dist/bin/cloudvoyager-<platform>-<arch>`:
 
 > **Note:** The binary is built for your current platform only. To build for other platforms, run the build on that platform or use CI (see the GitHub Actions workflow).
 
+If you only need the bundled JavaScript file (without the standalone binary), you can run:
+
+```bash
+npm run build
+```
+
+This creates `dist/cli.cjs`, which can be run with `node dist/cli.cjs <command> [options]`.
+
 ---
 
 ## 🏃 Running the Binary
 
-Once built, make it executable (macOS/Linux) and run it directly:
+After building, make it executable (macOS/Linux) and run it directly:
 
 ```bash
 # Make executable (macOS/Linux only)
@@ -128,7 +62,41 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 migrate -c migrate-config.json --verbose
 ```
 
-### Examples
+### Quick Start Examples
+
+```bash
+# Validate a config file
+./cloudvoyager validate -c config.json
+
+# Test connections to SonarQube and SonarCloud
+./cloudvoyager test -c config.json
+
+# Transfer a single project
+./cloudvoyager transfer -c config.json --verbose
+
+# Transfer all projects
+./cloudvoyager transfer-all -c config.json --verbose
+
+# Dry-run a full migration (no changes made)
+./cloudvoyager migrate -c migrate-config.json --verbose --dry-run
+
+# Run a full migration
+./cloudvoyager migrate -c migrate-config.json --verbose
+
+# Run a full migration with auto-tuning
+./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune
+
+# Sync metadata only (issues + hotspots)
+./cloudvoyager sync-metadata -c migrate-config.json --verbose
+
+# Check transfer status
+./cloudvoyager status -c config.json
+
+# Reset state (clear sync history)
+./cloudvoyager reset -c config.json
+```
+
+> **Tip:** Use `--verbose` on any command to enable debug-level logging. Substitute `./cloudvoyager` with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`).
 
 See the [CLI Reference](#-cli-reference) section below for all available flags and exhaustive usage examples.
 
@@ -136,7 +104,7 @@ See the [CLI Reference](#-cli-reference) section below for all available flags a
 
 ## 📖 CLI Reference
 
-This section documents every command and flag available in CloudVoyager. The examples use the binary path `./cloudvoyager` as shorthand — substitute with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`) or `node src/index.js` when running from source.
+This section documents every command and flag available in CloudVoyager. The examples use `./cloudvoyager` as shorthand — substitute with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`).
 
 ### Global Flag
 
@@ -600,35 +568,32 @@ npm run test:fast
 
 ```bash
 # Run with debug logging to a file
-LOG_LEVEL=debug LOG_FILE=./cloudvoyager.log node src/index.js migrate -c migrate-config.json --verbose
+LOG_LEVEL=debug LOG_FILE=./cloudvoyager.log ./cloudvoyager migrate -c migrate-config.json --verbose
 
 # Override tokens via environment
-SONARQUBE_TOKEN=sqp_xxx SONARCLOUD_TOKEN=sqa_yyy node src/index.js transfer -c config.json --verbose
+SONARQUBE_TOKEN=sqp_xxx SONARCLOUD_TOKEN=sqa_yyy ./cloudvoyager transfer -c config.json --verbose
 
 # Limit source files for testing
-MAX_SOURCE_FILES=10 node src/index.js transfer -c config.json --verbose
+MAX_SOURCE_FILES=10 ./cloudvoyager transfer -c config.json --verbose
 ```
 
 ---
 
-## ⚡ npm Script Shortcuts
+## ⚡ npm Scripts
 
-For convenience, common commands are available as npm scripts:
+The following npm scripts are available for building, testing, and linting:
 
 | What it does | npm script |
 |-------------|-----------|
-| Transfer single project (verbose) | `npm run transfer` |
-| Transfer single project (auto-tuned) | `npm run transfer:auto-tune` |
-| Transfer all projects (verbose) | `npm run transfer-all` |
-| Dry-run transfer all | `npm run transfer-all:dry-run` |
-| Full migration (verbose) | `npm run migrate` |
-| Dry-run migration | `npm run migrate:dry-run` |
-| Full migration (auto-tuned) | `npm run migrate:auto-tune` |
-| Sync metadata only | `npm run sync-metadata` |
-| Sync only issue metadata | `npm run sync-metadata:issues-only` |
-| Sync only hotspot metadata | `npm run sync-metadata:hotspots-only` |
+| Install dependencies | `npm install` |
+| Bundle JavaScript only | `npm run build` |
+| Build standalone binary | `npm run package` |
+| Run tests with coverage | `npm test` |
+| Run tests (no coverage) | `npm run test:fast` |
+| Lint | `npm run lint` |
+| Lint with auto-fix | `npm run lint:fix` |
 
-> **Note:** These npm scripts expect a `config.json` or `migrate-config.json` file in the project root. See the [Configuration Reference](configuration.md) for config file details.
+> **Note:** Always use the built binary to run CloudVoyager commands (e.g. `./cloudvoyager migrate -c ...`). See the [CLI Reference](#-cli-reference) section for all available commands and flags.
 
 ---
 

@@ -28,7 +28,7 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 
 ## 🛠️ Local Development
 
-Want to build and run CloudVoyager from source? See the [Local Development Guide](docs/local-development.md).
+Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) — developers should always build the binary and run that, not run from source.
 
 ## 📝 License
 
