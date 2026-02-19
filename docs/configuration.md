@@ -259,6 +259,8 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 |----------|-------------|
 | `SONARQUBE_TOKEN` | Override SonarQube token from config |
 | `SONARCLOUD_TOKEN` | Override SonarCloud token from config |
+| `SONARQUBE_URL` | Override SonarQube URL from config |
+| `SONARCLOUD_URL` | Override SonarCloud URL from config |
 | `LOG_LEVEL` | Set logging level (`debug`, `info`, `warn`, `error`) |
 | `LOG_FILE` | Path to log file (optional) |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |

@@ -37,8 +37,8 @@ CloudVoyager is a CLI tool that migrates complete SonarQube installations to Son
 Where existing migration approaches require re-running CI/CD scanners against every project (a process that can take days or weeks across large portfolios), CloudVoyager extracts all data directly from SonarQube's API and repackages it into the exact binary format that SonarCloud's Compute Engine expects. The result is a migration that preserves code issues, security hotspots, measures, quality gates, quality profiles, permissions, and project metadata — all in a fraction of the time.
 
 **Key metrics from production use:**
-- 25 out of 29 projects migrated successfully in a single run
-- 16,288 issues matched and 359 status transitions applied automatically
+- 29 out of 29 projects migrated successfully in a single run (~16 minutes)
+- 53 quality profiles migrated, 2 groups created
 - 12+ distinct resource types migrated per organization (quality gates, profiles, permissions, templates, portfolios, groups, settings, tags, links, bindings, new code periods, webhooks)
 - 6 platform binaries built from a single codebase (macOS ARM64/x64, Linux ARM64/x64, Windows x64/ARM64)
 
@@ -647,9 +647,9 @@ Performance and rate-limit schemas are shared across all configuration types, en
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `transfer` | Single project transfer | `--wait`, `--concurrency`, `--max-memory`, `--auto-tune` |
-| `transfer-all` | All projects to one org (code + issues) | `--dry-run`, `--auto-tune` |
-| `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--auto-tune`, `--concurrency`, `--project-concurrency` |
-| `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync` |
+| `transfer-all` | All projects to one org (code + issues) | `--dry-run`, `--wait`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
+| `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
+| `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `validate` | Configuration validation | — |
 | `test` | Connection testing | — |
 | `status` | View sync state | — |
@@ -735,5 +735,6 @@ API client errors include specific diagnostics based on the underlying network e
 1. **No existing tool does this.** CloudVoyager is the first to reverse-engineer SonarScanner's protobuf protocol and reconstruct it programmatically.
 2. **Zero source code access required.** The migration operates entirely at the API level — no repository cloning, no build systems, no CI/CD integration needed.
 3. **Complete fidelity.** Issues, hotspots, measures, quality gates, quality profiles, permissions, groups, templates, portfolios, settings, tags, links, bindings, and new code periods are all preserved.
-4. **Production-proven at scale.** Successfully migrated 25+ projects with 16,000+ issues in a single automated run.
+4. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
 5. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
+6. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.

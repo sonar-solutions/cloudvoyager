@@ -17,6 +17,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 | **Security hotspots** | Yes — all hotspots with status and comments |
 | **Metrics & measures** | Yes — all project and component-level measures |
 | **SCM changesets** | Yes — per-file changeset info (author, date, revision) |
+| **Active rules** | Yes — quality profile rules filtered by languages used in each project |
 
 ### What is NOT transferred
 
@@ -195,4 +196,5 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 - [Full Migration — Single Org](scenario-single-org.md) — migrate everything including quality gates, profiles, groups, and permissions
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them

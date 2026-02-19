@@ -7,12 +7,25 @@ src/
 ├── index.js                  # CLI entry point (Commander-based)
 ├── transfer-pipeline.js      # Single-project transfer (extract → build → encode → upload)
 ├── migrate-pipeline.js       # Full multi-org migration orchestrator
+├── commands/                 # CLI command handlers
+│   ├── transfer.js            # Single-project transfer command
+│   ├── transfer-all.js        # Transfer all projects command
+│   ├── migrate.js             # Full migration command
+│   └── sync-metadata.js       # Standalone metadata sync command
 ├── config/
-│   ├── loader.js             # Config loading and validation (Ajv)
-│   └── schema.js             # JSON schemas (configSchema, migrateConfigSchema)
+│   ├── loader.js             # Config loading and validation (Ajv) for transfer commands
+│   ├── loader-migrate.js     # Config loading for migrate/sync-metadata commands
+│   ├── schema.js             # JSON schema for transfer config
+│   ├── schema-migrate.js     # JSON schema for migration config
+│   └── schema-shared.js      # Shared schema definitions (performance, rateLimit)
 ├── sonarqube/
 │   ├── api-client.js         # HTTP client with pagination, auth, SCM revision
 │   ├── models.js             # Data models (with language support)
+│   ├── api/                  # API method modules (extracted from api-client)
+│   │   ├── issues-hotspots.js # Issue and hotspot API methods
+│   │   ├── permissions.js     # Permission API methods
+│   │   ├── quality.js         # Quality gate and profile API methods
+│   │   └── server-config.js   # Server info, settings, webhooks API methods
 │   └── extractors/           # Specialized data extractors
 │       ├── index.js           # DataExtractor orchestrator
 │       ├── projects.js        # Project metadata, branches, quality gates
@@ -22,6 +35,7 @@ src/
 │       ├── measures.js        # Project and component measures
 │       ├── sources.js         # Source code files (with language info)
 │       ├── rules.js           # Active rules extraction
+│       ├── rule-helpers.js    # Shared rule extraction helpers
 │       ├── changesets.js      # SCM changeset data per file
 │       ├── symbols.js         # Symbol references
 │       ├── syntax-highlighting.js  # Syntax highlighting data
@@ -38,14 +52,25 @@ src/
 │       ├── server-info.js     # Server version, plugins, settings
 │       └── webhooks.js        # Server and project-level webhooks
 ├── protobuf/
-│   ├── builder.js            # Transforms extracted data into protobuf messages
+│   ├── builder.js            # Orchestrates protobuf message building
+│   ├── build-components.js   # Builds component protobuf messages
+│   ├── build-issues.js       # Builds issue protobuf messages
+│   ├── build-measures.js     # Builds measure protobuf messages
 │   ├── encoder.js            # Encodes messages using protobufjs
+│   ├── encode-types.js       # Typed encoding helpers (int, double, string measures)
 │   └── schema/               # Protocol buffer definitions (.proto files)
 │       ├── scanner-report.proto
 │       └── constants.proto
 ├── sonarcloud/
 │   ├── api-client.js         # SonarCloud HTTP client (retry, throttle, quality profiles)
 │   ├── uploader.js           # Report packaging and CE submission
+│   ├── api/                  # API method modules (extracted from api-client)
+│   │   ├── hotspots.js        # Hotspot API methods
+│   │   ├── issues.js          # Issue API methods
+│   │   ├── permissions.js     # Permission API methods
+│   │   ├── project-config.js  # Project config API methods
+│   │   ├── quality-gates.js   # Quality gate API methods
+│   │   └── quality-profiles.js # Quality profile API methods
 │   └── migrators/            # SonarCloud migration modules
 │       ├── quality-gates.js   # Create gates, assign to projects
 │       ├── quality-profiles.js # Restore profiles via backup XML (including built-in as custom)
@@ -56,16 +81,38 @@ src/
 │       ├── project-config.js  # Settings, tags, links, new code periods, DevOps bindings
 │       ├── issue-sync.js      # Sync issue statuses, assignments, comments, tags
 │       └── hotspot-sync.js    # Sync hotspot statuses and comments
+├── pipeline/                 # Migration pipeline stages (used by migrate-pipeline.js)
+│   ├── extraction.js          # Server-wide data extraction orchestration
+│   ├── org-migration.js       # Per-organization migration logic
+│   ├── project-migration.js   # Per-project migration logic
+│   └── results.js             # Migration result tracking and aggregation
 ├── mapping/
 │   ├── org-mapper.js         # Map projects to target orgs (by DevOps binding)
-│   └── csv-generator.js      # Generate mapping CSVs for review
+│   ├── csv-generator.js      # Generate mapping CSVs for review
+│   └── csv-tables.js         # CSV table formatting helpers
+├── reports/                  # Migration report generation
+│   ├── index.js               # Report generation orchestrator
+│   ├── shared.js              # Shared report utilities
+│   ├── format-text.js         # Plain text report formatter
+│   ├── format-markdown.js     # Markdown report formatter
+│   ├── format-markdown-executive.js # Executive summary markdown formatter
+│   ├── format-performance.js  # Performance report formatter
+│   ├── format-pdf.js          # PDF report formatter
+│   ├── format-pdf-executive.js # Executive summary PDF formatter
+│   ├── format-pdf-performance.js # Performance report PDF formatter
+│   ├── pdf-helpers.js         # Shared PDF generation helpers
+│   ├── pdf-sections.js        # PDF report section builders
+│   ├── pdf-exec-sections.js   # Executive summary PDF section builders
+│   ├── pdf-perf-sections.js   # Performance report PDF section builders
+│   └── perf-tables.js         # Performance data table formatters
 ├── state/
 │   ├── storage.js            # File-based state persistence
 │   └── tracker.js            # Incremental transfer state tracking
 └── utils/
     ├── logger.js             # Winston-based logging
     ├── errors.js             # Custom error classes
-    └── concurrency.js        # Concurrency primitives (limiter, mapConcurrent, progress)
+    ├── concurrency.js        # Concurrency primitives (limiter, mapConcurrent, progress)
+    └── system-info.js        # System info detection (CPU, memory) and auto-tune
 ```
 
 ## 🔄 Commands and Pipelines

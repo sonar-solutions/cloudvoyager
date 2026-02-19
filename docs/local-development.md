@@ -562,6 +562,8 @@ npm run test:fast
 | `LOG_FILE` | Path to log file (optional, logs to console by default) |
 | `SONARQUBE_TOKEN` | Override SonarQube token from config |
 | `SONARCLOUD_TOKEN` | Override SonarCloud token from config |
+| `SONARQUBE_URL` | Override SonarQube URL from config |
+| `SONARCLOUD_URL` | Override SonarCloud URL from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
 ### Examples with environment variables

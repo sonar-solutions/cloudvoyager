@@ -66,8 +66,7 @@ The `migrate` command syncs issue metadata after the scanner report is uploaded.
 Similar to issue sync, hotspot metadata is matched and synced:
 1. Matches hotspots by rule, component, and text range
 2. Transitions status (To Review, Acknowledged, Safe, Fixed)
-3. Sets assignee
-4. Copies comments
+3. Copies comments
 
 ## 🔑 Project Key Resolution
 
@@ -107,7 +106,7 @@ CloudVoyager uses a custom concurrency layer (`src/utils/concurrency.js`) with z
 
 All extractors and migrators use `mapConcurrent` instead of sequential `for...of` loops. Concurrency limits are configurable per operation type (source extraction, hotspot extraction, issue sync, hotspot sync, project migration).
 
-Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.cpus()`. When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count (e.g., `sourceExtraction = cores * 2`, `issueSync = cores`, `hotspotSync = min(cores/2, 5)`). Explicit config values always override auto-tuned defaults.
+Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.availableParallelism()` (with `os.cpus().length` as a fallback on older Node.js versions). When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count (e.g., `sourceExtraction = cores * 2`, `issueSync = cores`, `hotspotSync = min(cores/2, 5)`). Explicit config values always override auto-tuned defaults.
 
 ## 💾 Memory Management
 
