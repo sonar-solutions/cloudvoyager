@@ -1,17 +1,9 @@
-/**
- * Performance Report PDF generator.
- * Produces a styled PDF showing timing breakdowns for each migration segment.
- */
-
 import { formatDuration, computeTotalDurationMs } from './shared.js';
 import { generatePdfBuffer, pdfStyles, statusStyle, statusText } from './pdf-helpers.js';
+import { buildSlowestSteps, buildBottleneckAnalysis } from './pdf-perf-sections.js';
 
-/**
- * Generate the performance report as a PDF buffer.
- */
 export async function generatePerformanceReportPdf(results) {
   const content = [];
-
   content.push(...buildHeader(results));
   content.push(...buildOverview(results));
   content.push(...buildServerSteps(results));
@@ -51,7 +43,23 @@ export async function generatePerformanceReportPdf(results) {
   return generatePdfBuffer(docDefinition);
 }
 
-// --- section builders ---
+function h(text) { return { text, style: 'tableHeader' }; }
+function c(text) { return { text, style: 'tableCell' }; }
+function dur(ms) { return ms != null ? formatDuration(ms) : '—'; }
+function sumDurations(steps) { return (steps || []).reduce((sum, s) => sum + (s.durationMs || 0), 0); }
+
+function stepDur(project, stepName) {
+  const step = project.steps.find(s => s.step === stepName);
+  if (!step || step.durationMs == null) return '—';
+  if (step.status === 'skipped') return 'skipped';
+  return formatDuration(step.durationMs);
+}
+
+function configDur(project) {
+  const mainSteps = new Set(['Upload scanner report', 'Sync issues', 'Sync hotspots']);
+  const total = project.steps.filter(s => !mainSteps.has(s.step)).reduce((sum, s) => sum + (s.durationMs || 0), 0);
+  return total > 0 ? formatDuration(total) : '—';
+}
 
 function buildHeader(results) {
   const durationMs = computeTotalDurationMs(results);
@@ -73,7 +81,6 @@ function buildOverview(results) {
     ? formatDuration(Math.round(durationMs / projectCount))
     : '—';
   const serverTotal = sumDurations(results.serverSteps);
-
   const body = [
     [h('Metric'), h('Value')],
     ['Total Duration', durationMs != null ? formatDuration(durationMs) : '—'],
@@ -81,7 +88,6 @@ function buildOverview(results) {
     ['Average Time per Project', avgPerProject],
     ['Organizations', String((results.orgResults || []).length)],
   ];
-
   if (serverTotal > 0) {
     body.push(['Server-Wide Extraction', formatDuration(serverTotal)]);
   }
@@ -90,7 +96,6 @@ function buildOverview(results) {
       body.push([`Org: ${org.key} (total)`, formatDuration(org.durationMs)]);
     }
   }
-
   return [
     { text: 'Overview', style: 'heading' },
     { table: { headerRows: 1, widths: [200, '*'], body }, layout: 'lightHorizontalLines' },
@@ -99,7 +104,6 @@ function buildOverview(results) {
 
 function buildServerSteps(results) {
   if (results.serverSteps.length === 0) return [];
-
   const body = [[h('Step'), h('Duration'), h('Status')]];
   for (const step of results.serverSteps) {
     body.push([
@@ -110,7 +114,6 @@ function buildServerSteps(results) {
   }
   const total = sumDurations(results.serverSteps);
   body.push([{ text: 'Total', bold: true, fontSize: 9 }, { text: formatDuration(total), bold: true, fontSize: 9 }, '']);
-
   return [
     { text: 'Server-Wide Extraction', style: 'heading' },
     { table: { headerRows: 1, widths: ['*', 100, 60], body }, layout: 'lightHorizontalLines' },
@@ -119,14 +122,12 @@ function buildServerSteps(results) {
 
 function buildOrgSteps(results) {
   if (!results.orgResults || results.orgResults.length === 0) return [];
-
   const nodes = [];
   for (const org of results.orgResults) {
     nodes.push({ text: `Organization: ${org.key}`, style: 'heading' });
     if (org.durationMs != null) {
       nodes.push({ text: `Total org migration time: ${formatDuration(org.durationMs)}`, style: 'metadata' });
     }
-
     if (org.steps && org.steps.length > 0) {
       const body = [[h('Step'), h('Duration'), h('Status'), h('Detail')]];
       for (const step of org.steps) {
@@ -147,11 +148,8 @@ function buildOrgSteps(results) {
 
 function buildProjectBreakdown(results) {
   if (results.projects.length === 0) return [];
-
   const sorted = [...results.projects].sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0));
-
   const body = [[h('#'), h('Project'), h('Total'), h('Report Upload'), h('Issue Sync'), h('Hotspot Sync'), h('Config')]];
-
   sorted.forEach((project, i) => {
     body.push([
       c(String(i + 1)),
@@ -163,7 +161,6 @@ function buildProjectBreakdown(results) {
       c(configDur(project)),
     ]);
   });
-
   return [
     { text: 'Per-Project Breakdown', style: 'heading' },
     { text: 'Sorted by total duration (slowest first).', style: 'small', margin: [0, 0, 0, 5] },
@@ -173,102 +170,4 @@ function buildProjectBreakdown(results) {
       pageBreak: results.projects.length > 20 ? 'before' : undefined,
     },
   ];
-}
-
-function buildSlowestSteps(results) {
-  const allSteps = [];
-  for (const project of results.projects) {
-    for (const step of project.steps) {
-      if (step.durationMs != null && step.durationMs > 0) {
-        allSteps.push({ projectKey: project.projectKey, step: step.step, durationMs: step.durationMs, status: step.status });
-      }
-    }
-  }
-  if (allSteps.length === 0) return [];
-
-  allSteps.sort((a, b) => b.durationMs - a.durationMs);
-  const top = allSteps.slice(0, 10);
-
-  const body = [[h('#'), h('Project'), h('Step'), h('Duration'), h('Status')]];
-  top.forEach((entry, i) => {
-    body.push([
-      c(String(i + 1)),
-      c(entry.projectKey),
-      c(entry.step),
-      c(formatDuration(entry.durationMs)),
-      { text: statusText(entry.status), style: statusStyle(entry.status) },
-    ]);
-  });
-
-  return [
-    { text: 'Slowest Individual Steps (Top 10)', style: 'heading' },
-    { table: { headerRows: 1, widths: [20, '*', '*', 80, 50], body }, layout: 'lightHorizontalLines' },
-  ];
-}
-
-function buildBottleneckAnalysis(results) {
-  const durationMs = computeTotalDurationMs(results);
-  if (durationMs == null || durationMs === 0) return [];
-
-  const stepTypeTotals = new Map();
-
-  for (const project of results.projects) {
-    for (const step of project.steps) {
-      const d = step.durationMs || 0;
-      stepTypeTotals.set(step.step, (stepTypeTotals.get(step.step) || 0) + d);
-    }
-  }
-  for (const step of results.serverSteps) {
-    const key = `[Server] ${step.step}`;
-    stepTypeTotals.set(key, (stepTypeTotals.get(key) || 0) + (step.durationMs || 0));
-  }
-  for (const org of (results.orgResults || [])) {
-    for (const step of (org.steps || [])) {
-      const key = `[Org] ${step.step}`;
-      stepTypeTotals.set(key, (stepTypeTotals.get(key) || 0) + (step.durationMs || 0));
-    }
-  }
-
-  if (stepTypeTotals.size === 0) return [];
-
-  const sorted = [...stepTypeTotals.entries()].sort((a, b) => b[1] - a[1]);
-  const totalStepTime = sorted.reduce((sum, [, d]) => sum + d, 0);
-
-  const body = [[h('Step Type'), h('Cumulative Time'), h('% of Step Time')]];
-  for (const [stepName, d] of sorted) {
-    if (d === 0) continue;
-    const pct = totalStepTime > 0 ? ((d / totalStepTime) * 100).toFixed(1) : '0.0';
-    body.push([c(stepName), c(formatDuration(d)), c(`${pct}%`)]);
-  }
-  body.push([
-    { text: 'Total', bold: true, fontSize: 9 },
-    { text: formatDuration(totalStepTime), bold: true, fontSize: 9 },
-    { text: '100%', bold: true, fontSize: 9 },
-  ]);
-
-  return [
-    { text: 'Bottleneck Analysis', style: 'heading' },
-    { text: 'Cumulative time spent on each step type across all projects.', style: 'small', margin: [0, 0, 0, 5] },
-    { table: { headerRows: 1, widths: ['*', 120, 100], body }, layout: 'lightHorizontalLines' },
-  ];
-}
-
-// --- tiny helpers ---
-
-function h(text) { return { text, style: 'tableHeader' }; }
-function c(text) { return { text, style: 'tableCell' }; }
-function dur(ms) { return ms != null ? formatDuration(ms) : '—'; }
-function sumDurations(steps) { return (steps || []).reduce((sum, s) => sum + (s.durationMs || 0), 0); }
-
-function stepDur(project, stepName) {
-  const step = project.steps.find(s => s.step === stepName);
-  if (!step || step.durationMs == null) return '—';
-  if (step.status === 'skipped') return 'skipped';
-  return formatDuration(step.durationMs);
-}
-
-function configDur(project) {
-  const mainSteps = new Set(['Upload scanner report', 'Sync issues', 'Sync hotspots']);
-  const total = project.steps.filter(s => !mainSteps.has(s.step)).reduce((sum, s) => sum + (s.durationMs || 0), 0);
-  return total > 0 ? formatDuration(total) : '—';
 }

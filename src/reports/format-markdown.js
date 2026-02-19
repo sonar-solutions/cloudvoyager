@@ -35,7 +35,7 @@ function formatHeader(results) {
     lines.push(`**Duration:** ${formatDuration(durationMs)}  `);
   }
   if (results.dryRun) {
-    lines.push(`**Mode:** DRY RUN (no data migrated)  `);
+    lines.push('**Mode:** DRY RUN (no data migrated)  ');
   }
   lines.push('');
   return lines.join('\n');
