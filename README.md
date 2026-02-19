@@ -26,6 +26,10 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ```
 5. Once the migration finishes, review the `./migration-output` directory for any errors or warnings, and verify that your projects and data have been migrated successfully to SonarCloud.
 
+## 🛠️ Local Development
+
+Want to build and run CloudVoyager from source? See the [Local Development Guide](docs/local-development.md).
+
 ## 📝 License
 
 MIT
