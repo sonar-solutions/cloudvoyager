@@ -4,6 +4,7 @@ const availableParallelism = typeof _availableParallelism === 'function'
   ? _availableParallelism
   : () => cpus().length;
 import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import v8 from 'node:v8';
 import logger from './logger.js';
 
@@ -53,7 +54,14 @@ export function ensureHeapSize(maxMemoryMB) {
   const existingNodeOptions = process.env.NODE_OPTIONS || '';
   const newNodeOptions = `${existingNodeOptions} --max-old-space-size=${maxMemoryMB}`.trim();
   logger.info(`Restarting with ${maxMemoryMB}MB heap (current: ${currentLimit}MB)...`);
-  const result = spawnSync(process.execPath, process.argv.slice(1), {
+  // In a Node.js SEA binary, process.argv[1] is set to the binary path
+  // (duplicated from argv[0]) for Commander compatibility. We need to detect
+  // this to avoid passing the duplicate path as an extra argument to the child.
+  // SEA: argv = ['/path/binary', '/path/binary', 'migrate', '-c', ...]  → slice(2)
+  // Node: argv = ['/path/node', '/path/script.js', 'migrate', '-c', ...] → slice(1)
+  const isSEA = process.argv.length >= 2 && resolve(process.argv[0]) === resolve(process.argv[1]);
+  const respawnArgs = process.argv.slice(isSEA ? 2 : 1);
+  const result = spawnSync(process.execPath, respawnArgs, {
     stdio: 'inherit',
     env: { ...process.env, NODE_OPTIONS: newNodeOptions, CLOUDVOYAGER_RESPAWNED: '1' }
   });
