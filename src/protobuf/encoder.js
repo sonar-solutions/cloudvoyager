@@ -1,15 +1,9 @@
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import protobuf from 'protobufjs';
 import logger from '../utils/logger.js';
 import { ProtobufEncodingError } from '../utils/errors.js';
 import { encodeMessage, encodeMessageDelimited } from './encode-types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const constantsProtoText = readFileSync(join(__dirname, 'schema', 'constants.proto'), 'utf-8');
-const scannerReportProtoText = readFileSync(join(__dirname, 'schema', 'scanner-report.proto'), 'utf-8');
+import constantsProtoText from './schema/constants.proto';
+import scannerReportProtoText from './schema/scanner-report.proto';
 
 export class ProtobufEncoder {
   root = null;
