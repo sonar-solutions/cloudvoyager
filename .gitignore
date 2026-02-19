@@ -39,6 +39,10 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+coverage/
+archives/
+migration-output/
+.scannerwork/
 
 # Local Only files
 settings.json
@@ -50,10 +54,7 @@ config.json
 !CHANGELOG.md
 !docs/**/*.md
 debug/
-archives/
 proto/
-.scannerwork/
 compliance/sonar_scan_local.sh
 migrate-config.json
-migration-output/
 .claude/
