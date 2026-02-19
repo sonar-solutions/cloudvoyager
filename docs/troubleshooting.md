@@ -2,16 +2,16 @@
 
 ## 🐛 Debugging a Migration Run
 
-After every `migrate` run (whether it succeeds, partially succeeds, or crashes), CloudVoyager writes two report files to your output directory:
+After every `migrate` run (whether it succeeds, partially succeeds, or crashes), CloudVoyager writes report files to the `reports/` subdirectory of your output directory:
 
 | File | Purpose |
 |------|---------|
-| `migration-report.txt` | Human-readable report — open this first |
-| `migration-report.json` | Machine-readable structured data for scripting |
+| `reports/migration-report.txt` | Human-readable report — open this first |
+| `reports/migration-report.json` | Machine-readable structured data for scripting |
 
 ### Where to start
 
-1. **Open `migration-report.txt`** — it's structured top-down so you can quickly find problems:
+1. **Open `reports/migration-report.txt`** — it's structured top-down so you can quickly find problems:
 
    - **SUMMARY** — overall counts (succeeded / partial / failed)
    - **SERVER-WIDE STEPS** — did extraction from SonarQube work?
@@ -21,7 +21,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 
 2. **Search for `[FAIL]`** in the text report to jump directly to errors.
 
-3. **Check `migration-report.json`** if you need to script post-migration analysis (e.g., count how many projects failed at "Sync hotspots" vs "Upload scanner report").
+3. **Check `reports/migration-report.json`** if you need to script post-migration analysis (e.g., count how many projects failed at "Sync hotspots" vs "Upload scanner report").
 
 ### Example report output
 
@@ -146,7 +146,7 @@ SonarCloud requires globally unique project keys across all organizations. By de
 Key conflicts are reported in three places:
 - **Console logs** — a warning is logged immediately when a conflict is detected during migration
 - **Migration summary** — a "Project key conflicts" section at the end of the run lists all affected projects
-- **Migration report** — the `migration-report.txt` includes a "PROJECT KEY CONFLICTS" section, and `migration-report.json` includes a `projectKeyWarnings` array
+- **Migration report** — the `reports/migration-report.txt` includes a "PROJECT KEY CONFLICTS" section, and `reports/migration-report.json` includes a `projectKeyWarnings` array
 
 If you see key conflicts, the affected projects were still migrated successfully — they just use a different key than the original SonarQube key. You can rename them later via the SonarCloud API (`/api/projects/update_key`) if the conflicting key becomes available.
 
@@ -194,7 +194,7 @@ When migrating quality gates or profiles, permission APIs may return 400 errors 
 
 If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube and SonarCloud quality profiles.
 
-The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way (SonarQube Migrated)") and assigns them to projects. However, some rules may not exist on SonarCloud (e.g., rules from third-party plugins). Check `quality-profile-diff.json` in the output directory to see which rules are missing or added per language.
+The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way (SonarQube Migrated)") and assigns them to projects. However, some rules may not exist on SonarCloud (e.g., rules from third-party plugins). Check `quality-profiles/quality-profile-diff.json` in the output directory to see which rules are missing or added per language.
 
 ## 📄 SonarQube API Pagination Limits
 
@@ -266,7 +266,7 @@ export MAX_SOURCE_FILES=10
 
 ### Partial Migration Failures
 
-The `migrate` command continues to the next project (and the next step within each project) if one fails. After the run completes, check `migration-report.txt` in your output directory for a detailed breakdown of what succeeded and what failed per project, per step.
+The `migrate` command continues to the next project (and the next step within each project) if one fails. After the run completes, check `reports/migration-report.txt` in your output directory for a detailed breakdown of what succeeded and what failed per project, per step.
 
 Projects with the status **partial** had some steps succeed and others fail. Projects with the status **failed** had all steps fail. Both are listed in the "FAILED / PARTIAL PROJECTS (DETAILED)" section of the report.
 

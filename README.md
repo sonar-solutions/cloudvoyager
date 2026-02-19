@@ -11,6 +11,7 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 | 🤔 Scenario | Click Below ⤵️ |
 |----------|-------|
 | Migrate **one project** from SonarQube to SonarCloud | [Single Project Migration](docs/scenario-single-project.md) |
+| Transfer **all projects** to one SonarCloud org (code + issues only) | [Transfer All Projects](docs/scenario-transfer-all.md) |
 | Migrate **everything** from SonarQube to **one** SonarCloud org | [Full Migration — Single Org](docs/scenario-single-org.md) |
 | Migrate **everything** from SonarQube to **multiple** SonarCloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
 

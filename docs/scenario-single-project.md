@@ -2,7 +2,22 @@
 
 Use this when you want to migrate **one specific project** from SonarQube to SonarCloud.
 
-This transfers the project's code, issues, hotspots, and metrics. It does **not** migrate org-level settings like quality gates, quality profiles, groups, or permissions — for that, see [Migrate Everything to One Org](scenario-single-org.md).
+This does **not** migrate org-level settings like quality gates, quality profiles, groups, or permissions — for that, see [Migrate Everything to One Org](scenario-single-org.md).
+
+---
+
+## 📦 What Gets Migrated
+
+| Category | Details |
+|----------|---------|
+| **Source code** | All files packaged into the scanner report |
+| **Issues** | All code issues with text ranges, flows, and metadata |
+| **Security hotspots** | All hotspots with status and comments |
+| **Metrics & measures** | Project and component-level measures (coverage, complexity, etc.) |
+| **SCM changesets** | Per-file changeset info (author, date, revision) |
+| **Active rules** | Quality profile rules filtered by languages used in the project |
+
+> **Not included:** Quality gates, quality profiles, groups, permissions, portfolios, project settings, tags, links, DevOps bindings, and new code definitions. Use the [`migrate` command](scenario-single-org.md) to transfer these.
 
 ---
 

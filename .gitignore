@@ -47,6 +47,7 @@ config.json
 # Dev Related stuff
 **/*.md
 !README.md
+!CHANGELOG.md
 !docs/**/*.md
 debug/
 archives/

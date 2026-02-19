@@ -313,7 +313,7 @@ npm run migrate:dry-run
 ./cloudvoyager migrate -c migrate-config.json --verbose --dry-run
 ```
 
-Check the generated files in `./migration-output/` (especially `organizations.csv`) to verify project-to-org assignments look correct.
+Check the generated files in `./migration-output/` (especially `mappings/organizations.csv`) to verify project-to-org assignments look correct.
 
 ### Step 2: Migrate without metadata + auto-tune
 
