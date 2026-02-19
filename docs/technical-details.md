@@ -78,7 +78,7 @@ SonarCloud requires globally unique project keys across all organizations. When 
 3. **If taken by another organization** — fall back to `{org}_{key}` (e.g., `my-org_my-project`) and log a warning
 4. **If already owned by the target organization** — use the original key (the project was likely created in a previous migration run)
 
-Key conflicts are reported in the migration summary and in the `migration-report.txt` / `migration-report.json` output files.
+Key conflicts are reported in the migration summary and in the `reports/migration-report.txt` / `reports/migration-report.json` output files.
 
 ## 🗺️ Organization Mapping
 
@@ -90,7 +90,7 @@ Quality profiles are migrated using SonarQube's backup/restore XML format, which
 
 Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "Sonar way") cannot be overwritten on SonarCloud, so they are restored as custom profiles with a "(SonarQube Migrated)" suffix (e.g., "Sonar way (SonarQube Migrated)"). These migrated profiles are automatically assigned to each project to ensure the same rules are active as in SonarQube.
 
-After profile migration, a **quality profile diff report** (`quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
+After profile migration, a **quality profile diff report** (`quality-profiles/quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
 - **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
 - **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
 

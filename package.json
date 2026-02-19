@@ -28,6 +28,8 @@
     "sync-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose",
     "sync-metadata:issues-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
     "sync-metadata:hotspots-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync",
+    "test": "c8 --reporter=lcov --reporter=text --report-dir=coverage ava",
+    "test:fast": "ava",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "build": "node scripts/build.js",
@@ -54,9 +56,30 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "ava": "^6.4.1",
+    "c8": "^10.1.3",
     "esbuild": "^0.27.3",
     "eslint": "^8.56.0",
-    "postject": "^1.0.0-alpha.6"
+    "postject": "^1.0.0-alpha.6",
+    "sinon": "^21.0.1"
+  },
+  "ava": {
+    "files": [
+      "test/**/*.test.js"
+    ],
+    "timeout": "60s",
+    "concurrency": 4,
+    "nodeArguments": [
+      "--no-warnings"
+    ]
+  },
+  "c8": {
+    "include": [
+      "src/**/*.js"
+    ],
+    "exclude": [
+      "src/protobuf/schema/**"
+    ]
   },
   "engines": {
     "node": ">=18.0.0"

@@ -179,7 +179,7 @@ function buildActionItems(results, stats) {
   if (stats.partial > 0) {
     items.push(`Review partially migrated projects and fix failed steps (${stats.partial} project(s))`);
   }
-  items.push('Review quality profile rule gaps in quality-profile-diff.json');
+  items.push('Review quality profile rule gaps in quality-profiles/quality-profile-diff.json');
   items.push('Verify project permissions in SonarCloud dashboard');
 
   const nodes = [{ text: 'Action Items', style: 'heading' }];

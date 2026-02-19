@@ -19,7 +19,7 @@ Use this when you want to migrate **all projects and configuration** from your S
 
 ### How projects are assigned to orgs
 
-CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list. **You can review and adjust the project-to-org assignments in the generated `organizations.csv` file before running the actual migration.**
+CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list. **You can review and adjust the project-to-org assignments in the generated `mappings/organizations.csv` file before running the actual migration.**
 
 ---
 
@@ -118,7 +118,7 @@ A dry run extracts all data and generates mapping CSVs so you can review **which
 ./cloudvoyager migrate -c migrate-config.json --dry-run
 ```
 
-Check `./migration-output/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
+Check `./migration-output/mappings/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
 
 ### Step 3b: Migrate without metadata + auto-tune
 
@@ -198,18 +198,23 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 
 | File | What's in it |
 |------|-------------|
-| `organizations.csv` | Projects grouped by target organization |
-| `projects.csv` | All projects with their metadata |
-| `group-mappings.csv` | Groups mapped to target organizations |
-| `profile-mappings.csv` | Quality profiles mapped to target organizations |
-| `gate-mappings.csv` | Quality gates mapped to target organizations |
-| `portfolio-mappings.csv` | Portfolios mapped to target organizations |
-| `template-mappings.csv` | Permission templates mapped to target organizations |
-| `migration-report.txt` | Human-readable report with per-project, per-step results |
-| `migration-report.json` | Machine-readable report (same data, structured JSON) |
-| `quality-profile-diff.json` | Per-language diff of active rules between SonarQube and SonarCloud |
+| `mappings/organizations.csv` | Projects grouped by target organization |
+| `mappings/projects.csv` | All projects with their metadata |
+| `mappings/group-mappings.csv` | Groups mapped to target organizations |
+| `mappings/profile-mappings.csv` | Quality profiles mapped to target organizations |
+| `mappings/gate-mappings.csv` | Quality gates mapped to target organizations |
+| `mappings/portfolio-mappings.csv` | Portfolios mapped to target organizations |
+| `mappings/template-mappings.csv` | Permission templates mapped to target organizations |
+| `reports/migration-report.txt` | Human-readable report with per-project, per-step results |
+| `reports/migration-report.json` | Machine-readable report (same data, structured JSON) |
+| `reports/migration-report.md` | Detailed markdown report |
+| `reports/executive-summary.md` | High-level executive summary |
+| `reports/performance-report.md` | Performance metrics breakdown |
+| `reports/*.pdf` | PDF versions of the above reports (best-effort) |
+| `quality-profiles/quality-profile-diff.json` | Per-language diff of active rules between SonarQube and SonarCloud |
 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
+Per-project state files are saved to `{outputDir}/state/` for incremental transfer tracking.
 
 ---
 

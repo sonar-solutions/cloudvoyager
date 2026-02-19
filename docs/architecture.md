@@ -103,7 +103,7 @@ Uses `migrate-pipeline.js`:
    - Set global permissions
    - Create quality gates
    - Restore quality profiles (custom via backup XML, built-in as renamed custom profiles)
-   - Compare quality profiles and write diff report (`quality-profile-diff.json`)
+   - Compare quality profiles and write diff report (`quality-profiles/quality-profile-diff.json`)
    - Create permission templates
    - For each project:
      - Resolve project key (use original SonarQube key; fall back to `{org}_{key}` if taken globally)
