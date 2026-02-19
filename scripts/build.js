@@ -43,8 +43,10 @@ async function build() {
     bundle: true,
     platform: 'node',
     format: 'cjs',
-    target: 'node18',
+    target: 'node21',
     external: [],
+    minify: true,
+    treeShaking: true,
     loader: { '.proto': 'text' },
     define: { 'import.meta.url': 'importMetaUrl' },
     banner: {
@@ -64,6 +66,7 @@ async function build() {
       main: join(distDir, 'cli.cjs'),
       output: join(distDir, 'sea-prep.blob'),
       disableExperimentalSEAWarning: true,
+      useCodeCache: true,
     };
 
     // 1. Write SEA config
