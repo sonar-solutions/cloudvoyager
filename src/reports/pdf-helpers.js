@@ -2,26 +2,45 @@
  * Shared PDF generation helpers for pdfmake.
  */
 
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import PdfPrinterModule from 'pdfmake/js/Printer.js';
+import vfs from 'pdfmake/build/vfs_fonts.js';
 
-const require = createRequire(import.meta.url);
+// pdfmake uses CJS exports.default — handle both ESM and CJS import shapes.
+const PdfPrinter = PdfPrinterModule.default || PdfPrinterModule;
+
+/**
+ * Create a simple virtual filesystem adapter from pdfmake's VFS font data.
+ * This allows fonts to be resolved from the embedded base64 data instead of
+ * requiring files on disk (which don't exist in compiled binaries).
+ */
+function createVirtualFs(vfsData) {
+  return {
+    existsSync(path) {
+      const name = path.split('/').pop();
+      return name in vfsData;
+    },
+    readFileSync(path) {
+      const name = path.split('/').pop();
+      return Buffer.from(vfsData[name], 'base64');
+    },
+  };
+}
 
 /**
  * Create a pdfmake PdfPrinter instance with bundled Roboto fonts.
+ * Uses pdfmake's built-in VFS (base64-embedded fonts) so it works in
+ * compiled binaries where node_modules isn't on disk.
  */
 export function createPrinter() {
-  const PdfPrinter = require('pdfmake/js/printer').default;
-  const pdfmakePath = require.resolve('pdfmake/package.json').replace('/package.json', '');
   const fonts = {
     Roboto: {
-      normal: join(pdfmakePath, 'build/fonts/Roboto/Roboto-Regular.ttf'),
-      bold: join(pdfmakePath, 'build/fonts/Roboto/Roboto-Medium.ttf'),
-      italics: join(pdfmakePath, 'build/fonts/Roboto/Roboto-Italic.ttf'),
-      bolditalics: join(pdfmakePath, 'build/fonts/Roboto/Roboto-MediumItalic.ttf'),
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf',
     }
   };
-  return new PdfPrinter(fonts);
+  return new PdfPrinter(fonts, createVirtualFs(vfs));
 }
 
 /**

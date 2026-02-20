@@ -570,27 +570,7 @@ test('setBitbucketBinding calls post', async t => {
   t.true(stub.called);
 });
 
-// Portfolio management
-test('createPortfolio calls post', async t => {
-  const client = createClient();
-  mockPost(client, { data: { key: 'v1' } });
-  const result = await client.createPortfolio('Portfolio', 'desc', 'public', 'v1');
-  t.truthy(result);
-});
-
-test('createPortfolio without key', async t => {
-  const client = createClient();
-  mockPost(client, { data: {} });
-  await client.createPortfolio('Portfolio');
-  t.pass();
-});
-
-test('addProjectToPortfolio calls post', async t => {
-  const client = createClient();
-  const stub = mockPost(client);
-  await client.addProjectToPortfolio('v1', 'proj');
-  t.true(stub.called);
-});
+// Portfolio management (now handled by EnterpriseClient V2 API, not SonarCloudClient)
 
 // --- Interceptor tests ---
 // Test request throttling interceptor directly

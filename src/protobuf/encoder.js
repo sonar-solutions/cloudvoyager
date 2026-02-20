@@ -2,8 +2,33 @@ import protobuf from 'protobufjs';
 import logger from '../utils/logger.js';
 import { ProtobufEncodingError } from '../utils/errors.js';
 import { encodeMessage, encodeMessageDelimited } from './encode-types.js';
-import constantsProtoText from './schema/constants.proto';
-import scannerReportProtoText from './schema/scanner-report.proto';
+
+/**
+ * Load both proto schema files. Uses static-string import() calls so that
+ * bundlers (esbuild, Bun) can resolve them at build time via their .proto
+ * text loaders. Falls back to readFileSync for plain Node.js dev mode.
+ *
+ * NOTE: The import paths MUST be string literals (not template literals with
+ * variables) so that Bun's bundler can statically analyse and inline them.
+ */
+async function loadProtoSchemas() {
+  try {
+    const [constantsMod, scannerReportMod] = await Promise.all([
+      import('./schema/constants.proto'),
+      import('./schema/scanner-report.proto'),
+    ]);
+    return [constantsMod.default, scannerReportMod.default];
+  } catch {
+    const { readFileSync } = await import('node:fs');
+    const { dirname, join } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const dir = dirname(fileURLToPath(import.meta.url));
+    return [
+      readFileSync(join(dir, 'schema', 'constants.proto'), 'utf-8'),
+      readFileSync(join(dir, 'schema', 'scanner-report.proto'), 'utf-8'),
+    ];
+  }
+}
 
 export class ProtobufEncoder {
   root = null;
@@ -11,6 +36,7 @@ export class ProtobufEncoder {
   async loadSchemas() {
     logger.info('Loading protobuf schemas...');
     try {
+      const [constantsProtoText, scannerReportProtoText] = await loadProtoSchemas();
       const root = new protobuf.Root();
       protobuf.parse(constantsProtoText, root);
       const stripped = scannerReportProtoText.replace(/^import\s+"constants\.proto";\s*$/m, '');

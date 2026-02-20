@@ -73,22 +73,28 @@ export async function migrateOrgWideResources(extractedData, scClient, sqClient,
     return `${gateMapping.size} created`;
   });
 
-  await runOrgStep(orgResult, 'Restore quality profiles', async () => {
-    logger.info('Restoring quality profiles...');
-    const migrationResult = await migrateQualityProfiles(extractedData.qualityProfiles, scClient);
-    builtInProfileMapping = migrationResult.builtInProfileMapping;
-    results.qualityProfiles += migrationResult.profileMapping.size;
-    return `${migrationResult.profileMapping.size} restored (${builtInProfileMapping.size} built-in migrated)`;
-  });
+  if (ctx.skipQualityProfileSync) {
+    orgResult.steps.push({ step: 'Restore quality profiles', status: 'skipped', detail: 'Disabled by --skip-quality-profile-sync', durationMs: 0 });
+    orgResult.steps.push({ step: 'Compare quality profiles', status: 'skipped', detail: 'Disabled by --skip-quality-profile-sync', durationMs: 0 });
+    logger.info('Skipping quality profile sync (--skip-quality-profile-sync). Projects will use default SonarCloud profiles.');
+  } else {
+    await runOrgStep(orgResult, 'Restore quality profiles', async () => {
+      logger.info('Restoring quality profiles...');
+      const migrationResult = await migrateQualityProfiles(extractedData.qualityProfiles, scClient);
+      builtInProfileMapping = migrationResult.builtInProfileMapping;
+      results.qualityProfiles += migrationResult.profileMapping.size;
+      return `${migrationResult.profileMapping.size} restored (${builtInProfileMapping.size} built-in migrated)`;
+    });
 
-  await runOrgStep(orgResult, 'Compare quality profiles', async () => {
-    logger.info('Comparing quality profiles between SonarQube and SonarCloud...');
-    const diffReport = await generateQualityProfileDiff(extractedData.qualityProfiles, sqClient, scClient);
-    const diffPath = join(ctx.outputDir, 'quality-profiles', 'quality-profile-diff.json');
-    await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
-    logger.info(`Quality profile diff report written to ${diffPath}`);
-    return `${diffReport.summary.languagesCompared} languages compared, ${diffReport.summary.totalMissingRules} missing rules, ${diffReport.summary.totalAddedRules} added rules`;
-  });
+    await runOrgStep(orgResult, 'Compare quality profiles', async () => {
+      logger.info('Comparing quality profiles between SonarQube and SonarCloud...');
+      const diffReport = await generateQualityProfileDiff(extractedData.qualityProfiles, sqClient, scClient);
+      const diffPath = join(ctx.outputDir, 'quality-profiles', 'quality-profile-diff.json');
+      await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
+      logger.info(`Quality profile diff report written to ${diffPath}`);
+      return `${diffReport.summary.languagesCompared} languages compared, ${diffReport.summary.totalMissingRules} missing rules, ${diffReport.summary.totalAddedRules} added rules`;
+    });
+  }
 
   await runOrgStep(orgResult, 'Create permission templates', async () => {
     logger.info('Creating permission templates...');
@@ -102,7 +108,7 @@ export async function migrateOneOrganization(assignment, extractedData, resource
   const { org, projects } = assignment;
   if (projects.length === 0) {
     logger.info(`Skipping org ${org.key}: no projects assigned`);
-    return;
+    return new Map();
   }
 
   logger.info('\n========================================');
@@ -124,7 +130,7 @@ export async function migrateOneOrganization(assignment, extractedData, resource
   } catch (error) {
     orgResult.steps.push({ step: 'Connect to SonarCloud', status: 'failed', error: error.message });
     logger.error(`Failed to connect to SonarCloud org ${org.key}: ${error.message}`);
-    return;
+    return new Map();
   }
 
   const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
@@ -135,21 +141,39 @@ export async function migrateOneOrganization(assignment, extractedData, resource
   );
 
   results.projectKeyWarnings.push(...projectKeyWarnings);
-  await migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClient, orgResult, results);
   orgResult.durationMs = Date.now() - orgStart;
+
+  return projectKeyMap;
 }
 
-export async function migrateOrgPortfolios(org, resourceMappings, projectKeyMap, scClient, orgResult, results) {
+/**
+ * Migrate portfolios at the enterprise level (after all orgs are migrated).
+ * Uses the V2 Enterprise API since portfolios are enterprise-wide in SonarCloud.
+ */
+export async function migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx) {
+  const enterpriseConfig = ctx.enterpriseConfig;
+  if (!enterpriseConfig?.key) {
+    logger.info('No enterprise key configured — skipping portfolio migration');
+    return;
+  }
+
+  const allPortfolios = extractedData.portfolios || [];
+  if (allPortfolios.length === 0) {
+    logger.info('No portfolios to migrate');
+    return;
+  }
+
   const start = Date.now();
   try {
-    logger.info('Creating portfolios...');
-    const portfolioMapping = await migratePortfolios(
-      resourceMappings.portfoliosByOrg.get(org.key) || [], projectKeyMap, scClient
+    logger.info('Creating portfolios via Enterprise V2 API...');
+    const orgConfig = ctx.sonarcloudOrgs[0];
+    const created = await migratePortfolios(
+      allPortfolios, mergedProjectKeyMap, enterpriseConfig, orgConfig, ctx.rateLimitConfig
     );
-    results.portfolios += portfolioMapping.size;
-    orgResult.steps.push({ step: 'Create portfolios', status: 'success', detail: `${portfolioMapping.size} created`, durationMs: Date.now() - start });
+    results.portfolios += created;
+    logger.info(`Enterprise portfolios: ${created} created`);
   } catch (error) {
-    orgResult.steps.push({ step: 'Create portfolios', status: 'failed', error: error.message, durationMs: Date.now() - start });
-    logger.error(`Failed to create portfolios: ${error.message}`);
+    logger.error(`Failed to create enterprise portfolios: ${error.message}`);
   }
+  logger.debug(`Portfolio migration took ${Date.now() - start}ms`);
 }
