@@ -1,5 +1,5 @@
 import logger from './logger.js';
-export { resolvePerformanceConfig, ensureHeapSize, getMemoryInfo, logSystemInfo } from './system-info.js';
+export { resolvePerformanceConfig, ensureHeapSize, getMemoryInfo, logSystemInfo, collectEnvironmentInfo } from './system-info.js';
 
 export function createLimiter(concurrency) {
   let active = 0;

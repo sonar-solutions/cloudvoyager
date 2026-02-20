@@ -16,7 +16,11 @@ export function createEmptyResults() {
     issueSyncStats: { matched: 0, transitioned: 0 },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     projectKeyWarnings: [],
-    errors: []
+    errors: [],
+    totalLinesOfCode: 0,
+    projectLinesOfCode: [],
+    environment: null,
+    configuration: null
   };
 }
 
@@ -70,6 +74,9 @@ export function logMigrationSummary(results, outputDir) {
 
   logger.info('\n=== Migration Summary ===');
   logger.info(`Duration: ${duration}s`);
+  if (results.totalLinesOfCode > 0) {
+    logger.info(`Lines of Code: ${results.totalLinesOfCode.toLocaleString()}`);
+  }
   logger.info(`Projects: ${succeeded} succeeded, ${partial} partial, ${failed} failed, ${results.projects.length} total`);
   logger.info(`Quality Gates: ${results.qualityGates} migrated`);
   logger.info(`Quality Profiles: ${results.qualityProfiles} migrated`);

@@ -78,6 +78,23 @@ export function getMemoryInfo() {
   };
 }
 
+export function collectEnvironmentInfo() {
+  const cpuInfo = cpus();
+  const cpuModel = cpuInfo.length > 0 ? cpuInfo[0].model.trim() : 'Unknown';
+  const cpuCount = availableParallelism();
+  const totalMemMB = Math.round(totalmem() / 1024 / 1024);
+  const memInfo = getMemoryInfo();
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    cpuModel,
+    cpuCores: cpuCount,
+    totalMemoryMB: totalMemMB,
+    nodeVersion: process.version,
+    heapLimitMB: memInfo.heapSizeLimitMB
+  };
+}
+
 export function logSystemInfo(perfConfig) {
   const cpuCount = availableParallelism();
   const totalMemMB = Math.round(totalmem() / 1024 / 1024);

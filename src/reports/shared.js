@@ -84,3 +84,36 @@ export function computeTotalDurationMs(results) {
   if (!results.startTime || !results.endTime) return null;
   return new Date(results.endTime) - new Date(results.startTime);
 }
+
+/**
+ * Format a number with thousands separators.
+ * e.g. 1234567 → "1,234,567"
+ */
+export function formatNumber(n) {
+  if (n == null) return '0';
+  return Number(n).toLocaleString('en-US');
+}
+
+/**
+ * Get total lines of code from results.
+ */
+export function computeTotalLoc(results) {
+  return results.totalLinesOfCode || 0;
+}
+
+/**
+ * Compute LOC throughput metrics.
+ * Returns { locPerSecond, locPerMinute, avgLocPerProject }.
+ */
+export function computeLocThroughput(results) {
+  const totalLoc = computeTotalLoc(results);
+  const durationMs = computeTotalDurationMs(results);
+  const projectCount = results.projects.length;
+
+  const durationSec = durationMs != null && durationMs > 0 ? durationMs / 1000 : null;
+  return {
+    locPerSecond: durationSec != null ? Math.round(totalLoc / durationSec) : null,
+    locPerMinute: durationSec != null ? Math.round(totalLoc / (durationSec / 60)) : null,
+    avgLocPerProject: projectCount > 0 ? Math.round(totalLoc / projectCount) : 0
+  };
+}

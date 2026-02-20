@@ -27,6 +27,10 @@ export async function migrateOrgProjects(projects, org, scClient, gateMapping, e
     logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} -> ${scProjectKey} ---`);
     const projectResult = await migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping });
     results.projects.push(projectResult);
+    if (projectResult.linesOfCode > 0) {
+      results.totalLinesOfCode += projectResult.linesOfCode;
+      results.projectLinesOfCode.push({ projectKey: project.key, linesOfCode: projectResult.linesOfCode });
+    }
     recordProjectOutcome(project, projectResult, results);
   }
   return { projectKeyMap, projectKeyWarnings };
@@ -65,16 +69,18 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
   const start = Date.now();
   try {
     const stateFile = join(ctx.outputDir, 'state', `.state.${project.key}.json`);
-    await transferProject({
+    const transferResult = await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
       transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize },
       performanceConfig: ctx.perfConfig,
       wait: ctx.wait, skipConnectionTest: true, projectName: project.name
     });
+    projectResult.linesOfCode = transferResult.stats.linesOfCode || 0;
     projectResult.steps.push({ step: 'Upload scanner report', status: 'success', durationMs: Date.now() - start });
     return true;
   } catch (error) {
+    projectResult.linesOfCode = 0;
     projectResult.steps.push({ step: 'Upload scanner report', status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);
     return false;
