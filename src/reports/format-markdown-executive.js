@@ -3,7 +3,7 @@
  * Produces a concise (~1 page) report aimed at engineering leadership.
  */
 
-import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs, getNewCodePeriodSkippedProjects, formatNumber, computeTotalLoc, computeLocThroughput } from './shared.js';
 
 /**
  * Format results as an executive summary in markdown.
@@ -84,8 +84,16 @@ function formatKeyMetrics(results, stats) {
     `| Portfolios Created | ${results.portfolios} |`,
     `| Issues Synced | ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned |`,
     `| Hotspots Synced | ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed |`,
-    '',
   ];
+  const totalLoc = computeTotalLoc(results);
+  if (totalLoc > 0) {
+    lines.push(`| Total Lines of Code | ${formatNumber(totalLoc)} |`);
+    const throughput = computeLocThroughput(results);
+    if (throughput.locPerMinute != null) {
+      lines.push(`| Migration Throughput | ${formatNumber(throughput.locPerMinute)} LOC/min |`);
+    }
+  }
+  lines.push('');
   return lines.join('\n');
 }
 

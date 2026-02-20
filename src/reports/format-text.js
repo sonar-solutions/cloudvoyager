@@ -3,7 +3,7 @@
  * Produces a human-readable plain-text migration report.
  */
 
-import { formatDuration, formatTimestamp, computeProjectStats, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, getNewCodePeriodSkippedProjects, formatNumber, computeTotalLoc } from './shared.js';
 
 /**
  * Format results as a human-readable text report.
@@ -21,6 +21,8 @@ export function formatTextReport(results) {
   formatOrgResults(lines, results, subsep);
   formatProblemProjects(lines, results, subsep);
   formatAllProjects(lines, results, subsep);
+  formatEnvironment(lines, results, subsep);
+  formatConfiguration(lines, results, subsep);
 
   lines.push(sep);
   return lines.join('\n');
@@ -55,8 +57,12 @@ function formatReportSummary(lines, results, subsep) {
     `  Portfolios:       ${results.portfolios} created`,
     `  Issues:           ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`,
     `  Hotspots:         ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`,
-    '',
   );
+  const totalLoc = computeTotalLoc(results);
+  if (totalLoc > 0) {
+    lines.push(`  Lines of Code:    ${formatNumber(totalLoc)} total`);
+  }
+  lines.push('');
 }
 
 function formatKeyConflicts(lines, results, subsep) {
@@ -173,4 +179,39 @@ function getProjectStatusIcon(status) {
   if (status === 'success') return 'OK     ';
   if (status === 'partial') return 'PARTIAL';
   return 'FAIL   ';
+}
+
+function formatEnvironment(lines, results, subsep) {
+  const env = results.environment;
+  if (!env) return;
+
+  lines.push('RUNTIME ENVIRONMENT', subsep);
+  lines.push(`  Platform:     ${env.platform} (${env.arch})`);
+  lines.push(`  CPU:          ${env.cpuModel} (${env.cpuCores} cores)`);
+  lines.push(`  Memory:       ${formatNumber(env.totalMemoryMB)} MB total`);
+  lines.push(`  Node.js:      ${env.nodeVersion}`);
+  lines.push(`  Heap Limit:   ${formatNumber(env.heapLimitMB)} MB`);
+  lines.push('');
+}
+
+function formatConfiguration(lines, results, subsep) {
+  const cfg = results.configuration;
+  if (!cfg) return;
+
+  lines.push('CONFIGURATION', subsep);
+  lines.push(`  Transfer Mode:       ${cfg.transferMode}`);
+  lines.push(`  Batch Size:          ${cfg.batchSize}`);
+  lines.push(`  Auto-Tune:           ${cfg.autoTune ? 'enabled' : 'disabled'}`);
+  lines.push(`  Max Concurrency:     ${cfg.performance.maxConcurrency}`);
+  lines.push(`  Source Extraction:   ${cfg.performance.sourceExtraction.concurrency} concurrent`);
+  lines.push(`  Hotspot Extraction:  ${cfg.performance.hotspotExtraction.concurrency} concurrent`);
+  lines.push(`  Issue Sync:          ${cfg.performance.issueSync.concurrency} concurrent`);
+  lines.push(`  Hotspot Sync:        ${cfg.performance.hotspotSync.concurrency} concurrent`);
+  lines.push(`  Project Migration:   ${cfg.performance.projectMigration.concurrency} concurrent`);
+  if (cfg.rateLimit) {
+    lines.push(`  Rate Limit Retries:  ${cfg.rateLimit.maxRetries}`);
+    lines.push(`  Rate Limit Delay:    ${cfg.rateLimit.baseDelay}ms`);
+    lines.push(`  Min Request Interval: ${cfg.rateLimit.minRequestInterval}ms`);
+  }
+  lines.push('');
 }

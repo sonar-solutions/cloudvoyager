@@ -1,4 +1,4 @@
-import { formatDuration, formatTimestamp, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects, formatNumber, computeTotalLoc } from './shared.js';
 import { generatePdfBuffer, pdfStyles } from './pdf-helpers.js';
 import { buildServerSteps, buildOrgResults, buildProblemProjects, buildAllProjects } from './pdf-sections.js';
 
@@ -12,6 +12,8 @@ export async function generatePdfReport(results) {
   content.push(...buildOrgResults(results));
   content.push(...buildProblemProjects(results));
   content.push(...buildAllProjects(results));
+  content.push(...buildEnvironment(results));
+  content.push(...buildConfiguration(results));
 
   const docDefinition = {
     info: {
@@ -63,26 +65,27 @@ function buildSummaryTable(results) {
   const projectLine = total > 0
     ? `${succeeded} succeeded, ${partial} partial, ${failed} failed (${total} total)`
     : '0 (no projects migrated)';
+  const body = [
+    [
+      { text: 'Resource', style: 'tableHeader' },
+      { text: 'Result', style: 'tableHeader' },
+    ],
+    ['Projects', projectLine],
+    ['Quality Gates', `${results.qualityGates} migrated`],
+    ['Quality Profiles', `${results.qualityProfiles} migrated`],
+    ['Groups', `${results.groups} created`],
+    ['Portfolios', `${results.portfolios} created`],
+    ['Issues', `${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`],
+    ['Hotspots', `${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`],
+  ];
+  const totalLoc = computeTotalLoc(results);
+  if (totalLoc > 0) {
+    body.push(['Lines of Code', `${formatNumber(totalLoc)} total`]);
+  }
   return [
     { text: 'Summary', style: 'heading' },
     {
-      table: {
-        headerRows: 1,
-        widths: [180, '*'],
-        body: [
-          [
-            { text: 'Resource', style: 'tableHeader' },
-            { text: 'Result', style: 'tableHeader' },
-          ],
-          ['Projects', projectLine],
-          ['Quality Gates', `${results.qualityGates} migrated`],
-          ['Quality Profiles', `${results.qualityProfiles} migrated`],
-          ['Groups', `${results.groups} created`],
-          ['Portfolios', `${results.portfolios} created`],
-          ['Issues', `${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`],
-          ['Hotspots', `${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`],
-        ],
-      },
+      table: { headerRows: 1, widths: [180, '*'], body },
       layout: 'lightHorizontalLines',
     },
   ];
@@ -124,5 +127,48 @@ function buildNcpWarnings(results) {
     { text: 'New Code Period Not Set', style: 'heading' },
     { text: `${ncpSkipped.length} project(s) use unsupported new code period types. Please configure these manually in SonarCloud.`, style: 'small', margin: [0, 0, 0, 5] },
     { table: { headerRows: 1, widths: [150, '*'], body }, layout: 'lightHorizontalLines' },
+  ];
+}
+
+function buildEnvironment(results) {
+  const env = results.environment;
+  if (!env) return [];
+  const body = [
+    [{ text: 'Property', style: 'tableHeader' }, { text: 'Value', style: 'tableHeader' }],
+    ['Platform', `${env.platform} (${env.arch})`],
+    ['CPU', `${env.cpuModel} (${env.cpuCores} cores)`],
+    ['Memory', `${formatNumber(env.totalMemoryMB)} MB`],
+    ['Node.js', env.nodeVersion],
+    ['Heap Limit', `${formatNumber(env.heapLimitMB)} MB`],
+  ];
+  return [
+    { text: 'Runtime Environment', style: 'heading' },
+    { table: { headerRows: 1, widths: [180, '*'], body }, layout: 'lightHorizontalLines' },
+  ];
+}
+
+function buildConfiguration(results) {
+  const cfg = results.configuration;
+  if (!cfg) return [];
+  const body = [
+    [{ text: 'Setting', style: 'tableHeader' }, { text: 'Value', style: 'tableHeader' }],
+    ['Transfer Mode', cfg.transferMode],
+    ['Batch Size', String(cfg.batchSize)],
+    ['Auto-Tune', cfg.autoTune ? 'Enabled' : 'Disabled'],
+    ['Max Concurrency', String(cfg.performance.maxConcurrency)],
+    ['Source Extraction', `${cfg.performance.sourceExtraction.concurrency} concurrent`],
+    ['Hotspot Extraction', `${cfg.performance.hotspotExtraction.concurrency} concurrent`],
+    ['Issue Sync', `${cfg.performance.issueSync.concurrency} concurrent`],
+    ['Hotspot Sync', `${cfg.performance.hotspotSync.concurrency} concurrent`],
+    ['Project Migration', `${cfg.performance.projectMigration.concurrency} concurrent`],
+  ];
+  if (cfg.rateLimit) {
+    body.push(['Rate Limit Retries', String(cfg.rateLimit.maxRetries)]);
+    body.push(['Rate Limit Base Delay', `${cfg.rateLimit.baseDelay}ms`]);
+    body.push(['Min Request Interval', `${cfg.rateLimit.minRequestInterval}ms`]);
+  }
+  return [
+    { text: 'Configuration', style: 'heading' },
+    { table: { headerRows: 1, widths: [180, '*'], body }, layout: 'lightHorizontalLines' },
   ];
 }

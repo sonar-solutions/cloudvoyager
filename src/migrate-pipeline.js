@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SonarQubeClient } from './sonarqube/api-client.js';
-import { resolvePerformanceConfig } from './utils/concurrency.js';
+import { resolvePerformanceConfig, collectEnvironmentInfo } from './utils/concurrency.js';
 import logger from './utils/logger.js';
 import { writeAllReports } from './reports/index.js';
 import { createEmptyResults, runFatalStep, logMigrationSummary } from './pipeline/results.js';
@@ -54,6 +54,25 @@ export async function migrateAll(options) {
   await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
 
   const results = createEmptyResults();
+  results.environment = collectEnvironmentInfo();
+  results.configuration = {
+    transferMode: transferConfig.mode || 'full',
+    batchSize: transferConfig.batchSize || 100,
+    autoTune: perfConfig.autoTune || false,
+    performance: {
+      maxConcurrency: perfConfig.maxConcurrency,
+      sourceExtraction: { concurrency: perfConfig.sourceExtraction.concurrency },
+      hotspotExtraction: { concurrency: perfConfig.hotspotExtraction.concurrency },
+      issueSync: { concurrency: perfConfig.issueSync.concurrency },
+      hotspotSync: { concurrency: perfConfig.hotspotSync.concurrency },
+      projectMigration: { concurrency: perfConfig.projectMigration.concurrency }
+    },
+    rateLimit: rateLimitConfig ? {
+      maxRetries: rateLimitConfig.maxRetries ?? 3,
+      baseDelay: rateLimitConfig.baseDelay ?? 1000,
+      minRequestInterval: rateLimitConfig.minRequestInterval ?? 0
+    } : { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 }
+  };
   const ctx = {
     sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
     perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, wait

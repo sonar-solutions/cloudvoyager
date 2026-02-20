@@ -102,10 +102,12 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   }
 
   // Record successful transfer in state
+  const nclocMeasure = (extractedData.measures.measures || []).find(m => m.metric === 'ncloc');
   const stats = {
     issuesTransferred: extractedData.issues.length,
     componentsTransferred: extractedData.components.length,
-    sourcesTransferred: extractedData.sources.length
+    sourcesTransferred: extractedData.sources.length,
+    linesOfCode: nclocMeasure ? parseInt(nclocMeasure.value, 10) || 0 : 0
   };
 
   if (transferConfig.mode === 'incremental') {

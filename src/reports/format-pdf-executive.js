@@ -1,4 +1,4 @@
-import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs, formatNumber, computeTotalLoc, computeLocThroughput } from './shared.js';
 import { generatePdfBuffer, pdfStyles } from './pdf-helpers.js';
 import { buildWarnings, buildActionItems, buildFailedProjects } from './pdf-exec-sections.js';
 
@@ -102,6 +102,14 @@ function buildKeyMetrics(results, stats) {
     ['Issues Synced', `${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`],
     ['Hotspots Synced', `${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`],
   ];
+  const totalLoc = computeTotalLoc(results);
+  if (totalLoc > 0) {
+    body.push(['Total Lines of Code', formatNumber(totalLoc)]);
+    const throughput = computeLocThroughput(results);
+    if (throughput.locPerMinute != null) {
+      body.push(['Migration Throughput', `${formatNumber(throughput.locPerMinute)} LOC/min`]);
+    }
+  }
   return [
     { text: 'Key Metrics', style: 'heading' },
     { table: { headerRows: 1, widths: [200, '*'], body }, layout: 'lightHorizontalLines' },
