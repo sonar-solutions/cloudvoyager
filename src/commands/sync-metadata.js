@@ -12,6 +12,7 @@ export function registerSyncMetadataCommand(program) {
     .option('-v, --verbose', 'Enable verbose logging')
     .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
     .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
+    .option('--skip-quality-profile-sync', 'Skip syncing quality profiles (projects use default SonarCloud profiles)')
     .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
@@ -24,6 +25,7 @@ export function registerSyncMetadataCommand(program) {
         const migrateConfig = config.migrate || {};
         if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
         if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
+        if (options.skipQualityProfileSync) migrateConfig.skipQualityProfileSync = true;
 
         const perfConfig = resolvePerformanceConfig({
           ...config.performance,
@@ -38,6 +40,7 @@ export function registerSyncMetadataCommand(program) {
         const results = await migrateAll({
           sonarqubeConfig: config.sonarqube,
           sonarcloudOrgs: config.sonarcloud.organizations,
+          enterpriseConfig: config.sonarcloud.enterprise,
           migrateConfig,
           rateLimitConfig: config.rateLimit,
           performanceConfig: perfConfig

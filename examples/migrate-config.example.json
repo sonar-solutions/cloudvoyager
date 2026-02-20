@@ -25,6 +25,7 @@
     "outputDir": "./migration-output",
     "skipIssueMetadataSync": false,
     "skipHotspotMetadataSync": false,
+    "skipQualityProfileSync": false,
     "dryRun": false
   },
   "rateLimit": {

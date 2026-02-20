@@ -71,10 +71,6 @@ function mockClient(overrides = {}) {
     setAzureBinding: sinon.stub().resolves({}),
     setBitbucketBinding: sinon.stub().resolves({}),
 
-    // Portfolios
-    createPortfolio: sinon.stub().resolves({ key: 'portfolio-key' }),
-    addProjectToPortfolio: sinon.stub().resolves({}),
-
     // Issues
     searchIssues: sinon.stub().resolves([]),
     transitionIssue: sinon.stub().resolves({}),
@@ -1485,83 +1481,29 @@ test('migrateDevOpsBinding handles binding failure gracefully', async t => {
 });
 
 // ============================================================================
-// portfolios.js - migratePortfolios
+// portfolios.js - migratePortfolios (now uses V2 Enterprise API - see enterprise-client tests)
 // ============================================================================
 
-test('migratePortfolios creates portfolios and adds projects', async t => {
-  const client = mockClient();
-  const portfolios = [
-    {
-      key: 'port1',
-      name: 'Portfolio 1',
-      description: 'A portfolio',
-      visibility: 'private',
-      projects: [
-        { key: 'proj1' },
-        { key: 'proj2' }
-      ]
-    }
-  ];
-  const projectKeyMapping = new Map([['proj1', 'sc-proj1']]);
-
-  const result = await migratePortfolios(portfolios, projectKeyMapping, client);
-
-  t.is(result.size, 1);
-  t.is(result.get('port1'), 'portfolio-key');
-  t.is(client.createPortfolio.callCount, 1);
-  t.deepEqual(client.createPortfolio.firstCall.args, ['Portfolio 1', 'A portfolio', 'private', 'port1']);
-  t.is(client.addProjectToPortfolio.callCount, 2);
-  // proj1 maps to sc-proj1, proj2 has no mapping so uses original key
-  t.deepEqual(client.addProjectToPortfolio.firstCall.args, ['portfolio-key', 'sc-proj1']);
-  t.deepEqual(client.addProjectToPortfolio.secondCall.args, ['portfolio-key', 'proj2']);
+test('migratePortfolios returns 0 when no enterprise key configured', async t => {
+  const result = await migratePortfolios(
+    [{ key: 'port1', name: 'Portfolio', projects: [] }],
+    new Map(),
+    null, // no enterprise config
+    { url: 'https://sonarcloud.io', token: 'token' },
+    {}
+  );
+  t.is(result, 0);
 });
 
-test('migratePortfolios handles portfolio creation failure', async t => {
-  const client = mockClient({
-    createPortfolio: sinon.stub().rejects(new Error('portfolio limit'))
-  });
-  const portfolios = [
-    { key: 'port1', name: 'Portfolio', description: '', visibility: 'public', projects: [] }
-  ];
-
-  const result = await migratePortfolios(portfolios, new Map(), client);
-
-  t.is(result.size, 0);
-});
-
-test('migratePortfolios handles project addition failure gracefully', async t => {
-  const client = mockClient({
-    addProjectToPortfolio: sinon.stub().rejects(new Error('project not found'))
-  });
-  const portfolios = [
-    { key: 'port1', name: 'Portfolio', description: '', visibility: 'public', projects: [{ key: 'proj1' }] }
-  ];
-
-  const result = await migratePortfolios(portfolios, new Map(), client);
-
-  // Portfolio still gets mapped despite project add failure
-  t.is(result.size, 1);
-});
-
-test('migratePortfolios returns empty map for empty input', async t => {
-  const client = mockClient();
-  const result = await migratePortfolios([], new Map(), client);
-
-  t.is(result.size, 0);
-  t.is(client.createPortfolio.callCount, 0);
-});
-
-test('migratePortfolios uses portfolio.key as fallback when created.key is undefined', async t => {
-  const client = mockClient({
-    createPortfolio: sinon.stub().resolves({})
-  });
-  const portfolios = [
-    { key: 'port1', name: 'Portfolio', description: '', visibility: 'public', projects: [] }
-  ];
-
-  const result = await migratePortfolios(portfolios, new Map(), client);
-
-  t.is(result.get('port1'), 'port1');
+test('migratePortfolios returns 0 for empty input', async t => {
+  const result = await migratePortfolios(
+    [],
+    new Map(),
+    { key: 'enterprise-key' },
+    { url: 'https://sonarcloud.io', token: 'token' },
+    {}
+  );
+  t.is(result, 0);
 });
 
 // ============================================================================

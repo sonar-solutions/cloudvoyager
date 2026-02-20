@@ -10,6 +10,31 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-02-19 — Unit Tests, Local Dev Guide, Build Optimizations, and SEA Binary Fixes
+
+#### Build Optimizations
+- Updated esbuild target from Node 18 to Node 21 for modern syntax and fewer polyfill transforms
+- Enabled minification and tree shaking in esbuild bundle for smaller binary size
+- Enabled V8 code cache (`useCodeCache`) in SEA configuration for faster startup by pre-compiling JS to bytecode at build time
+
+#### SEA Binary Fix
+- Fixed `ensureHeapSize` respawn logic to correctly detect SEA binaries where `process.argv[0]` and `process.argv[1]` are duplicated, preventing extra argument passing to child processes
+
+#### Refactored
+- Simplified protobuf schema imports in encoder.js by removing redundant path resolution
+
+#### New API Endpoints and Reporting
+- Added new API endpoints and enhanced reporting features for migration workflows
+- Enhanced documentation and reports for migration process, including new transfer scenarios and improved output paths
+
+#### Testing
+- Added unit tests for SonarQube models, state management, transfer pipeline, concurrency utilities, error handling, and logging
+
+#### Documentation
+- Added local development guide for building and running CloudVoyager from source with step-by-step instructions
+
+---
+
 ### 2026-02-18 — Reporting, Quality Profile Diffs, and Stability Fixes
 
 #### Migration Report Generation

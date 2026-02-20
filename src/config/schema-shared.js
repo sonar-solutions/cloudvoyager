@@ -10,7 +10,7 @@ export const performanceSchema = {
       description: 'General concurrency limit for parallel I/O operations'
     },
     maxMemoryMB: {
-      type: 'integer', minimum: 256, maximum: 32768, default: 0,
+      type: 'integer', minimum: 0, maximum: 32768, default: 0,
       description: 'Max heap size in MB (0 = Node.js default). Auto-restarts the process with increased heap if needed.'
     },
     sourceExtraction: {

@@ -6,12 +6,13 @@ import logger from './utils/logger.js';
 import { writeAllReports } from './reports/index.js';
 import { createEmptyResults, runFatalStep, logMigrationSummary } from './pipeline/results.js';
 import { extractAllProjects, extractServerWideData } from './pipeline/extraction.js';
-import { generateOrgMappings, saveServerInfo, migrateOneOrganization } from './pipeline/org-migration.js';
+import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
 
 export async function migrateAll(options) {
   const {
     sonarqubeConfig,
     sonarcloudOrgs,
+    enterpriseConfig,
     migrateConfig = {},
     transferConfig = { mode: 'full', batchSize: 100 },
     rateLimitConfig,
@@ -24,6 +25,7 @@ export async function migrateAll(options) {
   const dryRun = migrateConfig.dryRun || false;
   const skipIssueSync = migrateConfig.skipIssueMetadataSync || migrateConfig.skipIssueSync || false;
   const skipHotspotSync = migrateConfig.skipHotspotMetadataSync || migrateConfig.skipHotspotSync || false;
+  const skipQualityProfileSync = migrateConfig.skipQualityProfileSync || false;
 
   logger.info(`Cleaning output directory: ${outputDir}`);
   await rm(outputDir, { recursive: true, force: true });
@@ -33,8 +35,8 @@ export async function migrateAll(options) {
 
   const results = createEmptyResults();
   const ctx = {
-    sonarqubeConfig, sonarcloudOrgs, transferConfig, rateLimitConfig,
-    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, wait
+    sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
+    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, wait
   };
 
   try {
@@ -59,9 +61,15 @@ export async function migrateAll(options) {
 
     await saveServerInfo(outputDir, extractedData);
 
+    const mergedProjectKeyMap = new Map();
     for (const assignment of orgMapping.orgAssignments) {
-      await migrateOneOrganization(assignment, extractedData, resourceMappings, results, ctx);
+      const projectKeyMap = await migrateOneOrganization(assignment, extractedData, resourceMappings, results, ctx);
+      for (const [sqKey, scKey] of projectKeyMap) {
+        mergedProjectKeyMap.set(sqKey, scKey);
+      }
     }
+
+    await migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx);
 
     logMigrationSummary(results, outputDir);
   } finally {

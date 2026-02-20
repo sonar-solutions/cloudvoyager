@@ -91,8 +91,6 @@ function setupAllStubs() {
   sc.setIssueTags = sinon.stub(SonarCloudClient.prototype, 'setIssueTags').resolves();
   sc.changeHotspotStatus = sinon.stub(SonarCloudClient.prototype, 'changeHotspotStatus').resolves();
   sc.addHotspotComment = sinon.stub(SonarCloudClient.prototype, 'addHotspotComment').resolves();
-  sc.createPortfolio = sinon.stub(SonarCloudClient.prototype, 'createPortfolio').resolves({ key: 'p1' });
-  sc.addProjectToPortfolio = sinon.stub(SonarCloudClient.prototype, 'addProjectToPortfolio').resolves();
   sc.getAnalysisStatus = sinon.stub(SonarCloudClient.prototype, 'getAnalysisStatus').resolves({ status: 'SUCCESS' });
   sc.projectExists = sinon.stub(SonarCloudClient.prototype, 'projectExists').resolves(false);
   sc.assignQualityGateToProject = sinon.stub(SonarCloudClient.prototype, 'assignQualityGateToProject').resolves();

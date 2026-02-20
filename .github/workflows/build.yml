@@ -8,50 +8,135 @@ on:
         value: ${{ jobs.tag.outputs.tag }}
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-x64
-          - os: ubuntu-24.04-arm
-            platform: linux-arm64
-          - os: macos-latest
-            platform: macos-arm64
-          - os: macos-15
-            platform: macos-x64
-            node-arch: x64
-          - os: windows-latest
-            platform: win-x64
-          - os: windows-11-arm
-            platform: win-arm64
-    runs-on: ${{ matrix.os }}
+  # Build Node.js SEA binaries — one job per platform (default, stable)
+  build-sea-linux-x64:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 21
-          architecture: ${{ matrix.node-arch }}
-
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ matrix.platform }}-${{ hashFiles('package-lock.json') }}
-
+          key: node-modules-linux-x64-${{ hashFiles('package-lock.json') }}
       - run: npm ci
-
-      - run: npm run package
-
-      - name: Upload build artifact
+      - name: Build linux-x64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload linux-x64
         uses: actions/upload-artifact@v4
         with:
-          name: cloudvoyager-${{ matrix.platform }}
-          path: dist/bin/*
+          name: cloudvoyager-linux-x64
+          path: dist/bin/cloudvoyager-linux-x64
+
+  build-sea-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-linux-arm64-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build linux-arm64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload linux-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-linux-arm64
+          path: dist/bin/cloudvoyager-linux-arm64
+
+  build-sea-macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-macos-arm64-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build macos-arm64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload macos-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-macos-arm64
+          path: dist/bin/cloudvoyager-macos-arm64
+
+  build-sea-macos-x64:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-macos-x64-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build macos-x64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload macos-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-macos-x64
+          path: dist/bin/cloudvoyager-macos-x64
+
+  build-sea-win-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-win-x64-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build win-x64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload win-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-win-x64
+          path: dist/bin/cloudvoyager-win-x64.exe
+
+  build-sea-win-arm64:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-win-arm64-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build win-arm64 binary via Node.js SEA
+        run: npm run package
+      - name: Upload win-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-win-arm64
+          path: dist/bin/cloudvoyager-win-arm64.exe
 
   tag:
-    needs: build
+    needs: [build-sea-linux-x64, build-sea-linux-arm64, build-sea-macos-arm64, build-sea-macos-x64, build-sea-win-x64, build-sea-win-arm64]
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}

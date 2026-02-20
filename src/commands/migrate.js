@@ -14,6 +14,7 @@ export function registerMigrateCommand(program) {
     .option('--dry-run', 'Extract data and generate mappings without migrating')
     .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
     .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
+    .option('--skip-quality-profile-sync', 'Skip syncing quality profiles (projects use default SonarCloud profiles)')
     .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
@@ -28,6 +29,7 @@ export function registerMigrateCommand(program) {
         if (options.dryRun) migrateConfig.dryRun = true;
         if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
         if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
+        if (options.skipQualityProfileSync) migrateConfig.skipQualityProfileSync = true;
 
         const perfConfig = resolvePerformanceConfig({
           ...config.performance,
@@ -42,6 +44,7 @@ export function registerMigrateCommand(program) {
         const results = await migrateAll({
           sonarqubeConfig: config.sonarqube,
           sonarcloudOrgs: config.sonarcloud.organizations,
+          enterpriseConfig: config.sonarcloud.enterprise,
           migrateConfig,
           transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
           rateLimitConfig: config.rateLimit,
@@ -56,6 +59,7 @@ export function registerMigrateCommand(program) {
           process.exit(1);
         }
         logger.info('=== Migration completed successfully ===');
+        process.exit(0);
       } catch (error) {
         if (error instanceof CloudVoyagerError) {
           logger.error(`Migration failed: ${error.message}`);

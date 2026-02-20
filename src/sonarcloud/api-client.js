@@ -134,6 +134,14 @@ export class SonarCloudClient {
     }
   }
 
+  async getMostRecentCeTask() {
+    const response = await this.client.get('/api/ce/activity', {
+      params: { component: this.projectKey, ps: 1, status: 'SUCCESS,FAILED,CANCELED,PENDING,IN_PROGRESS' }
+    });
+    const tasks = response.data.tasks || [];
+    return tasks.length > 0 ? tasks[0] : null;
+  }
+
   async getAnalysisStatus(ceTaskId) {
     try {
       const response = await this.client.get('/api/ce/task', { params: { id: ceTaskId } });
@@ -195,6 +203,4 @@ export class SonarCloudClient {
   async setGitlabBinding(pk, a, r) { return pc.setGitlabBinding(this.client, pk, a, r); }
   async setAzureBinding(pk, a, p, r) { return pc.setAzureBinding(this.client, pk, a, p, r); }
   async setBitbucketBinding(pk, a, r, s) { return pc.setBitbucketBinding(this.client, pk, a, r, s); }
-  async createPortfolio(n, d = '', v = 'public', k = null) { return pc.createPortfolio(this.client, this.organization, n, d, v, k); }
-  async addProjectToPortfolio(pk, prj) { return pc.addProjectToPortfolio(this.client, pk, prj); }
 }

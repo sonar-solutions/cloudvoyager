@@ -25,15 +25,22 @@
     "migrate:skip-all-metadata": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync",
     "migrate:auto-tune": "node src/index.js migrate -c migrate-config.json --verbose --auto-tune",
     "migrate:skip-all-metadata:auto-tune": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune",
+    "migrate:skip-quality-profiles": "node src/index.js migrate -c migrate-config.json --verbose --skip-quality-profile-sync",
+    "migrate:skip-quality-profiles:auto-tune": "node src/index.js migrate -c migrate-config.json --verbose --skip-quality-profile-sync --auto-tune",
+    "migrate:skip-all": "node src/index.js migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --skip-quality-profile-sync --auto-tune",
     "sync-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose",
-    "sync-metadata:issues-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
-    "sync-metadata:hotspots-only": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync",
+    "sync-metadata:auto-tune": "node src/index.js sync-metadata -c migrate-config.json --verbose --auto-tune",
+    "sync-metadata:skip-issue-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync",
+    "sync-metadata:skip-hotspot-metadata": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync",
+    "sync-metadata:skip-quality-profiles": "node src/index.js sync-metadata -c migrate-config.json --verbose --skip-quality-profile-sync",
     "test": "c8 --reporter=lcov --reporter=text --report-dir=coverage ava",
     "test:fast": "ava",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "build": "node scripts/build.js",
-    "package": "node scripts/build.js --package"
+    "package": "node scripts/build.js --package",
+    "package:bun": "node scripts/build.js --bun",
+    "package:bun:cross": "node scripts/build.js --bun --cross"
   },
   "keywords": [
     "sonarqube",
@@ -57,6 +64,7 @@
   },
   "devDependencies": {
     "ava": "^6.4.1",
+    "bun": "^1.3.9",
     "c8": "^10.1.3",
     "esbuild": "^0.27.3",
     "eslint": "^8.56.0",

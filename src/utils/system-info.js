@@ -49,16 +49,17 @@ export function resolvePerformanceConfig(perfConfig = {}) {
 export function ensureHeapSize(maxMemoryMB) {
   if (!maxMemoryMB || maxMemoryMB <= 0) return;
   if (process.env.CLOUDVOYAGER_RESPAWNED) return;
+  // Bun uses JavaScriptCore, not V8 — --max-old-space-size is meaningless.
+  // Skip heap resize entirely for Bun-compiled binaries.
+  const isBunCompiled = process.argv.length >= 2 && process.argv[1].includes('$bunfs');
+  if (isBunCompiled) return;
   const currentLimit = Math.round(v8.getHeapStatistics().heap_size_limit / 1024 / 1024);
   if (currentLimit >= maxMemoryMB) return;
   const existingNodeOptions = process.env.NODE_OPTIONS || '';
   const newNodeOptions = `${existingNodeOptions} --max-old-space-size=${maxMemoryMB}`.trim();
   logger.info(`Restarting with ${maxMemoryMB}MB heap (current: ${currentLimit}MB)...`);
-  // In a Node.js SEA binary, process.argv[1] is set to the binary path
-  // (duplicated from argv[0]) for Commander compatibility. We need to detect
-  // this to avoid passing the duplicate path as an extra argument to the child.
-  // SEA: argv = ['/path/binary', '/path/binary', 'migrate', '-c', ...]  → slice(2)
-  // Node: argv = ['/path/node', '/path/script.js', 'migrate', '-c', ...] → slice(1)
+  // In a Node.js SEA binary, argv[1] duplicates argv[0] (the binary path).
+  // Strip it so Commander doesn't receive the binary path as a command argument.
   const isSEA = process.argv.length >= 2 && resolve(process.argv[0]) === resolve(process.argv[1]);
   const respawnArgs = process.argv.slice(isSEA ? 2 : 1);
   const result = spawnSync(process.execPath, respawnArgs, {
@@ -91,4 +92,37 @@ export function logSystemInfo(perfConfig) {
   ].join(', ');
   const tuneLabel = perfConfig.autoTune ? 'Performance (auto-tuned)' : 'Performance';
   logger.info(`${tuneLabel}: concurrency=[${concurrencyInfo}]`);
+
+  if (perfConfig.autoTune) {
+    const defaults = getAutoTuneDefaults();
+    logger.debug('Auto-tune detected hardware:');
+    logger.debug(`  CPU cores: ${cpuCount}`);
+    logger.debug(`  Total RAM: ${totalMemMB}MB`);
+    logger.debug(`  Safe memory (75% of RAM, max 16GB): ${defaults.maxMemoryMB}MB`);
+    logger.debug(`  Current heap limit: ${memInfo.heapSizeLimitMB}MB`);
+    logger.debug('Auto-tune calculated settings:');
+    logger.debug(`  maxConcurrency: ${defaults.maxConcurrency} (= CPU cores)`);
+    logger.debug(`  maxMemoryMB: ${defaults.maxMemoryMB}`);
+    logger.debug(`  sourceExtraction.concurrency: ${defaults.sourceExtraction.concurrency} (= CPU cores x2)`);
+    logger.debug(`  hotspotExtraction.concurrency: ${defaults.hotspotExtraction.concurrency} (= CPU cores x2)`);
+    logger.debug(`  issueSync.concurrency: ${defaults.issueSync.concurrency} (= CPU cores)`);
+    logger.debug(`  hotspotSync.concurrency: ${defaults.hotspotSync.concurrency} (= min(max(CPU/2, 3), 5))`);
+    logger.debug(`  projectMigration.concurrency: ${defaults.projectMigration.concurrency} (= max(1, CPU/3))`);
+
+    const overrides = [];
+    if (perfConfig.maxConcurrency !== defaults.maxConcurrency) overrides.push(`maxConcurrency: ${defaults.maxConcurrency} -> ${perfConfig.maxConcurrency}`);
+    if (perfConfig.maxMemoryMB !== defaults.maxMemoryMB) overrides.push(`maxMemoryMB: ${defaults.maxMemoryMB} -> ${perfConfig.maxMemoryMB}`);
+    if (perfConfig.sourceExtraction.concurrency !== defaults.sourceExtraction.concurrency) overrides.push(`sourceExtraction.concurrency: ${defaults.sourceExtraction.concurrency} -> ${perfConfig.sourceExtraction.concurrency}`);
+    if (perfConfig.hotspotExtraction.concurrency !== defaults.hotspotExtraction.concurrency) overrides.push(`hotspotExtraction.concurrency: ${defaults.hotspotExtraction.concurrency} -> ${perfConfig.hotspotExtraction.concurrency}`);
+    if (perfConfig.issueSync.concurrency !== defaults.issueSync.concurrency) overrides.push(`issueSync.concurrency: ${defaults.issueSync.concurrency} -> ${perfConfig.issueSync.concurrency}`);
+    if (perfConfig.hotspotSync.concurrency !== defaults.hotspotSync.concurrency) overrides.push(`hotspotSync.concurrency: ${defaults.hotspotSync.concurrency} -> ${perfConfig.hotspotSync.concurrency}`);
+    if (perfConfig.projectMigration.concurrency !== defaults.projectMigration.concurrency) overrides.push(`projectMigration.concurrency: ${defaults.projectMigration.concurrency} -> ${perfConfig.projectMigration.concurrency}`);
+
+    if (overrides.length > 0) {
+      logger.debug('User overrides applied on top of auto-tune:');
+      for (const o of overrides) logger.debug(`  ${o}`);
+    } else {
+      logger.debug('No user overrides — all values are auto-tuned defaults');
+    }
+  }
 }

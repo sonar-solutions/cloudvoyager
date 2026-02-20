@@ -58,20 +58,3 @@ export async function setBitbucketBinding(client, projectKey, almSetting, reposi
   });
 }
 
-export async function createPortfolio(client, organization, name, description = '', visibility = 'public', key = null) {
-  logger.info(`Creating portfolio: ${name}`);
-
-  const params = { name, description, visibility, organization };
-  if (key) params.key = key;
-
-  const response = await client.post('/api/views/create', null, { params });
-  return response.data;
-}
-
-export async function addProjectToPortfolio(client, portfolioKey, projectKey) {
-  logger.debug(`Adding project ${projectKey} to portfolio ${portfolioKey}`);
-
-  await client.post('/api/views/add_project', null, {
-    params: { key: portfolioKey, project: projectKey }
-  });
-}
