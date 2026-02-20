@@ -4,6 +4,9 @@
     "token": "sqp_your_sonarqube_admin_token"
   },
   "sonarcloud": {
+    "enterprise": {
+      "key": "your-enterprise-key"
+    },
     "organizations": [
       {
         "key": "org-one",

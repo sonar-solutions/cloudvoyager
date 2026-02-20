@@ -1,12 +1,12 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
@@ -33,7 +33,7 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 1. Executive Summary
 
 CloudVoyager is a CLI tool that migrates complete SonarQube installations to SonarCloud **without requiring a single line of code to be re-scanned**. It achieves this by reverse-engineering SonarScanner's internal protobuf report protocol and rebuilding the entire data pipeline from the ground up in Node.js.
@@ -48,15 +48,15 @@ Where existing migration approaches require re-running CI/CD scanners against ev
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 2. The Core Innovation: Reverse-Engineered Scanner Protocol
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### The Problem
 
 SonarCloud's ingestion pipeline is not designed for external data import. It accepts data exclusively through a proprietary protobuf-based scanner report format, submitted to an internal Compute Engine (CE) endpoint. This format is undocumented for external consumers. There is no official migration path from SonarQube to SonarCloud that preserves historical data without re-scanning.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### The Approach
 
 CloudVoyager reverse-engineered the scanner report protocol by:
@@ -69,19 +69,19 @@ CloudVoyager reverse-engineered the scanner report protocol by:
 4. **Mapping the ZIP archive structure** — Reconstructing the exact file naming conventions (`metadata.pb`, `component-{ref}.pb`, `issues-{ref}.pb`, `measures-{ref}.pb`, `source-{ref}.txt`, `activerules.pb`, `changesets-{ref}.pb`, `context-props.pb`) expected by SonarCloud's CE endpoint.
 5. **Rebuilding the pipeline in Node.js** — Implementing the entire encode-and-submit pipeline using `protobufjs`, with the proto schemas inlined directly into the bundle so no external schema files are needed at runtime.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Why This Matters
 
 This is a novel capability. No other tool reconstructs SonarScanner's internal binary protocol to inject data into SonarCloud. The approach bypasses the need for source code access entirely — CloudVoyager needs only API-level access to SonarQube to produce a report that SonarCloud treats as a legitimate scanner submission.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 3. Exhaustive SonarQube Data Extraction
 
 CloudVoyager includes **24 specialized extractor modules** covering every category of data available through SonarQube's REST API. The extraction system is designed to be both exhaustive and resilient — server-wide extraction continues even if individual items fail.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Code and Analysis Data
 
 | Extractor | Data Extracted | API Endpoints |
@@ -97,7 +97,7 @@ CloudVoyager includes **24 specialized extractor modules** covering every catego
 | **Symbols** | Symbol reference tables per file | `/api/sources/symbols` (internal) |
 | **Syntax Highlighting** | Syntax highlighting metadata per file | `/api/sources/syntax_highlighting` (internal) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quality Management Data
 
 | Extractor | Data Extracted | API Endpoints |
@@ -106,7 +106,7 @@ CloudVoyager includes **24 specialized extractor modules** covering every catego
 | **Quality Profiles** | Profile definitions, backup XML (all rule configs + severity overrides + parameter values), inheritance chains, user/group permissions | `/api/qualityprofiles/search`, `/api/qualityprofiles/backup` |
 | **Rules** | Active rule details with language detection, severity mapping, and Clean Code impact extraction | `/api/rules/search` |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Administration and Governance Data
 
 | Extractor | Data Extracted | API Endpoints |
@@ -122,17 +122,17 @@ CloudVoyager includes **24 specialized extractor modules** covering every catego
 | **Server Info** | Server version, installed plugins, server-level settings, global webhooks | `/api/system/info`, `/api/plugins/installed`, `/api/settings/values`, `/api/webhooks/list` |
 | **Webhooks** | Project-level webhook configurations | `/api/webhooks/list` |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Pagination Handling
 
 The SonarQube API client handles pagination transparently via a `getPaginated` method that auto-fetches all pages and concatenates results. Different endpoints enforce different page size limits (some cap at 100 instead of 500), and each extractor handles this automatically.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 4. Protobuf Report Encoding Engine
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Two-Phase Encoding Architecture
 
 CloudVoyager uses a **builder-encoder** architecture that separates message construction from binary serialization:
@@ -141,12 +141,12 @@ CloudVoyager uses a **builder-encoder** architecture that separates message cons
 
 2. **Encoder phase** (`encoder.js`) — Takes the built messages and serializes them to binary protobuf format using `protobufjs`. Handles both single-message and length-delimited encoding styles.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Proto Schema Inlining
 
 The `.proto` schema files are loaded as inline text at build time (via esbuild's `.proto: 'text'` loader for Node.js SEA builds, or Bun's `--loader .proto:text` for experimental Bun builds), eliminating any dependency on external schema files at runtime. When running from source, the files are read from the filesystem as a fallback. This means the standalone binary is entirely self-contained — no `.proto` files need to ship alongside it.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Encoding Methods
 
 | Method | Encoding Style | Used For |
@@ -158,12 +158,12 @@ The `.proto` schema files are loaded as inline text at build time (via esbuild's
 | `encodeActiveRuleDelimited()` | Length-delimited stream | Quality profile rules filtered by language |
 | `encodeChangeset()` | Single message | SCM blame data per file |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Flat Component Model
 
 Components use a flat structure where all files are direct children of the project root (no intermediate directory components). Line counts are derived from actual source file content rather than SonarQube's measures API, ensuring accuracy.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Measure Type Intelligence
 
 Measures are encoded with the correct typed value field based on metric type:
@@ -171,17 +171,17 @@ Measures are encoded with the correct typed value field based on metric type:
 - **Float/percentage metrics** (`doubleValue`): `coverage`, `duplicated_lines_density`, ratings
 - **String metrics** (`stringValue`): `executable_lines_data`, `ncloc_data`, `alert_status`
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Active Rule Optimization
 
 Active rules are filtered to only include languages actually used in the project, resulting in approximately **84% reduction in payload size** compared to including all rules from all profiles.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 5. SonarCloud Integration and Upload
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Report Packaging
 
 The `ReportUploader` assembles the encoded protobuf messages into a ZIP archive that exactly matches SonarScanner's submission format:
@@ -198,7 +198,7 @@ scanner-report.zip
 └── source-{ref}.txt       # Source code files (plain text)
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Compute Engine Submission
 
 The report is submitted to SonarCloud's CE endpoint as a multipart form upload with:
@@ -206,29 +206,29 @@ The report is submitted to SonarCloud's CE endpoint as a multipart form upload w
 - Project key and organization context
 - Optional analysis parameters
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Duplicate Detection via SCM Revision
 
 Each report includes an `scm_revision_id` (git commit hash) in its metadata. SonarCloud uses this to detect and reject duplicate submissions, preventing accidental data duplication across multiple migration runs.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Branch Name Resolution
 
 The tool resolves the main branch name from SonarCloud (not SonarQube) to avoid mismatches where SonarQube uses "main" but SonarCloud expects "master" or vice versa.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Analysis Wait Mode
 
 The `--wait` flag causes the tool to poll SonarCloud's CE task queue until the uploaded report has been fully analyzed. This is useful for CI/CD integration or sequential migration workflows where downstream steps depend on analysis completion.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 6. Full Organization Migration Pipeline
 
 The `migrate` command orchestrates a comprehensive, multi-stage pipeline that transfers an entire SonarQube installation — not just code, but all organizational configuration.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Pipeline Stages
 
 ```
@@ -272,12 +272,12 @@ The `migrate` command orchestrates a comprehensive, multi-stage pipeline that tr
 9. Migration Report Generation (JSON, TXT, MD, PDF)
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Non-Fatal Extraction Design
 
 Server-wide extraction wraps each item in a non-fatal handler. If extracting quality gates succeeds but portfolio extraction fails, the pipeline continues — the failure is logged and reported, but does not block the rest of the migration.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Dry-Run Mode
 
 The `--dry-run` flag executes all extraction and mapping steps but stops before making any changes to SonarCloud. This allows teams to:
@@ -287,12 +287,12 @@ The `--dry-run` flag executes all extraction and mapping steps but stops before 
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 7. Issue and Hotspot Metadata Synchronization
 
 After uploading the scanner report (which creates issues in SonarCloud with default "Open" status), CloudVoyager synchronizes the full lifecycle metadata from SonarQube.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Issue Sync
 
 For each issue in SonarQube, the sync engine:
@@ -310,7 +310,7 @@ For each issue in SonarQube, the sync engine:
 
 When multiple SonarCloud issues match the same composite key, the engine uses a first-unmatched-candidate strategy to avoid double-assignment.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Hotspot Sync
 
 Security hotspots follow a similar pattern:
@@ -319,7 +319,7 @@ Security hotspots follow a similar pattern:
 2. **Transitions** status: `TO_REVIEW` → `REVIEWED` with the appropriate resolution (`SAFE`, `FIXED`, `ACKNOWLEDGED`)
 3. **Copies** review comments
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Standalone Metadata Sync
 
 The `sync-metadata` command allows metadata synchronization to be run independently of the transfer pipeline. This is useful for:
@@ -331,10 +331,10 @@ The operation is **idempotent** — running it multiple times will not duplicate
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 8. Quality Profile and Quality Gate Migration
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quality Profile Migration
 
 Quality profiles are migrated using SonarQube's **backup/restore XML format**, which preserves:
@@ -352,7 +352,7 @@ This ensures that the exact same rules are active in SonarCloud as they were in 
 
 **Inheritance chains** are preserved by restoring profiles in dependency order — parent profiles are restored before their children.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quality Profile Diff Reports
 
 After migration, a side-by-side comparison report is generated per language:
@@ -361,22 +361,22 @@ After migration, a side-by-side comparison report is generated per language:
 
 This enables teams to review rule parity before going live.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, error threshold). Gate permissions are migrated for custom gates, and project assignments are applied per the organization mapping. Built-in gates are skipped since SonarCloud provides its own defaults.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 9. Permissions, Groups, and Governance Migration
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Group Migration
 
 User groups are extracted from SonarQube and recreated in each target SonarCloud organization with matching names and descriptions.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Permission Migration
 
 Three levels of permissions are migrated:
@@ -385,12 +385,12 @@ Three levels of permissions are migrated:
 2. **Project-Level Permissions** — Per-project group permissions (e.g., codeviewer, issueadmin, securityhotspotadmin)
 3. **Permission Templates** — Reusable permission templates with group assignments, set as defaults where applicable
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Portfolio Migration
 
 Portfolios are recreated in SonarCloud with their project associations preserved, maintaining the organizational hierarchy for executive-level views.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Project Configuration Migration
 
 Per-project settings that are migrated include:
@@ -402,10 +402,10 @@ Per-project settings that are migrated include:
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 10. Multi-Organization Mapping and DevOps Binding Awareness
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Intelligent Project-to-Organization Mapping
 
 For enterprises migrating to multiple SonarCloud organizations, CloudVoyager automatically maps projects to target organizations based on their **DevOps platform bindings**:
@@ -415,7 +415,7 @@ For enterprises migrating to multiple SonarCloud organizations, CloudVoyager aut
 3. Unbound projects fall back to the first configured organization
 4. The mapping is exported as CSV for human review before execution
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Project Key Resolution
 
 SonarCloud requires globally unique project keys across all organizations. CloudVoyager handles this with a smart fallback strategy:
@@ -425,7 +425,7 @@ SonarCloud requires globally unique project keys across all organizations. Cloud
 3. If the key is already owned by the target organization (from a previous run), reuse it
 4. All key conflicts are logged and reported in the migration summary
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### CSV Generation
 
 The mapping module generates structured CSV files for:
@@ -436,10 +436,10 @@ The mapping module generates structured CSV files for:
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 11. Concurrency Engine and Performance Optimization
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Zero-Dependency Concurrency Layer
 
 CloudVoyager implements its own concurrency primitives (`src/utils/concurrency.js`) with **zero external dependencies**:
@@ -450,7 +450,7 @@ CloudVoyager implements its own concurrency primitives (`src/utils/concurrency.j
   - **Progress callbacks**: Real-time logging of completion progress
   - **Configurable concurrency**: Different limits per operation type
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Per-Operation Concurrency Tuning
 
 Different operations have different optimal concurrency levels, reflecting API rate limits and resource constraints:
@@ -463,17 +463,17 @@ Different operations have different optimal concurrency levels, reflecting API r
 | Hotspot metadata sync | 3 | Aggressive SonarCloud rate limiting |
 | Project migration | 1 | Heavy per-project workload |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Progress Tracking
 
 Long-running concurrent operations emit progress logs (e.g., "Fetching sources: 142/350 completed") via `createProgressLogger`, giving operators real-time visibility into migration progress.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 12. Auto-Tuning and Adaptive Resource Management
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Hardware-Aware Configuration
 
 The `--auto-tune` flag enables automatic performance configuration based on available system resources:
@@ -483,7 +483,7 @@ The `--auto-tune` flag enables automatic performance configuration based on avai
 | CPU cores | `os.availableParallelism()` | Scale concurrency from core count |
 | System RAM | `os.totalmem()` | Set heap to 75% of RAM (max 16 GB) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Auto-Tuned Concurrency Formulas
 
 - `sourceExtraction` = CPU cores x 2
@@ -492,7 +492,7 @@ The `--auto-tune` flag enables automatic performance configuration based on avai
 - `hotspotSync` = min(max(CPU cores / 2, 3), 5)
 - `projectMigration` = max(1, CPU cores / 3)
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Automatic Memory Management
 
 When `maxMemoryMB` is configured (via auto-tune or explicit flag), the tool:
@@ -502,17 +502,17 @@ When `maxMemoryMB` is configured (via auto-tune or explicit flag), the tool:
 3. Sets a `CLOUDVOYAGER_RESPAWNED=1` environment variable to prevent infinite respawn loops
 4. Output streams seamlessly through the respawned process — the user sees no interruption
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Standalone Binary Detection
 
 The respawn logic correctly detects whether it's running as a Node.js script or a standalone binary (Node.js SEA) by comparing `process.argv[0]` and `process.argv[1]`. This is critical because standalone binaries duplicate the executable path in argv, and incorrect detection would cause argument corruption on respawn.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 13. Standalone Binary Packaging
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Zero-Install Distribution
 
 CloudVoyager builds standalone binaries that users download and run directly — no Node.js installation, no `npm install`, no dependency management. Two packaging backends are supported:
@@ -522,7 +522,7 @@ CloudVoyager builds standalone binaries that users download and run directly —
 | **Node.js SEA** | `npm run package` | Node.js | Production use — stable and well-tested (default) |
 | **Bun Compile** | `npm run package:bun` | Bun | Faster builds, but may silently crash at runtime (experimental) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Supported Platforms
 
 | Platform | Architecture | Build Method |
@@ -534,7 +534,7 @@ CloudVoyager builds standalone binaries that users download and run directly —
 | Windows | x64 | Node.js SEA |
 | Windows | ARM64 | Node.js SEA |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Node.js SEA (Default)
 
 The default packaging method uses **esbuild + Node.js SEA** (Single Executable Application):
@@ -546,7 +546,7 @@ The default packaging method uses **esbuild + Node.js SEA** (Single Executable A
 
 Developers just run `npm run package` to build for their current platform.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)
 
 An experimental Bun compile pipeline is also available. Bun bundles and compiles in a single step — source goes directly to a native binary. While faster to build, Bun-compiled binaries have been observed to silently crash at runtime in some environments without any error message, making this unsuitable for production use at this time.
@@ -556,17 +556,17 @@ npm run package:bun          # Build for current platform (experimental)
 npm run package:bun:cross    # Cross-compile 5 platforms (experimental)
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### CI/CD Build
 
 The GitHub Actions workflow uses **6 parallel jobs** — one per target platform — each building a Node.js SEA binary natively on its respective runner (ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest, windows-11-arm).
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 14. Build Pipeline Optimizations
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### esbuild + Node.js SEA (Default)
 
 The default build uses esbuild for bundling and Node.js SEA for packaging:
@@ -580,7 +580,7 @@ The default build uses esbuild for bundling and Node.js SEA for packaging:
 | **CJS Output** | Single `dist/cli.cjs` file, compatible with SEA blob generation |
 | **V8 Code Cache** | `useCodeCache: true` pre-compiles JavaScript to V8 bytecode for faster cold startup |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)
 
 An experimental Bun compile pipeline is also available as an alternative:
@@ -593,17 +593,17 @@ An experimental Bun compile pipeline is also available as an alternative:
 
 While Bun offers faster build times and cross-compilation, it has been observed to silently crash at runtime in some environments, so the Node.js SEA pipeline is the recommended default.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Simplified Encoding Pipeline
 
 An earlier architecture used **worker threads** for protobuf encoding. This was replaced with in-process encoding for greater reliability and simpler error propagation, with no measurable performance regression (encoding is CPU-bound but fast relative to network I/O).
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 15. Rate Limiting and API Resilience
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Two-Layer Rate Limiting Strategy
 
 The SonarCloud API client implements a configurable two-layer approach:
@@ -619,7 +619,7 @@ The SonarCloud API client implements a configurable two-layer approach:
 - Implemented via an Axios request interceptor
 - Proactively prevents rate-limit triggers during high-volume write operations
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Graceful Degradation
 
 - **Settled-mode concurrency**: Source file and hotspot extraction continue past individual failures, collecting errors rather than aborting
@@ -628,10 +628,10 @@ The SonarCloud API client implements a configurable two-layer approach:
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 16. Incremental and Stateful Transfers
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### State Tracking
 
 CloudVoyager maintains a JSON state file that tracks:
@@ -647,7 +647,7 @@ CloudVoyager maintains a JSON state file that tracks:
 }
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Incremental Mode
 
 When `transfer.mode` is set to `"incremental"`:
@@ -656,12 +656,12 @@ When `transfer.mode` is set to `"incremental"`:
 - Completed branches are not re-transferred
 - State is updated only after successful upload, ensuring consistency
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Full Mode
 
 When set to `"full"`, all data is re-extracted and re-transferred regardless of state. The state file is still updated to record the transfer.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### State Management Commands
 
 - `cloudvoyager status` — View current sync state and transfer history (last 10 entries)
@@ -669,12 +669,12 @@ When set to `"full"`, all data is re-extracted and re-transferred regardless of 
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 17. Comprehensive Reporting Suite
 
 The migration pipeline generates reports in **6 formats** across **3 report types**:
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Report Types
 
 | Report | Purpose | Audience |
@@ -683,7 +683,7 @@ The migration pipeline generates reports in **6 formats** across **3 report type
 | **Executive Summary** | High-level overview with success/failure counts and key metrics | Leadership and stakeholders |
 | **Performance Report** | Timing analysis for each pipeline stage | Operations and optimization |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Output Formats
 
 Each report type is generated in multiple formats:
@@ -692,7 +692,7 @@ Each report type is generated in multiple formats:
 - **Plain Text** — Terminal-friendly, for quick review
 - **PDF** — Presentation-ready, generated via `pdfmake` (best-effort; failures are logged but non-blocking)
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Report Content
 
 Reports include:
@@ -704,7 +704,7 @@ Reports include:
 - Error details with full context for failed operations
 - Execution timing breakdowns per pipeline stage
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quality Profile Diff Report
 
 A specialized JSON report (`quality-profile-diff.json`) compares active rules per language between SonarQube source profiles and SonarCloud target profiles, identifying:
@@ -713,15 +713,15 @@ A specialized JSON report (`quality-profile-diff.json`) compares active rules pe
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 18. Configuration System and Schema Validation
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Schema-Validated Configuration
 
 All configuration is validated at startup using **Ajv (Another JSON Validator)** with strict schema enforcement. Validation errors are surfaced with specific field-level messages before any API calls are made.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Configuration Scopes
 
 | Scope | Config File | Used By |
@@ -729,7 +729,7 @@ All configuration is validated at startup using **Ajv (Another JSON Validator)**
 | Single project transfer | `config.json` | `transfer`, `transfer-all` |
 | Full migration | `migrate-config.json` | `migrate`, `sync-metadata` |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Environment Variable Overrides
 
 Sensitive values can be provided via environment variables, keeping secrets out of config files:
@@ -741,17 +741,17 @@ Sensitive values can be provided via environment variables, keeping secrets out 
 | `SONARQUBE_URL` | `sonarqube.url` |
 | `SONARCLOUD_URL` | `sonarcloud.url` |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Shared Schema Definitions
 
 Performance and rate-limit schemas are shared across all configuration types, ensuring consistent tuning options regardless of migration scenario.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 19. CLI Design and Operational Modes
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Command Suite
 
 | Command | Description | Key Flags |
@@ -765,7 +765,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 | `status` | View sync state | — |
 | `reset` | Clear sync state | `-y` (skip confirmation) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Operational Safeguards
 
 - **`validate`** — Always run before migration to catch config issues early
@@ -773,7 +773,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 - **`--dry-run`** — Execute extraction and mapping without writing to SonarCloud
 - **`--verbose`** — Debug-level logging for troubleshooting
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Logging
 
 Winston-based logging with:
@@ -784,10 +784,10 @@ Winston-based logging with:
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 20. Error Handling Architecture
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Custom Error Hierarchy
 
 ```
@@ -801,7 +801,7 @@ CloudVoyagerError (base)
 └── StateError                (state file read/write failures)
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Connection Error Diagnostics
 
 API client errors include specific diagnostics based on the underlying network error:
@@ -809,7 +809,7 @@ API client errors include specific diagnostics based on the underlying network e
 - `ETIMEDOUT` — Network timeout, possible firewall issue
 - `ENOTFOUND` — DNS resolution failure, wrong URL
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Fail-Fast with Graceful Degradation
 
 - **Critical failures** (config invalid, no connectivity, project not found) stop immediately with clear error messages
@@ -817,10 +817,10 @@ API client errors include specific diagnostics based on the underlying network e
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 21. Engineering Summary
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### By the Numbers
 
 | Metric | Value |
@@ -835,7 +835,7 @@ API client errors include specific diagnostics based on the underlying network e
 | Production dependencies | 8 |
 | Resource types migrated | 12+ per organization |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Key Engineering Decisions
 
 | Decision | Rationale |
@@ -850,7 +850,7 @@ API client errors include specific diagnostics based on the underlying network e
 | V8 code cache in SEA | Fast cold startup for the SEA backend |
 | Auto-tune from hardware | One flag replaces manual tuning of 6+ concurrency/memory parameters |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### What Makes This Novel
 
 1. **No existing tool does this.** CloudVoyager is the first to reverse-engineer SonarScanner's protobuf protocol and reconstruct it programmatically.
@@ -864,5 +864,9 @@ API client errors include specific diagnostics based on the underlying network e
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-20 | Permissions/Governance, Portfolio | V2 Enterprise API for portfolios |
+| 2026-02-19 | Summary, Protobuf, Pipeline, Packaging, Build, Reporting, Config, CLI | API expansion, modular builders, test suite |
+| 2026-02-18 | Encoding, Upload, Quality Profiles, Auto-Tune, Reports | Encoding refactor, diff reports, --wait flag |
+| 2026-02-17 | Extraction, Migration, Sync, Permissions, Concurrency, Rate Limiting | Full migration engine |
+| 2026-02-16 | Core Innovation, Protobuf, State, Error Handling | Initial implementation |
 -->

@@ -1,4 +1,4 @@
-import { formatDuration, computeProjectStats, computeOverallStatus, computeTotalDurationMs } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs } from './shared.js';
 import { generatePdfBuffer, pdfStyles } from './pdf-helpers.js';
 import { buildWarnings, buildActionItems, buildFailedProjects } from './pdf-exec-sections.js';
 
@@ -39,9 +39,7 @@ export async function generateExecutiveSummaryPdf(results) {
 
 function buildHeader(results) {
   const durationMs = computeTotalDurationMs(results);
-  const date = results.startTime
-    ? new Date(results.startTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : 'Unknown';
+  const date = formatTimestamp(results.startTime) || 'Unknown';
   const nodes = [
     { text: 'CloudVoyager Migration', style: 'title' },
     { text: 'Executive Summary', fontSize: 14, color: '#666666', margin: [0, 0, 0, 10] },

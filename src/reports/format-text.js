@@ -3,7 +3,7 @@
  * Produces a human-readable plain-text migration report.
  */
 
-import { formatDuration, computeProjectStats, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, getNewCodePeriodSkippedProjects } from './shared.js';
 
 /**
  * Format results as a human-readable text report.
@@ -28,7 +28,7 @@ export function formatTextReport(results) {
 
 function formatReportHeader(lines, results, sep) {
   lines.push(sep, 'CLOUDVOYAGER MIGRATION REPORT', sep, '',
-    `Started:  ${results.startTime}`, `Finished: ${results.endTime || 'In progress'}`);
+    `Started:  ${formatTimestamp(results.startTime) || results.startTime}`, `Finished: ${formatTimestamp(results.endTime) || 'In progress'}`);
   if (results.startTime && results.endTime) {
     const durationMs = new Date(results.endTime) - new Date(results.startTime);
     lines.push(`Duration: ${formatDuration(durationMs)}`);

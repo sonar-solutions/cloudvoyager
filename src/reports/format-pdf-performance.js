@@ -1,4 +1,4 @@
-import { formatDuration, computeTotalDurationMs } from './shared.js';
+import { formatDuration, formatTimestamp, computeTotalDurationMs } from './shared.js';
 import { generatePdfBuffer, pdfStyles, statusStyle, statusText } from './pdf-helpers.js';
 import { buildSlowestSteps, buildBottleneckAnalysis } from './pdf-perf-sections.js';
 
@@ -65,8 +65,8 @@ function buildHeader(results) {
   const durationMs = computeTotalDurationMs(results);
   const nodes = [
     { text: 'CloudVoyager Migration — Performance Report', style: 'title' },
-    { text: `Started: ${results.startTime}`, style: 'metadata' },
-    { text: `Finished: ${results.endTime || 'In progress'}`, style: 'metadata' },
+    { text: `Started: ${formatTimestamp(results.startTime) || results.startTime}`, style: 'metadata' },
+    { text: `Finished: ${formatTimestamp(results.endTime) || 'In progress'}`, style: 'metadata' },
   ];
   if (durationMs != null) {
     nodes.push({ text: `Total Duration: ${formatDuration(durationMs)}`, style: 'metadata' });

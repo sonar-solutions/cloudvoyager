@@ -1,12 +1,12 @@
 # 🛠️ Local Development
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ✅ Prerequisites
 
 1. **Node.js** >= 18.0.0
@@ -20,12 +20,12 @@ npm install
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📦 Building the Binary
 
 CloudVoyager can be compiled into a standalone binary using two packaging backends. Both produce a self-contained binary that does not require Node.js or Bun to be installed on the target machine.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Node.js SEA (Default)
 
 ```bash
@@ -34,7 +34,7 @@ npm run package           # Build for current platform
 
 Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)
 
 ```bash
@@ -44,7 +44,7 @@ npm run package:bun:cross     # Cross-compile 5 platform binaries
 
 Uses Bun's single-step compile — source goes directly to a native binary with no intermediate bundle. Bun is installed as a devDependency — no global install required. While faster to build, Bun binaries may silently crash at runtime in some environments, so this is considered experimental.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Output
 
 | Platform | Output Binary | Build Method |
@@ -68,7 +68,7 @@ This creates `dist/cli.cjs`, which can be run with `node dist/cli.cjs <command> 
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🏃 Running the Binary
 
 After building, make it executable (macOS/Linux) and run it directly:
@@ -81,7 +81,7 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 migrate -c migrate-config.json --verbose
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Quick Start Examples
 
 ```bash
@@ -122,12 +122,12 @@ See the [CLI Reference](#-cli-reference) section below for all available flags a
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📖 CLI Reference
 
 This section documents every command and flag available in CloudVoyager. The examples use `./cloudvoyager` as shorthand — substitute with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`).
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Global Flag
 
 | Flag | Short | Description |
@@ -137,14 +137,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `validate` — Validate configuration file
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file to validate |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -152,39 +152,39 @@ This section documents every command and flag available in CloudVoyager. The exa
 ./cloudvoyager validate -c config.json
 
 # Validate using short flag
-./cloudvoyager validate -c migrate-config.json
+./cloudvoyager validate -c config.json
 ```
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `test` — Test connections to SonarQube and SonarCloud
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file containing connection details |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
 # Test connections
 ./cloudvoyager test -c config.json
 
-# Test connections with a migration config
-./cloudvoyager test -c migrate-config.json
+# Test connections with verbose output
+./cloudvoyager test -c config.json --verbose
 ```
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `status` — Show current synchronization status
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -194,7 +194,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `reset` — Reset state and clear sync history
 
 | Flag | Short | Required | Argument | Description |
@@ -202,7 +202,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 | `--yes` | `-y` | No | — | Skip the confirmation prompt and reset immediately |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -218,7 +218,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `transfer` — Transfer a single project from SonarQube to SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -230,7 +230,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts the process with increased heap if the current heap is too small |
 | `--auto-tune` | — | No | — | Auto-detect hardware (CPU cores, available memory) and set optimal concurrency and memory values |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -288,7 +288,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `transfer-all` — Transfer ALL projects from SonarQube to SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -302,7 +302,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to transfer concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -372,7 +372,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `migrate` — Full migration from SonarQube to one or more SonarCloud organizations
 
 | Flag | Short | Required | Argument | Description |
@@ -389,7 +389,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to migrate concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -498,7 +498,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `sync-metadata` — Sync issue and hotspot metadata for already-migrated projects
 
 | Flag | Short | Required | Argument | Description |
@@ -512,7 +512,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
 
 ```bash
@@ -579,7 +579,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧹 Linting
 
 ```bash
@@ -592,7 +592,7 @@ npm run lint:fix
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧪 Running Tests
 
 ```bash
@@ -605,7 +605,7 @@ npm run test:fast
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🌍 Environment Variables
 
 | Variable | Description |
@@ -618,7 +618,7 @@ npm run test:fast
 | `SONARCLOUD_URL` | Override SonarCloud URL from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Examples with environment variables
 
 ```bash
@@ -634,7 +634,7 @@ MAX_SOURCE_FILES=10 ./cloudvoyager transfer -c config.json --verbose
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ npm Scripts
 
 The following npm scripts are available for building, testing, and linting:
@@ -679,7 +679,7 @@ The following npm scripts are available for building, testing, and linting:
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -691,5 +691,8 @@ The following npm scripts are available for building, testing, and linting:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-19 | Building, CLI Reference, Tests, npm Scripts | API expansion, test suite, bun builds |
+| 2026-02-18 | Output, transfer, transfer-all, migrate | --wait flag, --auto-tune, Windows ARM64 |
+| 2026-02-17 | Quick Start, sync-metadata | Migration engine commands |
+| 2026-02-16 | Prerequisites, Running, validate, test, status, reset, Linting, Env Vars | Core CLI commands |
 -->

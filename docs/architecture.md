@@ -1,8 +1,8 @@
 # 🏗️ Architecture
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📁 Project Structure
 
 ```
@@ -92,7 +92,9 @@ src/
 ├── mapping/
 │   ├── org-mapper.js         # Map projects to target orgs (by DevOps binding)
 │   ├── csv-generator.js      # Generate mapping CSVs for review
-│   └── csv-tables.js         # CSV table formatting helpers
+│   ├── csv-tables.js         # CSV table formatting helpers
+│   ├── csv-reader.js         # Parse CSV files from dry-run output
+│   └── csv-applier.js        # Apply CSV overrides to filter/modify extracted data
 ├── reports/                  # Migration report generation
 │   ├── index.js               # Report generation orchestrator
 │   ├── shared.js              # Shared report utilities
@@ -118,10 +120,10 @@ src/
     └── system-info.js        # System info detection (CPU, memory) and auto-tune
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔄 Commands and Pipelines
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `transfer` — Single Project
 
 Uses `transfer-pipeline.js`:
@@ -135,7 +137,7 @@ Uses `transfer-pipeline.js`:
 7. **Upload** — submit encoded report to SonarCloud CE endpoint
 8. **Update state** — record successful transfer in state file
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `transfer-all` — All Projects to Single Org
 
 Uses `transfer-pipeline.js` in a loop:
@@ -144,7 +146,7 @@ Uses `transfer-pipeline.js` in a loop:
 2. **Map project keys** — apply prefix or explicit key mappings
 3. **Transfer each project** — run the single-project pipeline for each
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `migrate` — Full Multi-Org Migration
 
 Uses `migrate-pipeline.js`:
@@ -171,7 +173,7 @@ Uses `migrate-pipeline.js`:
      - Set project-level permissions
    - Create portfolios and assign projects
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧩 Key Design Patterns
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
@@ -182,7 +184,7 @@ Uses `migrate-pipeline.js`:
 - **Error Hierarchy** — custom error classes provide specific error handling
 - **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ Concurrency and Performance
 
 CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js`) for parallel I/O:
@@ -194,19 +196,19 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). The `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📦 Build and Packaging
 
 CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as the default, stable packaging pipeline. An experimental **Bun compile** pipeline is also available but may silently crash at runtime in some environments.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Build Process (`scripts/build.js`)
 
 **Default (Node.js SEA):** Two-step — esbuild bundles `src/index.js` into `dist/cli.cjs` (with `.proto` schemas inlined as text), then Node.js SEA packages it into a standalone binary with V8 code cache via postject.
 
 **Experimental (Bun):** Single-step compile — Bun bundles all source files (including `.proto` schemas as text via `--loader .proto:text`) and compiles to a native binary in one command. No intermediate bundle file. Faster builds but less stable at runtime.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Output Structure
 
 ```
@@ -223,7 +225,7 @@ dist/
     └── cloudvoyager-win-arm64.exe    # Node.js SEA
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Build Commands
 
 ```bash
@@ -237,7 +239,7 @@ CI uses 6 parallel jobs — one per platform — each building a Node.js SEA bin
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📄 Generated Report Structure
 
 ```
@@ -258,5 +260,8 @@ Measures are only generated for file components (no project-level `measures-1.pb
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-19 | Project Structure, Commands, Build | API expansion, pipeline refactor, Node 21 build |
+| 2026-02-18 | Output Structure, Reports | Windows ARM64, report generation |
+| 2026-02-17 | Commands, Patterns, Concurrency | Migration engine, concurrency tuning |
+| 2026-02-16 | All | Initial architecture documentation |
 -->

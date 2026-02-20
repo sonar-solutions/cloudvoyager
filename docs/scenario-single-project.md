@@ -1,6 +1,6 @@
 # 📦 Migrate a Single Project
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
 
 Use this when you want to migrate **one specific project** from SonarQube to SonarCloud.
 
@@ -8,7 +8,7 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📦 What Gets Migrated
 
 | Category | Details |
@@ -24,7 +24,7 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ✅ Prerequisites
 
 1. **Admin access** to your SonarQube server
@@ -37,10 +37,10 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📥 Step 1: Download
 
-Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
+Download the latest binary for your platform from the [Releases](https://github.com/sonar-solutions/cloudvoyager/releases) page:
 
 | Platform | Binary |
 |----------|--------|
@@ -57,7 +57,7 @@ On macOS/Linux, make the binary executable:
 chmod +x cloudvoyager-*
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📝 Step 2: Create a config file
 
 Create a file called `config.json`:
@@ -82,7 +82,7 @@ Create a file called `config.json`:
 
 See [`examples/config.example.json`](../examples/config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Config fields
 
 | Field | Required | Description |
@@ -97,7 +97,7 @@ See [`examples/config.example.json`](../examples/config.example.json) for a read
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Optional: Transfer settings
 
 Add a `transfer` section to control incremental mode and batch size:
@@ -118,7 +118,7 @@ Add a `transfer` section to control incremental mode and batch size:
 | `stateFile` | `./.cloudvoyager-state.json` | Where to save sync progress |
 | `batchSize` | `100` | Items per batch (1–500) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧪 Step 3: Test your connections
 
 ```bash
@@ -127,7 +127,7 @@ Add a `transfer` section to control incremental mode and batch size:
 
 You should see a success message for both SonarQube and SonarCloud. If not, double-check your URLs and tokens.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚀 Step 4: Run the transfer
 
 ```bash
@@ -140,7 +140,7 @@ That's it! The tool uploads the report and returns immediately — it does not w
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔧 Other useful commands
 
 ```bash
@@ -156,7 +156,7 @@ That's it! The tool uploads the report and returns immediately — it does not w
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ Speed up the transfer (optional)
 
 For large projects with many source files or issues, use `--auto-tune` to automatically detect your hardware and set optimal performance values:
@@ -175,7 +175,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -188,14 +188,14 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚠️ Limitations
 
 - Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -207,5 +207,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-18 | CLI Flags | Added --wait and --auto-tune flags |
+| 2026-02-17 | Speed up, Further Reading | Performance tuning, scenario links |
+| 2026-02-16 | All | Initial single project scenario |
 -->

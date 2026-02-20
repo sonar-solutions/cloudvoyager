@@ -1,4 +1,4 @@
-import { formatDuration, computeTotalDurationMs } from './shared.js';
+import { formatDuration, formatTimestamp, computeTotalDurationMs } from './shared.js';
 import { sumDurations, getStepDuration, getConfigDuration, formatSlowestSteps, formatBottleneckAnalysis } from './perf-tables.js';
 
 export function formatPerformanceReport(results) {
@@ -17,8 +17,8 @@ export function formatPerformanceReport(results) {
 function formatHeader(results) {
   const durationMs = computeTotalDurationMs(results);
   const lines = ['# CloudVoyager Migration — Performance Report\n'];
-  lines.push(`**Started:** ${results.startTime}  `);
-  lines.push(`**Finished:** ${results.endTime || 'In progress'}  `);
+  lines.push(`**Started:** ${formatTimestamp(results.startTime) || results.startTime}  `);
+  lines.push(`**Finished:** ${formatTimestamp(results.endTime) || 'In progress'}  `);
   if (durationMs != null) {
     lines.push(`**Total Duration:** ${formatDuration(durationMs)}  `);
   }
