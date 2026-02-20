@@ -1,12 +1,12 @@
 # 🏢 Migrate Everything to Multiple SonarCloud Organizations
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: 2026-02-18 -->
 
 Use this when you want to migrate **all projects and configuration** from your SonarQube server to **multiple** SonarCloud organizations — for example, when different teams or business units each have their own SonarCloud org.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## 📦 What Gets Migrated
 
 | Category | Details |
@@ -20,14 +20,14 @@ Use this when you want to migrate **all projects and configuration** from your S
 | **New Code Definitions** | Per-project and per-branch new code period settings |
 | **Server Info** | Server version, plugins, settings, and webhooks (saved as reference files) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ### How projects are assigned to orgs
 
 CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list. **You can review and adjust the project-to-org assignments in the generated `mappings/organizations.csv` file before running the actual migration.**
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## ✅ Prerequisites
 
 1. **Admin access** to your SonarQube server
@@ -40,7 +40,7 @@ CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatical
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-16 -->
 ## 📥 Step 1: Download
 
 Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
@@ -60,7 +60,7 @@ On macOS/Linux, make the binary executable:
 chmod +x cloudvoyager-*
 ```
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## 📝 Step 2: Create a config file
 
 Create a file called `migrate-config.json` with an entry for **each** target organization:
@@ -98,7 +98,7 @@ Create a file called `migrate-config.json` with an entry for **each** target org
 
 See [`examples/migrate-config.example.json`](../examples/migrate-config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ### Config fields
 
 | Field | Required | Description |
@@ -114,12 +114,12 @@ See [`examples/migrate-config.example.json`](../examples/migrate-config.example.
 
 > **Project keys:** By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## 🚀 Step 3: Run the migration (recommended 3-step approach)
 
 We recommend a 3-step migration: dry run, migrate without metadata, then sync metadata separately. This gives you the best combination of safety, speed, and reliability.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ### Step 3a: Dry run — verify everything
 
 A dry run extracts all data and generates mapping CSVs so you can review **which projects go to which org**, without changing anything in SonarCloud:
@@ -130,7 +130,7 @@ A dry run extracts all data and generates mapping CSVs so you can review **which
 
 Check `./migration-output/mappings/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ### Step 3b: Migrate without metadata + auto-tune
 
 Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
@@ -143,7 +143,7 @@ Skipping metadata during the main migration avoids SonarCloud rate limiting (503
 
 > **Note:** By default, the tool does not wait for each project's analysis to complete on SonarCloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ### Step 3c: Sync metadata separately
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step:
@@ -164,7 +164,7 @@ This step is safely retryable — if it hits rate limits, just run it again. You
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-18 -->
 ## ⚡ Performance tuning (optional)
 
 The `--auto-tune` flag (used in Step 3b) detects your hardware (CPU cores and RAM) and sets optimal values automatically. You can also manually set specific values:
@@ -207,7 +207,7 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-18 -->
 ## 📄 Generated Output Files
 
 | File | What's in it |
@@ -232,7 +232,7 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-18 -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -250,14 +250,14 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## ⚠️ Limitations
 
 - Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -269,5 +269,7 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-18 | Performance, Output Files, CLI Flags | Auto-tune, reports, --wait flag |
+| 2026-02-17 | All | Initial multi-org migration scenario |
+| 2026-02-16 | Download | Base download instructions |
 -->

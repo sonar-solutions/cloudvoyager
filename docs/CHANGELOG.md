@@ -10,6 +10,22 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-02-20 — Enterprise Portfolio API, Configuration Updates
+
+#### Enterprise Portfolio API (V2)
+- Migrated portfolio management to SonarCloud's V2 Enterprise API for creating and managing portfolios
+- Added `src/sonarcloud/enterprise-client.js` for V2 API interactions
+
+#### Configuration
+- Added optional `sonarcloud.enterprise` configuration block in migrate config schema (`enterprise.key` required for portfolio migration)
+- Added `bun` as a dev dependency for experimental build pipeline
+
+#### Documentation
+- Added section-level timestamps to all documentation files tracking when each feature was last updated
+- Created `docs/CHANGELOG.md` as dedicated changelog file
+
+---
+
 ### 2026-02-19 — Unit Tests, Local Dev Guide, Build Optimizations, and SEA Binary Fixes
 
 #### Build Optimizations

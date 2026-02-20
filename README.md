@@ -1,12 +1,12 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-02-20 -->
+<!-- Last updated: 2026-02-19 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
 CloudVoyager copies everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-19 -->
 ## ✅ Quick Start (Recommended)
 
 **Choose your scenario:**
@@ -18,7 +18,7 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 | Migrate **everything** from SonarQube to **one** SonarCloud org | [Full Migration — Single Org](docs/scenario-single-org.md) |
 | Migrate **everything** from SonarQube to **multiple** SonarCloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-18 -->
 ## 🔥 Single Command Full Migration (Slightly Dangerous)
 
 1. Download the latest release of CloudVoyager from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
@@ -30,12 +30,12 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ```
 5. Once the migration finishes, review the `./migration-output` directory for any errors or warnings, and verify that your projects and data have been migrated successfully to SonarCloud.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-19 -->
 ## 🛠️ Local Development
 
 Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) for step-by-step instructions.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: 2026-02-17 -->
 ## 📝 License
 
 MIT
@@ -44,5 +44,8 @@ MIT
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
-| 2026-02-20 | All | Initial section timestamps added |
+| 2026-02-19 | Quick Start, Local Dev | Links to scenario and local dev docs |
+| 2026-02-18 | Single Command Migration | Migrate command with --auto-tune |
+| 2026-02-17 | License | MIT license added |
+| 2026-02-16 | All | Initial README |
 -->
