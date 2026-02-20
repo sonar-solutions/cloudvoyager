@@ -1,8 +1,8 @@
 # 🔧 Troubleshooting
 
-<!-- Last updated: 2026-02-18 -->
+<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
 
-<!-- Updated: 2026-02-18 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🐛 Debugging a Migration Run
 
 After every `migrate` run (whether it succeeds, partially succeeds, or crashes), CloudVoyager writes report files to the `reports/` subdirectory of your output directory:
@@ -12,7 +12,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 | `reports/migration-report.txt` | Human-readable report — open this first |
 | `reports/migration-report.json` | Machine-readable structured data for scripting |
 
-<!-- Updated: 2026-02-18 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Where to start
 
 1. **Open `reports/migration-report.txt`** — it's structured top-down so you can quickly find problems:
@@ -27,7 +27,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 
 3. **Check `reports/migration-report.json`** if you need to script post-migration analysis (e.g., count how many projects failed at "Sync hotspots" vs "Upload scanner report").
 
-<!-- Updated: 2026-02-18 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Example report output
 
 ```
@@ -64,7 +64,7 @@ From this you can see:
 - `my-legacy-project` failed at the scanner report upload (likely a protobuf/format issue) — but settings, tags, links, etc. still succeeded
 - `big-project` succeeded except for hotspot sync (rate limited) — you can re-run with only hotspot sync later
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Project statuses
 
 | Status | Meaning |
@@ -73,7 +73,7 @@ From this you can see:
 | **partial** | Some steps succeeded, some failed — check the report for which ones |
 | **failed** | All non-skipped steps failed |
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Per-project migration steps
 
 Each project goes through these steps (in order). If the scanner report upload fails, issue/hotspot sync are automatically skipped (they depend on uploaded data), but remaining steps still run:
@@ -92,7 +92,7 @@ Each project goes through these steps (in order). If the scanner report upload f
 | Assign quality profiles | Assigns migrated built-in quality profiles per language | No |
 | Project permissions | Sets group-level project permissions | No |
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Using log files for deeper investigation
 
 For detailed debugging beyond the report, save the full log to a file:
@@ -120,7 +120,7 @@ grep "Rate limited" migration.log
 grep "SKIP\|skipping" migration.log
 ```
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Re-running after failures
 
 The migration can be re-run safely. Projects that already exist in SonarCloud will be updated (not duplicated). To fix specific failures:
@@ -131,27 +131,27 @@ The migration can be re-run safely. Projects that already exist in SonarCloud wi
 
 ---
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔐 Authentication Errors
 - Verify your tokens have the correct permissions
 - Check that tokens haven't expired
 - Ensure the project key exists in SonarQube
 - Verify the organization key is correct in SonarCloud
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚠️ Generic "Issue whilst processing" Error
 
 This vague SonarCloud error can be caused by:
 - **Branch name mismatch** - SonarQube and SonarCloud have different main branch names. The tool handles this automatically via `getMainBranchName()`, but verify your SonarCloud project's branch configuration
 - **Line count mismatch** - Source file line counts don't match component metadata. The tool uses actual source content line counts to avoid this
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ❌ Report Rejected by SonarCloud
 - **Empty ScmInfo** - Ensure `changesetIndexByLine` is populated for ADDED files (array of zeros, one per line)
 - **Issue gap field** - The `gap` field should not be included in issues (it's scanner-computed, not from SonarQube)
 - **Duplicate report** - SonarCloud rejects reports with the same `scm_revision_id`. Use a different commit or update the source project
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔑 Project Key Conflicts
 
 SonarCloud requires globally unique project keys across all organizations. By default, CloudVoyager uses the **original SonarQube project key** when creating projects on SonarCloud. If the key is already taken by another SonarCloud organization, the tool automatically falls back to a prefixed key (`{org}_{key}`) and logs a warning.
@@ -163,13 +163,13 @@ Key conflicts are reported in three places:
 
 If you see key conflicts, the affected projects were still migrated successfully — they just use a different key than the original SonarQube key. You can rename them later via the SonarCloud API (`/api/projects/update_key`) if the conflicting key becomes available.
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🌐 Connection Timeouts
 - Check network connectivity to both servers
 - Verify firewall rules allow access
 - Use `--verbose` flag for detailed connection logs
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚦 Rate Limiting (503 / 429 Errors)
 
 SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
@@ -195,19 +195,19 @@ If you still encounter rate limit errors after all retries are exhausted, consid
 - Running the migration during off-peak hours
 - Using `--skip-hotspot-metadata-sync` to skip the most rate-limit-prone operation
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🏷️ Project Names Showing as Project Keys
 
 If projects in SonarCloud show the project key as the display name instead of the original human-readable name from SonarQube, the project was likely created by an older version of CloudVoyager. The current version automatically carries over the original project name from SonarQube when creating projects in SonarCloud.
 
 To fix already-migrated projects, you can rename them manually in SonarCloud via **Project Settings > General Settings > Project Name**, or delete and re-migrate the project.
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚧 Quality Gate / Profile Permission Errors (400)
 
 When migrating quality gates or profiles, permission APIs may return 400 errors for built-in gates/profiles. This is expected — built-in resources don't support custom permissions. The migrators handle this gracefully and skip these entries.
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📊 Issue Counts Differ Between SonarQube and SonarCloud
 
 If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube and SonarCloud quality profiles.
@@ -216,7 +216,7 @@ The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way
 
 If you'd prefer to skip quality profile migration entirely and use each language's default SonarCloud profile instead, use `--skip-quality-profile-sync`.
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📄 SonarQube API Pagination Limits
 
 Some SonarQube APIs enforce a maximum page size of 100 (not 500):
@@ -227,12 +227,12 @@ Some SonarQube APIs enforce a maximum page size of 100 (not 500):
 
 The extractors handle this automatically, but if you see pagination-related errors, this is likely the cause.
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔤 Quality Gates Use Names, Not IDs
 
 The SonarQube quality gates API uses `name` for all operations (`/api/qualitygates/show`, `/api/qualitygates/select`), not `id`. If you see "not found" errors related to quality gates, check that you're using the gate name.
 
-<!-- Updated: 2026-02-18 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 💾 Out of Memory / Heap Allocation Errors
 
 If you see `FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory`, increase the heap size via `--max-memory` or the `maxMemoryMB` config option. The tool automatically restarts itself with the increased heap:
@@ -257,7 +257,7 @@ Or use the `migrate:auto-tune` npm script, which detects your hardware and sets 
 npm run migrate:auto-tune
 ```
 
-<!-- Updated: 2026-02-18 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🐢 Slow Migration Performance
 
 If migrations are taking too long, the easiest fix is to use `--auto-tune` which detects your hardware and sets optimal values:
@@ -277,7 +277,7 @@ For persistent config, add a `performance` section to your config file. See the 
 
 Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits.
 
-<!-- Updated: 2026-02-16 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📦 Large Reports
 
 Limit source file extraction for testing:
@@ -287,10 +287,10 @@ export MAX_SOURCE_FILES=10
 ./cloudvoyager transfer -c config.json
 ```
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔄 Migration-Specific Issues
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Partial Migration Failures
 
 The `migrate` command continues to the next project (and the next step within each project) if one fails. After the run completes, check `reports/migration-report.txt` in your output directory for a detailed breakdown of what succeeded and what failed per project, per step.
@@ -299,7 +299,7 @@ Projects with the status **partial** had some steps succeed and others fail. Pro
 
 You can re-run the migration — it will re-process all projects.
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Dry Run for Planning
 
 Always run with `--dry-run` first to generate mapping CSVs and verify organization assignments before executing the full migration:
@@ -308,7 +308,7 @@ Always run with `--dry-run` first to generate mapping CSVs and verify organizati
 ./cloudvoyager migrate -c migrate-config.json --dry-run
 ```
 
-<!-- Updated: 2026-02-17 -->
+<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Skipping Issue/Hotspot Metadata Sync
 
 If issue or hotspot metadata sync is causing rate limit errors on large projects, you can skip them during migration and sync them separately afterward:
