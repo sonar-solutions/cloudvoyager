@@ -73,7 +73,7 @@ jobs:
           path: dist/bin/cloudvoyager-macos-arm64
 
   build-sea-macos-x64:
-    runs-on: macos-13
+    runs-on: macos-13-large
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
