@@ -3,7 +3,7 @@
  * Produces a concise (~1 page) report aimed at engineering leadership.
  */
 
-import { formatDuration, computeProjectStats, computeOverallStatus, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeOverallStatus, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
 
 /**
  * Format results as an executive summary in markdown.
@@ -26,9 +26,7 @@ export function formatExecutiveSummaryMarkdown(results) {
 }
 
 function formatHeader(results, durationMs) {
-  const date = results.startTime
-    ? new Date(results.startTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : 'Unknown';
+  const date = formatTimestamp(results.startTime) || 'Unknown';
 
   const lines = ['# CloudVoyager Migration — Executive Summary\n'];
   lines.push(`**Date:** ${date}  `);

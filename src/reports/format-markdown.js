@@ -3,7 +3,7 @@
  * Produces the same detailed content as the text report but with proper markdown formatting.
  */
 
-import { formatDuration, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
 
 /**
  * Format results as a markdown report.
@@ -27,8 +27,8 @@ export function formatMarkdownReport(results) {
 
 function formatHeader(results) {
   const lines = ['# CloudVoyager Migration Report\n'];
-  lines.push(`**Started:** ${results.startTime}  `);
-  lines.push(`**Finished:** ${results.endTime || 'In progress'}  `);
+  lines.push(`**Started:** ${formatTimestamp(results.startTime) || results.startTime}  `);
+  lines.push(`**Finished:** ${formatTimestamp(results.endTime) || 'In progress'}  `);
 
   const durationMs = computeTotalDurationMs(results);
   if (durationMs != null) {

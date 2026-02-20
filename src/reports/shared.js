@@ -3,6 +3,18 @@
  */
 
 /**
+ * Format an ISO timestamp string in the local timezone.
+ * e.g. "2026-02-20T03:15:00.000Z" → "Feb 20, 2026, 11:15:00 AM" (in SGT)
+ */
+export function formatTimestamp(isoString) {
+  if (!isoString) return null;
+  return new Date(isoString).toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  });
+}
+
+/**
  * Format milliseconds as human-readable duration.
  */
 export function formatDuration(ms) {

@@ -1,4 +1,4 @@
-import { formatDuration, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
+import { formatDuration, formatTimestamp, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects } from './shared.js';
 import { generatePdfBuffer, pdfStyles } from './pdf-helpers.js';
 import { buildServerSteps, buildOrgResults, buildProblemProjects, buildAllProjects } from './pdf-sections.js';
 
@@ -47,8 +47,8 @@ function buildHeader(results) {
   const nodes = [];
   nodes.push({ text: 'CloudVoyager Migration Report', style: 'title' });
   const durationMs = computeTotalDurationMs(results);
-  nodes.push({ text: `Started: ${results.startTime}`, style: 'metadata' });
-  nodes.push({ text: `Finished: ${results.endTime || 'In progress'}`, style: 'metadata' });
+  nodes.push({ text: `Started: ${formatTimestamp(results.startTime) || results.startTime}`, style: 'metadata' });
+  nodes.push({ text: `Finished: ${formatTimestamp(results.endTime) || 'In progress'}`, style: 'metadata' });
   if (durationMs != null) {
     nodes.push({ text: `Duration: ${formatDuration(durationMs)}`, style: 'metadata' });
   }
