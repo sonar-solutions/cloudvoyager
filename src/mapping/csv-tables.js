@@ -13,11 +13,11 @@ export function toCsvRow(values) {
 
 export function generateGroupMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Group Name', 'Description', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Group Name', 'Description', 'Members Count', 'Is Default', 'Target Organization'])];
   if (resourceMappings?.groupsByOrg) {
     for (const [orgKey, groups] of resourceMappings.groupsByOrg) {
       for (const group of groups) {
-        rows.push(toCsvRow([group.name, group.description || '', orgKey]));
+        rows.push(toCsvRow(['yes', group.name, group.description || '', group.membersCount || 0, group.default || false, orgKey]));
       }
     }
   }
@@ -26,13 +26,13 @@ export function generateGroupMappingsCsv(data) {
 
 export function generateProfileMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Profile Name', 'Language', 'Is Default', 'Parent', 'Active Rules', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Profile Name', 'Language', 'Is Default', 'Is Built-In', 'Parent', 'Active Rules', 'Target Organization'])];
   if (resourceMappings?.profilesByOrg) {
     for (const [orgKey, profiles] of resourceMappings.profilesByOrg) {
       for (const profile of profiles) {
         rows.push(toCsvRow([
-          profile.name, profile.language, profile.isDefault,
-          profile.parentName || '', profile.activeRuleCount || 0, orgKey
+          'yes', profile.name, profile.language, profile.isDefault,
+          profile.isBuiltIn, profile.parentName || '', profile.activeRuleCount || 0, orgKey
         ]));
       }
     }
@@ -42,14 +42,18 @@ export function generateProfileMappingsCsv(data) {
 
 export function generateGateMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Gate Name', 'Is Default', 'Is Built-In', 'Conditions Count', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Gate Name', 'Is Default', 'Is Built-In', 'Condition Metric', 'Condition Operator', 'Condition Threshold', 'Target Organization'])];
   if (resourceMappings?.gatesByOrg) {
     for (const [orgKey, gates] of resourceMappings.gatesByOrg) {
       for (const gate of gates) {
-        rows.push(toCsvRow([
-          gate.name, gate.isDefault, gate.isBuiltIn,
-          gate.conditions?.length || 0, orgKey
-        ]));
+        // Gate header row (empty condition fields)
+        rows.push(toCsvRow(['yes', gate.name, gate.isDefault, gate.isBuiltIn, '', '', '', orgKey]));
+        // One row per condition
+        if (gate.conditions) {
+          for (const condition of gate.conditions) {
+            rows.push(toCsvRow(['yes', gate.name, '', '', condition.metric, condition.op, condition.error, orgKey]));
+          }
+        }
       }
     }
   }
@@ -58,14 +62,18 @@ export function generateGateMappingsCsv(data) {
 
 export function generatePortfolioMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Portfolio Key', 'Portfolio Name', 'Projects Count', 'Visibility', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Portfolio Key', 'Portfolio Name', 'Description', 'Visibility', 'Member Project Key', 'Member Project Name', 'Target Organization'])];
   if (resourceMappings?.portfoliosByOrg) {
     for (const [orgKey, portfolios] of resourceMappings.portfoliosByOrg) {
       for (const portfolio of portfolios) {
-        rows.push(toCsvRow([
-          portfolio.key, portfolio.name,
-          portfolio.projects?.length || 0, portfolio.visibility || 'public', orgKey
-        ]));
+        // Portfolio header row (empty member fields)
+        rows.push(toCsvRow(['yes', portfolio.key, portfolio.name, portfolio.description || '', portfolio.visibility || 'public', '', '', orgKey]));
+        // One row per member project
+        if (portfolio.projects) {
+          for (const project of portfolio.projects) {
+            rows.push(toCsvRow(['yes', portfolio.key, portfolio.name, '', '', project.key, project.name, orgKey]));
+          }
+        }
       }
     }
   }
@@ -74,14 +82,36 @@ export function generatePortfolioMappingsCsv(data) {
 
 export function generateTemplateMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Template Name', 'Description', 'Key Pattern', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Template Name', 'Description', 'Key Pattern', 'Permission Key', 'Group Name', 'Target Organization'])];
   if (resourceMappings?.templatesByOrg) {
     for (const [orgKey, templates] of resourceMappings.templatesByOrg) {
       for (const template of templates) {
-        rows.push(toCsvRow([
-          template.name, template.description || '',
-          template.projectKeyPattern || '', orgKey
-        ]));
+        // Template header row (empty permission fields)
+        rows.push(toCsvRow(['yes', template.name, template.description || '', template.projectKeyPattern || '', '', '', orgKey]));
+        // One row per permission+group assignment
+        if (template.permissions) {
+          for (const perm of template.permissions) {
+            if (perm.groups) {
+              for (const groupName of perm.groups) {
+                rows.push(toCsvRow(['yes', template.name, '', '', perm.key, groupName, orgKey]));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return rows.join('\n') + '\n';
+}
+
+export function generateGlobalPermissionsCsv(data) {
+  const { extractedData } = data;
+  const rows = [toCsvRow(['Include', 'Group Name', 'Permission'])];
+  const globalPermissions = extractedData?.globalPermissions || [];
+  for (const group of globalPermissions) {
+    if (group.permissions) {
+      for (const permission of group.permissions) {
+        rows.push(toCsvRow(['yes', group.name, permission]));
       }
     }
   }

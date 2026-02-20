@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SonarQubeClient } from './sonarqube/api-client.js';
@@ -7,6 +8,8 @@ import { writeAllReports } from './reports/index.js';
 import { createEmptyResults, runFatalStep, logMigrationSummary } from './pipeline/results.js';
 import { extractAllProjects, extractServerWideData } from './pipeline/extraction.js';
 import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
+import { loadMappingCsvs } from './mapping/csv-reader.js';
+import { applyCsvOverrides } from './mapping/csv-applier.js';
 
 export async function migrateAll(options) {
   const {
@@ -26,6 +29,23 @@ export async function migrateAll(options) {
   const skipIssueSync = migrateConfig.skipIssueMetadataSync || migrateConfig.skipIssueSync || false;
   const skipHotspotSync = migrateConfig.skipHotspotMetadataSync || migrateConfig.skipHotspotSync || false;
   const skipQualityProfileSync = migrateConfig.skipQualityProfileSync || false;
+
+  // Read existing CSVs BEFORE wiping output dir (for non-dry-run with prior dry-run CSVs)
+  const mappingsDir = join(outputDir, 'mappings');
+  let preExistingCsvs = null;
+  if (!dryRun && existsSync(mappingsDir)) {
+    try {
+      preExistingCsvs = await loadMappingCsvs(mappingsDir);
+      if (preExistingCsvs.size > 0) {
+        logger.info(`Found ${preExistingCsvs.size} existing mapping CSV(s) from a previous dry-run`);
+        logger.info('These will be used as the source of truth for filtering/overrides');
+      } else {
+        preExistingCsvs = null;
+      }
+    } catch (e) {
+      logger.warn(`Failed to read existing CSVs: ${e.message}. Proceeding without overrides.`);
+    }
+  }
 
   logger.info(`Cleaning output directory: ${outputDir}`);
   await rm(outputDir, { recursive: true, force: true });
@@ -54,22 +74,57 @@ export async function migrateAll(options) {
     );
 
     if (dryRun) {
-      logger.info('=== Dry run complete. Mapping CSVs generated. No data migrated. ===');
+      logger.info('');
+      logger.info('=== Dry run complete ===');
+      logger.info(`Mapping CSVs generated in: ${mappingsDir}`);
+      logger.info('');
+      logger.info('Review and edit the CSV files to customize your migration:');
+      logger.info('  - Set Include=no on any row to exclude it from migration');
+      logger.info('  - Edit quality gate condition thresholds (Condition Threshold column)');
+      logger.info('  - Remove specific permission assignments');
+      logger.info('  - Exclude specific portfolio project memberships');
+      logger.info('');
+      logger.info('When ready, re-run without --dry-run:');
+      logger.info('  cloudvoyager migrate -c config.json');
+      logger.info('');
+      logger.info('The tool will automatically detect and apply your CSV edits.');
       results.dryRun = true;
       return results;
+    }
+
+    // Apply CSV overrides from previous dry-run if available
+    let effectiveExtractedData = extractedData;
+    let effectiveResourceMappings = resourceMappings;
+    let effectiveOrgAssignments = orgMapping.orgAssignments;
+
+    if (preExistingCsvs) {
+      logger.info('=== Applying CSV overrides from previous dry-run ===');
+      const overrideResult = applyCsvOverrides(
+        preExistingCsvs, extractedData, resourceMappings, orgMapping.orgAssignments
+      );
+      effectiveExtractedData = overrideResult.filteredExtractedData;
+      effectiveResourceMappings = overrideResult.filteredResourceMappings;
+      effectiveOrgAssignments = overrideResult.filteredOrgAssignments;
+
+      const origProjectCount = orgMapping.orgAssignments.reduce((n, a) => n + a.projects.length, 0);
+      const filteredProjectCount = effectiveOrgAssignments.reduce((n, a) => n + a.projects.length, 0);
+      if (filteredProjectCount < origProjectCount) {
+        logger.info(`Projects: ${filteredProjectCount}/${origProjectCount} included after CSV filtering`);
+      }
+      logger.info('CSV overrides applied successfully');
     }
 
     await saveServerInfo(outputDir, extractedData);
 
     const mergedProjectKeyMap = new Map();
-    for (const assignment of orgMapping.orgAssignments) {
-      const projectKeyMap = await migrateOneOrganization(assignment, extractedData, resourceMappings, results, ctx);
+    for (const assignment of effectiveOrgAssignments) {
+      const projectKeyMap = await migrateOneOrganization(assignment, effectiveExtractedData, effectiveResourceMappings, results, ctx);
       for (const [sqKey, scKey] of projectKeyMap) {
         mergedProjectKeyMap.set(sqKey, scKey);
       }
     }
 
-    await migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx);
+    await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
 
     logMigrationSummary(results, outputDir);
   } finally {
