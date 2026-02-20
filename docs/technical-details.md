@@ -1,5 +1,8 @@
 # 🔬 Technical Details
 
+<!-- Last updated: 2026-02-20 -->
+
+<!-- Updated: 2026-02-20 -->
 ## 📡 Protobuf Encoding
 
 The scanner report uses two encoding styles:
@@ -13,6 +16,7 @@ protobufjs automatically converts snake_case field names to camelCase in JavaScr
 
 All field names in the codebase use camelCase to match this convention.
 
+<!-- Updated: 2026-02-20 -->
 ## 📏 Measure Type Mapping
 
 Measures use typed value fields based on metric type:
@@ -20,30 +24,36 @@ Measures use typed value fields based on metric type:
 - **String metrics** (`stringValue`): `executable_lines_data`, `ncloc_data`, `alert_status`
 - **Float/percentage metrics** (`doubleValue`): `coverage`, `line_coverage`, `branch_coverage`, `duplicated_lines_density`, ratings
 
+<!-- Updated: 2026-02-20 -->
 ## 📋 Active Rules
 
 - Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size
 - Rule keys are stripped of the repository prefix (e.g., `S7788` not `jsarchitecture:S7788`)
 - Quality profile keys are mapped to SonarCloud profile keys (not SonarQube keys)
 
+<!-- Updated: 2026-02-20 -->
 ## 🧱 Component Structure
 
 Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube measures API values.
 
+<!-- Updated: 2026-02-20 -->
 ## 🔖 SCM Revision Tracking
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
+<!-- Updated: 2026-02-20 -->
 ## 🌿 Branch Name Resolution
 
 The tool fetches the main branch name from SonarCloud (via `getMainBranchName()` API) rather than using the SonarQube branch name. This avoids mismatches where SonarQube uses "main" but SonarCloud expects "master" (or vice versa).
 
+<!-- Updated: 2026-02-20 -->
 ## 📄 API Pagination
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
 
 Note: some SonarQube APIs enforce a lower maximum page size of 100 (e.g., permissions, tags, profile permissions, gate permissions). The extractors handle this automatically.
 
+<!-- Updated: 2026-02-20 -->
 ## 🚦 Rate Limit Handling
 
 The SonarCloud API client supports a configurable two-layer strategy for rate limiting. Customize it via the `rateLimit` section in your config file.
@@ -52,6 +62,7 @@ The SonarCloud API client supports a configurable two-layer strategy for rate li
 
 2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
+<!-- Updated: 2026-02-20 -->
 ## 🔄 Issue Sync
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
@@ -61,6 +72,7 @@ The `migrate` command syncs issue metadata after the scanner report is uploaded.
 4. Copies comments
 5. Sets tags
 
+<!-- Updated: 2026-02-20 -->
 ## 🔥 Hotspot Sync
 
 Similar to issue sync, hotspot metadata is matched and synced:
@@ -68,6 +80,7 @@ Similar to issue sync, hotspot metadata is matched and synced:
 2. Transitions status (To Review, Acknowledged, Safe, Fixed)
 3. Copies comments
 
+<!-- Updated: 2026-02-20 -->
 ## 🔑 Project Key Resolution
 
 SonarCloud requires globally unique project keys across all organizations. When migrating projects, the tool uses the following strategy:
@@ -79,24 +92,30 @@ SonarCloud requires globally unique project keys across all organizations. When 
 
 Key conflicts are reported in the migration summary and in the `reports/migration-report.txt` / `reports/migration-report.json` output files.
 
+<!-- Updated: 2026-02-20 -->
 ## 🗺️ Organization Mapping
 
 The `migrate` command maps projects to target SonarCloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
 
+<!-- Updated: 2026-02-20 -->
 ## 📋 Quality Profile Migration
 
 Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
 
 Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "Sonar way") cannot be overwritten on SonarCloud, so they are restored as custom profiles with a "(SonarQube Migrated)" suffix (e.g., "Sonar way (SonarQube Migrated)"). These migrated profiles are automatically assigned to each project to ensure the same rules are active as in SonarQube.
 
+To skip quality profile migration entirely and use each language's existing default SonarCloud profile, pass `--skip-quality-profile-sync`.
+
 After profile migration, a **quality profile diff report** (`quality-profiles/quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
 - **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
 - **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
 
+<!-- Updated: 2026-02-20 -->
 ## 🚧 Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.
 
+<!-- Updated: 2026-02-20 -->
 ## ⚡ Concurrency Model
 
 CloudVoyager uses a custom concurrency layer (`src/utils/concurrency.js`) with zero external dependencies. Key primitives:
@@ -108,6 +127,14 @@ All extractors and migrators use `mapConcurrent` instead of sequential `for...of
 
 Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.availableParallelism()` (with `os.cpus().length` as a fallback on older Node.js versions). When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count (e.g., `sourceExtraction = cores * 2`, `issueSync = cores`, `hotspotSync = min(cores/2, 5)`). Explicit config values always override auto-tuned defaults.
 
+<!-- Updated: 2026-02-20 -->
 ## 💾 Memory Management
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
+
+<!--
+## Change Log
+| Date | Section | Change |
+|------|---------|--------|
+| 2026-02-20 | All | Initial section timestamps added |
+-->

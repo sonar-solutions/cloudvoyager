@@ -1,5 +1,7 @@
 # 📦 Transfer All Projects to One SonarCloud Organization
 
+<!-- Last updated: 2026-02-20 -->
+
 Use this when you want to transfer **all projects** from SonarQube to a **single** SonarCloud organization, without migrating org-level configuration like quality gates, profiles, groups, or permissions.
 
 This is a lightweight alternative to the full `migrate` command — it loops through every SonarQube project and runs the single-project transfer pipeline for each one.
@@ -8,6 +10,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📦 What Gets Transferred
 
 | Category | Included |
@@ -19,6 +22,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 | **SCM changesets** | Yes — per-file changeset info (author, date, revision) |
 | **Active rules** | Yes — quality profile rules filtered by languages used in each project |
 
+<!-- Updated: 2026-02-20 -->
 ### What is NOT transferred
 
 | Category | Why |
@@ -33,6 +37,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## ✅ Prerequisites
 
 1. **Admin access** to your SonarQube server
@@ -45,6 +50,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📥 Step 1: Download
 
 Download the latest binary for your platform from the [Releases](https://github.com/joshuaquek/cloudvoyager/releases) page:
@@ -64,6 +70,7 @@ On macOS/Linux, make the binary executable:
 chmod +x cloudvoyager-*
 ```
 
+<!-- Updated: 2026-02-20 -->
 ## 📝 Step 2: Create a config file
 
 Create a file called `config.json`:
@@ -88,6 +95,7 @@ Create a file called `config.json`:
 
 See [`examples/transfer-all-config.example.json`](../examples/transfer-all-config.example.json) for a ready-to-use template with all optional fields.
 
+<!-- Updated: 2026-02-20 -->
 ### Config fields
 
 | Field | Required | Description |
@@ -100,6 +108,7 @@ See [`examples/transfer-all-config.example.json`](../examples/transfer-all-confi
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
 
+<!-- Updated: 2026-02-20 -->
 ### Optional: Transfer-all settings
 
 Add a `transferAll` section to control project key mapping and exclusions:
@@ -122,6 +131,7 @@ Add a `transferAll` section to control project key mapping and exclusions:
 | `projectKeyMapping` | `{}` | Explicit mapping from SonarQube key to SonarCloud key for specific projects |
 | `excludeProjects` | `[]` | SonarQube project keys to skip |
 
+<!-- Updated: 2026-02-20 -->
 ## 🧪 Step 3: Test your connections
 
 ```bash
@@ -130,6 +140,7 @@ Add a `transferAll` section to control project key mapping and exclusions:
 
 You should see a success message for both SonarQube and SonarCloud. If not, double-check your URLs and tokens.
 
+<!-- Updated: 2026-02-20 -->
 ## 🔍 Step 4: Dry run (recommended)
 
 Run a dry run first to see which projects will be transferred without actually doing anything:
@@ -140,6 +151,7 @@ Run a dry run first to see which projects will be transferred without actually d
 
 Review the output to make sure the project list and key mappings look correct.
 
+<!-- Updated: 2026-02-20 -->
 ## 🚀 Step 5: Run the transfer
 
 ```bash
@@ -152,6 +164,7 @@ The tool discovers all projects on your SonarQube server, applies any exclusions
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## ⚡ Speed up the transfer (optional)
 
 For large numbers of projects, use `--auto-tune` to automatically detect your hardware and set optimal performance values:
@@ -170,6 +183,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -184,6 +198,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## ⚠️ Limitations
 
 - **No org-level config** — quality gates, profiles, groups, permissions, portfolios, and project settings are not transferred. Use the [`migrate` command](scenario-single-org.md) if you need these.
@@ -191,6 +206,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📚 Further Reading
 
 - [Full Migration — Single Org](scenario-single-org.md) — migrate everything including quality gates, profiles, groups, and permissions
@@ -198,3 +214,10 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+
+<!--
+## Change Log
+| Date | Section | Change |
+|------|---------|--------|
+| 2026-02-20 | All | Initial section timestamps added |
+-->

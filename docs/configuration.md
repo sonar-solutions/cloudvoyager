@@ -1,7 +1,10 @@
 # ⚙️ Configuration
 
+<!-- Last updated: 2026-02-20 -->
+
 CloudVoyager supports three configuration formats depending on the command you're using.
 
+<!-- Updated: 2026-02-20 -->
 ## 📋 Single Project Config
 
 Used by: `transfer`, `test`, `validate`, `status`, `reset`
@@ -29,6 +32,7 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
 
 See `examples/config.example.json` for a complete example.
 
+<!-- Updated: 2026-02-20 -->
 ## 📋 Transfer-All Config
 
 Used by: `transfer-all`
@@ -63,6 +67,7 @@ Transfers all projects from a SonarQube server to a single SonarCloud organizati
 
 See `examples/transfer-all-config.example.json` for a complete example.
 
+<!-- Updated: 2026-02-20 -->
 ## 📋 Migration Config
 
 Used by: `migrate`, `sync-metadata`
@@ -97,6 +102,7 @@ Performs a full migration from a SonarQube server to one or more SonarCloud orga
     "outputDir": "./migration-output",
     "skipIssueMetadataSync": false,
     "skipHotspotMetadataSync": false,
+    "skipQualityProfileSync": false,
     "dryRun": false
   }
 }
@@ -106,8 +112,10 @@ See `examples/migrate-config.example.json` for a complete example.
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🔧 Configuration Options
 
+<!-- Updated: 2026-02-20 -->
 ### SonarQube Settings
 
 | Option | Required | Description |
@@ -116,6 +124,7 @@ See `examples/migrate-config.example.json` for a complete example.
 | `token` | Yes | SonarQube API token (or set via `SONARQUBE_TOKEN` env var) |
 | `projectKey` | For `transfer` only | Project key to export (not needed for `transfer-all` or `migrate`) |
 
+<!-- Updated: 2026-02-20 -->
 ### SonarCloud Settings (Single Org)
 
 Used by `transfer`, `transfer-all`, `test`, `validate`, `status`, `reset`.
@@ -127,6 +136,7 @@ Used by `transfer`, `transfer-all`, `test`, `validate`, `status`, `reset`.
 | `organization` | Yes | SonarCloud organization key |
 | `projectKey` | For `transfer` only | Destination project key. The display name is automatically carried over from SonarQube |
 
+<!-- Updated: 2026-02-20 -->
 ### SonarCloud Settings (Multi-Org)
 
 Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an array of target organizations.
@@ -137,6 +147,7 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `organizations[].token` | Yes | SonarCloud API token for this org |
 | `organizations[].url` | No | SonarCloud server URL (default: `https://sonarcloud.io`) |
 
+<!-- Updated: 2026-02-20 -->
 ### Transfer Settings
 
 | Option | Default | Description |
@@ -145,6 +156,7 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers. Only applies to `transfer` and `transfer-all` commands (not `migrate` or `sync-metadata`) |
 | `batchSize` | `100` | Number of items per batch (1–500) |
 
+<!-- Updated: 2026-02-20 -->
 ### Transfer-All Settings
 
 | Option | Default | Description |
@@ -153,6 +165,7 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `projectKeyMapping` | `{}` | Explicit mapping from SonarQube project key to SonarCloud project key. Only affects the key — the display name is always carried over from SonarQube |
 | `excludeProjects` | `[]` | SonarQube project keys to exclude from transfer |
 
+<!-- Updated: 2026-02-20 -->
 ### Migrate Settings
 
 | Option | Default | Description |
@@ -160,10 +173,12 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `outputDir` | `./migration-output` | Directory for mapping CSVs and server info output |
 | `skipIssueMetadataSync` | `false` | Skip syncing issue metadata (statuses, assignments, comments, tags) |
 | `skipHotspotMetadataSync` | `false` | Skip syncing hotspot metadata (statuses, comments) |
+| `skipQualityProfileSync` | `false` | Skip syncing quality profiles (projects use default SonarCloud profiles) |
 | `dryRun` | `false` | Extract and generate mappings without migrating |
 
 > **Project key behavior (migrate command):** By default, the `migrate` command uses the original SonarQube project key on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org}_{key}`) and logs a warning. Key conflicts are listed in the migration report.
 
+<!-- Updated: 2026-02-20 -->
 ### Rate Limit Settings
 
 Controls retry and throttling behavior for SonarCloud API requests. By default, retries are enabled (`maxRetries: 3`) but request throttling is off (`minRequestInterval: 0`). Add a `rateLimit` section to any config file to customize.
@@ -196,6 +211,7 @@ Controls retry and throttling behavior for SonarCloud API requests. By default, 
 }
 ```
 
+<!-- Updated: 2026-02-20 -->
 ### Performance Settings
 
 Controls CPU, memory, and concurrency tuning. Add a `performance` section to any config file. All settings are optional — defaults are tuned for safe, moderate parallelism.
@@ -253,6 +269,7 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 ./cloudvoyager migrate -c migrate-config.json --verbose --max-memory 8192
 ```
 
+<!-- Updated: 2026-02-20 -->
 ## 🌍 Environment Variables
 
 | Variable | Description |
@@ -266,6 +283,7 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
 | `NODE_OPTIONS` | Set V8 flags manually (usually not needed — use `maxMemoryMB` in config or `--max-memory` flag instead) |
 
+<!-- Updated: 2026-02-20 -->
 ## 📜 npm Scripts vs Binary Commands
 
 CloudVoyager can be run in two ways:
@@ -289,20 +307,27 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Migrate without hotspot metadata sync | `npm run migrate:skip-hotspot-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
 | Migrate without issue metadata sync | `npm run migrate:skip-issue-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync` |
 | Migrate without any metadata sync | `npm run migrate:skip-all-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync` |
+| Migrate without quality profile sync | `npm run migrate:skip-quality-profiles` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync` |
+| Migrate skip all (metadata + profiles, auto-tuned) | `npm run migrate:skip-all` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --skip-quality-profile-sync --auto-tune` |
 | Sync issue & hotspot metadata only | `npm run sync-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose` |
-| Sync only issue metadata | `npm run sync-metadata:issues-only` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
-| Sync only hotspot metadata | `npm run sync-metadata:hotspots-only` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync` |
+| Sync only issue metadata | `npm run sync-metadata:skip-hotspot-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
+| Sync only hotspot metadata | `npm run sync-metadata:skip-issue-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync` |
+| Sync metadata, skip quality profiles | `npm run sync-metadata:skip-quality-profiles` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-quality-profile-sync` |
 | Transfer single project (auto-tuned) | `npm run transfer:auto-tune` | `./cloudvoyager transfer -c config.json --verbose --auto-tune` |
 | Transfer all projects (auto-tuned) | `npm run transfer-all:auto-tune` | `./cloudvoyager transfer-all -c config.json --verbose --auto-tune` |
 | Full migration (auto-tuned) | `npm run migrate:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune` |
 | Migrate without metadata (auto-tuned) | `npm run migrate:skip-all-metadata:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune` |
+| Migrate without quality profiles (auto-tuned) | `npm run migrate:skip-quality-profiles:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync --auto-tune` |
+| Sync metadata (auto-tuned) | `npm run sync-metadata:auto-tune` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --auto-tune` |
 
 > **Note:** The npm scripts use hardcoded config file paths (`config.json` or `migrate-config.json`). When using the binary directly, you can specify any config file path with `-c <path>`.
 
+<!-- Updated: 2026-02-20 -->
 ## 🚀 Recommended Migration Workflow
 
 For multi-project migrations (`migrate` command), we recommend the following 3-step approach. This gives you the best combination of safety, speed, and reliability.
 
+<!-- Updated: 2026-02-20 -->
 ### Step 1: Dry run — verify everything
 
 Run a dry run first to extract all data, generate mapping CSVs, and validate your config without touching SonarCloud:
@@ -317,6 +342,7 @@ npm run migrate:dry-run
 
 Check the generated files in `./migration-output/` (especially `mappings/organizations.csv`) to verify project-to-org assignments look correct.
 
+<!-- Updated: 2026-02-20 -->
 ### Step 2: Migrate without metadata + auto-tune
 
 Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
@@ -331,6 +357,7 @@ npm run migrate:skip-all-metadata:auto-tune
 
 Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
+<!-- Updated: 2026-02-20 -->
 ### Step 3: Sync metadata separately
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step. This transitions issue statuses, copies comments, sets assignees, and syncs tags:
@@ -345,6 +372,7 @@ npm run sync-metadata
 
 This step is safely retryable — if it hits rate limits, just run it again. Already-synced items are matched by rule+file+line and won't be duplicated.
 
+<!-- Updated: 2026-02-20 -->
 ### Why this approach?
 
 | Step | What it does | Why |
@@ -353,6 +381,7 @@ This step is safely retryable — if it hits rate limits, just run it again. Alr
 | Migrate skip-all-metadata | Transfers reports + org-level config | Fast, avoids rate limits on SC |
 | Sync metadata | Transitions issue/hotspot statuses | Retryable, isolated from main migration |
 
+<!-- Updated: 2026-02-20 -->
 ## 🔄 Incremental Transfers
 
 When using incremental mode, the tool:
@@ -363,6 +392,7 @@ When using incremental mode, the tool:
 
 To force a full transfer, use the `reset` command to clear the state.
 
+<!-- Updated: 2026-02-20 -->
 ### State File
 
 The state file (`.cloudvoyager-state.json` by default) contains:
@@ -370,3 +400,10 @@ The state file (`.cloudvoyager-state.json` by default) contains:
 - List of processed issue keys
 - Completed branches
 - Sync history (last 10 entries)
+
+<!--
+## Change Log
+| Date | Section | Change |
+|------|---------|--------|
+| 2026-02-20 | All | Initial section timestamps added |
+-->

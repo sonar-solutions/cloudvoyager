@@ -1,9 +1,12 @@
 # 🛠️ Local Development
 
+<!-- Last updated: 2026-02-20 -->
+
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## ✅ Prerequisites
 
 1. **Node.js** >= 18.0.0
@@ -17,28 +20,43 @@ npm install
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📦 Building the Binary
 
-CloudVoyager is compiled into a standalone binary using Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html). This produces a self-contained binary that does not require Node.js to be installed on the target machine.
+CloudVoyager can be compiled into a standalone binary using two packaging backends. Both produce a self-contained binary that does not require Node.js or Bun to be installed on the target machine.
 
-Build the binary:
+<!-- Updated: 2026-02-20 -->
+### Node.js SEA (Default)
 
 ```bash
-npm run package
+npm run package           # Build for current platform
 ```
 
-The binary will be created at `dist/bin/cloudvoyager-<platform>-<arch>`:
+Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
 
-| Platform | Output Binary |
-|----------|--------------|
-| macOS (Apple Silicon) | `dist/bin/cloudvoyager-macos-arm64` |
-| macOS (Intel) | `dist/bin/cloudvoyager-macos-x64` |
-| Linux (x64) | `dist/bin/cloudvoyager-linux-x64` |
-| Linux (ARM64) | `dist/bin/cloudvoyager-linux-arm64` |
-| Windows (x64) | `dist/bin/cloudvoyager-win-x64.exe` |
-| Windows (ARM64) | `dist/bin/cloudvoyager-win-arm64.exe` |
+<!-- Updated: 2026-02-20 -->
+### Bun Compile (Experimental)
 
-> **Note:** The binary is built for your current platform only. To build for other platforms, run the build on that platform or use CI (see the GitHub Actions workflow).
+```bash
+npm run package:bun           # Build for current platform
+npm run package:bun:cross     # Cross-compile 5 platform binaries
+```
+
+Uses Bun's single-step compile — source goes directly to a native binary with no intermediate bundle. Bun is installed as a devDependency — no global install required. While faster to build, Bun binaries may silently crash at runtime in some environments, so this is considered experimental.
+
+<!-- Updated: 2026-02-20 -->
+### Output
+
+| Platform | Output Binary | Build Method |
+|----------|--------------|-------------|
+| macOS (Apple Silicon) | `dist/bin/cloudvoyager-macos-arm64` | Node.js SEA |
+| macOS (Intel) | `dist/bin/cloudvoyager-macos-x64` | Node.js SEA |
+| Linux (x64) | `dist/bin/cloudvoyager-linux-x64` | Node.js SEA |
+| Linux (ARM64) | `dist/bin/cloudvoyager-linux-arm64` | Node.js SEA |
+| Windows (x64) | `dist/bin/cloudvoyager-win-x64.exe` | Node.js SEA |
+| Windows (ARM64) | `dist/bin/cloudvoyager-win-arm64.exe` | Node.js SEA |
+
+> **Note:** `npm run package` builds for your current platform only using Node.js SEA. In CI, 6 parallel runners each build a native binary for their platform.
 
 If you only need the bundled JavaScript file (without the standalone binary), you can run:
 
@@ -50,6 +68,7 @@ This creates `dist/cli.cjs`, which can be run with `node dist/cli.cjs <command> 
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🏃 Running the Binary
 
 After building, make it executable (macOS/Linux) and run it directly:
@@ -62,6 +81,7 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 migrate -c migrate-config.json --verbose
 ```
 
+<!-- Updated: 2026-02-20 -->
 ### Quick Start Examples
 
 ```bash
@@ -102,10 +122,12 @@ See the [CLI Reference](#-cli-reference) section below for all available flags a
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📖 CLI Reference
 
 This section documents every command and flag available in CloudVoyager. The examples use `./cloudvoyager` as shorthand — substitute with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`).
 
+<!-- Updated: 2026-02-20 -->
 ### Global Flag
 
 | Flag | Short | Description |
@@ -115,12 +137,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `validate` — Validate configuration file
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file to validate |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -133,12 +157,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `test` — Test connections to SonarQube and SonarCloud
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file containing connection details |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -151,12 +177,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `status` — Show current synchronization status
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -166,6 +194,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `reset` — Reset state and clear sync history
 
 | Flag | Short | Required | Argument | Description |
@@ -173,6 +202,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 | `--yes` | `-y` | No | — | Skip the confirmation prompt and reset immediately |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -188,6 +218,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `transfer` — Transfer a single project from SonarQube to SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -199,6 +230,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts the process with increased heap if the current heap is too small |
 | `--auto-tune` | — | No | — | Auto-detect hardware (CPU cores, available memory) and set optimal concurrency and memory values |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -256,6 +288,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `transfer-all` — Transfer ALL projects from SonarQube to SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -269,6 +302,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to transfer concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -338,6 +372,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `migrate` — Full migration from SonarQube to one or more SonarCloud organizations
 
 | Flag | Short | Required | Argument | Description |
@@ -348,11 +383,13 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--dry-run` | — | No | — | Extract data and generate project/key mappings without actually migrating any data |
 | `--skip-issue-metadata-sync` | — | No | — | Skip syncing issue metadata (statuses, assignments, comments, tags) after transfer |
 | `--skip-hotspot-metadata-sync` | — | No | — | Skip syncing hotspot metadata (statuses, comments) after transfer |
+| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarCloud profiles) |
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (applies to source extraction, hotspot extraction, issue sync, and hotspot sync) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to migrate concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -448,10 +485,20 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 # Migration with auto-tune, wait, and skip both metadata syncs
 ./cloudvoyager migrate -c migrate-config.json --verbose --wait --auto-tune --skip-issue-metadata-sync --skip-hotspot-metadata-sync
+
+# Migration skipping quality profile sync (use default SonarCloud profiles)
+./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync
+
+# Migration skipping quality profile sync with auto-tune
+./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune --skip-quality-profile-sync
+
+# Migration skipping quality profiles and all metadata syncs
+./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune --skip-issue-metadata-sync --skip-hotspot-metadata-sync --skip-quality-profile-sync
 ```
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ### `sync-metadata` — Sync issue and hotspot metadata for already-migrated projects
 
 | Flag | Short | Required | Argument | Description |
@@ -460,10 +507,12 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
 | `--skip-issue-metadata-sync` | — | No | — | Skip syncing issue metadata (statuses, assignments, comments, tags); only sync hotspot metadata |
 | `--skip-hotspot-metadata-sync` | — | No | — | Skip syncing hotspot metadata (statuses, comments); only sync issue metadata |
+| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarCloud profiles) |
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (issue sync, hotspot sync, hotspot extraction) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
 
+<!-- Updated: 2026-02-20 -->
 #### Examples
 
 ```bash
@@ -530,6 +579,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🧹 Linting
 
 ```bash
@@ -542,6 +592,7 @@ npm run lint:fix
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🧪 Running Tests
 
 ```bash
@@ -554,6 +605,7 @@ npm run test:fast
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 🌍 Environment Variables
 
 | Variable | Description |
@@ -566,6 +618,7 @@ npm run test:fast
 | `SONARCLOUD_URL` | Override SonarCloud URL from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
+<!-- Updated: 2026-02-20 -->
 ### Examples with environment variables
 
 ```bash
@@ -581,6 +634,7 @@ MAX_SOURCE_FILES=10 ./cloudvoyager transfer -c config.json --verbose
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## ⚡ npm Scripts
 
 The following npm scripts are available for building, testing, and linting:
@@ -589,19 +643,53 @@ The following npm scripts are available for building, testing, and linting:
 |-------------|-----------|
 | Install dependencies | `npm install` |
 | Bundle JavaScript only | `npm run build` |
-| Build standalone binary | `npm run package` |
+| Build binary for current platform (Node.js SEA) | `npm run package` |
+| Build binary via Bun (experimental) | `npm run package:bun` |
+| Cross-compile via Bun (experimental) | `npm run package:bun:cross` |
 | Run tests with coverage | `npm test` |
 | Run tests (no coverage) | `npm run test:fast` |
 | Lint | `npm run lint` |
 | Lint with auto-fix | `npm run lint:fix` |
+| Validate config | `npm run validate` |
+| Test connections | `npm run test:connection` |
+| Check sync status | `npm run status` |
+| Reset state | `npm run reset` |
+| Transfer single project | `npm run transfer` |
+| Transfer single project (auto-tune) | `npm run transfer:auto-tune` |
+| Transfer all projects | `npm run transfer-all` |
+| Transfer all projects (dry-run) | `npm run transfer-all:dry-run` |
+| Transfer all projects (auto-tune) | `npm run transfer-all:auto-tune` |
+| Full migration | `npm run migrate` |
+| Full migration (dry-run) | `npm run migrate:dry-run` |
+| Full migration (auto-tune) | `npm run migrate:auto-tune` |
+| Migration, skip issue metadata | `npm run migrate:skip-issue-metadata` |
+| Migration, skip hotspot metadata | `npm run migrate:skip-hotspot-metadata` |
+| Migration, skip all metadata | `npm run migrate:skip-all-metadata` |
+| Migration, skip all metadata (auto-tune) | `npm run migrate:skip-all-metadata:auto-tune` |
+| Migration, skip quality profiles | `npm run migrate:skip-quality-profiles` |
+| Migration, skip quality profiles (auto-tune) | `npm run migrate:skip-quality-profiles:auto-tune` |
+| Migration, skip all (metadata + profiles, auto-tuned) | `npm run migrate:skip-all` |
+| Sync metadata (issues + hotspots) | `npm run sync-metadata` |
+| Sync metadata (auto-tune) | `npm run sync-metadata:auto-tune` |
+| Sync metadata, skip issue metadata | `npm run sync-metadata:skip-issue-metadata` |
+| Sync metadata, skip hotspot metadata | `npm run sync-metadata:skip-hotspot-metadata` |
+| Sync metadata, skip quality profiles | `npm run sync-metadata:skip-quality-profiles` |
 
 > **Note:** Always use the built binary to run CloudVoyager commands (e.g. `./cloudvoyager migrate -c ...`). See the [CLI Reference](#-cli-reference) section for all available commands and flags.
 
 ---
 
+<!-- Updated: 2026-02-20 -->
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+
+<!--
+## Change Log
+| Date | Section | Change |
+|------|---------|--------|
+| 2026-02-20 | All | Initial section timestamps added |
+-->

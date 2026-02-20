@@ -1,5 +1,8 @@
 # 🏗️ Architecture
 
+<!-- Last updated: 2026-02-20 -->
+
+<!-- Updated: 2026-02-20 -->
 ## 📁 Project Structure
 
 ```
@@ -115,8 +118,10 @@ src/
     └── system-info.js        # System info detection (CPU, memory) and auto-tune
 ```
 
+<!-- Updated: 2026-02-20 -->
 ## 🔄 Commands and Pipelines
 
+<!-- Updated: 2026-02-20 -->
 ### `transfer` — Single Project
 
 Uses `transfer-pipeline.js`:
@@ -130,6 +135,7 @@ Uses `transfer-pipeline.js`:
 7. **Upload** — submit encoded report to SonarCloud CE endpoint
 8. **Update state** — record successful transfer in state file
 
+<!-- Updated: 2026-02-20 -->
 ### `transfer-all` — All Projects to Single Org
 
 Uses `transfer-pipeline.js` in a loop:
@@ -138,6 +144,7 @@ Uses `transfer-pipeline.js` in a loop:
 2. **Map project keys** — apply prefix or explicit key mappings
 3. **Transfer each project** — run the single-project pipeline for each
 
+<!-- Updated: 2026-02-20 -->
 ### `migrate` — Full Multi-Org Migration
 
 Uses `migrate-pipeline.js`:
@@ -164,6 +171,7 @@ Uses `migrate-pipeline.js`:
      - Set project-level permissions
    - Create portfolios and assign projects
 
+<!-- Updated: 2026-02-20 -->
 ## 🧩 Key Design Patterns
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
@@ -174,6 +182,7 @@ Uses `migrate-pipeline.js`:
 - **Error Hierarchy** — custom error classes provide specific error handling
 - **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
 
+<!-- Updated: 2026-02-20 -->
 ## ⚡ Concurrency and Performance
 
 CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js`) for parallel I/O:
@@ -185,37 +194,50 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). The `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
+<!-- Updated: 2026-02-20 -->
 ## 📦 Build and Packaging
 
-CloudVoyager uses esbuild to bundle the ESM source into a single CJS file (with protobuf schemas inlined as text), and Node.js Single Executable Applications (SEA) to create standalone binaries.
+CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as the default, stable packaging pipeline. An experimental **Bun compile** pipeline is also available but may silently crash at runtime in some environments.
 
+<!-- Updated: 2026-02-20 -->
 ### Build Process (`scripts/build.js`)
 
-1. **Bundle CLI** — esbuild bundles `src/index.js` (and all imports, including `.proto` schemas as text) into `dist/cli.cjs`
-2. **Package binary** (optional) — generates a Node.js SEA blob, copies the `node` binary, and injects the blob using `postject`
+**Default (Node.js SEA):** Two-step — esbuild bundles `src/index.js` into `dist/cli.cjs` (with `.proto` schemas inlined as text), then Node.js SEA packages it into a standalone binary with V8 code cache via postject.
 
+**Experimental (Bun):** Single-step compile — Bun bundles all source files (including `.proto` schemas as text via `--loader .proto:text`) and compiles to a native binary in one command. No intermediate bundle file. Faster builds but less stable at runtime.
+
+<!-- Updated: 2026-02-20 -->
 ### Output Structure
 
 ```
 dist/
-├── cli.cjs              # Bundled CLI (CJS, self-contained)
-├── sea-config.json      # SEA configuration (when --package is used)
-├── sea-prep.blob        # SEA blob (when --package is used)
-└── bin/                 # Standalone binary (when --package is used)
-    └── cloudvoyager-{platform}-{arch}
+├── cli.cjs              # Bundled CLI (bundle-only build)
+├── sea-config.json      # SEA configuration
+├── sea-prep.blob        # SEA blob
+└── bin/                 # Standalone binaries
+    ├── cloudvoyager-macos-arm64      # Node.js SEA
+    ├── cloudvoyager-macos-x64        # Node.js SEA
+    ├── cloudvoyager-linux-x64        # Node.js SEA
+    ├── cloudvoyager-linux-arm64      # Node.js SEA
+    ├── cloudvoyager-win-x64.exe      # Node.js SEA
+    └── cloudvoyager-win-arm64.exe    # Node.js SEA
 ```
 
+<!-- Updated: 2026-02-20 -->
 ### Build Commands
 
 ```bash
-npm run build            # Bundle only (dist/cli.cjs)
-npm run package          # Bundle + standalone binary for current platform
+npm run build            # Bundle only via esbuild (dist/cli.cjs)
+npm run package          # Node.js SEA binary for current platform (default)
+npm run package:bun      # Bun compile for current platform (experimental)
+npm run package:bun:cross # Bun cross-compile 5 platforms (experimental)
 ```
 
-Multi-platform binaries are built via CI (GitHub Actions matrix), since Node.js SEA can only build for the platform it's running on.
+CI uses 6 parallel jobs — one per platform — each building a Node.js SEA binary natively on its target runner.
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
+<!-- Updated: 2026-02-20 -->
 ## 📄 Generated Report Structure
 
 ```
@@ -231,3 +253,10 @@ scanner-report.zip:
 ```
 
 Measures are only generated for file components (no project-level `measures-1.pb`). Components use a flat structure where all files are direct children of the project (no directory components).
+
+<!--
+## Change Log
+| Date | Section | Change |
+|------|---------|--------|
+| 2026-02-20 | All | Initial section timestamps added |
+-->
