@@ -11,7 +11,9 @@
   "transfer": {
     "mode": "full",
     "stateFile": "./.cloudvoyager-state.json",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "excludeBranches": []
   },
   "transferAll": {
     "projectKeyPrefix": "",

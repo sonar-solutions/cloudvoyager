@@ -217,7 +217,7 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -227,11 +227,13 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 | `--skip-issue-metadata-sync` | Skip syncing issue statuses, comments, assignments, tags |
 | `--skip-hotspot-metadata-sync` | Skip syncing hotspot statuses and comments |
 | `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarCloud profiles) |
+| `--only <components>` | Only migrate specific components (comma-separated). Valid: `scan-data`, `scan-data-all-branches`, `portfolios`, `quality-gates`, `quality-profiles`, `permission-templates`, `permissions`, `issue-metadata`, `hotspot-metadata`, `project-settings` |
 | `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--project-concurrency <n>` | Max concurrent project migrations |
 | `--max-memory <mb>` | Set max heap size in MB |
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) |
+| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches) |
 
 ---
 

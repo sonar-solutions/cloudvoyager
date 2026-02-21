@@ -1,6 +1,6 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 21, 2026 at 10:30:00 AM -->
 
 CloudVoyager supports three configuration formats depending on the command you're using.
 
@@ -55,7 +55,9 @@ Transfers all projects from a SonarQube server to a single SonarCloud organizati
   "transfer": {
     "mode": "full",
     "stateFile": "./.cloudvoyager-state.json",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "excludeBranches": []
   },
   "transferAll": {
     "projectKeyPrefix": "",
@@ -101,7 +103,9 @@ Performs a full migration from a SonarQube server to one or more SonarCloud orga
   },
   "transfer": {
     "mode": "full",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "excludeBranches": []
   },
   "migrate": {
     "outputDir": "./migration-output",
@@ -258,6 +262,30 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
 | `--max-memory <mb>` | Set max heap size in MB | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
 | `--project-concurrency <n>` | Max concurrent project migrations | `transfer-all`, `migrate` |
+| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
+
+**Selective migration flag:**
+
+| Flag | Description | Available on |
+|------|-------------|-------------|
+| `--only <components>` | Only migrate specific components (comma-separated). See table below | `migrate` |
+
+Valid `--only` components:
+
+| Component | What it migrates |
+|-----------|-----------------|
+| `scan-data` | Project main branch scanner report only (no non-main branches) |
+| `scan-data-all-branches` | Project scanner reports for all branches |
+| `portfolios` | Enterprise portfolios (requires projects already migrated) |
+| `quality-gates` | Quality gates (org-wide creation + per-project assignment) |
+| `quality-profiles` | Quality profiles (org-wide restore + per-project assignment) |
+| `permission-templates` | Permission templates (org-wide) |
+| `permissions` | User groups + global permissions + project permissions |
+| `issue-metadata` | Issue metadata sync: statuses, assignments, comments, tags (requires projects already migrated) |
+| `hotspot-metadata` | Hotspot metadata sync: statuses, comments (requires projects already migrated) |
+| `project-settings` | Project settings, tags, links, new code periods, DevOps bindings |
+
+Multiple components can be combined: `--only scan-data,quality-gates,permissions`
 
 **Other CLI flags:**
 
@@ -290,7 +318,7 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `LOG_FILE` | Path to log file (optional) |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ## 📜 npm Scripts vs Binary Commands
 
 CloudVoyager can be run in two ways:
@@ -326,6 +354,17 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Migrate without metadata (auto-tuned) | `npm run migrate:skip-all-metadata:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune` |
 | Migrate without quality profiles (auto-tuned) | `npm run migrate:skip-quality-profiles:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync --auto-tune` |
 | Sync metadata (auto-tuned) | `npm run sync-metadata:auto-tune` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --auto-tune` |
+| Migrate only scan data (main branch) | `npm run migrate:only-scan-data` | `./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data` |
+| Migrate only scan data (all branches) | `npm run migrate:only-scan-data-all-branches` | `./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data-all-branches` |
+| Migrate only quality gates | `npm run migrate:only-quality-gates` | `./cloudvoyager migrate -c migrate-config.json --verbose --only quality-gates` |
+| Migrate only quality profiles | `npm run migrate:only-quality-profiles` | `./cloudvoyager migrate -c migrate-config.json --verbose --only quality-profiles` |
+| Migrate only permissions | `npm run migrate:only-permissions` | `./cloudvoyager migrate -c migrate-config.json --verbose --only permissions` |
+| Migrate only permission templates | `npm run migrate:only-permission-templates` | `./cloudvoyager migrate -c migrate-config.json --verbose --only permission-templates` |
+| Migrate only portfolios | `npm run migrate:only-portfolios` | `./cloudvoyager migrate -c migrate-config.json --verbose --only portfolios` |
+| Migrate only issue metadata | `npm run migrate:only-issue-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --only issue-metadata` |
+| Migrate only hotspot metadata | `npm run migrate:only-hotspot-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --only hotspot-metadata` |
+| Migrate only project settings | `npm run migrate:only-project-settings` | `./cloudvoyager migrate -c migrate-config.json --verbose --only project-settings` |
+| Migrate scan data + quality gates + permissions | — | `./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data,quality-gates,permissions` |
 
 > **Note:** The npm scripts use hardcoded config file paths (`config.json` or `migrate-config.json`). When using the binary directly, you can specify any config file path with `-c <path>`.
 

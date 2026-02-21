@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 21, 2026 at 10:30:00 AM -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -163,6 +163,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file containing connection details |
+| `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
@@ -229,6 +230,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (source file extraction, hotspot extraction, etc.) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts the process with increased heap if the current heap is too small |
 | `--auto-tune` | — | No | — | Auto-detect hardware (CPU cores, available memory) and set optimal concurrency and memory values |
+| `--skip-all-branch-sync` | — | No | — | Only sync the main branch (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
@@ -301,6 +303,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to transfer concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
+| `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
@@ -372,7 +375,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ### `migrate` — Full migration from SonarQube to one or more SonarCloud organizations
 
 | Flag | Short | Required | Argument | Description |
@@ -388,8 +391,10 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to migrate concurrently |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
+| `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
+| `--only <components>` | — | No | Comma-separated list | Only migrate specific components. Valid values: `scan-data`, `scan-data-all-branches`, `portfolios`, `quality-gates`, `quality-profiles`, `permission-templates`, `permissions`, `issue-metadata`, `hotspot-metadata`, `project-settings` |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 #### Examples
 
 ```bash
@@ -494,6 +499,45 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 # Migration skipping quality profiles and all metadata syncs
 ./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune --skip-issue-metadata-sync --skip-hotspot-metadata-sync --skip-quality-profile-sync
+
+# Selective migration: only scan data (main branch)
+./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data
+
+# Selective migration: only scan data (all branches)
+./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data-all-branches
+
+# Selective migration: only quality gates
+./cloudvoyager migrate -c migrate-config.json --verbose --only quality-gates
+
+# Selective migration: only quality profiles
+./cloudvoyager migrate -c migrate-config.json --verbose --only quality-profiles
+
+# Selective migration: only permissions (groups + global + project)
+./cloudvoyager migrate -c migrate-config.json --verbose --only permissions
+
+# Selective migration: only permission templates
+./cloudvoyager migrate -c migrate-config.json --verbose --only permission-templates
+
+# Selective migration: only portfolios
+./cloudvoyager migrate -c migrate-config.json --verbose --only portfolios
+
+# Selective migration: only issue metadata
+./cloudvoyager migrate -c migrate-config.json --verbose --only issue-metadata
+
+# Selective migration: only hotspot metadata
+./cloudvoyager migrate -c migrate-config.json --verbose --only hotspot-metadata
+
+# Selective migration: only project settings
+./cloudvoyager migrate -c migrate-config.json --verbose --only project-settings
+
+# Selective migration: combine multiple components
+./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data,quality-gates,permissions
+
+# Selective migration with auto-tune
+./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune --only scan-data-all-branches
+
+# Selective migration with project concurrency
+./cloudvoyager migrate -c migrate-config.json --verbose --project-concurrency 3 --only scan-data
 ```
 
 ---
@@ -511,6 +555,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (issue sync, hotspot sync, hotspot extraction) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
+| `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
@@ -634,7 +679,7 @@ MAX_SOURCE_FILES=10 ./cloudvoyager transfer -c config.json --verbose
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ## ⚡ npm Scripts
 
 The following npm scripts are available for building, testing, and linting:
@@ -670,6 +715,16 @@ The following npm scripts are available for building, testing, and linting:
 | Migration, skip quality profiles | `npm run migrate:skip-quality-profiles` |
 | Migration, skip quality profiles (auto-tune) | `npm run migrate:skip-quality-profiles:auto-tune` |
 | Migration, skip all (metadata + profiles, auto-tuned) | `npm run migrate:skip-all` |
+| Migration, only scan data (main branch) | `npm run migrate:only-scan-data` |
+| Migration, only scan data (all branches) | `npm run migrate:only-scan-data-all-branches` |
+| Migration, only quality gates | `npm run migrate:only-quality-gates` |
+| Migration, only quality profiles | `npm run migrate:only-quality-profiles` |
+| Migration, only permissions | `npm run migrate:only-permissions` |
+| Migration, only permission templates | `npm run migrate:only-permission-templates` |
+| Migration, only portfolios | `npm run migrate:only-portfolios` |
+| Migration, only issue metadata | `npm run migrate:only-issue-metadata` |
+| Migration, only hotspot metadata | `npm run migrate:only-hotspot-metadata` |
+| Migration, only project settings | `npm run migrate:only-project-settings` |
 | Sync metadata (issues + hotspots) | `npm run sync-metadata` |
 | Sync metadata (auto-tune) | `npm run sync-metadata:auto-tune` |
 | Sync metadata, skip issue metadata | `npm run sync-metadata:skip-issue-metadata` |

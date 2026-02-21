@@ -1,7 +1,7 @@
 import { loadMigrateConfig } from '../config/loader.js';
 import { migrateAll } from '../migrate-pipeline.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger from '../utils/logger.js';
+import logger, { enableFileLogging } from '../utils/logger.js';
 import { CloudVoyagerError } from '../utils/errors.js';
 
 export function registerSyncMetadataCommand(program) {
@@ -20,6 +20,7 @@ export function registerSyncMetadataCommand(program) {
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
+        enableFileLogging('sync-metadata');
         logger.info('=== CloudVoyager - Issue & Hotspot Metadata Sync ===');
 
         const config = await loadMigrateConfig(options.config);

@@ -3,7 +3,7 @@ import { SonarCloudClient } from '../sonarcloud/api-client.js';
 import { loadConfig } from '../config/loader.js';
 import { transferProject } from '../transfer-pipeline.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger from '../utils/logger.js';
+import logger, { enableFileLogging } from '../utils/logger.js';
 import { CloudVoyagerError } from '../utils/errors.js';
 
 export function registerTransferAllCommand(program) {
@@ -22,6 +22,7 @@ export function registerTransferAllCommand(program) {
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
+        enableFileLogging('transfer-all');
         logger.info('=== CloudVoyager - Transfer All Projects ===');
 
         const config = await loadConfig(options.config);

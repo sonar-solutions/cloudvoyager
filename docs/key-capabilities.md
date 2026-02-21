@@ -751,14 +751,14 @@ Performance and rate-limit schemas are shared across all configuration types, en
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 19. CLI Design and Operational Modes
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ### Command Suite
 
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `transfer` | Single project transfer | `--wait`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `transfer-all` | All projects to one org (code + issues) | `--dry-run`, `--wait`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
-| `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
+| `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--only <components>`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `validate` | Configuration validation | — |
 | `test` | Connection testing | — |

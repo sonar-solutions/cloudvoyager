@@ -95,6 +95,14 @@ export class EnterpriseClient {
     return response.data;
   }
 
+  async updatePortfolio(portfolioId, { name, description = '', selection = 'projects', projects = [], tags = [], organizationIds = [] }) {
+    logger.info(`Updating enterprise portfolio: ${name} (${portfolioId})`);
+    const response = await this.client.patch(`/portfolios/${portfolioId}`, {
+      name, description, selection, projects, tags, organizationIds
+    });
+    return response.data;
+  }
+
   async deletePortfolio(portfolioId) {
     logger.debug(`Deleting portfolio: ${portfolioId}`);
     await this.client.delete(`/portfolios/${portfolioId}`);

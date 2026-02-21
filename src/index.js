@@ -96,8 +96,10 @@ program
   .command('test')
   .description('Test connections to SonarQube and SonarCloud')
   .requiredOption('-c, --config <path>', 'Path to configuration file')
+  .option('-v, --verbose', 'Enable verbose logging')
   .action(async (options) => {
     try {
+      if (options.verbose) logger.level = 'debug';
       logger.info('Testing connections...');
       const config = await loadConfig(options.config);
       logger.info('Testing SonarQube connection...');

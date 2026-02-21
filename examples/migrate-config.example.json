@@ -22,7 +22,9 @@
   },
   "transfer": {
     "mode": "full",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "excludeBranches": []
   },
   "migrate": {
     "outputDir": "./migration-output",

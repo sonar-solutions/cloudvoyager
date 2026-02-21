@@ -24,6 +24,7 @@ export async function extractPortfolios(client) {
         description: portfolio.desc || portfolio.description || '',
         qualifier: portfolio.qualifier,
         visibility: portfolio.visibility || 'public',
+        selectionMode: details.selectionMode || 'MANUAL',
         projects: (details.projects || details.selectedProjects || []).map(p => ({
           key: p.key || p.projectKey,
           name: p.name,
@@ -38,6 +39,7 @@ export async function extractPortfolios(client) {
         description: portfolio.desc || portfolio.description || '',
         qualifier: portfolio.qualifier,
         visibility: portfolio.visibility || 'public',
+        selectionMode: 'MANUAL',
         projects: [],
         subViews: []
       });
