@@ -641,6 +641,7 @@ The following npm scripts are available for building, testing, and linting:
 
 | What it does | npm script |
 |-------------|-----------|
+| Run CLI (no arguments) | `npm start` |
 | Install dependencies | `npm install` |
 | Bundle JavaScript only | `npm run build` |
 | Build binary for current platform (Node.js SEA) | `npm run package` |

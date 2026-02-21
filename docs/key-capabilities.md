@@ -832,7 +832,7 @@ API client errors include specific diagnostics based on the underlying network e
 | CLI commands | 8 |
 | Report output formats | 6 (JSON, MD, TXT, PDF x3 types) |
 | Supported binary platforms | 6 (all via Node.js SEA) |
-| Production dependencies | 8 |
+| Production dependencies | 9 |
 | Resource types migrated | 12+ per organization |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
