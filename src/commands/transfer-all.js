@@ -18,12 +18,17 @@ export function registerTransferAllCommand(program) {
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
+    .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
         logger.info('=== CloudVoyager - Transfer All Projects ===');
 
         const config = await loadConfig(options.config);
+        if (options.skipAllBranchSync) {
+          config.transfer = config.transfer || {};
+          config.transfer.syncAllBranches = false;
+        }
         const { projects, projectKeyPrefix, projectKeyMapping } = await discoverProjects(config);
 
         if (projects.length === 0) { logger.warn('No projects to transfer'); return; }
@@ -115,7 +120,7 @@ async function executeTransferAll(projects, config, projectKeyMapping, projectKe
           url: config.sonarcloud.url || 'https://sonarcloud.io', token: config.sonarcloud.token,
           organization: config.sonarcloud.organization, projectKey: scProjectKey, rateLimit: config.rateLimit
         },
-        transferConfig: { mode: config.transfer?.mode || 'incremental', stateFile: perProjectStateFile, batchSize: config.transfer?.batchSize || 100 },
+        transferConfig: { mode: config.transfer?.mode || 'incremental', stateFile: perProjectStateFile, batchSize: config.transfer?.batchSize || 100, syncAllBranches: config.transfer?.syncAllBranches, excludeBranches: config.transfer?.excludeBranches },
         performanceConfig: perfConfig, wait: options.wait || false, skipConnectionTest: true, projectName: project.name
       });
       results.push({ ...result, success: true });

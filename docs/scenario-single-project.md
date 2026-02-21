@@ -13,6 +13,7 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 | Category | Details |
 |----------|---------|
+| **All branches** | All branches are synced by default (main branch first, then the rest) |
 | **Source code** | All files packaged into the scanner report |
 | **Issues** | All code issues with text ranges, flows, and metadata |
 | **Security hotspots** | All hotspots with status and comments |
@@ -117,6 +118,8 @@ Add a `transfer` section to control incremental mode and batch size:
 | `mode` | `incremental` | `"full"` to transfer everything, or `"incremental"` to only sync changes since last run |
 | `stateFile` | `./.cloudvoyager-state.json` | Where to save sync progress |
 | `batchSize` | `100` | Items per batch (1–500) |
+| `syncAllBranches` | `true` | Sync all branches (set to `false` for main branch only) |
+| `excludeBranches` | `[]` | Branch names to skip |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧪 Step 3: Test your connections

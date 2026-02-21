@@ -72,7 +72,7 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
     const transferResult = await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
-      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize },
+      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches: ctx.transferConfig.syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches },
       performanceConfig: ctx.perfConfig,
       wait: ctx.wait, skipConnectionTest: true, projectName: project.name
     });

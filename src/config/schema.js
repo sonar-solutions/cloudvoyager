@@ -31,7 +31,9 @@ export const configSchema = {
       properties: {
         mode: { type: 'string', enum: ['full', 'incremental'], default: 'incremental', description: 'Transfer mode: full or incremental' },
         stateFile: { type: 'string', default: './.cloudvoyager-state.json', description: 'Path to state file for incremental transfers' },
-        batchSize: { type: 'integer', minimum: 1, maximum: 500, default: 100, description: 'Number of items to process in each batch' }
+        batchSize: { type: 'integer', minimum: 1, maximum: 500, default: 100, description: 'Number of items to process in each batch' },
+        syncAllBranches: { type: 'boolean', default: true, description: 'Sync all branches of every project (default: true). Set to false to only sync the main branch.' },
+        excludeBranches: { type: 'array', items: { type: 'string' }, default: [], description: 'Branch names to exclude from sync when syncAllBranches is true' }
       },
       additionalProperties: false
     },

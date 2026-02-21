@@ -42,9 +42,15 @@ Components use a flat structure - all files are direct children of the project c
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 🌿 Branch Name Resolution
+## 🌿 Branch Sync
 
-The tool fetches the main branch name from SonarCloud (via `getMainBranchName()` API) rather than using the SonarQube branch name. This avoids mismatches where SonarQube uses "main" but SonarCloud expects "master" (or vice versa).
+By default, every branch discovered in SonarQube is transferred to SonarCloud (main branch first, then non-main branches). Each branch produces its own scanner report with branch-specific issues, measures, sources, and SCM data.
+
+**Branch name resolution:** The main branch name is fetched from SonarCloud (via `getMainBranchName()` API) rather than using the SonarQube branch name. This avoids mismatches where SonarQube uses "main" but SonarCloud expects "master" (or vice versa). Non-main branches use their original SonarQube branch name and reference the main branch for new-code comparison.
+
+**Incremental mode:** Completed branches are tracked in the state file. On subsequent runs, already-synced branches are skipped automatically. Use `reset` to re-transfer all branches.
+
+**Configuration:** Set `transfer.syncAllBranches` to `false` to only sync the main branch. Use `transfer.excludeBranches` to skip specific branch names (e.g., `["feature/old", "release/v1"]`).
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📄 API Pagination

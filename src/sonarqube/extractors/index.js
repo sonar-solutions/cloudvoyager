@@ -116,34 +116,74 @@ export class DataExtractor {
   }
 
   /**
-   * Extract data for specific branch
+   * Extract data for a specific branch.
+   *
+   * Returns the same shape as extractAll() so the result can be fed directly
+   * into ProtobufBuilder.  Project-level data that does not vary across
+   * branches (project metadata, active rules, metric definitions) is taken
+   * from the previously-extracted main-branch data passed via `mainData`.
+   *
    * @param {string} branch - Branch name
-   * @returns {Promise<object>} Extracted data
+   * @param {object} mainData - Data previously returned by extractAll() (used
+   *   for project metadata, active rules, and metric definitions)
+   * @returns {Promise<object>} Extracted data (same shape as extractAll output)
    */
-  async extractBranch(branch) {
+  async extractBranch(branch, mainData) {
     logger.info(`Extracting data for branch: ${branch}`);
 
-    const extractedData = {
-      branch,
-      issues: [],
-      measures: {},
-      components: [],
-      sources: []
-    };
+    const startTime = Date.now();
 
-    // Get metrics first
-    const metrics = await extractMetrics(this.client);
-    const metricKeys = getCommonMetricKeys(metrics);
+    // Reuse metric definitions from the main extraction
+    const metricKeys = getCommonMetricKeys(mainData.metrics);
 
-    // Extract for specific branch
-    extractedData.issues = await extractIssues(this.client, this.state, branch);
-    extractedData.measures = await extractMeasures(this.client, metricKeys, branch);
-    extractedData.components = await extractComponentMeasures(this.client, metricKeys, branch);
-    extractedData.sources = await extractSources(this.client, branch, 0, {
+    // Extract branch-specific data
+    logger.info(`  [${branch}] Extracting component measures...`);
+    const components = await extractComponentMeasures(this.client, metricKeys, branch);
+
+    logger.info(`  [${branch}] Extracting source file list...`);
+    const sourceFilesList = await this.client.getSourceFiles(branch);
+
+    logger.info(`  [${branch}] Extracting issues...`);
+    const issues = await extractIssues(this.client, this.state, branch);
+
+    logger.info(`  [${branch}] Extracting project measures...`);
+    const measures = await extractMeasures(this.client, metricKeys, branch);
+
+    logger.info(`  [${branch}] Extracting source code...`);
+    const maxFiles = process.env.MAX_SOURCE_FILES ? Number.parseInt(process.env.MAX_SOURCE_FILES) : 0;
+    const sources = await extractSources(this.client, branch, maxFiles, {
       concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
     });
 
-    return extractedData;
+    logger.info(`  [${branch}] Extracting changesets...`);
+    const changesets = await extractChangesets(this.client, sourceFilesList, components);
+
+    logger.info(`  [${branch}] Extracting symbols...`);
+    const symbols = await extractSymbols(this.client, sourceFilesList);
+
+    logger.info(`  [${branch}] Extracting syntax highlighting...`);
+    const syntaxHighlightings = await extractSyntaxHighlighting(this.client, sourceFilesList);
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    logger.info(`  [${branch}] Branch extraction completed in ${duration}s — ${issues.length} issues, ${components.length} components, ${sources.length} sources`);
+
+    // Return the same shape as extractAll() so ProtobufBuilder works unchanged
+    return {
+      project: mainData.project,
+      metrics: mainData.metrics,
+      activeRules: mainData.activeRules,
+      issues,
+      measures,
+      components,
+      sources,
+      changesets,
+      symbols,
+      syntaxHighlightings,
+      metadata: {
+        extractedAt: new Date().toISOString(),
+        mode: this.config.transfer.mode
+      }
+    };
   }
 
   /**

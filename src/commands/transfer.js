@@ -14,6 +14,7 @@ export function registerTransferCommand(program) {
     .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
+    .option('--skip-all-branch-sync', 'Only sync the main branch (skip non-main branches)')
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
@@ -23,6 +24,9 @@ export function registerTransferCommand(program) {
 
         const config = await loadConfig(options.config);
         requireProjectKeys(config);
+
+        const transferConfig = config.transfer || {};
+        if (options.skipAllBranchSync) transferConfig.syncAllBranches = false;
 
         const perfConfig = resolvePerformanceConfig({
           ...config.performance,
@@ -37,7 +41,7 @@ export function registerTransferCommand(program) {
         await transferProject({
           sonarqubeConfig: config.sonarqube,
           sonarcloudConfig: config.sonarcloud,
-          transferConfig: config.transfer,
+          transferConfig,
           performanceConfig: perfConfig,
           wait: options.wait || false
         });

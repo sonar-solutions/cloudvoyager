@@ -25,7 +25,9 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
   "transfer": {
     "mode": "incremental",
     "stateFile": "./.cloudvoyager-state.json",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "excludeBranches": []
   }
 }
 ```
@@ -159,6 +161,8 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `mode` | `incremental` | `"incremental"` or `"full"`. Note: defaults to `"full"` when using the `migrate` or `sync-metadata` commands |
 | `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers. Only applies to `transfer` and `transfer-all` commands (not `migrate` or `sync-metadata`) |
 | `batchSize` | `100` | Number of items per batch (1–500) |
+| `syncAllBranches` | `true` | Sync all branches of every project. Set to `false` to only sync the main branch |
+| `excludeBranches` | `[]` | Branch names to exclude from sync when `syncAllBranches` is `true` |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Transfer-All Settings
@@ -391,7 +395,8 @@ When using incremental mode, the tool:
 1. Tracks the last successful sync timestamp
 2. Only fetches issues created after the last sync
 3. Maintains a list of processed issues to avoid duplicates
-4. Records sync history for audit purposes
+4. Tracks completed branches to skip them on subsequent runs
+5. Records sync history for audit purposes
 
 To force a full transfer, use the `reset` command to clear the state.
 
@@ -401,7 +406,7 @@ To force a full transfer, use the `reset` command to clear the state.
 The state file (`.cloudvoyager-state.json` by default) contains:
 - Last sync timestamp
 - List of processed issue keys
-- Completed branches
+- Completed branches (used to skip already-synced branches in incremental mode)
 - Sync history (last 10 entries)
 
 <!--

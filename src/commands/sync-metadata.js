@@ -16,6 +16,7 @@ export function registerSyncMetadataCommand(program) {
     .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
+    .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
@@ -26,6 +27,9 @@ export function registerSyncMetadataCommand(program) {
         if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
         if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
         if (options.skipQualityProfileSync) migrateConfig.skipQualityProfileSync = true;
+
+        const transferConfig = config.transfer || { mode: 'full', batchSize: 100 };
+        if (options.skipAllBranchSync) transferConfig.syncAllBranches = false;
 
         const perfConfig = resolvePerformanceConfig({
           ...config.performance,
@@ -42,6 +46,7 @@ export function registerSyncMetadataCommand(program) {
           sonarcloudOrgs: config.sonarcloud.organizations,
           enterpriseConfig: config.sonarcloud.enterprise,
           migrateConfig,
+          transferConfig,
           rateLimitConfig: config.rateLimit,
           performanceConfig: perfConfig
         });

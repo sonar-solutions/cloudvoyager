@@ -13,12 +13,16 @@ export class ProtobufBuilder {
     this.componentRefMap = new Map();
     this.nextRef = 1;
     this.sonarCloudBranchName = options.sonarCloudBranchName || null;
+    // For non-main branches, this should be the main branch name so SonarCloud
+    // knows which branch to use as the new-code reference.
+    this.referenceBranchName = options.referenceBranchName || null;
   }
 
   buildMetadata() {
     const project = this.data.project.project;
     const sqBranch = this.data.project.branches.find(b => b.isMain) || this.data.project.branches[0];
     const branchName = this.sonarCloudBranchName || sqBranch?.name || 'master';
+    const referenceBranch = this.referenceBranchName || branchName;
     const metadata = {
       analysisDate: new Date(this.data.metadata.extractedAt).getTime(),
       organizationKey: this.sonarCloudConfig.organization || '',
@@ -28,7 +32,7 @@ export class ProtobufBuilder {
       qprofilesPerLanguage: this.buildQProfiles(),
       branchName: branchName,
       branchType: 1,
-      referenceBranchName: branchName,
+      referenceBranchName: referenceBranch,
       scmRevisionId: this.data.metadata.scmRevisionId || this.generateFakeCommitHash(),
       projectVersion: '1.0.0',
       analyzedIndexedFileCountPerType: this.buildFileCountsByType(),

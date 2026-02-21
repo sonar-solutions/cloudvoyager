@@ -10,10 +10,15 @@ import logger from './utils/logger.js';
 /**
  * Execute the full transfer pipeline for a single project.
  *
+ * By default all branches discovered in SonarQube are transferred (main
+ * branch first, then the rest).  Set `transferConfig.syncAllBranches` to
+ * `false` to only transfer the main branch, or populate
+ * `transferConfig.excludeBranches` to skip specific branch names.
+ *
  * @param {object} options
  * @param {object} options.sonarqubeConfig - { url, token, projectKey }
  * @param {object} options.sonarcloudConfig - { url, token, organization, projectKey }
- * @param {object} options.transferConfig - { mode, stateFile, batchSize }
+ * @param {object} options.transferConfig - { mode, stateFile, batchSize, syncAllBranches, excludeBranches }
  * @param {object} [options.performanceConfig] - Performance tuning options (concurrency, workers, memory)
  * @param {boolean} [options.wait=false] - Whether to wait for analysis completion
  * @param {boolean} [options.skipConnectionTest=false] - Skip connection testing
@@ -23,6 +28,10 @@ import logger from './utils/logger.js';
 export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null }) {
   const projectKey = sonarqubeConfig.projectKey;
   logger.info(`Starting transfer for project: ${projectKey}`);
+
+  // Resolve branch sync settings (default: sync all branches)
+  const syncAllBranches = transferConfig.syncAllBranches !== false;
+  const excludeBranches = new Set(transferConfig.excludeBranches || []);
 
   // Initialize state tracker
   const stateTracker = new StateTracker(transferConfig.stateFile);
@@ -57,8 +66,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // Ensure SonarCloud project exists (with the original human-readable name)
   await sonarCloudClient.ensureProject(projectName);
 
-  // Extract data from SonarQube
-  logger.info('Starting data extraction from SonarQube...');
+  // Extract data from SonarQube (main branch)
+  logger.info('Starting data extraction from SonarQube (main branch)...');
   const config = { sonarqube: sonarqubeConfig, sonarcloud: sonarcloudConfig, transfer: transferConfig };
   const extractor = new DataExtractor(
     sonarQubeClient,
@@ -68,24 +77,127 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   );
   const extractedData = await extractor.extractAll();
 
-  // Fetch SonarCloud quality profiles and branch name
+  // Fetch SonarCloud quality profiles and main branch name
   logger.info('Fetching SonarCloud quality profiles...');
   const sonarCloudProfiles = await sonarCloudClient.getQualityProfiles();
-  const sonarCloudBranchName = await sonarCloudClient.getMainBranchName();
+  const sonarCloudMainBranch = await sonarCloudClient.getMainBranchName();
 
+  // --- Transfer main branch ---
+  const mainBranchStats = await transferBranch({
+    extractedData,
+    sonarcloudConfig,
+    sonarCloudProfiles,
+    branchName: sonarCloudMainBranch,
+    referenceBranchName: sonarCloudMainBranch,
+    wait,
+    sonarCloudClient,
+    label: 'main'
+  });
+
+  // Track aggregated stats across all branches
+  const aggregatedStats = { ...mainBranchStats, branchesTransferred: [sonarCloudMainBranch] };
+
+  if (transferConfig.mode === 'incremental') {
+    stateTracker.markBranchCompleted(sonarCloudMainBranch);
+  }
+
+  // --- Transfer non-main branches ---
+  if (syncAllBranches) {
+    const allBranches = extractedData.project.branches || [];
+    const nonMainBranches = allBranches.filter(b => !b.isMain && !excludeBranches.has(b.name));
+
+    if (nonMainBranches.length > 0) {
+      logger.info(`Syncing ${nonMainBranches.length} additional branch(es): ${nonMainBranches.map(b => b.name).join(', ')}`);
+
+      for (const branch of nonMainBranches) {
+        const branchName = branch.name;
+
+        // Skip if already completed in a previous incremental run
+        if (transferConfig.mode === 'incremental' && stateTracker.isBranchCompleted(branchName)) {
+          logger.info(`Branch '${branchName}' already completed — skipping`);
+          continue;
+        }
+
+        if (excludeBranches.has(branchName)) {
+          logger.info(`Branch '${branchName}' excluded by config — skipping`);
+          continue;
+        }
+
+        try {
+          logger.info(`--- Extracting branch: ${branchName} ---`);
+          const branchData = await extractor.extractBranch(branchName, extractedData);
+
+          const branchStats = await transferBranch({
+            extractedData: branchData,
+            sonarcloudConfig,
+            sonarCloudProfiles,
+            branchName,
+            referenceBranchName: sonarCloudMainBranch,
+            wait,
+            sonarCloudClient,
+            label: branchName
+          });
+
+          // Accumulate stats
+          aggregatedStats.issuesTransferred += branchStats.issuesTransferred;
+          aggregatedStats.componentsTransferred += branchStats.componentsTransferred;
+          aggregatedStats.sourcesTransferred += branchStats.sourcesTransferred;
+          aggregatedStats.linesOfCode += branchStats.linesOfCode;
+          aggregatedStats.branchesTransferred.push(branchName);
+
+          if (transferConfig.mode === 'incremental') {
+            stateTracker.markBranchCompleted(branchName);
+          }
+        } catch (error) {
+          logger.error(`Failed to transfer branch '${branchName}': ${error.message}`);
+          logger.warn(`Continuing with remaining branches...`);
+        }
+      }
+    } else {
+      logger.info('No additional branches to sync (only the main branch exists)');
+    }
+  }
+
+  // Record successful transfer in state
+  if (transferConfig.mode === 'incremental') {
+    await stateTracker.recordTransfer(aggregatedStats);
+  }
+
+  logger.info(`Transfer completed for project: ${projectKey} — ${aggregatedStats.branchesTransferred.length} branch(es): ${aggregatedStats.branchesTransferred.join(', ')}`);
+  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats: aggregatedStats };
+}
+
+/**
+ * Build, encode, and upload a single branch report to SonarCloud.
+ *
+ * @param {object} options
+ * @param {object} options.extractedData - Data from extractAll() or extractBranch()
+ * @param {object} options.sonarcloudConfig - SonarCloud config
+ * @param {Array}  options.sonarCloudProfiles - SonarCloud quality profiles
+ * @param {string} options.branchName - Branch name to set in metadata
+ * @param {string} options.referenceBranchName - Reference (main) branch name
+ * @param {boolean} options.wait - Whether to wait for analysis completion
+ * @param {object} options.sonarCloudClient - SonarCloud API client
+ * @param {string} options.label - Human-readable label for logging
+ * @returns {Promise<object>} Branch transfer stats
+ */
+async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label }) {
   // Build protobuf messages
-  logger.info('Building protobuf messages...');
-  const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, { sonarCloudBranchName });
+  logger.info(`[${label}] Building protobuf messages...`);
+  const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
+    sonarCloudBranchName: branchName,
+    referenceBranchName
+  });
   const messages = builder.buildAll();
 
   // Encode to protobuf format
-  logger.info('Encoding to protobuf format...');
+  logger.info(`[${label}] Encoding to protobuf format...`);
   const encoder = new ProtobufEncoder();
   await encoder.loadSchemas();
   const encodedReport = encoder.encodeAll(messages);
 
   // Upload to SonarCloud
-  logger.info('Uploading to SonarCloud...');
+  logger.info(`[${label}] Uploading to SonarCloud...`);
   const uploader = new ReportUploader(sonarCloudClient);
   const metadata = {
     projectKey: sonarcloudConfig.projectKey,
@@ -95,25 +207,18 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
   if (wait) {
     await uploader.uploadAndWait(encodedReport, metadata);
-    logger.info('Analysis completed successfully');
+    logger.info(`[${label}] Analysis completed successfully`);
   } else {
     const ceTask = await uploader.upload(encodedReport, metadata);
-    logger.info(`Upload complete. CE Task ID: ${ceTask.id}`);
+    logger.info(`[${label}] Upload complete. CE Task ID: ${ceTask.id}`);
   }
 
-  // Record successful transfer in state
+  // Compute stats for this branch
   const nclocMeasure = (extractedData.measures.measures || []).find(m => m.metric === 'ncloc');
-  const stats = {
+  return {
     issuesTransferred: extractedData.issues.length,
     componentsTransferred: extractedData.components.length,
     sourcesTransferred: extractedData.sources.length,
     linesOfCode: nclocMeasure ? parseInt(nclocMeasure.value, 10) || 0 : 0
   };
-
-  if (transferConfig.mode === 'incremental') {
-    await stateTracker.recordTransfer(stats);
-  }
-
-  logger.info(`Transfer completed for project: ${projectKey}`);
-  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats };
 }

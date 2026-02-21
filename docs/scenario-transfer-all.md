@@ -15,6 +15,7 @@ This is a lightweight alternative to the full `migrate` command — it loops thr
 
 | Category | Included |
 |----------|----------|
+| **All branches** | Yes — all branches are synced by default (main branch first, then the rest) |
 | **Source code** | Yes — all files are packaged into the scanner report |
 | **Issues** | Yes — all code issues with text ranges, flows, and metadata |
 | **Security hotspots** | Yes — all hotspots with status and comments |
