@@ -36,7 +36,7 @@ export async function migrateOrgProjects(projects, org, scClient, gateMapping, e
   return { projectKeyMap, projectKeyWarnings };
 }
 
-async function resolveProjectKey(project, org, scClient) {
+export async function resolveProjectKey(project, org, scClient) {
   let scProjectKey = project.key;
   let warning = null;
   const globalCheck = await scClient.isProjectKeyTakenGlobally(project.key);
@@ -49,6 +49,8 @@ async function resolveProjectKey(project, org, scClient) {
 }
 
 async function migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping }) {
+  const only = ctx.onlyComponents;
+  const shouldRun = (comp) => !only || only.includes(comp);
   const projectStart = Date.now();
   const projectResult = { projectKey: project.key, scProjectKey, status: 'success', steps: [], errors: [] };
   const projectSqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key });
@@ -56,23 +58,69 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
     url: org.url || 'https://sonarcloud.io', token: org.token,
     organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig
   });
-  const reportUploadOk = await uploadScannerReport(project, scProjectKey, org, projectResult, ctx);
-  await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-  await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-  await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping);
+
+  // Scanner report upload
+  const wantsScanData = shouldRun('scan-data') || shouldRun('scan-data-all-branches');
+  let reportUploadOk = false;
+
+  if (wantsScanData) {
+    // When --only scan-data (not all-branches), force main branch only
+    let syncAllBranchesOverride;
+    if (only) {
+      if (only.includes('scan-data-all-branches')) {
+        syncAllBranchesOverride = undefined; // use default from transferConfig
+      } else {
+        syncAllBranchesOverride = false; // main branch only
+      }
+    }
+    reportUploadOk = await uploadScannerReport(project, scProjectKey, org, projectResult, ctx, syncAllBranchesOverride);
+  } else if (only) {
+    projectResult.steps.push({ step: 'Upload scanner report', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+    // Verify project exists in SonarCloud before attempting downstream operations
+    const exists = await projectScClient.projectExists();
+    if (exists) {
+      reportUploadOk = true;
+    } else {
+      logger.error(`Project "${scProjectKey}" does not exist in SonarCloud. Skipping all per-project steps. Migrate scan-data first.`);
+      projectResult.steps.push({ step: 'Project existence check', status: 'failed', error: `Project "${scProjectKey}" not found in SonarCloud. Run --only scan-data first.`, durationMs: 0 });
+      projectResult.errors.push(`Project "${scProjectKey}" not found in SonarCloud`);
+      reportUploadOk = false;
+    }
+  }
+
+  // Issue metadata sync
+  if (shouldRun('issue-metadata')) {
+    await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+  } else if (only) {
+    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+  }
+
+  // Hotspot metadata sync
+  if (shouldRun('hotspot-metadata')) {
+    await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+  } else if (only) {
+    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+  }
+
+  // Project config (component-aware) — skip if project doesn't exist in SonarCloud
+  if (reportUploadOk) {
+    await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only);
+  }
+
   finalizeProjectResult(projectResult);
   projectResult.durationMs = Date.now() - projectStart;
   return projectResult;
 }
 
-async function uploadScannerReport(project, scProjectKey, org, projectResult, ctx) {
+async function uploadScannerReport(project, scProjectKey, org, projectResult, ctx, syncAllBranchesOverride) {
   const start = Date.now();
   try {
     const stateFile = join(ctx.outputDir, 'state', `.state.${project.key}.json`);
+    const syncAllBranches = syncAllBranchesOverride !== undefined ? syncAllBranchesOverride : ctx.transferConfig.syncAllBranches;
     const transferResult = await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
-      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize },
+      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches },
       performanceConfig: ctx.perfConfig,
       wait: ctx.wait, skipConnectionTest: true, projectName: project.name
     });
@@ -149,34 +197,51 @@ async function runProjectStep(projectResult, stepName, fn) {
   }
 }
 
-async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping) {
-  await runProjectStep(projectResult, 'Project settings', async () => {
-    const projectSettings = await extractProjectSettings(projectSqClient, project.key);
-    await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
-  });
-  await runProjectStep(projectResult, 'Project tags', async () => {
-    const projectTags = await extractProjectTags(projectSqClient);
-    await migrateProjectTags(scProjectKey, projectTags, projectScClient);
-  });
-  await runProjectStep(projectResult, 'Project links', async () => {
-    const projectLinks = await extractProjectLinks(projectSqClient, project.key);
-    await migrateProjectLinks(scProjectKey, projectLinks, projectScClient);
-  });
-  await runProjectStep(projectResult, 'New code definitions', async () => {
-    const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
-    return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
-  });
-  await runProjectStep(projectResult, 'DevOps binding', async () => {
-    const binding = extractedData.projectBindings.get(project.key);
-    await migrateDevOpsBinding(scProjectKey, binding, projectScClient);
-  });
-  await runProjectStep(projectResult, 'Assign quality gate', async () => {
-    const projectGate = await projectSqClient.getQualityGate();
-    if (projectGate && gateMapping.has(projectGate.name)) {
-      await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
+async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, onlyComponents) {
+  const shouldRun = (comp) => !onlyComponents || onlyComponents.includes(comp);
+
+  // Project settings, tags, links, new code definitions, devops binding → 'project-settings' component
+  if (shouldRun('project-settings')) {
+    await runProjectStep(projectResult, 'Project settings', async () => {
+      const projectSettings = await extractProjectSettings(projectSqClient, project.key);
+      await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
+    });
+    await runProjectStep(projectResult, 'Project tags', async () => {
+      const projectTags = await extractProjectTags(projectSqClient);
+      await migrateProjectTags(scProjectKey, projectTags, projectScClient);
+    });
+    await runProjectStep(projectResult, 'Project links', async () => {
+      const projectLinks = await extractProjectLinks(projectSqClient, project.key);
+      await migrateProjectLinks(scProjectKey, projectLinks, projectScClient);
+    });
+    await runProjectStep(projectResult, 'New code definitions', async () => {
+      const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
+      return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
+    });
+    await runProjectStep(projectResult, 'DevOps binding', async () => {
+      const binding = extractedData.projectBindings.get(project.key);
+      await migrateDevOpsBinding(scProjectKey, binding, projectScClient);
+    });
+  } else if (onlyComponents) {
+    for (const step of ['Project settings', 'Project tags', 'Project links', 'New code definitions', 'DevOps binding']) {
+      projectResult.steps.push({ step, status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
     }
-  });
-  if (builtInProfileMapping && builtInProfileMapping.size > 0) {
+  }
+
+  // Quality gate assignment → 'quality-gates' component
+  if (shouldRun('quality-gates')) {
+    await runProjectStep(projectResult, 'Assign quality gate', async () => {
+      const projectGate = await projectSqClient.getQualityGate();
+      if (projectGate && gateMapping.has(projectGate.name)) {
+        await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
+      }
+    });
+  } else if (onlyComponents) {
+    projectResult.steps.push({ step: 'Assign quality gate', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+  }
+
+  // Quality profile assignment → 'quality-profiles' component
+  if (shouldRun('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
     await runProjectStep(projectResult, 'Assign quality profiles', async () => {
       let assigned = 0;
       for (const [language, profileName] of builtInProfileMapping) {
@@ -189,9 +254,17 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
       }
       return `${assigned} profiles assigned`;
     });
+  } else if (onlyComponents && !onlyComponents.includes('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
+    projectResult.steps.push({ step: 'Assign quality profiles', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }
-  await runProjectStep(projectResult, 'Project permissions', async () => {
-    const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
-    await migrateProjectPermissions(scProjectKey, projectPerms, projectScClient);
-  });
+
+  // Project permissions → 'permissions' component
+  if (shouldRun('permissions')) {
+    await runProjectStep(projectResult, 'Project permissions', async () => {
+      const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
+      await migrateProjectPermissions(scProjectKey, projectPerms, projectScClient);
+    });
+  } else if (onlyComponents) {
+    projectResult.steps.push({ step: 'Project permissions', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+  }
 }

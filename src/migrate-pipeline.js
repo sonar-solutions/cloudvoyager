@@ -29,6 +29,7 @@ export async function migrateAll(options) {
   const skipIssueSync = migrateConfig.skipIssueMetadataSync || migrateConfig.skipIssueSync || false;
   const skipHotspotSync = migrateConfig.skipHotspotMetadataSync || migrateConfig.skipHotspotSync || false;
   const skipQualityProfileSync = migrateConfig.skipQualityProfileSync || false;
+  const onlyComponents = migrateConfig.onlyComponents || null;
 
   // Read existing CSVs BEFORE wiping output dir (for non-dry-run with prior dry-run CSVs)
   const mappingsDir = join(outputDir, 'mappings');
@@ -75,7 +76,8 @@ export async function migrateAll(options) {
   };
   const ctx = {
     sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
-    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, wait
+    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, wait,
+    onlyComponents
   };
 
   try {
@@ -143,7 +145,11 @@ export async function migrateAll(options) {
       }
     }
 
-    await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
+    if (!onlyComponents || onlyComponents.includes('portfolios')) {
+      await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
+    } else {
+      logger.info('Skipping enterprise portfolio migration (not included in --only)');
+    }
 
     logMigrationSummary(results, outputDir);
   } finally {

@@ -16,7 +16,7 @@ src/
 │   ├── migrate.js             # Full migration command
 │   └── sync-metadata.js       # Standalone metadata sync command
 ├── config/
-│   ├── loader.js             # Config loading and validation (Ajv) for transfer commands
+│   ├── loader.js             # Config loading and validation (Ajv + ajv-formats) for transfer commands
 │   ├── loader-migrate.js     # Config loading for migrate/sync-metadata commands
 │   ├── schema.js             # JSON schema for transfer config
 │   ├── schema-migrate.js     # JSON schema for migration config
@@ -66,7 +66,7 @@ src/
 │       └── constants.proto
 ├── sonarcloud/
 │   ├── api-client.js         # SonarCloud HTTP client (retry, throttle, quality profiles)
-│   ├── uploader.js           # Report packaging and CE submission
+│   ├── uploader.js           # Report packaging (adm-zip, form-data) and CE submission
 │   ├── api/                  # API method modules (extracted from api-client)
 │   │   ├── hotspots.js        # Hotspot API methods
 │   │   ├── issues.js          # Issue API methods

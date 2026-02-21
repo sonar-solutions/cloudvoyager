@@ -11,7 +11,7 @@ import { migratePortfolios } from '../sonarcloud/migrators/portfolios.js';
 import { mapProjectsToOrganizations, mapResourcesToOrganizations } from '../mapping/org-mapper.js';
 import { generateMappingCsvs } from '../mapping/csv-generator.js';
 import logger from '../utils/logger.js';
-import { migrateOrgProjects } from './project-migration.js';
+import { migrateOrgProjects, resolveProjectKey } from './project-migration.js';
 
 export async function generateOrgMappings(allProjects, extractedData, sonarcloudOrgs, outputDir) {
   const orgMapping = mapProjectsToOrganizations(allProjects, extractedData.projectBindings, sonarcloudOrgs);
@@ -52,32 +52,47 @@ export async function runOrgStep(orgResult, stepName, fn) {
 }
 
 export async function migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx) {
+  const only = ctx.onlyComponents;
+  const shouldRun = (comp) => !only || only.includes(comp);
   let gateMapping = new Map();
   let builtInProfileMapping = new Map();
 
-  await runOrgStep(orgResult, 'Create groups', async () => {
-    logger.info('Creating groups...');
-    const groupMapping = await migrateGroups(extractedData.groups, scClient);
-    results.groups += groupMapping.size;
-    return `${groupMapping.size} created`;
-  });
+  // Groups and global permissions are part of the 'permissions' component
+  if (shouldRun('permissions')) {
+    await runOrgStep(orgResult, 'Create groups', async () => {
+      logger.info('Creating groups...');
+      const groupMapping = await migrateGroups(extractedData.groups, scClient);
+      results.groups += groupMapping.size;
+      return `${groupMapping.size} created`;
+    });
 
-  await runOrgStep(orgResult, 'Set global permissions', async () => {
-    logger.info('Setting global permissions...');
-    await migrateGlobalPermissions(extractedData.globalPermissions, scClient);
-  });
+    await runOrgStep(orgResult, 'Set global permissions', async () => {
+      logger.info('Setting global permissions...');
+      await migrateGlobalPermissions(extractedData.globalPermissions, scClient);
+    });
+  } else {
+    orgResult.steps.push({ step: 'Create groups', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+    orgResult.steps.push({ step: 'Set global permissions', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+  }
 
-  await runOrgStep(orgResult, 'Create quality gates', async () => {
-    logger.info('Creating quality gates...');
-    gateMapping = await migrateQualityGates(extractedData.qualityGates, scClient);
-    results.qualityGates += gateMapping.size;
-    return `${gateMapping.size} created`;
-  });
+  if (shouldRun('quality-gates')) {
+    await runOrgStep(orgResult, 'Create quality gates', async () => {
+      logger.info('Creating quality gates...');
+      gateMapping = await migrateQualityGates(extractedData.qualityGates, scClient);
+      results.qualityGates += gateMapping.size;
+      return `${gateMapping.size} created`;
+    });
+  } else {
+    orgResult.steps.push({ step: 'Create quality gates', status: 'skipped', detail: only ? 'Not included in --only' : undefined, durationMs: 0 });
+  }
 
-  if (ctx.skipQualityProfileSync) {
-    orgResult.steps.push({ step: 'Restore quality profiles', status: 'skipped', detail: 'Disabled by --skip-quality-profile-sync', durationMs: 0 });
-    orgResult.steps.push({ step: 'Compare quality profiles', status: 'skipped', detail: 'Disabled by --skip-quality-profile-sync', durationMs: 0 });
-    logger.info('Skipping quality profile sync (--skip-quality-profile-sync). Projects will use default SonarCloud profiles.');
+  if (!shouldRun('quality-profiles') || ctx.skipQualityProfileSync) {
+    const reason = !shouldRun('quality-profiles') ? 'Not included in --only' : 'Disabled by --skip-quality-profile-sync';
+    orgResult.steps.push({ step: 'Restore quality profiles', status: 'skipped', detail: reason, durationMs: 0 });
+    orgResult.steps.push({ step: 'Compare quality profiles', status: 'skipped', detail: reason, durationMs: 0 });
+    if (ctx.skipQualityProfileSync && shouldRun('quality-profiles')) {
+      logger.info('Skipping quality profile sync (--skip-quality-profile-sync). Projects will use default SonarCloud profiles.');
+    }
   } else {
     await runOrgStep(orgResult, 'Restore quality profiles', async () => {
       logger.info('Restoring quality profiles...');
@@ -97,10 +112,14 @@ export async function migrateOrgWideResources(extractedData, scClient, sqClient,
     });
   }
 
-  await runOrgStep(orgResult, 'Create permission templates', async () => {
-    logger.info('Creating permission templates...');
-    await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
-  });
+  if (shouldRun('permission-templates')) {
+    await runOrgStep(orgResult, 'Create permission templates', async () => {
+      logger.info('Creating permission templates...');
+      await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
+    });
+  } else {
+    orgResult.steps.push({ step: 'Create permission templates', status: 'skipped', detail: only ? 'Not included in --only' : undefined, durationMs: 0 });
+  }
 
   return { gateMapping, builtInProfileMapping };
 }
@@ -137,9 +156,27 @@ export async function migrateOneOrganization(assignment, extractedData, resource
   const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
   const { gateMapping, builtInProfileMapping } = await migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx);
 
-  const { projectKeyMap, projectKeyWarnings } = await migrateOrgProjects(
-    projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping
-  );
+  const only = ctx.onlyComponents;
+  const PROJECT_COMPONENTS = ['scan-data', 'scan-data-all-branches', 'quality-gates', 'quality-profiles', 'permissions', 'issue-metadata', 'hotspot-metadata', 'project-settings'];
+  const hasProjectWork = !only || PROJECT_COMPONENTS.some(c => only.includes(c));
+
+  let projectKeyMap = new Map();
+  let projectKeyWarnings = [];
+
+  if (hasProjectWork) {
+    const result = await migrateOrgProjects(
+      projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping
+    );
+    projectKeyMap = result.projectKeyMap;
+    projectKeyWarnings = result.projectKeyWarnings;
+  } else {
+    // Fast path: only resolve project keys (needed for portfolio mapping)
+    for (const project of projects) {
+      const { scProjectKey } = await resolveProjectKey(project, org, scClient);
+      projectKeyMap.set(project.key, scProjectKey);
+    }
+    logger.info(`Skipping project migration (no project-level components in --only). Resolved ${projectKeyMap.size} project key(s).`);
+  }
 
   results.projectKeyWarnings.push(...projectKeyWarnings);
   orgResult.durationMs = Date.now() - orgStart;
@@ -162,6 +199,11 @@ export async function migrateEnterprisePortfolios(extractedData, mergedProjectKe
   if (allPortfolios.length === 0) {
     logger.info('No portfolios to migrate');
     return;
+  }
+
+  if (ctx.onlyComponents && ctx.onlyComponents.includes('portfolios')) {
+    logger.warn('Note: --only portfolios requires that projects are already migrated to SonarCloud.');
+    logger.warn('If projects have not been migrated yet, portfolio creation may fail or produce empty portfolios.');
   }
 
   const start = Date.now();

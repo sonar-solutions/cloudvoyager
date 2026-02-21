@@ -1,8 +1,14 @@
 import { loadMigrateConfig } from '../config/loader.js';
 import { migrateAll } from '../migrate-pipeline.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger from '../utils/logger.js';
+import logger, { enableFileLogging } from '../utils/logger.js';
 import { CloudVoyagerError } from '../utils/errors.js';
+
+export const VALID_ONLY_COMPONENTS = [
+  'scan-data', 'scan-data-all-branches', 'portfolios', 'quality-gates',
+  'quality-profiles', 'permission-templates', 'permissions',
+  'issue-metadata', 'hotspot-metadata', 'project-settings'
+];
 
 export function registerMigrateCommand(program) {
   program
@@ -15,13 +21,16 @@ export function registerMigrateCommand(program) {
     .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
     .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
     .option('--skip-quality-profile-sync', 'Skip syncing quality profiles (projects use default SonarCloud profiles)')
+    .option('--only <components>', 'Only migrate specific components (comma-separated): ' + VALID_ONLY_COMPONENTS.join(', '))
     .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
+    .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
+        enableFileLogging('migrate');
         logger.info('=== CloudVoyager - Full Organization Migration ===');
 
         const config = await loadMigrateConfig(options.config);
@@ -30,6 +39,25 @@ export function registerMigrateCommand(program) {
         if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
         if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
         if (options.skipQualityProfileSync) migrateConfig.skipQualityProfileSync = true;
+
+        if (options.only) {
+          const onlyComponents = options.only.split(',').map(s => s.trim()).filter(Boolean);
+          const invalid = onlyComponents.filter(c => !VALID_ONLY_COMPONENTS.includes(c));
+          if (invalid.length > 0) {
+            logger.error(`Invalid --only component(s): ${invalid.join(', ')}`);
+            logger.error(`Valid components: ${VALID_ONLY_COMPONENTS.join(', ')}`);
+            process.exit(1);
+          }
+          if (onlyComponents.length === 0) {
+            logger.error('--only requires at least one component');
+            process.exit(1);
+          }
+          migrateConfig.onlyComponents = onlyComponents;
+          logger.info(`Selective migration: only migrating [${onlyComponents.join(', ')}]`);
+        }
+
+        const transferConfig = config.transfer || { mode: 'full', batchSize: 100 };
+        if (options.skipAllBranchSync) transferConfig.syncAllBranches = false;
 
         const perfConfig = resolvePerformanceConfig({
           ...config.performance,
@@ -46,7 +74,7 @@ export function registerMigrateCommand(program) {
           sonarcloudOrgs: config.sonarcloud.organizations,
           enterpriseConfig: config.sonarcloud.enterprise,
           migrateConfig,
-          transferConfig: config.transfer || { mode: 'full', batchSize: 100 },
+          transferConfig,
           rateLimitConfig: config.rateLimit,
           performanceConfig: perfConfig,
           wait: options.wait || false
