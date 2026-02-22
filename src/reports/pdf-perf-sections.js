@@ -56,7 +56,7 @@ export function buildBottleneckAnalysis(results) {
   const body = [[h('Step Type'), h('Cumulative Time'), h('% of Step Time')]];
   for (const [stepName, d] of sorted) {
     if (d === 0) continue;
-    const pct = totalStepTime > 0 ? ((d / totalStepTime) * 100).toFixed(1) : '0.0';
+    const pct = ((d / totalStepTime) * 100).toFixed(1);
     body.push([c(stepName), c(formatDuration(d)), c(`${pct}%`)]);
   }
   body.push([

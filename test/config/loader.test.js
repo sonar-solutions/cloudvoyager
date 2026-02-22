@@ -245,3 +245,106 @@ test('loadMigrateConfig applies defaults for transfer and migrate', async t => {
   t.is(config.migrate.outputDir, './migration-output');
   await rm(dir, { recursive: true });
 });
+
+// --- Tests for uncovered error fallback paths ---
+
+test.serial('loadConfig throws ConfigurationError for unexpected errors (null config body)', async t => {
+  // JSON.parse('null') succeeds but returns null. With SONARQUBE_TOKEN set,
+  // applyEnvironmentOverrides tries null.sonarqube.token which throws TypeError.
+  // TypeError is not ValidationError/SyntaxError/ENOENT, so the fallback path is hit.
+  const dir = getTmpDir();
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, 'config.json');
+  const { writeFile: wf } = await import('node:fs/promises');
+  await wf(path, 'null', 'utf-8');
+
+  const origToken = process.env.SONARQUBE_TOKEN;
+  process.env.SONARQUBE_TOKEN = 'trigger-env-override';
+  try {
+    await t.throwsAsync(
+      () => loadConfig(path),
+      { instanceOf: ConfigurationError, message: /Failed to load configuration/ }
+    );
+  } finally {
+    if (origToken === undefined) delete process.env.SONARQUBE_TOKEN;
+    else process.env.SONARQUBE_TOKEN = origToken;
+  }
+  await rm(dir, { recursive: true });
+});
+
+test.serial('loadMigrateConfig throws ConfigurationError for unexpected errors (null config body)', async t => {
+  // Same approach — null is valid JSON but with SONARQUBE_TOKEN set,
+  // applyMigrateEnvOverrides tries null.sonarqube.token which throws TypeError.
+  const dir = getTmpDir();
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, 'migrate.json');
+  const { writeFile: wf } = await import('node:fs/promises');
+  await wf(path, 'null', 'utf-8');
+
+  const origToken = process.env.SONARQUBE_TOKEN;
+  process.env.SONARQUBE_TOKEN = 'trigger-env-override';
+  try {
+    await t.throwsAsync(
+      () => loadMigrateConfig(path),
+      { instanceOf: ConfigurationError, message: /Failed to load configuration/ }
+    );
+  } finally {
+    if (origToken === undefined) delete process.env.SONARQUBE_TOKEN;
+    else process.env.SONARQUBE_TOKEN = origToken;
+  }
+  await rm(dir, { recursive: true });
+});
+
+test('loadMigrateConfig applies default url for orgs without explicit url', async t => {
+  // Exercises AJV useDefaults: default url from schema-migrate.js org items
+  const dir = getTmpDir();
+  const cfg = {
+    sonarqube: { url: 'http://localhost:9000', token: 'sqp_test' },
+    sonarcloud: {
+      organizations: [
+        { key: 'org-no-url', token: 'tok1' },
+        { key: 'org-with-url', token: 'tok2', url: 'https://custom.sonarcloud.io' }
+      ]
+    }
+  };
+  const path = await writeConfig(dir, 'migrate.json', cfg);
+  const config = await loadMigrateConfig(path);
+  t.is(config.sonarcloud.organizations[0].url, 'https://sonarcloud.io');
+  t.is(config.sonarcloud.organizations[1].url, 'https://custom.sonarcloud.io');
+  await rm(dir, { recursive: true });
+});
+
+// Line 25: false branch of `if (!config.sonarcloud.url)` — when url is already in config JSON
+test('loadConfig does not overwrite existing sonarcloud.url', async t => {
+  const dir = getTmpDir();
+  const cfg = {
+    ...validConfig,
+    sonarcloud: { ...validConfig.sonarcloud, url: 'https://custom-sonarcloud.example.com' }
+  };
+  const path = await writeConfig(dir, 'config.json', cfg);
+  const config = await loadConfig(path);
+  t.is(config.sonarcloud.url, 'https://custom-sonarcloud.example.com');
+  await rm(dir, { recursive: true });
+});
+
+test('loadMigrateConfig applies default url to all orgs missing url', async t => {
+  // Covers the AJV useDefaults default url from schema-migrate.js
+  // when every org in the list lacks a url property
+  const dir = getTmpDir();
+  const cfg = {
+    sonarqube: { url: 'http://localhost:9000', token: 'sqp_test' },
+    sonarcloud: {
+      organizations: [
+        { key: 'org-alpha', token: 'tok-a' },
+        { key: 'org-beta', token: 'tok-b' },
+        { key: 'org-gamma', token: 'tok-c' }
+      ]
+    }
+  };
+  const path = await writeConfig(dir, 'migrate.json', cfg);
+  const config = await loadMigrateConfig(path);
+  for (const org of config.sonarcloud.organizations) {
+    t.is(org.url, 'https://sonarcloud.io', `org ${org.key} should get default url`);
+  }
+  await rm(dir, { recursive: true });
+});

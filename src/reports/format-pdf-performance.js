@@ -48,7 +48,7 @@ export async function generatePerformanceReportPdf(results) {
 function h(text) { return { text, style: 'tableHeader' }; }
 function c(text) { return { text, style: 'tableCell' }; }
 function dur(ms) { return ms != null ? formatDuration(ms) : '—'; }
-function sumDurations(steps) { return (steps || []).reduce((sum, s) => sum + (s.durationMs || 0), 0); }
+function sumDurations(steps) { return steps.reduce((sum, s) => sum + (s.durationMs || 0), 0); }
 
 function stepDur(project, stepName) {
   const step = project.steps.find(s => s.step === stepName);

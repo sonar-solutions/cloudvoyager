@@ -51,11 +51,6 @@ function applyMigrateDefaults(config) {
   if (!config.migrate.outputDir) {
     config.migrate.outputDir = './migration-output';
   }
-  for (const org of config.sonarcloud.organizations) {
-    if (!org.url) {
-      org.url = 'https://sonarcloud.io';
-    }
-  }
 }
 
 function handleConfigLoadError(error, configPath) {

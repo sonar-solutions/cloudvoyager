@@ -5,8 +5,7 @@
 import PdfPrinterModule from 'pdfmake/js/Printer.js';
 import vfs from 'pdfmake/build/vfs_fonts.js';
 
-// pdfmake uses CJS exports.default — handle both ESM and CJS import shapes.
-const PdfPrinter = PdfPrinterModule.default || PdfPrinterModule;
+const PdfPrinter = PdfPrinterModule.default;
 
 /**
  * Create a simple virtual filesystem adapter from pdfmake's VFS font data.

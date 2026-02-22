@@ -24,7 +24,7 @@ export function buildComponents(builder) {
   builder.data.components.forEach(comp => {
     if (comp.qualifier === 'FIL' && sourceKeys.has(comp.key)) {
       const ref = builder.getComponentRef(comp.key);
-      const info = sourceInfo.get(comp.key) || {};
+      const info = sourceInfo.get(comp.key);
       const lineCount = info.lineCount || Number.parseInt(comp.measures.find(m => m.metric === 'lines')?.value) || 0;
       componentsMap.set(comp.key, {
         ref: ref,

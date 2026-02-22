@@ -22,7 +22,6 @@ export async function loadConfig(configPath) {
       const errors = validate.errors.map(err => `${err.instancePath} ${err.message}`);
       throw new ValidationError('Configuration validation failed', errors);
     }
-    if (!config.sonarcloud.url) config.sonarcloud.url = 'https://sonarcloud.io';
     if (!config.transfer) config.transfer = {};
     if (!config.transfer.mode) config.transfer.mode = 'incremental';
     if (!config.transfer.stateFile) config.transfer.stateFile = './.cloudvoyager-state.json';

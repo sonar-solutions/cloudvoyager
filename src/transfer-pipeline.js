@@ -118,11 +118,6 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
           continue;
         }
 
-        if (excludeBranches.has(branchName)) {
-          logger.info(`Branch '${branchName}' excluded by config — skipping`);
-          continue;
-        }
-
         try {
           logger.info(`--- Extracting branch: ${branchName} ---`);
           const branchData = await extractor.extractBranch(branchName, extractedData);

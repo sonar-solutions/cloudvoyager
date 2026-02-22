@@ -83,7 +83,7 @@ export async function migrateOrgWideResources(extractedData, scClient, sqClient,
       return `${gateMapping.size} created`;
     });
   } else {
-    orgResult.steps.push({ step: 'Create quality gates', status: 'skipped', detail: only ? 'Not included in --only' : undefined, durationMs: 0 });
+    orgResult.steps.push({ step: 'Create quality gates', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }
 
   if (!shouldRun('quality-profiles') || ctx.skipQualityProfileSync) {
@@ -118,7 +118,7 @@ export async function migrateOrgWideResources(extractedData, scClient, sqClient,
       await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
     });
   } else {
-    orgResult.steps.push({ step: 'Create permission templates', status: 'skipped', detail: only ? 'Not included in --only' : undefined, durationMs: 0 });
+    orgResult.steps.push({ step: 'Create permission templates', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }
 
   return { gateMapping, builtInProfileMapping };

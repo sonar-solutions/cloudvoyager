@@ -84,7 +84,7 @@ export class DataExtractor {
 
       // 7. Extract source code (optional, can be limited)
       logger.info('Step 7/7: Extracting source code...');
-      const maxFiles = process.env.MAX_SOURCE_FILES ? Number.parseInt(process.env.MAX_SOURCE_FILES) : 0;
+      const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
       extractedData.sources = await extractSources(this.client, null, maxFiles, {
         concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
       });
@@ -150,7 +150,7 @@ export class DataExtractor {
     const measures = await extractMeasures(this.client, metricKeys, branch);
 
     logger.info(`  [${branch}] Extracting source code...`);
-    const maxFiles = process.env.MAX_SOURCE_FILES ? Number.parseInt(process.env.MAX_SOURCE_FILES) : 0;
+    const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
     const sources = await extractSources(this.client, branch, maxFiles, {
       concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
     });

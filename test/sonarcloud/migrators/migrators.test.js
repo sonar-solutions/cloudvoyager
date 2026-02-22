@@ -2428,3 +2428,515 @@ test('syncHotspots handles component without colon', async t => {
 
   t.is(stats.matched, 1);
 });
+
+// --- Outer catch coverage for hotspot-sync ---
+test('syncHotspots increments failed when outer processing throws', async t => {
+  // Create an SC hotspot whose status getter throws, triggering the outer catch.
+  // buildHotspotMatchKey accesses ruleKey, component, line but NOT status, so matching works.
+  const scHotspot = { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10 };
+  Object.defineProperty(scHotspot, 'status', {
+    get() { throw new Error('status access boom'); },
+    enumerable: true,
+    configurable: true
+  });
+
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([scHotspot])
+  });
+
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'REVIEWED',
+      resolution: 'SAFE'
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.matched, 1);
+  t.is(stats.failed, 1);
+  t.is(stats.statusChanged, 0);
+});
+
+// --- Outer catch coverage for issue-sync ---
+test('syncIssues increments failed when outer processing throws', async t => {
+  // Create an SC issue whose status getter throws, triggering the outer catch.
+  // buildMatchKey accesses rule, component, line but NOT status, so matching works.
+  // syncIssueStatus accesses scIssue.status outside any try/catch, so the throw propagates.
+  const scIssue = { key: 'sc-i1', rule: 'java:S100', component: 'proj:src/Main.java', line: 5 };
+  Object.defineProperty(scIssue, 'status', {
+    get() { throw new Error('status access boom'); },
+    enumerable: true,
+    configurable: true
+  });
+
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([scIssue])
+  });
+
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'java:S100',
+      component: 'proj:src/Main.java',
+      line: 5,
+      status: 'CONFIRMED',
+      assignee: 'user1',
+      comments: [],
+      tags: ['bug']
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
+  t.is(stats.matched, 1);
+  t.is(stats.failed, 1);
+  t.is(stats.transitioned, 0);
+});
+
+// ============================================================================
+// Branch coverage: hotspot-sync.js - comment fallback fields (line 83)
+// ============================================================================
+
+test('syncHotspots comment uses unknown for missing login and empty for missing createdAt', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'TO_REVIEW',
+      comments: [
+        { markdown: 'some text' } // missing login and createdAt
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.commented, 1);
+  const commentText = client.addHotspotComment.firstCall.args[1];
+  t.true(commentText.includes('unknown'));
+});
+
+test('syncHotspots comment falls back to empty when no markdown or htmlText', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'TO_REVIEW',
+      comments: [
+        { login: 'alice', createdAt: '2024-01-01' } // no markdown and no htmlText
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.commented, 1);
+});
+
+// ============================================================================
+// Branch coverage: hotspot-sync.js - buildHotspotMatchKey fallbacks (lines 111, 113)
+// ============================================================================
+
+test('syncHotspots skips hotspot when all ruleKey fallbacks are empty', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
+    ])
+  });
+  // SQ hotspot also has no ruleKey, no rule, no securityCategory
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'REVIEWED',
+      resolution: 'SAFE'
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.matched, 0);
+});
+
+test('syncHotspots skips hotspot when component is missing but ruleKey exists', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', line: 10, status: 'TO_REVIEW' } // no component
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      line: 10,
+      status: 'REVIEWED',
+      resolution: 'SAFE'
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  // Both have no component, so buildHotspotMatchKey returns null for both
+  t.is(stats.matched, 0);
+});
+
+test('syncHotspots uses line 0 when neither line nor textRange exists', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      status: 'REVIEWED',
+      resolution: 'SAFE'
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  // Both should match on line 0
+  t.is(stats.matched, 1);
+});
+
+// ============================================================================
+// Branch coverage: issue-sync.js - comment fallback fields (line 104)
+// ============================================================================
+
+test('syncIssues comment uses unknown for missing login and empty for missing createdAt', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ])
+  });
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'js:S1001',
+      component: 'proj:src/a.js',
+      line: 10,
+      status: 'OPEN',
+      comments: [
+        { markdown: 'some text' } // missing login and createdAt
+      ]
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
+  t.is(stats.commented, 1);
+  const commentText = client.addIssueComment.firstCall.args[1];
+  t.true(commentText.includes('unknown'));
+});
+
+test('syncIssues comment falls back to empty when no markdown or htmlText', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ])
+  });
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'js:S1001',
+      component: 'proj:src/a.js',
+      line: 10,
+      status: 'OPEN',
+      comments: [
+        { login: 'alice', createdAt: '2024-01-01' } // no markdown and no htmlText
+      ]
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
+  t.is(stats.commented, 1);
+});
+
+// ============================================================================
+// Branch coverage: issue-sync.js - buildMatchKey line 0 fallback (line 145)
+// ============================================================================
+
+test('syncIssues uses line 0 when neither line nor textRange exists', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', status: 'OPEN' }
+    ])
+  });
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'js:S1001',
+      component: 'proj:src/a.js',
+      status: 'CONFIRMED'
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
+  // Both have no line/textRange, so they should match on line 0
+  t.is(stats.matched, 1);
+});
+
+// ============================================================================
+// Branch coverage: quality-profiles.js - missing groups/users in permissions (lines 132, 144)
+// ============================================================================
+
+test('migrateQualityProfiles handles missing groups in permissions', async t => {
+  const client = mockClient();
+  const profiles = [
+    {
+      key: 'p1',
+      name: 'Custom JS',
+      language: 'js',
+      isBuiltIn: false,
+      isDefault: false,
+      parentKey: null,
+      backupXml: '<xml/>',
+      permissions: { users: [{ login: 'alice', selected: true }] } // no groups field
+    }
+  ];
+
+  const result = await migrateQualityProfiles(profiles, client);
+
+  t.is(result.profileMapping.size, 1);
+  // Group permissions should be skipped gracefully
+  t.is(client.addQualityProfileGroupPermission.callCount, 0);
+  t.is(client.addQualityProfileUserPermission.callCount, 1);
+});
+
+test('migrateQualityProfiles handles missing users in permissions', async t => {
+  const client = mockClient();
+  const profiles = [
+    {
+      key: 'p1',
+      name: 'Custom JS',
+      language: 'js',
+      isBuiltIn: false,
+      isDefault: false,
+      parentKey: null,
+      backupXml: '<xml/>',
+      permissions: { groups: [{ name: 'devs', selected: true }] } // no users field
+    }
+  ];
+
+  const result = await migrateQualityProfiles(profiles, client);
+
+  t.is(result.profileMapping.size, 1);
+  t.is(client.addQualityProfileGroupPermission.callCount, 1);
+  // User permissions should be skipped gracefully
+  t.is(client.addQualityProfileUserPermission.callCount, 0);
+});
+
+// ============================================================================
+// Branch coverage: quality-profile-diff.js - rule key fallbacks (lines 92, 98, 144-146)
+// ============================================================================
+
+test('generateQualityProfileDiff builds rule key from repo:params when key is missing (SQ side)', async t => {
+  const scClient = mockClient({
+    searchQualityProfiles: sinon.stub().resolves([
+      { key: 'sc-p1', name: 'Custom JS', language: 'js' }
+    ]),
+    getActiveRules: sinon.stub().resolves([
+      { key: 'js:S1001', name: 'Rule 1', type: 'BUG', severity: 'MAJOR' }
+    ])
+  });
+  const sqClient = {
+    getActiveRules: sinon.stub().resolves([
+      // Rule without key field - should fall back to repo:params[0].key
+      { repo: 'js', params: [{ key: 'S1001' }], name: 'Rule 1', type: 'BUG', severity: 'MAJOR' }
+    ])
+  };
+
+  const extractedProfiles = [
+    { key: 'sq-p1', name: 'Custom JS', language: 'js' }
+  ];
+
+  const report = await generateQualityProfileDiff(extractedProfiles, sqClient, scClient);
+
+  t.is(report.summary.languagesCompared, 1);
+  // The SQ rule key "js:S1001" matches the SC rule key "js:S1001"
+  t.is(report.summary.totalMissingRules, 0);
+  t.is(report.summary.totalAddedRules, 0);
+});
+
+test('generateQualityProfileDiff builds SC rule key from repo:name when key is missing', async t => {
+  const scClient = mockClient({
+    searchQualityProfiles: sinon.stub().resolves([
+      { key: 'sc-p1', name: 'Custom JS', language: 'js' }
+    ]),
+    getActiveRules: sinon.stub().resolves([
+      // SC rule without key field - falls back to repo:name
+      { repo: 'js', name: 'S1001' }
+    ])
+  });
+  const sqClient = {
+    getActiveRules: sinon.stub().resolves([
+      { key: 'js:S1001', name: 'Rule 1' }
+    ])
+  };
+
+  const extractedProfiles = [
+    { key: 'sq-p1', name: 'Custom JS', language: 'js' }
+  ];
+
+  const report = await generateQualityProfileDiff(extractedProfiles, sqClient, scClient);
+
+  t.is(report.summary.languagesCompared, 1);
+  t.is(report.summary.totalMissingRules, 0);
+  t.is(report.summary.totalAddedRules, 0);
+});
+
+test('generateQualityProfileDiff uses SQ repo:name fallback when params is empty', async t => {
+  const scClient = mockClient({
+    searchQualityProfiles: sinon.stub().resolves([
+      { key: 'sc-p1', name: 'Custom JS', language: 'js' }
+    ]),
+    getActiveRules: sinon.stub().resolves([])
+  });
+  const sqClient = {
+    getActiveRules: sinon.stub().resolves([
+      // Rule without key and with empty params - falls back to repo:rule.name via params?.[0]?.key || rule.name
+      { repo: 'js', name: 'S2000', params: [] }
+    ])
+  };
+
+  const extractedProfiles = [
+    { key: 'sq-p1', name: 'Custom JS', language: 'js' }
+  ];
+
+  const report = await generateQualityProfileDiff(extractedProfiles, sqClient, scClient);
+
+  t.is(report.summary.totalMissingRules, 1);
+  t.is(report.languages.js.missingRules[0].key, 'js:S2000');
+});
+
+test('generateQualityProfileDiff formats rules with missing name/type/severity', async t => {
+  const scClient = mockClient({
+    searchQualityProfiles: sinon.stub().resolves([
+      { key: 'sc-p1', name: 'Custom JS', language: 'js' }
+    ]),
+    getActiveRules: sinon.stub().resolves([
+      { key: 'js:S2000' } // no name, type, severity
+    ])
+  });
+  const sqClient = {
+    getActiveRules: sinon.stub().resolves([])
+  };
+
+  const extractedProfiles = [
+    { key: 'sq-p1', name: 'Custom JS', language: 'js' }
+  ];
+
+  const report = await generateQualityProfileDiff(extractedProfiles, sqClient, scClient);
+
+  t.is(report.summary.totalAddedRules, 1);
+  const addedRule = report.languages.js.addedRules[0];
+  t.is(addedRule.name, '');
+  t.is(addedRule.type, '');
+  t.is(addedRule.severity, '');
+});
+
+// ============================================================================
+// Branch coverage: quality-gates.js - missing permissions.groups (line 61)
+// ============================================================================
+
+test('migrateQualityGates handles missing groups in gate permissions', async t => {
+  const client = mockClient();
+  const gates = [
+    {
+      name: 'Gate1',
+      isBuiltIn: false,
+      isDefault: false,
+      conditions: [],
+      permissions: {} // no groups field
+    }
+  ];
+
+  const result = await migrateQualityGates(gates, client);
+
+  t.is(result.size, 1);
+  t.is(client.addGroupPermission.callCount, 0);
+});
+
+// ============================================================================
+// Branch coverage: permissions.js - missing perm.groups (line 86)
+// ============================================================================
+
+test('migratePermissionTemplates handles missing groups array in permission', async t => {
+  const client = mockClient();
+  const templateData = {
+    templates: [
+      {
+        id: 't1',
+        name: 'Template',
+        description: '',
+        projectKeyPattern: '',
+        permissions: [
+          { key: 'admin', groupsCount: 1 } // no groups field
+        ]
+      }
+    ],
+    defaultTemplates: []
+  };
+
+  await migratePermissionTemplates(templateData, client);
+
+  t.is(client.addGroupToTemplate.callCount, 0);
+});
+
+// ============================================================================
+// Branch coverage: project-config.js - branchOverrides null in unsupported types message (line 106)
+// ============================================================================
+
+test('migrateNewCodePeriods handles null branchOverrides in unsupported type message', async t => {
+  const client = mockClient();
+  const newCodeData = {
+    projectLevel: { type: 'REFERENCE_BRANCH', settings: null },
+    branchOverrides: null
+  };
+
+  const result = await migrateNewCodePeriods('proj', newCodeData, client);
+
+  t.truthy(result.skipped);
+  t.true(result.detail.includes('unsupported type'));
+  t.is(client.setProjectSetting.callCount, 0);
+});
+
+test('migrateNewCodePeriods handles missing projectLevel type in unsupported message', async t => {
+  const client = mockClient();
+  const newCodeData = {
+    projectLevel: null,
+    branchOverrides: [
+      { branchKey: 'feat', type: 'SPECIFIC_ANALYSIS', settings: null }
+    ]
+  };
+
+  const result = await migrateNewCodePeriods('proj', newCodeData, client);
+
+  t.truthy(result.skipped);
+  t.true(result.detail.includes('SPECIFIC_ANALYSIS'));
+});

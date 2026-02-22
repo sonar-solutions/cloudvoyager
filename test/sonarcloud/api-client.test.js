@@ -68,6 +68,27 @@ test('handleError throws SonarCloudAPIError for other status', t => {
   t.is(thrown.statusCode, 500);
 });
 
+test('handleError uses data.message fallback when no errors array', t => {
+  const client = createClient();
+  const err = { response: { status: 500, data: { message: 'Server error message' }, config: { url: '/api' } } };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
+  t.true(thrown.message.includes('Server error message'));
+});
+
+test('handleError uses error.message fallback when no data.errors and no data.message', t => {
+  const client = createClient();
+  const err = { response: { status: 500, data: {}, config: { url: '/api' } }, message: 'Axios error msg' };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
+  t.true(thrown.message.includes('Axios error msg'));
+});
+
+test('handleError uses AuthenticationError with fallback message when no errors array on 401', t => {
+  const client = createClient();
+  const err = { response: { status: 401, data: {}, config: { url: '/api' } } };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: AuthenticationError });
+  t.true(thrown.message.includes('Invalid credentials'));
+});
+
 test('handleError handles ECONNREFUSED', t => {
   const client = createClient();
   const err = { request: {}, code: 'ECONNREFUSED', message: 'refused', config: { url: '/api' } };
@@ -92,6 +113,30 @@ test('handleError handles unknown connection error', t => {
   t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
 });
 
+test('handleError falls back to error.config.baseURL when this.baseURL is empty', t => {
+  const client = createClient();
+  client.baseURL = '';
+  const err = { request: {}, code: 'ECONNREFUSED', message: 'refused', config: { baseURL: 'https://fallback.io', url: '/api' } };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
+  t.true(thrown.message.includes('https://fallback.io'));
+});
+
+test('handleError falls back to unknown when both baseURL and config.baseURL are missing', t => {
+  const client = createClient();
+  client.baseURL = '';
+  const err = { request: {}, code: 'ECONNREFUSED', message: 'refused', config: { url: '/api' } };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
+  t.true(thrown.message.includes('unknown'));
+});
+
+test('handleError uses UNKNOWN when error.code is missing', t => {
+  const client = createClient();
+  const err = { request: {}, message: 'some network error', config: { url: '/api' } };
+  const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
+  t.true(thrown.message.includes('some network error'));
+  t.true(thrown.message.includes('UNKNOWN'));
+});
+
 test('handleError handles generic error', t => {
   const client = createClient();
   const err = { message: 'generic' };
@@ -104,6 +149,12 @@ test('testConnection returns true on success', async t => {
   mockGet(client, { data: { organizations: [{ key: 'test-org' }] } });
   const result = await client.testConnection();
   t.true(result);
+});
+
+test('testConnection handles missing organizations field in response', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  await t.throwsAsync(() => client.testConnection(), { instanceOf: SonarCloudAPIError, message: /Organization not found/ });
 });
 
 test('testConnection throws when org not found', async t => {
@@ -125,6 +176,12 @@ test('projectExists returns true when project found', async t => {
   t.true(await client.projectExists());
 });
 
+test('projectExists returns false when components field is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  t.false(await client.projectExists());
+});
+
 test('projectExists returns false when not found', async t => {
   const client = createClient();
   mockGet(client, { data: { components: [] } });
@@ -144,6 +201,14 @@ test('isProjectKeyTakenGlobally returns taken when found', async t => {
   const result = await client.isProjectKeyTakenGlobally('proj-key');
   t.true(result.taken);
   t.is(result.owner, 'other-org');
+});
+
+test('isProjectKeyTakenGlobally returns unknown owner when organization is missing from component', async t => {
+  const client = createClient();
+  mockGet(client, { data: { component: {} } });
+  const result = await client.isProjectKeyTakenGlobally('proj-key');
+  t.true(result.taken);
+  t.is(result.owner, 'unknown');
 });
 
 test('isProjectKeyTakenGlobally returns not taken on 404', async t => {
@@ -180,12 +245,38 @@ test('ensureProject creates when not exists', async t => {
   t.true(postStub.called);
 });
 
+test('ensureProject uses projectKey as display name when projectName is null', async t => {
+  const client = createClient();
+  mockGet(client, { data: { components: [] } });
+  const postStub = mockPost(client, { data: {} });
+  await client.ensureProject(null);
+  t.true(postStub.called);
+  // The params should contain the projectKey as the name
+  t.is(postStub.firstCall.args[2].params.name, 'test-project');
+});
+
+test('ensureProject uses projectKey as display name when no projectName argument', async t => {
+  const client = createClient();
+  mockGet(client, { data: { components: [] } });
+  const postStub = mockPost(client, { data: {} });
+  await client.ensureProject();
+  t.true(postStub.called);
+  t.is(postStub.firstCall.args[2].params.name, 'test-project');
+});
+
 // getQualityProfiles
 test('getQualityProfiles returns profiles', async t => {
   const client = createClient();
   mockGet(client, { data: { profiles: [{ key: 'p1' }] } });
   const result = await client.getQualityProfiles();
   t.is(result.length, 1);
+});
+
+test('getQualityProfiles returns empty array when profiles field is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  const result = await client.getQualityProfiles();
+  t.deepEqual(result, []);
 });
 
 test('getQualityProfiles returns empty on error', async t => {
@@ -201,6 +292,20 @@ test('getMainBranchName returns main branch', async t => {
   mockGet(client, { data: { branches: [{ name: 'main', isMain: true }] } });
   const result = await client.getMainBranchName();
   t.is(result, 'main');
+});
+
+test('getMainBranchName defaults to master when branches field is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  const result = await client.getMainBranchName();
+  t.is(result, 'master');
+});
+
+test('getMainBranchName defaults to master when no main branch found', async t => {
+  const client = createClient();
+  mockGet(client, { data: { branches: [{ name: 'develop', isMain: false }] } });
+  const result = await client.getMainBranchName();
+  t.is(result, 'master');
 });
 
 test('getMainBranchName defaults to master', async t => {
@@ -346,6 +451,13 @@ test('searchQualityProfiles without language', async t => {
   t.falsy(stub.firstCall.args[1].params.language);
 });
 
+test('searchQualityProfiles returns empty array when profiles field is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  const result = await client.searchQualityProfiles();
+  t.deepEqual(result, []);
+});
+
 test('getActiveRules paginates', async t => {
   const client = createClient();
   const stub = sinon.stub(client.client, 'get');
@@ -353,6 +465,23 @@ test('getActiveRules paginates', async t => {
   stub.onSecondCall().resolves({ data: { rules: new Array(50).fill({ key: 'r' }), total: 150 } });
   const result = await client.getActiveRules('pk');
   t.is(result.length, 150);
+});
+
+test('getActiveRules handles missing rules and total fields', async t => {
+  const client = createClient();
+  const stub = sinon.stub(client.client, 'get');
+  stub.onFirstCall().resolves({ data: {} });
+  const result = await client.getActiveRules('pk');
+  t.deepEqual(result, []);
+});
+
+test('getActiveRules stops when rules.length < pageSize on first page', async t => {
+  const client = createClient();
+  const stub = sinon.stub(client.client, 'get');
+  stub.onFirstCall().resolves({ data: { rules: [{ key: 'r1' }], total: 1 } });
+  const result = await client.getActiveRules('pk');
+  t.is(result.length, 1);
+  t.is(stub.callCount, 1);
 });
 
 test('addQualityProfileToProject calls post', async t => {
@@ -430,6 +559,20 @@ test('assignIssue calls post', async t => {
   t.true(stub.called);
 });
 
+test('assignIssue with null assignee for unassignment', async t => {
+  const client = createClient();
+  const stub = mockPost(client);
+  await client.assignIssue('ISSUE-1', null);
+  t.true(stub.called);
+});
+
+test('assignIssue with empty string assignee for unassignment', async t => {
+  const client = createClient();
+  const stub = mockPost(client);
+  await client.assignIssue('ISSUE-1', '');
+  t.true(stub.called);
+});
+
 test('addIssueComment calls post', async t => {
   const client = createClient();
   const stub = mockPost(client);
@@ -442,6 +585,20 @@ test('setIssueTags calls post', async t => {
   const stub = mockPost(client);
   await client.setIssueTags('ISSUE-1', ['tag1', 'tag2']);
   t.true(stub.called);
+});
+
+test('searchIssues returns empty when issues and paging fields are missing', async t => {
+  const client = createClient();
+  sinon.stub(client.client, 'get').resolves({ data: {} });
+  const result = await client.searchIssues('proj');
+  t.deepEqual(result, []);
+});
+
+test('searchIssues handles missing paging.total', async t => {
+  const client = createClient();
+  sinon.stub(client.client, 'get').resolves({ data: { issues: [{ key: 'I1' }], paging: {} } });
+  const result = await client.searchIssues('proj');
+  t.is(result.length, 1);
 });
 
 test('searchIssues paginates single page', async t => {
@@ -484,6 +641,27 @@ test('changeHotspotStatus without resolution', async t => {
   const stub = mockPost(client);
   await client.changeHotspotStatus('H1', 'ACKNOWLEDGED');
   t.true(stub.called);
+});
+
+test('searchHotspots returns empty when hotspots and paging fields are missing', async t => {
+  const client = createClient();
+  sinon.stub(client.client, 'get').resolves({ data: {} });
+  const result = await client.searchHotspots('proj');
+  t.deepEqual(result, []);
+});
+
+test('searchHotspots handles missing paging.total', async t => {
+  const client = createClient();
+  sinon.stub(client.client, 'get').resolves({ data: { hotspots: [{ key: 'H1' }], paging: {} } });
+  const result = await client.searchHotspots('proj');
+  t.is(result.length, 1);
+});
+
+test('searchHotspots handles missing paging object entirely', async t => {
+  const client = createClient();
+  sinon.stub(client.client, 'get').resolves({ data: { hotspots: [{ key: 'H1' }] } });
+  const result = await client.searchHotspots('proj');
+  t.is(result.length, 1);
 });
 
 test('searchHotspots paginates single page', async t => {
@@ -648,4 +826,26 @@ test('response interceptor calls handleError for non-retry errors', async t => {
   };
 
   await t.throwsAsync(() => handler.rejected(error));
+});
+
+// --- getMostRecentCeTask ---
+test('getMostRecentCeTask returns first task when tasks exist', async t => {
+  const client = createClient();
+  mockGet(client, { data: { tasks: [{ id: 'task-1', status: 'SUCCESS' }, { id: 'task-2', status: 'PENDING' }] } });
+  const result = await client.getMostRecentCeTask();
+  t.deepEqual(result, { id: 'task-1', status: 'SUCCESS' });
+});
+
+test('getMostRecentCeTask returns null when tasks array is empty', async t => {
+  const client = createClient();
+  mockGet(client, { data: { tasks: [] } });
+  const result = await client.getMostRecentCeTask();
+  t.is(result, null);
+});
+
+test('getMostRecentCeTask returns null when tasks field is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+  const result = await client.getMostRecentCeTask();
+  t.is(result, null);
 });
