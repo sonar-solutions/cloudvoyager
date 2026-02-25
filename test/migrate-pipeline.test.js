@@ -370,7 +370,7 @@ test.serial('migrateAll applies CSV overrides filtering quality gates', async t 
   // Create mappings directory with a gate CSV that excludes Gate B
   const mappingsDir = join(outputDir, 'mappings');
   await mkdir(mappingsDir, { recursive: true });
-  const gateCsv = 'Include,Gate Name,Condition Metric,Condition Operator,Condition Threshold\nyes,Gate A,,,\nyes,Gate A,coverage,LT,80\nno,Gate B,,,\n';
+  const gateCsv = 'Include,Gate Name\nyes,Gate A\nno,Gate B\n';
   await writeFile(join(mappingsDir, 'gate-mappings.csv'), gateCsv, 'utf-8');
 
   const opts = baseMigrateOptions(outputDir);

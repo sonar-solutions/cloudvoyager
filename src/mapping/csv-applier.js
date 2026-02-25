@@ -65,63 +65,23 @@ function applyProjectsCsv(csvData, orgAssignments) {
 }
 
 /**
- * Filter quality gates and rebuild conditions from CSV (supports threshold/operator edits).
+ * Filter quality gates by Include column. Conditions are always preserved as-is from SonarQube.
  */
 function applyGateMappingsCsv(csvData, qualityGates) {
   if (!qualityGates) return qualityGates;
 
-  // Group CSV rows by gate name
-  const gateRows = new Map();
+  const excludedNames = new Set();
   for (const row of csvData.rows) {
-    const name = row['Gate Name'];
-    if (!gateRows.has(name)) gateRows.set(name, []);
-    gateRows.get(name).push(row);
-  }
-
-  const result = [];
-  let excludedCount = 0;
-  let conditionChanges = 0;
-
-  for (const gate of qualityGates) {
-    const rows = gateRows.get(gate.name);
-    if (!rows) {
-      // Gate not in CSV — keep as-is
-      result.push(gate);
-      continue;
-    }
-
-    // Find header row (Condition Metric is empty)
-    const headerRow = rows.find(r => !r['Condition Metric']);
-    if (headerRow && !isIncluded(headerRow['Include'])) {
-      excludedCount++;
-      continue;
-    }
-
-    // Rebuild conditions from included condition rows
-    const conditionRows = rows.filter(r => r['Condition Metric']);
-    const newConditions = [];
-    for (const cr of conditionRows) {
-      if (!isIncluded(cr['Include'])) {
-        conditionChanges++;
-        continue;
-      }
-      newConditions.push({
-        metric: cr['Condition Metric'],
-        op: cr['Condition Operator'],
-        error: cr['Condition Threshold']
-      });
-    }
-
-    result.push({ ...gate, conditions: newConditions });
-    if (newConditions.length !== (gate.conditions?.length || 0)) {
-      conditionChanges++;
+    if (!isIncluded(row['Include'])) {
+      excludedNames.add(row['Gate Name']);
     }
   }
 
-  if (excludedCount > 0) logger.info(`CSV override: excluded ${excludedCount} quality gate(s)`);
-  if (conditionChanges > 0) logger.info('CSV override: modified conditions in quality gate(s)');
+  if (excludedNames.size === 0) return qualityGates;
 
-  return result;
+  logger.info(`CSV override: excluded ${excludedNames.size} quality gate(s): ${[...excludedNames].join(', ')}`);
+
+  return qualityGates.filter(g => !excludedNames.has(g.name));
 }
 
 /**

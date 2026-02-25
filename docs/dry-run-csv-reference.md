@@ -15,7 +15,7 @@ The `--dry-run` flag generates 8 exhaustive CSV files in `migration-output/mappi
    -> Prints summary + instructions
    -> Stops (no SonarCloud changes)
 
-2. Review and edit CSVs (set Include=no, change thresholds, etc.)
+2. Review and edit CSVs (set Include=no to exclude resources)
 
 3. cloudvoyager migrate -c config.json
    -> Detects existing CSVs, reads them into memory BEFORE wiping output dir
@@ -91,33 +91,28 @@ One row per quality profile.
 | Active Rules | Read-only | Number of active rules |
 | Target Organization | Read-only | Target SonarCloud organization |
 
-### gate-mappings.csv (Parent/Child Pattern)
+### gate-mappings.csv
 
-Uses a **parent/child row pattern**. Gate header rows have empty condition fields; condition rows have the condition details filled in.
+One row per quality gate. Conditions are always migrated as-is from SonarQube — they cannot be modified via the CSV.
 
 | Column | Editable | Description |
 |--------|----------|-------------|
-| Include | Yes | Exclude entire gate (header row) or individual condition |
+| Include | Yes | Set to `no` to exclude this gate from migration |
 | Gate Name | Read-only | Quality gate name |
-| Is Default | Read-only | *(header row only)* Whether this is the default gate |
-| Is Built-In | Read-only | *(header row only)* Whether this is a built-in gate |
-| Condition Metric | Read-only | *(condition row)* Metric key (e.g., `new_coverage`) |
-| Condition Operator | **Yes** | *(condition row)* Comparison operator (`GT`, `LT`) |
-| Condition Threshold | **Yes** | *(condition row)* Threshold value (e.g., `80`) |
+| Is Default | Read-only | Whether this is the default gate |
+| Is Built-In | Read-only | Whether this is a built-in gate |
+| Conditions Count | Read-only | Number of conditions on this gate |
 | Target Organization | Read-only | Target SonarCloud organization |
 
 **Example:**
 ```csv
-Include,Gate Name,Is Default,Is Built-In,Condition Metric,Condition Operator,Condition Threshold,Target Organization
-yes,Sonar way,true,true,,,,my-org
-yes,Sonar way,,,new_reliability_rating,GT,1,my-org
-yes,Sonar way,,,new_security_rating,GT,1,my-org
-yes,Custom Gate,false,false,,,,my-org
-yes,Custom Gate,,,coverage,LT,80,my-org
-no,Custom Gate,,,duplicated_lines_density,GT,3,my-org
+Include,Gate Name,Is Default,Is Built-In,Conditions Count,Target Organization
+yes,Sonar way,true,true,2,my-org
+yes,Custom Gate,false,false,3,my-org
+no,Old Gate,false,false,1,my-org
 ```
 
-In this example, the `duplicated_lines_density` condition is excluded from the Custom Gate.
+In this example, `Old Gate` is excluded from migration. `Sonar way` and `Custom Gate` will be migrated with all their original conditions intact.
 
 ### portfolio-mappings.csv (Parent/Child Pattern)
 
@@ -163,14 +158,8 @@ One row per group+permission combination.
 ### Exclude a project from migration
 In `projects.csv`, set `Include` to `no` for the project row.
 
-### Exclude an entire quality gate
-In `gate-mappings.csv`, set `Include` to `no` on the gate's **header row** (the row with empty Condition Metric). All its conditions will be excluded automatically.
-
-### Exclude a single gate condition
-In `gate-mappings.csv`, set `Include` to `no` on the specific **condition row** only.
-
-### Change a gate condition threshold
-In `gate-mappings.csv`, edit the `Condition Threshold` value on the condition row. For example, change coverage threshold from `80` to `90`.
+### Exclude a quality gate
+In `gate-mappings.csv`, set `Include` to `no` for the gate row. All its conditions will be excluded along with it.
 
 ### Exclude a group
 In `group-mappings.csv`, set `Include` to `no` for the group row.

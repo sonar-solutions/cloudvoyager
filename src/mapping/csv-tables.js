@@ -42,18 +42,11 @@ export function generateProfileMappingsCsv(data) {
 
 export function generateGateMappingsCsv(data) {
   const { resourceMappings } = data;
-  const rows = [toCsvRow(['Include', 'Gate Name', 'Is Default', 'Is Built-In', 'Condition Metric', 'Condition Operator', 'Condition Threshold', 'Target Organization'])];
+  const rows = [toCsvRow(['Include', 'Gate Name', 'Is Default', 'Is Built-In', 'Conditions Count', 'Target Organization'])];
   if (resourceMappings?.gatesByOrg) {
     for (const [orgKey, gates] of resourceMappings.gatesByOrg) {
       for (const gate of gates) {
-        // Gate header row (empty condition fields)
-        rows.push(toCsvRow(['yes', gate.name, gate.isDefault, gate.isBuiltIn, '', '', '', orgKey]));
-        // One row per condition
-        if (gate.conditions) {
-          for (const condition of gate.conditions) {
-            rows.push(toCsvRow(['yes', gate.name, '', '', condition.metric, condition.op, condition.error, orgKey]));
-          }
-        }
+        rows.push(toCsvRow(['yes', gate.name, gate.isDefault, gate.isBuiltIn, gate.conditions?.length || 0, orgKey]));
       }
     }
   }

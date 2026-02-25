@@ -110,10 +110,10 @@ The `--dry-run` flag generates 8 exhaustive CSV files covering projects, organiz
 
 **Pipeline integration:**
 1. `migrate --dry-run` extracts data from SonarQube, generates CSVs, then stops
-2. User reviews/edits CSVs (set `Include=no`, change gate thresholds, remove permissions)
+2. User reviews/edits CSVs (set `Include=no` to exclude resources from migration)
 3. `migrate` (without `--dry-run`) detects existing CSVs, reads them into memory **before** wiping the output directory, re-extracts from SonarQube, then applies CSV overrides via `applyCsvOverrides()` which returns filtered copies using `structuredClone`
 
-Quality gate CSVs use a parent/child row pattern — gate header rows (empty condition fields) control entire gates, while condition rows allow per-condition exclusion and threshold/operator editing. Portfolio and permission template CSVs use the same pattern for their member/permission rows.
+Quality gate CSVs use a flat one-row-per-gate pattern — users can include or exclude entire gates, but conditions are always migrated as-is from SonarQube. Portfolio and permission template CSVs use a parent/child pattern for their member/permission rows.
 
 See [dry-run-csv-reference.md](dry-run-csv-reference.md) for full CSV schema documentation.
 

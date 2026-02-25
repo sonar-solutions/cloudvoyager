@@ -562,7 +562,7 @@ test('generateMappingCsvs: gate-mappings.csv contains gates', async t => {
   const { readFile, rm } = await import('node:fs/promises');
   const content = await readFile(`${tmpDir}/gate-mappings.csv`, 'utf-8');
 
-  t.true(content.includes('Include,Gate Name,Is Default,Is Built-In,Condition Metric,Condition Operator,Condition Threshold,Target Organization'));
+  t.true(content.includes('Include,Gate Name,Is Default,Is Built-In,Conditions Count,Target Organization'));
   t.true(content.includes('Sonar way'));
 
   await rm(tmpDir, { recursive: true, force: true });
@@ -1070,14 +1070,10 @@ test('applyCsvOverrides: projects.csv filters out excluded projects', t => {
 test('applyCsvOverrides: gate-mappings.csv excludes entire gates', t => {
   const parsedCsvs = new Map([
     ['gate-mappings.csv', {
-      headers: ['Include', 'Gate Name', 'Condition Metric', 'Condition Operator', 'Condition Threshold'],
+      headers: ['Include', 'Gate Name'],
       rows: [
-        // Header row for KeepGate (include, no Condition Metric)
-        { Include: 'yes', 'Gate Name': 'KeepGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' },
-        { Include: 'yes', 'Gate Name': 'KeepGate', 'Condition Metric': 'coverage', 'Condition Operator': 'LT', 'Condition Threshold': '80' },
-        // Header row for DropGate (excluded)
-        { Include: 'no', 'Gate Name': 'DropGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' },
-        { Include: 'yes', 'Gate Name': 'DropGate', 'Condition Metric': 'bugs', 'Condition Operator': 'GT', 'Condition Threshold': '0' }
+        { Include: 'yes', 'Gate Name': 'KeepGate' },
+        { Include: 'no', 'Gate Name': 'DropGate' }
       ]
     }]
   ]);
@@ -1101,17 +1097,12 @@ test('applyCsvOverrides: gate-mappings.csv excludes entire gates', t => {
   t.is(result.filteredExtractedData.qualityGates[0].name, 'KeepGate');
 });
 
-test('applyCsvOverrides: gate-mappings.csv modifies gate conditions', t => {
+test('applyCsvOverrides: gate-mappings.csv preserves conditions as-is from extracted data', t => {
   const parsedCsvs = new Map([
     ['gate-mappings.csv', {
-      headers: ['Include', 'Gate Name', 'Condition Metric', 'Condition Operator', 'Condition Threshold'],
+      headers: ['Include', 'Gate Name'],
       rows: [
-        // Header row for gate
-        { Include: 'yes', 'Gate Name': 'MyGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' },
-        // Keep coverage condition
-        { Include: 'yes', 'Gate Name': 'MyGate', 'Condition Metric': 'coverage', 'Condition Operator': 'LT', 'Condition Threshold': '90' },
-        // Exclude bugs condition
-        { Include: 'no', 'Gate Name': 'MyGate', 'Condition Metric': 'bugs', 'Condition Operator': 'GT', 'Condition Threshold': '0' }
+        { Include: 'yes', 'Gate Name': 'MyGate' }
       ]
     }]
   ]);
@@ -1135,17 +1126,19 @@ test('applyCsvOverrides: gate-mappings.csv modifies gate conditions', t => {
 
   const gate = result.filteredExtractedData.qualityGates[0];
   t.is(gate.name, 'MyGate');
-  t.is(gate.conditions.length, 1);
+  t.is(gate.conditions.length, 2);
   t.is(gate.conditions[0].metric, 'coverage');
-  t.is(gate.conditions[0].error, '90'); // threshold updated from CSV
+  t.is(gate.conditions[0].error, '80'); // preserved from extracted data
+  t.is(gate.conditions[1].metric, 'bugs');
+  t.is(gate.conditions[1].error, '0'); // preserved from extracted data
 });
 
 test('applyCsvOverrides: gate-mappings.csv keeps gates not listed in CSV as-is', t => {
   const parsedCsvs = new Map([
     ['gate-mappings.csv', {
-      headers: ['Include', 'Gate Name', 'Condition Metric', 'Condition Operator', 'Condition Threshold'],
+      headers: ['Include', 'Gate Name'],
       rows: [
-        { Include: 'no', 'Gate Name': 'DropGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' }
+        { Include: 'no', 'Gate Name': 'DropGate' }
       ]
     }]
   ]);
@@ -1173,7 +1166,9 @@ test('applyCsvOverrides: gate-mappings.csv handles null qualityGates', t => {
   const parsedCsvs = new Map([
     ['gate-mappings.csv', {
       headers: ['Include', 'Gate Name'],
-      rows: []
+      rows: [
+        { Include: 'no', 'Gate Name': 'SomeGate' }
+      ]
     }]
   ]);
   const extractedData = {
@@ -1694,9 +1689,9 @@ test('applyCsvOverrides: multiple CSVs applied together', t => {
       ]
     }],
     ['gate-mappings.csv', {
-      headers: ['Include', 'Gate Name', 'Condition Metric', 'Condition Operator', 'Condition Threshold'],
+      headers: ['Include', 'Gate Name'],
       rows: [
-        { Include: 'no', 'Gate Name': 'OldGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' }
+        { Include: 'no', 'Gate Name': 'OldGate' }
       ]
     }]
   ]);
@@ -2334,11 +2329,9 @@ test('generateMappingCsvs: falls to project.key when both meta.name and project.
 test('applyCsvOverrides: gate-mappings.csv handles gate with undefined conditions', t => {
   const parsedCsvs = new Map([
     ['gate-mappings.csv', {
-      headers: ['Include', 'Gate Name', 'Condition Metric', 'Condition Operator', 'Condition Threshold'],
+      headers: ['Include', 'Gate Name'],
       rows: [
-        // Include the gate but with a new condition added via CSV
-        { Include: 'yes', 'Gate Name': 'NoCondGate', 'Condition Metric': '', 'Condition Operator': '', 'Condition Threshold': '' },
-        { Include: 'yes', 'Gate Name': 'NoCondGate', 'Condition Metric': 'coverage', 'Condition Operator': 'LT', 'Condition Threshold': '80' }
+        { Include: 'yes', 'Gate Name': 'NoCondGate' }
       ]
     }]
   ]);
@@ -2357,11 +2350,10 @@ test('applyCsvOverrides: gate-mappings.csv handles gate with undefined condition
 
   const result = applyCsvOverrides(parsedCsvs, extractedData, {}, orgAssignments);
 
-  // Gate should be kept with the new condition from CSV
+  // Gate should be kept as-is (conditions remain undefined)
   t.is(result.filteredExtractedData.qualityGates.length, 1);
   t.is(result.filteredExtractedData.qualityGates[0].name, 'NoCondGate');
-  t.is(result.filteredExtractedData.qualityGates[0].conditions.length, 1);
-  t.is(result.filteredExtractedData.qualityGates[0].conditions[0].metric, 'coverage');
+  t.is(result.filteredExtractedData.qualityGates[0].conditions, undefined);
 });
 
 // ---------------------------------------------------------------------------
