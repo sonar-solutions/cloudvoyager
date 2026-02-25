@@ -75,9 +75,10 @@ export class SonarQubeClient {
     return projects[0];
   }
 
-  async getBranches() {
-    logger.info(`Fetching branches for project: ${this.projectKey}`);
-    const response = await this.client.get('/api/project_branches/list', { params: { project: this.projectKey } });
+  async getBranches(pk = null) {
+    const projectKey = pk || this.projectKey;
+    logger.debug(`Fetching branches for project: ${projectKey}`);
+    const response = await this.client.get('/api/project_branches/list', { params: { project: projectKey } });
     return response.data.branches || [];
   }
 

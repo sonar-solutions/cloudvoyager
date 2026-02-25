@@ -37,15 +37,6 @@ export const configSchema = {
       },
       additionalProperties: false
     },
-    transferAll: {
-      type: 'object',
-      properties: {
-        projectKeyPrefix: { type: 'string', default: '', description: 'Prefix to prepend to SonarQube project keys for SonarCloud' },
-        projectKeyMapping: { type: 'object', additionalProperties: { type: 'string' }, default: {}, description: 'Explicit mapping from SonarQube project key to SonarCloud project key' },
-        excludeProjects: { type: 'array', items: { type: 'string' }, default: [], description: 'SonarQube project keys to exclude from transfer-all' }
-      },
-      additionalProperties: false
-    },
     migrate: {
       type: 'object',
       properties: {

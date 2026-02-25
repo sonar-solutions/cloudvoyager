@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 
-import { registerTransferAllCommand } from '../../src/commands/transfer-all.js';
 import { registerTransferCommand } from '../../src/commands/transfer.js';
 import { registerMigrateCommand, VALID_ONLY_COMPONENTS } from '../../src/commands/migrate.js';
 import { registerSyncMetadataCommand } from '../../src/commands/sync-metadata.js';
@@ -31,23 +30,6 @@ import logger from '../../src/utils/logger.js';
  */
 function makeTmpDir() {
   return join(tmpdir(), `cv-cmd-test-${randomUUID()}`);
-}
-
-/**
- * Write a transfer-all compatible config file to disk and return its path.
- */
-async function writeTransferAllConfig(dir, overrides = {}) {
-  await mkdir(dir, { recursive: true });
-  const configPath = join(dir, 'config.json');
-  const config = {
-    sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
-    sonarcloud: { url: 'https://sonarcloud.io', token: 'sc-token', organization: 'test-org' },
-    transfer: { mode: 'full', stateFile: join(dir, '.state.json'), batchSize: 100 },
-    transferAll: { projectKeyPrefix: '', excludeProjects: [], projectKeyMapping: {} },
-    ...overrides
-  };
-  await writeFile(configPath, JSON.stringify(config));
-  return configPath;
 }
 
 /**
@@ -214,7 +196,7 @@ function createProgram() {
 }
 
 // ---------------------------------------------------------------------------
-// transfer-all.js tests
+// Shared setup/teardown for serial tests
 // ---------------------------------------------------------------------------
 
 test.serial.beforeEach(async t => {
@@ -239,267 +221,6 @@ test.serial.afterEach.always(async t => {
     process.env.CLOUDVOYAGER_RESPAWNED = t.context.originalRespawned;
   }
   await rm(t.context.tmpDir, { recursive: true, force: true }).catch(() => {});
-});
-
-// ===== transfer-all.js =====
-
-test.serial('registerTransferAllCommand registers the transfer-all command', t => {
-  const program = createProgram();
-  registerTransferAllCommand(program);
-  const cmd = program.commands.find(c => c.name() === 'transfer-all');
-  t.truthy(cmd, 'transfer-all command should be registered');
-  t.is(cmd.name(), 'transfer-all');
-});
-
-test.serial('transfer-all: has all expected options', t => {
-  const program = createProgram();
-  registerTransferAllCommand(program);
-  const cmd = program.commands.find(c => c.name() === 'transfer-all');
-  const optionNames = cmd.options.map(o => o.long);
-  t.true(optionNames.includes('--config'));
-  t.true(optionNames.includes('--verbose'));
-  t.true(optionNames.includes('--wait'));
-  t.true(optionNames.includes('--dry-run'));
-  t.true(optionNames.includes('--concurrency'));
-  t.true(optionNames.includes('--max-memory'));
-  t.true(optionNames.includes('--project-concurrency'));
-  t.true(optionNames.includes('--auto-tune'));
-  t.true(optionNames.includes('--skip-all-branch-sync'));
-});
-
-test.serial('transfer-all: successful transfer of discovered projects', async t => {
-  const { tmpDir, stubs } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(stubs.sqTestConnection.called, 'should test SonarQube connection');
-  t.true(stubs.scTestConnection.called, 'should test SonarCloud connection');
-  t.true(stubs.sqListAllProjects.called, 'should list all projects');
-  // transferProject is called for each project -- we verify via extractAll calls
-  t.true(stubs.extractAll.called, 'should call extractAll for project transfers');
-  // With 2 projects found, exit should not be called (all succeed)
-  t.false(t.context.exitStub.calledWith(1), 'should not exit(1) on full success');
-});
-
-test.serial('transfer-all: dry run lists projects without transferring', async t => {
-  const { tmpDir, stubs } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--dry-run']);
-
-  t.true(stubs.sqListAllProjects.called, 'should discover projects');
-  t.false(stubs.extractAll.called, 'should NOT run the transfer pipeline');
-});
-
-test.serial('transfer-all: no projects logs warning and returns early', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([]);
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.false(stubs.extractAll.called, 'should not attempt transfer');
-  t.false(t.context.exitStub.called, 'should not call exit');
-});
-
-test.serial('transfer-all: handles CloudVoyagerError', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqTestConnection.rejects(new CloudVoyagerError('Auth failed'));
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) on CloudVoyagerError');
-});
-
-test.serial('transfer-all: handles unexpected error', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqTestConnection.rejects(new Error('Network failure'));
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) on unexpected error');
-});
-
-test.serial('transfer-all: failed transfers cause exit(1)', async t => {
-  const { tmpDir, stubs } = t.context;
-  // Make extractAll fail to simulate transfer failure
-  stubs.extractAll.rejects(new Error('Extraction failed'));
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) when transfers fail');
-});
-
-test.serial('transfer-all: excludeProjects filters out specified project keys', async t => {
-  const { tmpDir, stubs } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transferAll: { projectKeyPrefix: '', excludeProjects: ['proj2'], projectKeyMapping: {} }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  // extractAll should be called only once (proj1 only, proj2 excluded)
-  // It is called once per branch per project; we have 1 project with 1 branch
-  t.true(stubs.extractAll.callCount >= 1, 'should transfer at least one project');
-  t.true(stubs.sqListAllProjects.called, 'should discover all projects first');
-});
-
-test.serial('transfer-all: projectKeyMapping maps SQ keys to SC keys', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([{ key: 'sq-proj', name: 'SQ Project' }]);
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transferAll: { projectKeyPrefix: '', excludeProjects: [], projectKeyMapping: { 'sq-proj': 'sc-custom-key' } }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  // The ensureProject call on SonarCloud side should use the mapped key
-  t.true(stubs.scEnsureProject.called, 'should call ensureProject');
-});
-
-test.serial('transfer-all: projectKeyPrefix applies prefix to project keys', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([{ key: 'my-proj', name: 'My Project' }]);
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transferAll: { projectKeyPrefix: 'prefix_', excludeProjects: [], projectKeyMapping: {} }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(stubs.scEnsureProject.called, 'should call ensureProject with prefixed key');
-});
-
-test.serial('transfer-all: --skip-all-branch-sync sets syncAllBranches=false', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([{ key: 'proj1', name: 'P1' }]);
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--skip-all-branch-sync']);
-
-  // The command modifies config.transfer.syncAllBranches = false before passing to transferProject
-  // We verify indirectly: extractAll is called (transfer runs), and the branch extraction
-  // only gets called for the main branch. Since we stub extractAll, just verify the command ran.
-  t.true(stubs.extractAll.called, 'should still run transfer');
-});
-
-test.serial('transfer-all: --verbose sets logger to debug level', async t => {
-  const { tmpDir } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  // Save current level, parse with --verbose
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--verbose']);
-
-  // The command sets logger.level = 'debug' when verbose is true.
-  // We can't easily assert on that since we override logger.level in beforeEach,
-  // but the command ran without error which means the code path was exercised.
-  t.pass('verbose mode executed without error');
-});
-
-test.serial('transfer-all: --concurrency overrides performance config', async t => {
-  const { tmpDir } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--concurrency', '4']);
-  t.true(t.context.stubs.extractAll.called, 'transfer should proceed with custom concurrency');
-});
-
-test.serial('transfer-all: --max-memory option is parsed', async t => {
-  const { tmpDir } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--max-memory', '4096']);
-  t.pass('max-memory option parsed without error');
-});
-
-test.serial('transfer-all: --project-concurrency option is parsed', async t => {
-  const { tmpDir } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--project-concurrency', '2']);
-  t.pass('project-concurrency option parsed without error');
-});
-
-test.serial('transfer-all: --auto-tune option is parsed', async t => {
-  const { tmpDir } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--auto-tune']);
-  t.pass('auto-tune option parsed without error');
-});
-
-test.serial('transfer-all: partial transfer failure (one succeeds, one fails)', async t => {
-  const { tmpDir, stubs } = t.context;
-  // First call succeeds, second call fails
-  stubs.extractAll.onFirstCall().resolves({
-    project: { branches: [{ name: 'main', isMain: true }] },
-    issues: [{ key: 'i1' }], components: [{ key: 'c1' }],
-    sources: [{ key: 's1' }], metrics: [{ key: 'ncloc' }],
-    measures: { measures: [{ metric: 'ncloc', value: '100' }] }
-  });
-  stubs.extractAll.onSecondCall().rejects(new Error('Project 2 failed'));
-
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) when any transfer fails');
-});
-
-test.serial('transfer-all: --wait option is forwarded to transfer', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([{ key: 'proj1', name: 'P1' }]);
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--wait']);
-
-  t.true(stubs.uploadAndWait.called, 'should use uploadAndWait when --wait is specified');
-});
-
-test.serial('transfer-all: config file not found triggers error', async t => {
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', '/nonexistent/config.json']);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) when config not found');
 });
 
 // ===== migrate.js =====
@@ -986,25 +707,15 @@ test.serial('sync-metadata: sets dryRun=false explicitly', async t => {
 
 // ===== Cross-command registration tests =====
 
-test.serial('all three commands can be registered on the same program', t => {
+test.serial('all commands can be registered on the same program', t => {
   const program = createProgram();
-  registerTransferAllCommand(program);
   registerMigrateCommand(program);
   registerSyncMetadataCommand(program);
 
   const commandNames = program.commands.map(c => c.name());
-  t.true(commandNames.includes('transfer-all'));
   t.true(commandNames.includes('migrate'));
   t.true(commandNames.includes('sync-metadata'));
-  t.is(program.commands.length, 3);
-});
-
-test.serial('transfer-all: description is set correctly', t => {
-  const program = createProgram();
-  registerTransferAllCommand(program);
-  const cmd = program.commands.find(c => c.name() === 'transfer-all');
-  t.true(cmd.description().includes('DEPRECATED'));
-  t.true(cmd.description().includes('Transfer ALL projects'));
+  t.is(program.commands.length, 2);
 });
 
 test.serial('migrate: description is set correctly', t => {
@@ -1019,15 +730,6 @@ test.serial('sync-metadata: description is set correctly', t => {
   registerSyncMetadataCommand(program);
   const cmd = program.commands.find(c => c.name() === 'sync-metadata');
   t.true(cmd.description().includes('Sync issue and hotspot metadata'));
-});
-
-test.serial('transfer-all: config option is required', t => {
-  const program = createProgram();
-  registerTransferAllCommand(program);
-  const cmd = program.commands.find(c => c.name() === 'transfer-all');
-  const configOpt = cmd.options.find(o => o.long === '--config');
-  t.truthy(configOpt, 'config option should exist');
-  t.true(configOpt.required, 'config option should be required');
 });
 
 test.serial('migrate: config option is required', t => {
@@ -1049,31 +751,6 @@ test.serial('sync-metadata: config option is required', t => {
 });
 
 // ===== Edge cases =====
-
-test.serial('transfer-all: all projects excluded results in no transfer', async t => {
-  const { tmpDir, stubs } = t.context;
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transferAll: { projectKeyPrefix: '', excludeProjects: ['proj1', 'proj2'], projectKeyMapping: {} }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.false(stubs.extractAll.called, 'should not transfer when all projects are excluded');
-});
-
-test.serial('transfer-all: single project transfer succeeds without exit', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([{ key: 'only-proj', name: 'Only Project' }]);
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.false(t.context.exitStub.calledWith(1), 'single successful project should not exit(1)');
-});
 
 test.serial('migrate: multiple skip flags together', async t => {
   const { tmpDir } = t.context;
@@ -1105,22 +782,6 @@ test.serial('sync-metadata: multiple skip flags together', async t => {
   ]);
 
   t.false(t.context.exitStub.calledWith(1), 'should complete with all skip flags');
-});
-
-test.serial('transfer-all: state file path is derived per project', async t => {
-  const { tmpDir, stubs } = t.context;
-  stubs.sqListAllProjects.resolves([
-    { key: 'proj-a', name: 'Project A' },
-    { key: 'proj-b', name: 'Project B' }
-  ]);
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  // Both projects should be transferred (stateTracker init called for each)
-  t.true(stubs.stInit.callCount >= 2, 'should initialize state tracker for each project');
 });
 
 test.serial('migrate: --only with whitespace-padded components works', async t => {
@@ -1283,87 +944,6 @@ test.serial('transfer: --wait option triggers uploadAndWait', async t => {
   t.true(stubs.uploadAndWait.called, 'should use uploadAndWait when --wait is specified');
 });
 
-// ===== transfer-all.js: additional branch coverage =====
-
-test.serial('transfer-all: config without transferAll key uses fallback defaults', async t => {
-  const { tmpDir } = t.context;
-  // Omit transferAll entirely so lines 65-68 fallbacks are exercised
-  const configPath = await writeTransferAllConfig(tmpDir, { transferAll: undefined });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with fallback transferAll defaults');
-});
-
-test.serial('transfer-all: config without sonarcloud.url uses fallback url', async t => {
-  const { tmpDir } = t.context;
-  // Omit sonarcloud.url so the || 'https://sonarcloud.io' fallback on line 73 is exercised
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    sonarcloud: { token: 'sc-token', organization: 'test-org' }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.stubs.scTestConnection.called, 'should use fallback url for SC client');
-});
-
-test.serial('transfer-all: config without transfer key uses fallback stateFile, mode, batchSize', async t => {
-  const { tmpDir } = t.context;
-  // Omit the transfer key entirely so fallbacks on lines 106, 121-124 are exercised
-  const configPath = await writeTransferAllConfig(tmpDir, { transfer: undefined });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with fallback transfer defaults');
-});
-
-test.serial('transfer-all: stateFile without .json extension covers non-json branch', async t => {
-  const { tmpDir } = t.context;
-  // Provide a stateFile that does NOT end with .json to cover the else branch on line 107-108
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transfer: { mode: 'full', stateFile: join(tmpDir, '.state-data'), batchSize: 100 }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with non-.json stateFile');
-});
-
-test.serial('transfer-all: --verbose with failed transfer logs error stack', async t => {
-  const { tmpDir, stubs } = t.context;
-  // First project fails, verbose is on -- exercises line 131: if (options.verbose) logger.debug(error.stack)
-  stubs.extractAll.rejects(new Error('Extraction failed'));
-  const configPath = await writeTransferAllConfig(tmpDir);
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath, '--verbose']);
-
-  t.true(t.context.exitStub.calledWith(1), 'should exit(1) when transfers fail in verbose mode');
-});
-
-test.serial('transfer-all: config without transfer.syncAllBranches and excludeBranches uses undefined', async t => {
-  const { tmpDir } = t.context;
-  // Provide transfer config without syncAllBranches or excludeBranches
-  const configPath = await writeTransferAllConfig(tmpDir, {
-    transfer: { mode: 'full', stateFile: join(tmpDir, '.state.json'), batchSize: 100 }
-  });
-  const program = createProgram();
-  registerTransferAllCommand(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', configPath]);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer without syncAllBranches/excludeBranches');
-});
-
 // ===== migrate.js: additional branch coverage =====
 
 test.serial('migrate: config without migrate key uses fallback empty object', async t => {
@@ -1466,101 +1046,6 @@ test.serial('transfer (esmock): config.transfer falsy exercises || {} fallback (
   await program.parseAsync(['node', 'test', 'transfer', '-c', 'dummy.json']);
 
   t.false(t.context.exitStub.calledWith(1), 'should succeed with missing config.transfer');
-});
-
-test.serial('transfer-all (esmock): config without transfer/sonarcloud.url exercises fallbacks', async t => {
-  // Mock loadConfig to return config without transfer and without sonarcloud.url
-  const { registerTransferAllCommand: mockedRegisterTransferAll } = await esmock(
-    '../../src/commands/transfer-all.js',
-    {
-      '../../src/config/loader.js': {
-        loadConfig: async () => ({
-          sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
-          sonarcloud: { token: 'sc-token', organization: 'test-org' },
-          transferAll: { projectKeyPrefix: 'pf_', projectKeyMapping: {}, excludeProjects: [] }
-          // transfer is intentionally missing, sonarcloud.url is missing
-        })
-      }
-    }
-  );
-
-  const program = createProgram();
-  mockedRegisterTransferAll(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', 'dummy.json']);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with fallback defaults');
-});
-
-test.serial('transfer-all (esmock): config without transferAll exercises all transferAll fallbacks', async t => {
-  // Mock loadConfig to return config without transferAll key at all
-  const { registerTransferAllCommand: mockedRegisterTransferAll } = await esmock(
-    '../../src/commands/transfer-all.js',
-    {
-      '../../src/config/loader.js': {
-        loadConfig: async () => ({
-          sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
-          sonarcloud: { token: 'sc-token', organization: 'test-org' }
-          // both transfer and transferAll are missing
-        })
-      }
-    }
-  );
-
-  const program = createProgram();
-  mockedRegisterTransferAll(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', 'dummy.json']);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with all transferAll fallback defaults');
-});
-
-test.serial('transfer-all (esmock): --skip-all-branch-sync with no config.transfer exercises || {} on line 30', async t => {
-  // Mock loadConfig to return config without transfer key, then use --skip-all-branch-sync
-  const { registerTransferAllCommand: mockedRegisterTransferAll } = await esmock(
-    '../../src/commands/transfer-all.js',
-    {
-      '../../src/config/loader.js': {
-        loadConfig: async () => ({
-          sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
-          sonarcloud: { url: 'https://sonarcloud.io', token: 'sc-token', organization: 'test-org' },
-          transferAll: { projectKeyPrefix: '', projectKeyMapping: {}, excludeProjects: [] }
-          // transfer is intentionally missing
-        })
-      }
-    }
-  );
-
-  const program = createProgram();
-  mockedRegisterTransferAll(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', 'dummy.json', '--skip-all-branch-sync']);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with --skip-all-branch-sync and no config.transfer');
-});
-
-test.serial('transfer-all (esmock): stateFile without .json and no transfer fields in config', async t => {
-  // Config with a stateFile NOT ending in .json and without mode/batchSize
-  const { registerTransferAllCommand: mockedRegisterTransferAll } = await esmock(
-    '../../src/commands/transfer-all.js',
-    {
-      '../../src/config/loader.js': {
-        loadConfig: async () => ({
-          sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
-          sonarcloud: { url: 'https://sonarcloud.io', token: 'sc-token', organization: 'test-org' },
-          transfer: { stateFile: '/tmp/state-data' },
-          transferAll: { projectKeyPrefix: '', projectKeyMapping: {}, excludeProjects: [] }
-        })
-      }
-    }
-  );
-
-  const program = createProgram();
-  mockedRegisterTransferAll(program);
-
-  await program.parseAsync(['node', 'test', 'transfer-all', '-c', 'dummy.json']);
-
-  t.true(t.context.stubs.extractAll.called, 'should transfer with non-.json stateFile');
 });
 
 test.serial('migrate (esmock): config without migrate key exercises || {} fallback (line 37)', async t => {

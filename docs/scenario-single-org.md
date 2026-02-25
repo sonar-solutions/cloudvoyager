@@ -1,6 +1,6 @@
 # 🏢 Migrate Everything to One SonarCloud Organization
 
-<!-- Last updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 Use this when you want to migrate **all projects and configuration** from your SonarQube server to a **single** SonarCloud organization.
 

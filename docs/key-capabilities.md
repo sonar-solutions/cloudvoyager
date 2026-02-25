@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -726,7 +726,7 @@ All configuration is validated at startup using **Ajv (Another JSON Validator)**
 
 | Scope | Config File | Used By |
 |-------|------------|---------|
-| Single project transfer | `config.json` | `transfer`, `transfer-all` |
+| Single project transfer | `config.json` | `transfer` |
 | Full migration | `migrate-config.json` | `migrate`, `sync-metadata` |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -757,7 +757,6 @@ Performance and rate-limit schemas are shared across all configuration types, en
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `transfer` | Single project transfer | `--wait`, `--concurrency`, `--max-memory`, `--auto-tune` |
-| `transfer-all` | All projects to one org (code + issues) | `--dry-run`, `--wait`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--only <components>`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `validate` | Configuration validation | — |

@@ -10,14 +10,17 @@ import logger from '../utils/logger.js';
  * @param {object} extractedData
  * @param {object} resourceMappings
  * @param {Array} orgAssignments
- * @returns {{ filteredExtractedData: object, filteredResourceMappings: object, filteredOrgAssignments: Array }}
+ * @returns {{ filteredExtractedData: object, filteredResourceMappings: object, filteredOrgAssignments: Array, projectBranchIncludes: Map<string, Set<string>> }}
  */
 export function applyCsvOverrides(parsedCsvs, extractedData, resourceMappings, orgAssignments) {
   const filtered = structuredClone(extractedData);
   let filteredAssignments = structuredClone(orgAssignments);
+  let projectBranchIncludes = new Map();
 
   if (parsedCsvs.has('projects.csv')) {
-    filteredAssignments = applyProjectsCsv(parsedCsvs.get('projects.csv'), filteredAssignments);
+    const result = applyProjectsCsv(parsedCsvs.get('projects.csv'), filteredAssignments);
+    filteredAssignments = result.orgAssignments;
+    projectBranchIncludes = result.projectBranchIncludes;
   }
   if (parsedCsvs.has('gate-mappings.csv')) {
     filtered.qualityGates = applyGateMappingsCsv(parsedCsvs.get('gate-mappings.csv'), filtered.qualityGates);
@@ -40,28 +43,71 @@ export function applyCsvOverrides(parsedCsvs, extractedData, resourceMappings, o
 
   const filteredResourceMappings = mapResourcesToOrganizations(filtered, filteredAssignments);
 
-  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments };
+  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments, projectBranchIncludes };
 }
 
 /**
  * Filter org assignments to exclude projects marked Include!=yes.
+ * When a Branch column is present, also builds a per-project branch include map.
+ *
+ * @returns {{ orgAssignments: Array, projectBranchIncludes: Map<string, Set<string>> }}
  */
 function applyProjectsCsv(csvData, orgAssignments) {
+  const hasBranchColumn = csvData.headers.includes('Branch');
   const excludedKeys = new Set();
-  for (const row of csvData.rows) {
-    if (!isIncluded(row['Include'])) {
-      excludedKeys.add(row['Project Key']);
+  const projectBranchIncludes = new Map();
+
+  if (!hasBranchColumn) {
+    // Legacy CSV without Branch column — behave as before
+    for (const row of csvData.rows) {
+      if (!isIncluded(row['Include'])) {
+        excludedKeys.add(row['Project Key']);
+      }
+    }
+  } else {
+    // New CSV with per-branch rows
+    const rowsByProject = new Map();
+    for (const row of csvData.rows) {
+      const pk = row['Project Key'];
+      if (!rowsByProject.has(pk)) rowsByProject.set(pk, []);
+      rowsByProject.get(pk).push(row);
+    }
+
+    for (const [projectKey, rows] of rowsByProject) {
+      const includedBranches = new Set();
+      const excludedBranches = new Set();
+
+      for (const row of rows) {
+        const branchName = row['Branch'] || '';
+        if (isIncluded(row['Include'])) {
+          if (branchName) includedBranches.add(branchName);
+        } else {
+          if (branchName) excludedBranches.add(branchName);
+        }
+      }
+
+      if (includedBranches.size === 0) {
+        // All branches excluded → exclude entire project
+        excludedKeys.add(projectKey);
+      } else if (excludedBranches.size > 0) {
+        // Some branches excluded → record which branches to include
+        projectBranchIncludes.set(projectKey, includedBranches);
+      }
+      // If no branches excluded, don't add to map (all branches included)
     }
   }
 
-  if (excludedKeys.size === 0) return orgAssignments;
-
-  logger.info(`CSV override: excluding ${excludedKeys.size} project(s): ${[...excludedKeys].join(', ')}`);
-
-  for (const assignment of orgAssignments) {
-    assignment.projects = assignment.projects.filter(p => !excludedKeys.has(p.key));
+  if (excludedKeys.size > 0) {
+    logger.info(`CSV override: excluding ${excludedKeys.size} project(s): ${[...excludedKeys].join(', ')}`);
+    for (const assignment of orgAssignments) {
+      assignment.projects = assignment.projects.filter(p => !excludedKeys.has(p.key));
+    }
   }
-  return orgAssignments;
+  if (projectBranchIncludes.size > 0) {
+    logger.info(`CSV override: branch-level filtering for ${projectBranchIncludes.size} project(s)`);
+  }
+
+  return { orgAssignments, projectBranchIncludes };
 }
 
 /**

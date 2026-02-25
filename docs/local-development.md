@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -93,9 +93,6 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 
 # Transfer a single project
 ./cloudvoyager transfer -c config.json --verbose
-
-# Transfer all projects
-./cloudvoyager transfer-all -c config.json --verbose
 
 # Dry-run a full migration (no changes made)
 ./cloudvoyager migrate -c migrate-config.json --verbose --dry-run
@@ -289,89 +286,6 @@ This section documents every command and flag available in CloudVoyager. The exa
 ```
 
 ---
-
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-### `transfer-all` — Transfer ALL projects from SonarQube to SonarCloud
-
-| Flag | Short | Required | Argument | Description |
-|------|-------|----------|----------|-------------|
-| `--config <path>` | `-c` | Yes | File path | Path to the configuration file |
-| `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
-| `--wait` | — | No | — | Wait for each SonarCloud analysis to complete before proceeding to the next project |
-| `--dry-run` | — | No | — | List all discovered projects and their SonarCloud key mappings without actually transferring anything |
-| `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations per project |
-| `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
-| `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to transfer concurrently |
-| `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
-| `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
-
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-#### Examples
-
-```bash
-# Basic transfer-all
-./cloudvoyager transfer-all -c config.json
-
-# Transfer all with verbose logging
-./cloudvoyager transfer-all -c config.json --verbose
-
-# Dry-run: list all projects that would be transferred
-./cloudvoyager transfer-all -c config.json --dry-run
-
-# Dry-run with verbose logging (see debug details during project discovery)
-./cloudvoyager transfer-all -c config.json --verbose --dry-run
-
-# Transfer all and wait for each analysis to complete
-./cloudvoyager transfer-all -c config.json --wait
-
-# Transfer all with verbose logging and wait
-./cloudvoyager transfer-all -c config.json --verbose --wait
-
-# Transfer all with custom I/O concurrency
-./cloudvoyager transfer-all -c config.json --concurrency 8
-
-# Transfer all with verbose logging and custom I/O concurrency
-./cloudvoyager transfer-all -c config.json --verbose --concurrency 8
-
-# Transfer all with custom max memory
-./cloudvoyager transfer-all -c config.json --max-memory 4096
-
-# Transfer all with verbose logging and custom max memory
-./cloudvoyager transfer-all -c config.json --verbose --max-memory 4096
-
-# Transfer all with project-level concurrency (e.g. 3 projects at once)
-./cloudvoyager transfer-all -c config.json --project-concurrency 3
-
-# Transfer all with verbose logging and project concurrency
-./cloudvoyager transfer-all -c config.json --verbose --project-concurrency 3
-
-# Transfer all with auto-tuned settings
-./cloudvoyager transfer-all -c config.json --auto-tune
-
-# Transfer all with verbose logging and auto-tune
-./cloudvoyager transfer-all -c config.json --verbose --auto-tune
-
-# Transfer all with all manual performance flags
-./cloudvoyager transfer-all -c config.json --verbose --wait --concurrency 8 --max-memory 4096 --project-concurrency 3
-
-# Transfer all with auto-tune, wait, and verbose
-./cloudvoyager transfer-all -c config.json --verbose --wait --auto-tune
-
-# Transfer all with auto-tune and project concurrency override
-./cloudvoyager transfer-all -c config.json --auto-tune --project-concurrency 5
-
-# Transfer all with auto-tune, verbose, and max-memory override
-./cloudvoyager transfer-all -c config.json --verbose --auto-tune --max-memory 8192
-
-# Transfer all with concurrency, project-concurrency, and max-memory (no verbose)
-./cloudvoyager transfer-all -c config.json --concurrency 8 --project-concurrency 3 --max-memory 4096
-
-# Transfer all with concurrency, project-concurrency, max-memory, and wait
-./cloudvoyager transfer-all -c config.json --wait --concurrency 8 --project-concurrency 3 --max-memory 4096
-
-# Dry-run with auto-tune (preview auto-detected settings and project list)
-./cloudvoyager transfer-all -c config.json --verbose --dry-run --auto-tune
-```
 
 ---
 
@@ -702,9 +616,6 @@ The following npm scripts are available for building, testing, and linting:
 | Reset state | `npm run reset` |
 | Transfer single project | `npm run transfer` |
 | Transfer single project (auto-tune) | `npm run transfer:auto-tune` |
-| Transfer all projects | `npm run transfer-all` |
-| Transfer all projects (dry-run) | `npm run transfer-all:dry-run` |
-| Transfer all projects (auto-tune) | `npm run transfer-all:auto-tune` |
 | Full migration | `npm run migrate` |
 | Full migration (dry-run) | `npm run migrate:dry-run` |
 | Full migration (auto-tune) | `npm run migrate:auto-tune` |
@@ -751,7 +662,7 @@ The following npm scripts are available for building, testing, and linting:
 |------|---------|--------|
 | 2026-02-21 | Bun Compile | Fixed dependency type: optionalDependency not devDependency |
 | 2026-02-19 | Building, CLI Reference, Tests, npm Scripts | API expansion, test suite, bun builds |
-| 2026-02-18 | Output, transfer, transfer-all, migrate | --wait flag, --auto-tune, Windows ARM64 |
+| 2026-02-18 | Output, transfer, migrate | --wait flag, --auto-tune, Windows ARM64 |
 | 2026-02-17 | Quick Start, sync-metadata | Migration engine commands |
 | 2026-02-16 | Prerequisites, Running, validate, test, status, reset, Linting, Env Vars | Core CLI commands |
 -->

@@ -120,10 +120,11 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
   try {
     const stateFile = join(ctx.outputDir, 'state', `.state.${project.key}.json`);
     const syncAllBranches = syncAllBranchesOverride !== undefined ? syncAllBranchesOverride : ctx.transferConfig.syncAllBranches;
+    const includeBranches = ctx.projectBranchIncludes?.get(project.key) || null;
     const transferResult = await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
-      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches },
+      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches, includeBranches },
       performanceConfig: ctx.perfConfig,
       wait: ctx.wait, skipConnectionTest: true, projectName: project.name
     });

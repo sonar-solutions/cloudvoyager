@@ -513,7 +513,7 @@ test('generateMappingCsvs: projects.csv contains project data', async t => {
   const content = await readFile(`${tmpDir}/projects.csv`, 'utf-8');
   const lines = content.trim().split('\n');
 
-  t.is(lines[0], 'Include,Project Key,Project Name,Target Organization,ALM Platform,Repository,Monorepo,Visibility,Last Analysis');
+  t.is(lines[0], 'Include,Project Key,Project Name,Branch,Target Organization,ALM Platform,Repository,Monorepo,Visibility,Last Analysis');
   // At least header + project rows
   t.true(lines.length >= 2);
   // Check one project is listed
@@ -2391,4 +2391,195 @@ test('applyCsvOverrides: template-mappings.csv handles missing defaultTemplates 
   // Should not crash — defaultTemplates || [] handles the undefined case
   t.is(result.filteredExtractedData.permissionTemplates.templates.length, 1);
   t.deepEqual(result.filteredExtractedData.permissionTemplates.defaultTemplates, []);
+});
+
+// ---------------------------------------------------------------------------
+// Branch column in projects.csv
+// ---------------------------------------------------------------------------
+
+test('generateMappingCsvs: projects.csv emits one row per branch when projectBranches provided', async t => {
+  const tmpDir = `/tmp/cloudvoyager-test-branch-csv-${Date.now()}`;
+  const mappingData = {
+    orgAssignments: [{
+      org: { key: 'sc-org' },
+      projects: [makeProject('proj-a', 'Project A')],
+      bindingGroups: []
+    }],
+    projectBindings: new Map(),
+    projectMetadata: new Map([['proj-a', { name: 'Project A', visibility: 'public', lastAnalysisDate: '2026-02-01' }]]),
+    projectBranches: new Map([
+      ['proj-a', [
+        { name: 'main', isMain: true },
+        { name: 'develop', isMain: false },
+        { name: 'feature-x', isMain: false }
+      ]]
+    ]),
+    resourceMappings: { groupsByOrg: new Map(), profilesByOrg: new Map(), gatesByOrg: new Map(), portfoliosByOrg: new Map(), templatesByOrg: new Map() }
+  };
+
+  await generateMappingCsvs(mappingData, tmpDir);
+
+  const { readFile, rm } = await import('node:fs/promises');
+  const content = await readFile(`${tmpDir}/projects.csv`, 'utf-8');
+  const lines = content.trim().split('\n');
+
+  t.is(lines[0], 'Include,Project Key,Project Name,Branch,Target Organization,ALM Platform,Repository,Monorepo,Visibility,Last Analysis');
+  // 1 header + 3 branch rows
+  t.is(lines.length, 4);
+  // Main branch first
+  t.true(lines[1].includes(',main,'));
+  // All branches present
+  t.true(content.includes(',develop,'));
+  t.true(content.includes(',feature-x,'));
+
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('generateMappingCsvs: projects.csv main branch sorts first', async t => {
+  const tmpDir = `/tmp/cloudvoyager-test-branch-sort-${Date.now()}`;
+  const mappingData = {
+    orgAssignments: [{
+      org: { key: 'sc-org' },
+      projects: [makeProject('proj-a', 'Project A')],
+      bindingGroups: []
+    }],
+    projectBindings: new Map(),
+    projectMetadata: new Map(),
+    projectBranches: new Map([
+      ['proj-a', [
+        { name: 'develop', isMain: false },
+        { name: 'main', isMain: true },
+        { name: 'alpha', isMain: false }
+      ]]
+    ]),
+    resourceMappings: { groupsByOrg: new Map(), profilesByOrg: new Map(), gatesByOrg: new Map(), portfoliosByOrg: new Map(), templatesByOrg: new Map() }
+  };
+
+  await generateMappingCsvs(mappingData, tmpDir);
+
+  const { readFile, rm } = await import('node:fs/promises');
+  const content = await readFile(`${tmpDir}/projects.csv`, 'utf-8');
+  const lines = content.trim().split('\n');
+
+  // Main branch should be first data row, then alphabetical
+  t.true(lines[1].includes(',main,'));
+  t.true(lines[2].includes(',alpha,'));
+  t.true(lines[3].includes(',develop,'));
+
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('generateMappingCsvs: projects.csv emits single row with empty Branch when no branches available', async t => {
+  const tmpDir = `/tmp/cloudvoyager-test-no-branch-${Date.now()}`;
+  const mappingData = {
+    orgAssignments: [{
+      org: { key: 'sc-org' },
+      projects: [makeProject('proj-a', 'Project A')],
+      bindingGroups: []
+    }],
+    projectBindings: new Map(),
+    projectMetadata: new Map(),
+    projectBranches: new Map(), // empty - no branches fetched
+    resourceMappings: { groupsByOrg: new Map(), profilesByOrg: new Map(), gatesByOrg: new Map(), portfoliosByOrg: new Map(), templatesByOrg: new Map() }
+  };
+
+  await generateMappingCsvs(mappingData, tmpDir);
+
+  const { readFile, rm } = await import('node:fs/promises');
+  const content = await readFile(`${tmpDir}/projects.csv`, 'utf-8');
+  const lines = content.trim().split('\n');
+
+  // 1 header + 1 data row (empty Branch)
+  t.is(lines.length, 2);
+  t.true(lines[0].includes('Branch'));
+
+  await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('applyCsvOverrides: projects.csv with Branch column filters branches per project', t => {
+  const parsedCsvs = new Map([
+    ['projects.csv', {
+      headers: ['Include', 'Project Key', 'Project Name', 'Branch'],
+      rows: [
+        { Include: 'yes', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'main' },
+        { Include: 'yes', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'develop' },
+        { Include: 'no', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'old-feature' }
+      ]
+    }]
+  ]);
+  const extractedData = { qualityGates: [], qualityProfiles: [], groups: [], portfolios: [], permissionTemplates: { templates: [] } };
+  const orgAssignments = [{ org: { key: 'org-a' }, projects: [{ key: 'proj-a', name: 'A' }] }];
+
+  const result = applyCsvOverrides(parsedCsvs, extractedData, {}, orgAssignments);
+
+  // Project still included
+  t.is(result.filteredOrgAssignments[0].projects.length, 1);
+  // Branch filtering active
+  t.is(result.projectBranchIncludes.size, 1);
+  const branches = result.projectBranchIncludes.get('proj-a');
+  t.truthy(branches);
+  t.true(branches.has('main'));
+  t.true(branches.has('develop'));
+  t.false(branches.has('old-feature'));
+});
+
+test('applyCsvOverrides: projects.csv with Branch column excludes project when all branches excluded', t => {
+  const parsedCsvs = new Map([
+    ['projects.csv', {
+      headers: ['Include', 'Project Key', 'Project Name', 'Branch'],
+      rows: [
+        { Include: 'no', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'main' },
+        { Include: 'no', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'develop' }
+      ]
+    }]
+  ]);
+  const extractedData = { qualityGates: [], qualityProfiles: [], groups: [], portfolios: [], permissionTemplates: { templates: [] } };
+  const orgAssignments = [{ org: { key: 'org-a' }, projects: [{ key: 'proj-a', name: 'A' }] }];
+
+  const result = applyCsvOverrides(parsedCsvs, extractedData, {}, orgAssignments);
+
+  // Project excluded entirely
+  t.is(result.filteredOrgAssignments[0].projects.length, 0);
+  // No branch filtering needed since project excluded
+  t.is(result.projectBranchIncludes.size, 0);
+});
+
+test('applyCsvOverrides: projects.csv with Branch column and all branches included has empty projectBranchIncludes', t => {
+  const parsedCsvs = new Map([
+    ['projects.csv', {
+      headers: ['Include', 'Project Key', 'Project Name', 'Branch'],
+      rows: [
+        { Include: 'yes', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'main' },
+        { Include: 'yes', 'Project Key': 'proj-a', 'Project Name': 'A', Branch: 'develop' }
+      ]
+    }]
+  ]);
+  const extractedData = { qualityGates: [], qualityProfiles: [], groups: [], portfolios: [], permissionTemplates: { templates: [] } };
+  const orgAssignments = [{ org: { key: 'org-a' }, projects: [{ key: 'proj-a', name: 'A' }] }];
+
+  const result = applyCsvOverrides(parsedCsvs, extractedData, {}, orgAssignments);
+
+  // Project still included
+  t.is(result.filteredOrgAssignments[0].projects.length, 1);
+  // No branch filtering since all included
+  t.is(result.projectBranchIncludes.size, 0);
+});
+
+test('applyCsvOverrides: projects.csv without Branch column returns empty projectBranchIncludes (backward compat)', t => {
+  const parsedCsvs = new Map([
+    ['projects.csv', {
+      headers: ['Include', 'Project Key'],
+      rows: [
+        { Include: 'yes', 'Project Key': 'proj-a' },
+        { Include: 'no', 'Project Key': 'proj-b' }
+      ]
+    }]
+  ]);
+  const extractedData = { qualityGates: [], qualityProfiles: [], groups: [], portfolios: [], permissionTemplates: { templates: [] } };
+  const orgAssignments = [{ org: { key: 'org-a' }, projects: [{ key: 'proj-a', name: 'A' }, { key: 'proj-b', name: 'B' }] }];
+
+  const result = applyCsvOverrides(parsedCsvs, extractedData, {}, orgAssignments);
+
+  t.is(result.filteredOrgAssignments[0].projects.length, 1);
+  t.is(result.projectBranchIncludes.size, 0);
 });

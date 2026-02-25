@@ -1,6 +1,6 @@
 # 📦 Migrate a Single Project
 
-<!-- Last updated: Feb 22, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 Use this when you want to migrate **one specific project** from SonarQube to SonarCloud.
 
@@ -206,7 +206,6 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
-- [Transfer All Projects](scenario-transfer-all.md) — lightweight transfer of all projects without org-level config
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
 - [Changelog](CHANGELOG.md) — release history and notable changes
 

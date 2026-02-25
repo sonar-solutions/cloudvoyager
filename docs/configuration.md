@@ -1,8 +1,8 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
-CloudVoyager supports three configuration formats depending on the command you're using.
+CloudVoyager supports two configuration formats depending on the command you're using.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📋 Single Project Config
@@ -33,43 +33,6 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
 ```
 
 See `examples/config.example.json` for a complete example.
-
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📋 Transfer-All Config
-
-Used by: `transfer-all`
-
-Transfers all projects from a SonarQube server to a single SonarCloud organization.
-
-```json
-{
-  "sonarqube": {
-    "url": "https://sonarqube.example.com",
-    "token": "sqp_your_sonarqube_token_here"
-  },
-  "sonarcloud": {
-    "url": "https://sonarcloud.io",
-    "token": "your_sonarcloud_token_here",
-    "organization": "my-organization"
-  },
-  "transfer": {
-    "mode": "full",
-    "stateFile": "./.cloudvoyager-state.json",
-    "batchSize": 100,
-    "syncAllBranches": true,
-    "excludeBranches": []
-  },
-  "transferAll": {
-    "projectKeyPrefix": "",
-    "projectKeyMapping": {
-      "old-project-key": "new-project-key"
-    },
-    "excludeProjects": ["project-to-skip"]
-  }
-}
-```
-
-See `examples/transfer-all-config.example.json` for a complete example.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📋 Migration Config
@@ -131,12 +94,12 @@ See `examples/migrate-config.example.json` for a complete example.
 |--------|----------|-------------|
 | `url` | Yes | SonarQube server URL |
 | `token` | Yes | SonarQube API token (or set via `SONARQUBE_TOKEN` env var) |
-| `projectKey` | For `transfer` only | Project key to export (not needed for `transfer-all` or `migrate`) |
+| `projectKey` | For `transfer` only | Project key to export (not needed for `migrate`) |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### SonarCloud Settings (Single Org)
 
-Used by `transfer`, `transfer-all`, `test`, `validate`, `status`, `reset`.
+Used by `transfer`, `test`, `validate`, `status`, `reset`.
 
 | Option | Required | Description |
 |--------|----------|-------------|
@@ -163,19 +126,10 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | Option | Default | Description |
 |--------|---------|-------------|
 | `mode` | `incremental` | `"incremental"` or `"full"`. Note: defaults to `"full"` when using the `migrate` or `sync-metadata` commands |
-| `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers. Only applies to `transfer` and `transfer-all` commands (not `migrate` or `sync-metadata`) |
+| `stateFile` | `./.cloudvoyager-state.json` | Path to state file for incremental transfers. Only applies to `transfer` command (not `migrate` or `sync-metadata`) |
 | `batchSize` | `100` | Number of items per batch (1–500) |
 | `syncAllBranches` | `true` | Sync all branches of every project. Set to `false` to only sync the main branch |
 | `excludeBranches` | `[]` | Branch names to exclude from sync when `syncAllBranches` is `true` |
-
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-### Transfer-All Settings
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `projectKeyPrefix` | `""` | Prefix to prepend to SonarQube project keys for SonarCloud. The original project display name from SonarQube is always preserved |
-| `projectKeyMapping` | `{}` | Explicit mapping from SonarQube project key to SonarCloud project key. Only affects the key — the display name is always carried over from SonarQube |
-| `excludeProjects` | `[]` | SonarQube project keys to exclude from transfer |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Migrate Settings
@@ -258,11 +212,11 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 
 | Flag | Description | Available on |
 |------|-------------|-------------|
-| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
-| `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
-| `--max-memory <mb>` | Set max heap size in MB | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
-| `--project-concurrency <n>` | Max concurrent project migrations | `transfer-all`, `migrate` |
-| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `transfer-all`, `migrate`, `sync-metadata` |
+| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values | `transfer`, `migrate`, `sync-metadata` |
+| `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `migrate`, `sync-metadata` |
+| `--max-memory <mb>` | Set max heap size in MB | `transfer`, `migrate`, `sync-metadata` |
+| `--project-concurrency <n>` | Max concurrent project migrations | `migrate` |
+| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `migrate`, `sync-metadata` |
 
 **Selective migration flag:**
 
@@ -291,7 +245,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 
 | Flag | Description | Available on |
 |------|-------------|-------------|
-| `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `transfer-all`, `migrate` |
+| `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `migrate` |
 
 **Example: high-performance migration:**
 
@@ -333,8 +287,6 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Validate `config.json` | `npm run validate` | `./cloudvoyager validate -c config.json` |
 | Test connections | `npm run test:connection` | `./cloudvoyager test -c config.json` |
 | Transfer a single project | `npm run transfer` | `./cloudvoyager transfer -c config.json --verbose` |
-| Transfer all projects | `npm run transfer-all` | `./cloudvoyager transfer-all -c config.json --verbose` |
-| Dry run transfer-all | `npm run transfer-all:dry-run` | `./cloudvoyager transfer-all -c config.json --verbose --dry-run` |
 | Show sync status | `npm run status` | `./cloudvoyager status -c config.json` |
 | Clear sync history | `npm run reset` | `./cloudvoyager reset -c config.json` |
 | Full migration | `npm run migrate` | `./cloudvoyager migrate -c migrate-config.json --verbose` |
@@ -349,7 +301,6 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Sync only hotspot metadata | `npm run sync-metadata:skip-issue-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync` |
 | Sync metadata, skip quality profiles | `npm run sync-metadata:skip-quality-profiles` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-quality-profile-sync` |
 | Transfer single project (auto-tuned) | `npm run transfer:auto-tune` | `./cloudvoyager transfer -c config.json --verbose --auto-tune` |
-| Transfer all projects (auto-tuned) | `npm run transfer-all:auto-tune` | `./cloudvoyager transfer-all -c config.json --verbose --auto-tune` |
 | Full migration (auto-tuned) | `npm run migrate:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune` |
 | Migrate without metadata (auto-tuned) | `npm run migrate:skip-all-metadata:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune` |
 | Migrate without quality profiles (auto-tuned) | `npm run migrate:skip-quality-profiles:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync --auto-tune` |

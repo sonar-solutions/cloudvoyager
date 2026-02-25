@@ -22,6 +22,7 @@ export async function generateOrgMappings(allProjects, extractedData, sonarcloud
     bindingGroups: orgMapping.bindingGroups,
     projectBindings: extractedData.projectBindings,
     projectMetadata: new Map(allProjects.map(p => [p.key, p])),
+    projectBranches: extractedData.projectBranches || new Map(),
     resourceMappings,
     extractedData
   }, join(outputDir, 'mappings'));

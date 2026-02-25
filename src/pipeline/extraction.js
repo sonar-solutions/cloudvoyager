@@ -6,6 +6,7 @@ import { extractPortfolios } from '../sonarqube/extractors/portfolios.js';
 import { extractServerInfo } from '../sonarqube/extractors/server-info.js';
 import { extractWebhooks } from '../sonarqube/extractors/webhooks.js';
 import { extractAlmSettings, extractAllProjectBindings } from '../sonarqube/extractors/devops-bindings.js';
+import { mapConcurrent } from '../utils/concurrency.js';
 import logger from '../utils/logger.js';
 
 export async function extractAllProjects(sqClient, results) {
@@ -68,6 +69,10 @@ export async function extractServerWideData(sqClient, allProjects, results, perf
     projectBindings = bindingsResult.bindings;
   }
 
+  const projectBranches = await runNonFatalExtraction(results, 'project branches',
+    () => extractAllProjectBranches(sqClient, allProjects, perfConfig),
+    d => `branches for ${d.size} projects`) || new Map();
+
   const serverInfo = await runNonFatalExtraction(results, 'server info',
     () => extractServerInfo(sqClient)) || { system: {}, plugins: [], settings: [] };
 
@@ -77,6 +82,32 @@ export async function extractServerWideData(sqClient, allProjects, results, perf
   return {
     projects: allProjects, qualityGates, qualityProfiles, groups,
     globalPermissions, permissionTemplates, portfolios, almSettings,
-    projectBindings, serverInfo, serverWebhooks
+    projectBindings, projectBranches, serverInfo, serverWebhooks
   };
+}
+
+export async function extractAllProjectBranches(sqClient, allProjects, perfConfig) {
+  const concurrency = perfConfig.maxConcurrency || 10;
+  logger.info(`Extracting branches for ${allProjects.length} projects (concurrency=${concurrency})...`);
+
+  const results = await mapConcurrent(
+    allProjects,
+    async (project) => {
+      const branches = await sqClient.getBranches(project.key);
+      return { key: project.key, branches };
+    },
+    { concurrency, settled: true }
+  );
+
+  const branchMap = new Map();
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      branchMap.set(r.value.key, r.value.branches);
+    } else {
+      logger.warn(`Failed to fetch branches for a project: ${r.reason?.message}`);
+    }
+  }
+
+  logger.info(`Extracted branches for ${branchMap.size}/${allProjects.length} projects`);
+  return branchMap;
 }

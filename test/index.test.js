@@ -129,15 +129,6 @@ test('migrate command requires -c option', async t => {
   }
 });
 
-test('transfer-all command requires -c option', async t => {
-  try {
-    await exec('node', [CLI_PATH, 'transfer-all']);
-    t.fail('Should have thrown');
-  } catch (error) {
-    t.truthy(error.stderr.includes('required') || error.code);
-  }
-});
-
 test('sync-metadata command requires -c option', async t => {
   try {
     await exec('node', [CLI_PATH, 'sync-metadata']);
@@ -192,26 +183,6 @@ test('transfer command with --verbose sets debug level', async t => {
   await writeFile(configPath, JSON.stringify(createTransferConfig(dir)));
   try {
     await exec('node', [CLI_PATH, 'transfer', '-c', configPath, '--verbose'], { timeout: 15000 });
-    t.fail('Should have thrown');
-  } catch (error) {
-    t.truthy(error.code);
-  } finally {
-    const { rm: rmDir } = await import('node:fs/promises');
-    await rmDir(dir, { recursive: true, force: true });
-  }
-});
-
-test('transfer-all command fails at connection', async t => {
-  const dir = join(tmpdir(), `cv-cli-${randomUUID()}`);
-  await mkdir(dir, { recursive: true });
-  const configPath = join(dir, 'config.json');
-  const config = {
-    ...createTransferConfig(dir),
-    transferAll: { excludeProjects: [] }
-  };
-  await writeFile(configPath, JSON.stringify(config));
-  try {
-    await exec('node', [CLI_PATH, 'transfer-all', '-c', configPath], { timeout: 15000 });
     t.fail('Should have thrown');
   } catch (error) {
     t.truthy(error.code);

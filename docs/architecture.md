@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📁 Project Structure
@@ -12,7 +12,6 @@ src/
 ├── migrate-pipeline.js       # Full multi-org migration orchestrator
 ├── commands/                 # CLI command handlers
 │   ├── transfer.js            # Single-project transfer command
-│   ├── transfer-all.js        # Transfer all projects command
 │   ├── migrate.js             # Full migration command
 │   └── sync-metadata.js       # Standalone metadata sync command
 ├── config/
@@ -136,15 +135,6 @@ Uses `transfer-pipeline.js`:
 6. **Encode** — encode messages to binary protobuf format
 7. **Upload** — submit encoded report to SonarCloud CE endpoint
 8. **Update state** — record successful transfer in state file
-
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-### `transfer-all` — All Projects to Single Org
-
-Uses `transfer-pipeline.js` in a loop:
-
-1. **Discover projects** — list all SonarQube projects, apply exclusions
-2. **Map project keys** — apply prefix or explicit key mappings
-3. **Transfer each project** — run the single-project pipeline for each
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `migrate` — Full Multi-Org Migration

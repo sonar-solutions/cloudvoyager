@@ -32,6 +32,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // Resolve branch sync settings (default: sync all branches)
   const syncAllBranches = transferConfig.syncAllBranches !== false;
   const excludeBranches = new Set(transferConfig.excludeBranches || []);
+  const includeBranches = transferConfig.includeBranches || null; // Set<string> from CSV, or null = all
 
   // Initialize state tracker
   const stateTracker = new StateTracker(transferConfig.stateFile);
@@ -65,6 +66,22 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
   // Ensure SonarCloud project exists (with the original human-readable name)
   await sonarCloudClient.ensureProject(projectName);
+
+  // If CSV specifies branch includes, verify the main branch is included
+  if (includeBranches) {
+    // Peek at the SonarQube main branch name to check against the include set
+    const sqBranches = await sonarQubeClient.getBranches();
+    const sqMainBranch = sqBranches.find(b => b.isMain);
+    const sqMainBranchName = sqMainBranch?.name || 'main';
+    if (!includeBranches.has(sqMainBranchName)) {
+      logger.warn(`Main branch '${sqMainBranchName}' is excluded by CSV for project ${projectKey} — skipping entire project`);
+      return {
+        projectKey,
+        sonarCloudProjectKey: sonarcloudConfig.projectKey,
+        stats: { issuesTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0, branchesTransferred: [] }
+      };
+    }
+  }
 
   // Extract data from SonarQube (main branch)
   logger.info('Starting data extraction from SonarQube (main branch)...');
@@ -104,7 +121,12 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // --- Transfer non-main branches ---
   if (syncAllBranches) {
     const allBranches = extractedData.project.branches || [];
-    const nonMainBranches = allBranches.filter(b => !b.isMain && !excludeBranches.has(b.name));
+    const nonMainBranches = allBranches.filter(b => {
+      if (b.isMain) return false;
+      if (excludeBranches.has(b.name)) return false;
+      if (includeBranches && !includeBranches.has(b.name)) return false;
+      return true;
+    });
 
     if (nonMainBranches.length > 0) {
       logger.info(`Syncing ${nonMainBranches.length} additional branch(es): ${nonMainBranches.map(b => b.name).join(', ')}`);

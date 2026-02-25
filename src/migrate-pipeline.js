@@ -55,6 +55,7 @@ export async function migrateAll(options) {
     try {
       const raw = JSON.parse(await readFile(cacheFile, 'utf-8'));
       raw.extractedData.projectBindings = new Map(raw.extractedData.projectBindings);
+      raw.extractedData.projectBranches = new Map(raw.extractedData.projectBranches || []);
       cachedServerData = raw;
       logger.info('Found cached server-wide data from a previous run — will reuse instead of re-extracting');
     } catch (e) {
@@ -91,7 +92,7 @@ export async function migrateAll(options) {
   const ctx = {
     sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
     perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, skipProjectConfig, wait,
-    onlyComponents
+    onlyComponents, projectBranchIncludes: new Map()
   };
 
   try {
@@ -117,7 +118,11 @@ export async function migrateAll(options) {
         await mkdir(cacheDir, { recursive: true });
         const serializable = {
           allProjects,
-          extractedData: { ...extractedData, projectBindings: [...extractedData.projectBindings.entries()] }
+          extractedData: {
+            ...extractedData,
+            projectBindings: [...extractedData.projectBindings.entries()],
+            projectBranches: [...(extractedData.projectBranches || new Map()).entries()]
+          }
         };
         await writeFile(join(cacheDir, 'server-wide-data.json'), JSON.stringify(serializable));
         logger.info('Server-wide data cached for subsequent runs');
@@ -163,11 +168,15 @@ export async function migrateAll(options) {
       effectiveExtractedData = overrideResult.filteredExtractedData;
       effectiveResourceMappings = overrideResult.filteredResourceMappings;
       effectiveOrgAssignments = overrideResult.filteredOrgAssignments;
+      ctx.projectBranchIncludes = overrideResult.projectBranchIncludes || new Map();
 
       const origProjectCount = orgMapping.orgAssignments.reduce((n, a) => n + a.projects.length, 0);
       const filteredProjectCount = effectiveOrgAssignments.reduce((n, a) => n + a.projects.length, 0);
       if (filteredProjectCount < origProjectCount) {
         logger.info(`Projects: ${filteredProjectCount}/${origProjectCount} included after CSV filtering`);
+      }
+      if (ctx.projectBranchIncludes.size > 0) {
+        logger.info(`Branch-level filtering active for ${ctx.projectBranchIncludes.size} project(s)`);
       }
       logger.info('CSV overrides applied successfully');
     }

@@ -7,7 +7,6 @@ import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
 import logger from './utils/logger.js';
 import { registerTransferCommand } from './commands/transfer.js';
-import { registerTransferAllCommand } from './commands/transfer-all.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerSyncMetadataCommand } from './commands/sync-metadata.js';
 
@@ -19,7 +18,6 @@ program
   .version('1.0.0');
 
 registerTransferCommand(program);
-registerTransferAllCommand(program);
 registerMigrateCommand(program);
 registerSyncMetadataCommand(program);
 
