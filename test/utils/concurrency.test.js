@@ -231,3 +231,10 @@ test('logSystemInfo with autoTune config', t => {
   const perfConfig = resolvePerformanceConfig({ autoTune: true });
   t.notThrows(() => logSystemInfo(perfConfig));
 });
+
+test('logSystemInfo with autoTune and user overrides logs override details', t => {
+  // Resolve with autoTune but then override a value so it differs from auto-tune defaults
+  const perfConfig = resolvePerformanceConfig({ autoTune: true, maxConcurrency: 999 });
+  // This exercises the "User overrides applied on top of auto-tune" branch (lines 139-140)
+  t.notThrows(() => logSystemInfo(perfConfig));
+});

@@ -1058,6 +1058,550 @@ test('ProtobufBuilder.buildPlugins: returns default javascript plugin', t => {
   t.truthy(plugins.javascript.updatedAt);
 });
 
+// ===========================================================================
+// Branch coverage: build-components.js
+// ===========================================================================
+
+// Line 12: builder.sonarCloudConfig.projectKey || project.key
+// The falsy case: sonarCloudConfig.projectKey is empty/undefined, so project.key is used
+test('buildComponents: uses project.key when sonarCloudConfig.projectKey is falsy (line 12)', t => {
+  const data = createExtractedData();
+  // No projectKey in sonarCloudConfig
+  const builder = new ProtobufBuilder(data, {}, createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const project = components.find(c => c.type === 1);
+
+  // Falls back to project.key = 'my-project'
+  t.is(project.key, 'my-project');
+});
+
+// Line 19: source.language || '' -- falsy language
+// Line 20: source.lines ? source.lines.length : 0 -- null lines
+test('buildComponents: handles source with no language and null lines (lines 19-20)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/noLang.js', language: null, lines: null },
+      { key: 'my-project:src/undefinedLang.js', lines: ['x'] } // language is undefined
+    ],
+    components: []
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+
+  // Source with null language and null lines
+  const noLangComp = components.find(c => c.projectRelativePath === 'src/noLang.js');
+  t.truthy(noLangComp);
+  t.is(noLangComp.language, '');
+  t.is(noLangComp.lines, 0); // null lines falls back to 0
+
+  // Source with undefined language
+  const undefinedLangComp = components.find(c => c.projectRelativePath === 'src/undefinedLang.js');
+  t.truthy(undefinedLangComp);
+  t.is(undefinedLangComp.language, '');
+});
+
+// Line 20: source.lines is falsy (empty string)
+test('buildComponents: handles source with empty language string (lines 19)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/emptyLang.js', language: '', lines: ['a'] }
+    ],
+    components: []
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/emptyLang.js');
+  t.truthy(comp);
+  t.is(comp.language, '');
+});
+
+// Line 28: info.lineCount is 0/falsy, falls through to parseInt from comp.measures
+test('buildComponents: uses measures line count when source has no lines (line 28 parseInt fallback)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/measured.js', language: 'js', lines: null } // lineCount will be 0 (falsy)
+    ],
+    components: [
+      {
+        key: 'my-project:src/measured.js',
+        name: 'measured.js',
+        qualifier: 'FIL',
+        language: 'js',
+        path: 'src/measured.js',
+        measures: [
+          { metric: 'lines', value: '42' }
+        ]
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/measured.js');
+  t.truthy(comp);
+  t.is(comp.lines, 42); // Falls through to parseInt of measures 'lines' value
+});
+
+// Line 28: info.lineCount is 0 AND no 'lines' metric in measures, falls to || 0
+test('buildComponents: falls to 0 when no lineCount and no lines measure (line 28 || 0)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/nolines.js', language: 'js', lines: null }
+    ],
+    components: [
+      {
+        key: 'my-project:src/nolines.js',
+        name: 'nolines.js',
+        qualifier: 'FIL',
+        language: 'js',
+        path: 'src/nolines.js',
+        measures: [
+          { metric: 'ncloc', value: '10' } // No 'lines' metric
+        ]
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/nolines.js');
+  t.truthy(comp);
+  t.is(comp.lines, 0); // Both lineCount and parseInt result are falsy/NaN
+});
+
+// Line 32: comp.language is falsy, falls to info.language
+test('buildComponents: uses info.language when comp.language is missing (line 32)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/fromSource.js', language: 'ts', lines: ['x'] }
+    ],
+    components: [
+      {
+        key: 'my-project:src/fromSource.js',
+        name: 'fromSource.js',
+        qualifier: 'FIL',
+        language: '', // falsy
+        path: 'src/fromSource.js',
+        measures: []
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/fromSource.js');
+  t.truthy(comp);
+  t.is(comp.language, 'ts'); // Falls back to info.language from source
+});
+
+// Line 32: both comp.language and info.language are falsy, falls to ''
+test('buildComponents: uses empty string when both comp and info language are falsy (line 32)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/noLangAnywhere.txt', language: '', lines: ['x'] }
+    ],
+    components: [
+      {
+        key: 'my-project:src/noLangAnywhere.txt',
+        name: 'noLangAnywhere.txt',
+        qualifier: 'FIL',
+        language: null,
+        path: 'src/noLangAnywhere.txt',
+        measures: []
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/noLangAnywhere.txt');
+  t.truthy(comp);
+  t.is(comp.language, '');
+});
+
+// Line 35: comp.path is falsy, falls to comp.name
+test('buildComponents: uses comp.name when comp.path is missing (line 35)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/pathless.js', language: 'js', lines: ['x'] }
+    ],
+    components: [
+      {
+        key: 'my-project:src/pathless.js',
+        name: 'pathless.js',
+        qualifier: 'FIL',
+        language: 'js',
+        path: '', // falsy path
+        measures: []
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'pathless.js');
+  t.truthy(comp);
+  t.is(comp.projectRelativePath, 'pathless.js'); // Falls back to name
+});
+
+// Line 42: source.key.split(':').pop() || source.key -- key without ':'
+test('buildComponents: source key without colon uses full key as path (line 42)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'nocolonkey', language: 'js', lines: ['x'] }
+    ],
+    components: [] // No matching component, so handled by sources loop
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  // split(':').pop() on 'nocolonkey' returns 'nocolonkey' which is truthy
+  // so || source.key won't activate. But the component should still work.
+  const comp = components.find(c => c.projectRelativePath === 'nocolonkey');
+  t.truthy(comp);
+  t.is(comp.projectRelativePath, 'nocolonkey');
+});
+
+// Line 42: source.key is a string that results in empty pop after splitting
+// e.g. key ending with ':' so pop() returns ''
+test('buildComponents: source key ending with colon falls back to source.key (line 42)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'project:', language: 'js', lines: ['x'] }
+    ],
+    components: []
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  // 'project:'.split(':').pop() returns '' (falsy), so || source.key gives 'project:'
+  const comp = components.find(c => c.projectRelativePath === 'project:');
+  t.truthy(comp);
+  t.is(comp.projectRelativePath, 'project:');
+});
+
+// Line 43: source.lines is null/falsy in the sources loop
+test('buildComponents: source with null lines in extra sources loop uses 0 (line 43)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/nullLines.js', language: 'js', lines: null }
+    ],
+    components: [] // No matching component
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/nullLines.js');
+  t.truthy(comp);
+  t.is(comp.lines, 0); // Ternary: source.lines is null so returns 0
+});
+
+// Line 47: source.language is falsy in the extra sources loop
+test('buildComponents: source with falsy language in extra sources loop uses empty string (line 47)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/noLangExtra.txt', lines: ['hello'] } // undefined language
+    ],
+    components: [] // No matching component
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const components = builder.buildComponents();
+  const comp = components.find(c => c.projectRelativePath === 'src/noLangExtra.txt');
+  t.truthy(comp);
+  t.is(comp.language, ''); // source.language || ''
+});
+
+// ===========================================================================
+// Branch coverage: build-issues.js
+// ===========================================================================
+
+// Lines 21-22: rule without ':' separator
+test('buildIssues: handles rule without colon separator (lines 21-22)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-NOSEP',
+      rule: 'S9999', // No colon separator
+      component: 'my-project:src/index.js',
+      message: 'Rule without separator',
+      severity: 'MINOR',
+      textRange: { startLine: 1, endLine: 1, startOffset: 0, endOffset: 10 }
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues.length, 1);
+  // ruleParts[0] = 'S9999' (truthy), ruleParts[1] = undefined (falsy) -> falls back to issue.rule
+  t.is(issues[0].ruleRepository, 'S9999');
+  t.is(issues[0].ruleKey, 'S9999');
+});
+
+// Line 21: ruleParts[0] is empty string (falsy) -- rule starts with ':'
+test('buildIssues: handles rule starting with colon (line 21 empty repo)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-EMPTY-REPO',
+      rule: ':S100', // Empty repo part
+      component: 'my-project:src/index.js',
+      message: 'Empty repo',
+      severity: 'INFO'
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues.length, 1);
+  // ruleParts[0] = '' (falsy) -> falls back to ''
+  t.is(issues[0].ruleRepository, '');
+  t.is(issues[0].ruleKey, 'S100');
+});
+
+// Line 27: issue.message is falsy (null/undefined/empty)
+test('buildIssues: handles issue with no message (line 27)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-NO-MSG',
+      rule: 'javascript:S1000',
+      component: 'my-project:src/index.js',
+      severity: 'MAJOR'
+      // message is undefined
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues[0].msg, ''); // issue.message || ''
+});
+
+// Line 27: issue.message is null
+test('buildIssues: handles issue with null message (line 27)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-NULL-MSG',
+      rule: 'javascript:S1001',
+      component: 'my-project:src/index.js',
+      message: null,
+      severity: 'MAJOR'
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues[0].msg, '');
+});
+
+// Lines 35-36: textRange with undefined/0 startOffset and endOffset
+test('buildIssues: handles textRange with undefined offsets (lines 35-36)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-NO-OFFSETS',
+      rule: 'javascript:S2000',
+      component: 'my-project:src/index.js',
+      message: 'Missing offsets',
+      severity: 'MAJOR',
+      textRange: { startLine: 5, endLine: 5 } // No startOffset/endOffset
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues[0].textRange.startOffset, 0); // undefined || 0
+  t.is(issues[0].textRange.endOffset, 0);   // undefined || 0
+});
+
+// Lines 35-36: textRange with null offsets
+test('buildIssues: handles textRange with null offsets (lines 35-36)', t => {
+  const data = createExtractedData({
+    issues: [{
+      key: 'ISSUE-NULL-OFFSETS',
+      rule: 'javascript:S2001',
+      component: 'my-project:src/index.js',
+      message: 'Null offsets',
+      severity: 'MINOR',
+      textRange: { startLine: 1, endLine: 1, startOffset: null, endOffset: null }
+    }]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues[0].textRange.startOffset, 0); // null || 0
+  t.is(issues[0].textRange.endOffset, 0);   // null || 0
+});
+
+// ===========================================================================
+// Branch coverage: builder.js
+// ===========================================================================
+
+// Line 60: buildSourceFiles - source key not in componentRefMap
+test('buildSourceFiles: skips sources whose key is not in componentRefMap (line 60)', t => {
+  const data = createExtractedData({
+    sources: [
+      { key: 'my-project:src/index.js', language: 'js', lines: ['const x = 1;'] },
+      { key: 'orphan-key-not-in-refs', language: 'js', lines: ['orphan'] }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents(); // This registers refs for both sources
+
+  // Manually remove the orphan from componentRefMap to exercise the early return
+  builder.componentRefMap.delete('orphan-key-not-in-refs');
+
+  const sourceFiles = builder.buildSourceFiles();
+
+  // Only the first source should be included
+  t.is(sourceFiles.length, 1);
+  const indexRef = builder.componentRefMap.get('my-project:src/index.js');
+  t.is(sourceFiles[0].componentRef, indexRef);
+});
+
+// Line 85: rule.paramsByKey is falsy, falls back to {}
+test('buildActiveRules: falls back to empty object when paramsByKey is null/undefined (line 85)', t => {
+  const data = createExtractedData({
+    activeRules: [
+      {
+        ruleRepository: 'javascript',
+        ruleKey: 'javascript:S100',
+        severity: 3,
+        paramsByKey: null, // falsy
+        createdAt: 1700000000000,
+        updatedAt: 1700000000000,
+        qProfileKey: 'sq-js-profile-key',
+        language: 'js'
+      },
+      {
+        ruleRepository: 'javascript',
+        ruleKey: 'javascript:S200',
+        severity: 2,
+        // paramsByKey is undefined (not set)
+        createdAt: 1700000000000,
+        updatedAt: 1700000000000,
+        qProfileKey: 'sq-js-profile-key',
+        language: 'js'
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+
+  const rules = builder.buildActiveRules();
+
+  t.deepEqual(rules[0].paramsByKey, {}); // null || {}
+  t.deepEqual(rules[1].paramsByKey, {}); // undefined || {}
+});
+
+// Line 155: changesetData.changesetIndexByLine is falsy, falls back to []
+test('buildChangesets: falls back to empty array when changesetIndexByLine is missing (line 155)', t => {
+  const data = createExtractedData({
+    changesets: new Map([
+      ['my-project:src/index.js', {
+        changesets: [
+          { revision: 'rev1', author: 'dev@example.com', date: 1700000000000 }
+        ]
+        // changesetIndexByLine is undefined
+      }]
+    ])
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const changesetsByComponent = builder.buildChangesets();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const changeset = changesetsByComponent.get(indexJsRef);
+
+  t.truthy(changeset);
+  t.deepEqual(changeset.changesetIndexByLine, []); // undefined || []
+});
+
+// Line 155: changesetIndexByLine is null
+test('buildChangesets: falls back to empty array when changesetIndexByLine is null (line 155)', t => {
+  const data = createExtractedData({
+    changesets: new Map([
+      ['my-project:src/index.js', {
+        changesets: [
+          { revision: 'rev1', author: 'dev@example.com', date: 1700000000000 }
+        ],
+        changesetIndexByLine: null
+      }]
+    ])
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const changesetsByComponent = builder.buildChangesets();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const changeset = changesetsByComponent.get(indexJsRef);
+
+  t.truthy(changeset);
+  t.deepEqual(changeset.changesetIndexByLine, []);
+});
+
+// ===========================================================================
+// Branch coverage: build-measures.js
+// ===========================================================================
+
+// Line 17: FIL component whose key is not in componentRefMap
+test('buildMeasures: skips FIL component not in componentRefMap (line 17)', t => {
+  const data = createExtractedData({
+    components: [
+      {
+        key: 'my-project:src/index.js',
+        name: 'index.js',
+        qualifier: 'FIL',
+        language: 'js',
+        path: 'src/index.js',
+        measures: [{ metric: 'ncloc', value: '100' }]
+      },
+      {
+        key: 'my-project:src/unregistered.js',
+        name: 'unregistered.js',
+        qualifier: 'FIL',
+        language: 'js',
+        path: 'src/unregistered.js',
+        measures: [{ metric: 'ncloc', value: '50' }]
+      }
+    ]
+  });
+  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  // Remove unregistered.js from componentRefMap to exercise the early return
+  builder.componentRefMap.delete('my-project:src/unregistered.js');
+
+  const measuresByComponent = builder.buildMeasures();
+
+  // Only index.js should have measures
+  t.is(measuresByComponent.size, 1);
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  t.truthy(measuresByComponent.has(indexJsRef));
+});
+
 // ============================================================================
 // ProtobufEncoder tests
 // ============================================================================
@@ -1573,6 +2117,46 @@ test('End-to-end: empty data (no issues, no measures, no changesets)', async t =
 
 import protobuf from 'protobufjs';
 
+test.serial('ProtobufEncoder.loadSchemas: throws ProtobufEncodingError when proto parsing fails', async t => {
+  const encoder = new ProtobufEncoder();
+
+  // Monkey-patch protobuf.parse to throw, simulating invalid proto files
+  const originalParse = protobuf.parse;
+  protobuf.parse = () => { throw new Error('Invalid proto syntax'); };
+
+  try {
+    const error = await t.throwsAsync(() => encoder.loadSchemas(), {
+      instanceOf: ProtobufEncodingError,
+      message: /Failed to load protobuf schemas/
+    });
+    t.true(error.message.includes('Invalid proto syntax'));
+  } finally {
+    protobuf.parse = originalParse;
+  }
+});
+
+test('ProtobufEncoder.encodeAll: wraps errors in ProtobufEncodingError', async t => {
+  const encoder = new ProtobufEncoder();
+  await encoder.loadSchemas();
+
+  // Pass messages object that will cause encoding to fail
+  // metadata with invalid fields that fail protobuf verify
+  const badMessages = {
+    metadata: { analysisDate: 'not-a-number' },
+    components: [],
+    issuesByComponent: new Map(),
+    measuresByComponent: new Map(),
+    sourceFiles: [],
+    activeRules: [],
+    changesetsByComponent: new Map(),
+  };
+
+  const error = t.throws(() => encoder.encodeAll(badMessages), {
+    instanceOf: ProtobufEncodingError,
+  });
+  t.true(error.message.includes('Failed to encode messages'));
+});
+
 test('ProtobufEncoder.encodeAll: decodes multiple concatenated delimited issues', async t => {
   const encoder = new ProtobufEncoder();
   await encoder.loadSchemas();
@@ -1603,4 +2187,85 @@ test('ProtobufEncoder.encodeAll: decodes multiple concatenated delimited issues'
 
   t.is(decoded1.msg, 'First issue');
   t.is(decoded2.msg, 'Second issue');
+});
+
+// ---------------------------------------------------------------------------
+// ProtobufEncoder.loadSchemas: dynamic import success path (line 20)
+// ---------------------------------------------------------------------------
+// When the dynamic import('./schema/constants.proto') succeeds (as it would
+// in a bundled environment), loadProtoSchemas returns via line 20. We simulate
+// this using esmock to make those dynamic imports resolve to modules with a
+// default export containing the proto text content.
+
+import esmock from 'esmock';
+import { readFileSync } from 'node:fs';
+import { dirname, join as pathJoin } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ---------------------------------------------------------------------------
+// To cover line 20 in encoder.js (the `return` from the dynamic import
+// success path of loadProtoSchemas), we register a custom Node.js module
+// loader hook that handles `.proto` file extensions by returning their text
+// content as a default export.  This makes `import('./schema/constants.proto')`
+// resolve successfully, exercising the try-block path instead of the catch.
+// ---------------------------------------------------------------------------
+import { register } from 'node:module';
+
+// Register a loader that returns .proto file contents as ESM with a default export.
+// data: URLs are supported by Node.js for loader hooks.
+register('data:text/javascript,' + encodeURIComponent(`
+  export async function load(url, context, nextLoad) {
+    if (url.endsWith('.proto')) {
+      const { readFileSync } = await import('node:fs');
+      const { fileURLToPath } = await import('node:url');
+      const filePath = fileURLToPath(url);
+      const content = readFileSync(filePath, 'utf-8');
+      return {
+        shortCircuit: true,
+        format: 'module',
+        source: 'export default ' + JSON.stringify(content) + ';',
+      };
+    }
+    return nextLoad(url, context);
+  }
+`));
+
+test.serial('ProtobufEncoder.loadSchemas succeeds via dynamic import path (line 20)', async t => {
+  // Now that the .proto loader is registered, dynamic import('./schema/constants.proto')
+  // will succeed inside encoder.js, exercising the line-20 return statement.
+  // We must create a fresh ProtobufEncoder from a fresh module load so the
+  // dynamic imports inside loadProtoSchemas actually run through our hook.
+  // esmock ensures we get a fresh module instance.
+  const { ProtobufEncoder: FreshEncoder } = await esmock('../../src/protobuf/encoder.js', {});
+
+  const encoder = new FreshEncoder();
+  await encoder.loadSchemas();
+
+  // Verify schemas loaded correctly via the dynamic import success path
+  t.truthy(encoder.root);
+  t.truthy(encoder.root.lookupType('Metadata'));
+  t.truthy(encoder.root.lookupType('Component'));
+  t.truthy(encoder.root.lookupType('Issue'));
+  t.truthy(encoder.root.lookupEnum('Severity'));
+
+  // Verify it can actually encode data (full roundtrip)
+  const metadata = {
+    analysisDate: 1700000000000,
+    organizationKey: 'test-org',
+    projectKey: 'test-project',
+    rootComponentRef: 1,
+    branchName: 'main',
+    branchType: 1,
+    scmRevisionId: 'abc123',
+    projectVersion: '1.0.0',
+  };
+  const buffer = encoder.encodeMetadata(metadata);
+  t.true(Buffer.isBuffer(buffer) || buffer instanceof Uint8Array);
+  t.true(buffer.length > 0);
+
+  // Decode to verify correctness
+  const Metadata = encoder.root.lookupType('Metadata');
+  const decoded = Metadata.decode(buffer);
+  t.is(decoded.projectKey, 'test-project');
+  t.is(decoded.organizationKey, 'test-org');
 });

@@ -97,3 +97,55 @@ test('StateStorage.exists returns false when file does not exist', t => {
   const storage = new StateStorage('/nonexistent/state.json');
   t.false(storage.exists());
 });
+
+// --- Tests for uncovered error paths ---
+
+test('StateStorage.load throws StateError for non-SyntaxError read failures', async t => {
+  // Use a directory path instead of a file — readFile on a directory throws EISDIR, not SyntaxError
+  const dir = getTmpDir();
+  await mkdir(dir, { recursive: true });
+
+  // Point at the directory itself (not a file inside it)
+  const storage = new StateStorage(dir);
+  await t.throwsAsync(() => storage.load(), { instanceOf: StateError, message: /Failed to load state/ });
+  await rm(dir, { recursive: true });
+});
+
+// --- StateTracker tests for uncovered branches ---
+
+import { StateTracker } from '../../src/state/tracker.js';
+
+// Line 32: `this.state.lastSync || 'never'` — the 'never' fallback when lastSync is null
+test('StateTracker.initialize logs "never" when lastSync is null in saved state', async t => {
+  const dir = getTmpDir();
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, 'state.json');
+  // Write a saved state where lastSync is null
+  const savedState = { lastSync: null, processedIssues: ['issue-1'], completedBranches: [], syncHistory: [] };
+  await writeFile(path, JSON.stringify(savedState), 'utf-8');
+
+  const tracker = new StateTracker(path);
+  await tracker.initialize();
+
+  // The state should have been loaded with lastSync = null
+  t.is(tracker.getLastSync(), null);
+  // processedIssues should have been loaded from saved state
+  t.true(tracker.isIssueProcessed('issue-1'));
+  await rm(dir, { recursive: true });
+});
+
+test('StateStorage.clear throws StateError when unlink fails', async t => {
+  // Create a directory with a file inside it, then try to clear() the directory path
+  // unlink on a directory should fail with EPERM or EISDIR
+  const dir = getTmpDir();
+  await mkdir(dir, { recursive: true });
+  const innerDir = join(dir, 'state.json');
+  // Create a directory where unlink expects a file
+  await mkdir(innerDir, { recursive: true });
+  // Put a file inside so the directory is not empty (unlink on dir fails)
+  await writeFile(join(innerDir, 'dummy.txt'), 'x', 'utf-8');
+
+  const storage = new StateStorage(innerDir);
+  await t.throwsAsync(() => storage.clear(), { instanceOf: StateError, message: /Failed to clear state/ });
+  await rm(dir, { recursive: true, force: true });
+});

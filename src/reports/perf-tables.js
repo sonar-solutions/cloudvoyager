@@ -74,7 +74,7 @@ export function formatBottleneckAnalysis(results) {
   ];
   for (const [stepName, dur] of sorted) {
     if (dur === 0) continue;
-    const pct = totalStepTime > 0 ? ((dur / totalStepTime) * 100).toFixed(1) : '0.0';
+    const pct = ((dur / totalStepTime) * 100).toFixed(1);
     lines.push(`| ${stepName} | ${formatDuration(dur)} | ${pct}% |`);
   }
   lines.push(`| **Total** | **${formatDuration(totalStepTime)}** | **100%** |`);

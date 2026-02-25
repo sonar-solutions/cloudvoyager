@@ -1,6 +1,6 @@
 # 📦 Migrate a Single Project
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 21, 2026 at 04:02:35 PM -->
 
 Use this when you want to migrate **one specific project** from SonarQube to SonarCloud.
 
@@ -178,7 +178,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -188,10 +188,12 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 | `--concurrency <n>` | Override max concurrency for I/O operations |
 | `--max-memory <mb>` | Set max heap size in MB |
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) |
+| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches) |
+| `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches) |
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
 ## ⚠️ Limitations
 
 - Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
@@ -210,6 +212,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-21 | CLI Flags, Limitations | Added --skip-all-branch-sync flag |
 | 2026-02-18 | CLI Flags | Added --wait and --auto-tune flags |
 | 2026-02-17 | Speed up, Further Reading | Performance tuning, scenario links |
 | 2026-02-16 | All | Initial single project scenario |

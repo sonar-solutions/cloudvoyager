@@ -34,7 +34,7 @@ npm run package           # Build for current platform
 
 Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)
 
 ```bash
@@ -42,7 +42,7 @@ npm run package:bun           # Build for current platform
 npm run package:bun:cross     # Cross-compile 5 platform binaries
 ```
 
-Uses Bun's single-step compile — source goes directly to a native binary with no intermediate bundle. Bun is installed as a devDependency — no global install required. While faster to build, Bun binaries may silently crash at runtime in some environments, so this is considered experimental.
+Uses Bun's single-step compile — source goes directly to a native binary with no intermediate bundle. Bun is installed as an optional dependency — no global install required. While faster to build, Bun binaries may silently crash at runtime in some environments, so this is considered experimental.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Output
@@ -747,6 +747,7 @@ The following npm scripts are available for building, testing, and linting:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-21 | Bun Compile | Fixed dependency type: optionalDependency not devDependency |
 | 2026-02-19 | Building, CLI Reference, Tests, npm Scripts | API expansion, test suite, bun builds |
 | 2026-02-18 | Output, transfer, transfer-all, migrate | --wait flag, --auto-tune, Windows ARM64 |
 | 2026-02-17 | Quick Start, sync-metadata | Migration engine commands |

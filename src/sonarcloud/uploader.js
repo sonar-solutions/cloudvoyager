@@ -195,11 +195,13 @@ export class ReportUploader {
       });
 
       const TIMEOUT = Symbol('timeout');
-      const timeoutPromise = new Promise(resolve =>
-        setTimeout(() => resolve(TIMEOUT), RESPONSE_TIMEOUT_MS)
-      );
+      let timeoutId;
+      const timeoutPromise = new Promise(resolve => {
+        timeoutId = setTimeout(() => resolve(TIMEOUT), RESPONSE_TIMEOUT_MS);
+      });
 
       const result = await Promise.race([postPromise, timeoutPromise]).catch(error => error);
+      clearTimeout(timeoutId);
 
       if (result === TIMEOUT) {
         logger.warn(`No response from /api/ce/submit after ${RESPONSE_TIMEOUT_MS / 1000}s — falling back to CE activity lookup`);
