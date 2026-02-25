@@ -1,6 +1,8 @@
 # 📦 Transfer All Projects to One SonarCloud Organization
 
-<!-- Last updated: Feb 21, 2026 at 04:02:35 PM -->
+<!-- Last updated: Feb 25, 2026 -->
+
+> **DEPRECATED**: The `transfer-all` command is deprecated and will be removed in a future release. Use `migrate --only scan-data-all-branches` instead, which provides the same functionality plus dry-run CSV workflow, multi-org support, and full migration capabilities. See the [Full Migration — Single Org](scenario-single-org.md) or [Multi Org](scenario-multi-org.md) guides.
 
 Use this when you want to transfer **all projects** from SonarQube to a **single** SonarCloud organization, without migrating org-level configuration like quality gates, profiles, groups, or permissions.
 
@@ -212,10 +214,13 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 ## 📚 Further Reading
 
 - [Full Migration — Single Org](scenario-single-org.md) — migrate everything including quality gates, profiles, groups, and permissions
+- [Single Project Migration](scenario-single-project.md) — migrate one specific project
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

@@ -266,6 +266,9 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

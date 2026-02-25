@@ -448,6 +448,15 @@ The state file (`.cloudvoyager-state.json` by default) contains:
 - Completed branches (used to skip already-synced branches in incremental mode)
 - Sync history (last 10 entries)
 
+## 📚 Further Reading
+
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
+- [Changelog](CHANGELOG.md) — release history and notable changes
+
 <!--
 ## Change Log
 | Date | Section | Change |

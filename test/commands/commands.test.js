@@ -1003,6 +1003,7 @@ test.serial('transfer-all: description is set correctly', t => {
   const program = createProgram();
   registerTransferAllCommand(program);
   const cmd = program.commands.find(c => c.name() === 'transfer-all');
+  t.true(cmd.description().includes('DEPRECATED'));
   t.true(cmd.description().includes('Transfer ALL projects'));
 });
 

@@ -9,7 +9,7 @@ import { CloudVoyagerError } from '../utils/errors.js';
 export function registerTransferAllCommand(program) {
   program
     .command('transfer-all')
-    .description('Transfer ALL projects from SonarQube to SonarCloud')
+    .description('[DEPRECATED] Transfer ALL projects from SonarQube to SonarCloud. Use "migrate --only scan-data-all-branches" instead.')
     .requiredOption('-c, --config <path>', 'Path to configuration file')
     .option('-v, --verbose', 'Enable verbose logging')
     .option('--wait', 'Wait for analysis to complete before returning')
@@ -23,6 +23,11 @@ export function registerTransferAllCommand(program) {
       try {
         if (options.verbose) logger.level = 'debug';
         enableFileLogging('transfer-all');
+        logger.warn('DEPRECATION WARNING: "transfer-all" is deprecated and will be removed in a future release.');
+        logger.warn('Use "migrate --only scan-data-all-branches" instead, which provides:');
+        logger.warn('  - Dry-run CSV workflow for reviewing/filtering projects before migration');
+        logger.warn('  - Multi-org support');
+        logger.warn('  - Full migration capabilities (quality gates, profiles, permissions, etc.)');
         logger.info('=== CloudVoyager - Transfer All Projects ===');
 
         const config = await loadConfig(options.config);

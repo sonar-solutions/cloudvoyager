@@ -103,8 +103,11 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
   }
 
   // Project config (component-aware) — skip if project doesn't exist in SonarCloud
-  if (reportUploadOk) {
+  // Also skip if ctx.skipProjectConfig is set (e.g. sync-metadata, since migrate already applied config)
+  if (reportUploadOk && !ctx.skipProjectConfig) {
     await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only);
+  } else if (ctx.skipProjectConfig) {
+    logger.debug(`Skipping project config for ${scProjectKey} (already applied by migrate)`);
   }
 
   finalizeProjectResult(projectResult);

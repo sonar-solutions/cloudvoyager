@@ -206,6 +206,9 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Transfer All Projects](scenario-transfer-all.md) — lightweight transfer of all projects without org-level config
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

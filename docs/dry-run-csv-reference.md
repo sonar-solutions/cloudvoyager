@@ -176,3 +176,11 @@ In `portfolio-mappings.csv`, set `Include` to `no` on the specific member row (n
 - Running `--dry-run` again will regenerate fresh CSVs, overwriting any edits.
 - If CSV references entities that no longer exist in SonarQube (e.g., a project was deleted between dry-run and full run), a warning is logged and the reference is skipped.
 - Gate names, project keys, and group names are matched **case-sensitively**.
+
+## 📚 Further Reading
+
+- [Technical Details](technical-details.md) — protobuf encoding, dry-run workflow, concurrency model
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Full Migration — Single Org](scenario-single-org.md) — step-by-step guide for migrating to one org
+- [Full Migration — Multiple Orgs](scenario-multi-org.md) — step-by-step guide for multi-org migration
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them

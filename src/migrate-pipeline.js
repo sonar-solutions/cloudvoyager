@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SonarQubeClient } from './sonarqube/api-client.js';
 import { resolvePerformanceConfig, collectEnvironmentInfo } from './utils/concurrency.js';
@@ -29,9 +29,10 @@ export async function migrateAll(options) {
   const skipIssueSync = migrateConfig.skipIssueMetadataSync || migrateConfig.skipIssueSync || false;
   const skipHotspotSync = migrateConfig.skipHotspotMetadataSync || migrateConfig.skipHotspotSync || false;
   const skipQualityProfileSync = migrateConfig.skipQualityProfileSync || false;
+  const skipProjectConfig = migrateConfig.skipProjectConfig || false;
   const onlyComponents = migrateConfig.onlyComponents || null;
 
-  // Read existing CSVs BEFORE wiping output dir (for non-dry-run with prior dry-run CSVs)
+  // Read existing CSVs and cached server-wide data BEFORE wiping output dir
   const mappingsDir = join(outputDir, 'mappings');
   let preExistingCsvs = null;
   if (!dryRun && existsSync(mappingsDir)) {
@@ -45,6 +46,19 @@ export async function migrateAll(options) {
       }
     } catch (e) {
       logger.warn(`Failed to read existing CSVs: ${e.message}. Proceeding without overrides.`);
+    }
+  }
+
+  const cacheFile = join(outputDir, 'cache', 'server-wide-data.json');
+  let cachedServerData = null;
+  if (!dryRun && existsSync(cacheFile)) {
+    try {
+      const raw = JSON.parse(await readFile(cacheFile, 'utf-8'));
+      raw.extractedData.projectBindings = new Map(raw.extractedData.projectBindings);
+      cachedServerData = raw;
+      logger.info('Found cached server-wide data from a previous run — will reuse instead of re-extracting');
+    } catch (e) {
+      logger.warn(`Failed to read server-wide data cache: ${e.message}. Will re-extract.`);
     }
   }
 
@@ -76,7 +90,7 @@ export async function migrateAll(options) {
   };
   const ctx = {
     sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
-    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, wait,
+    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, skipProjectConfig, wait,
     onlyComponents
   };
 
@@ -86,8 +100,31 @@ export async function migrateAll(options) {
     await runFatalStep(results, 'Connect to SonarQube', () => sqClient.testConnection());
 
     logger.info('=== Step 2: Extracting server-wide data from SonarQube ===');
-    const allProjects = await extractAllProjects(sqClient, results);
-    const extractedData = await extractServerWideData(sqClient, allProjects, results, perfConfig);
+    let allProjects;
+    let extractedData;
+    if (cachedServerData) {
+      logger.info('Using cached server-wide data (skipping re-extraction)');
+      allProjects = cachedServerData.allProjects;
+      extractedData = cachedServerData.extractedData;
+      results.serverSteps.push({ step: 'Server-wide data', status: 'cached', detail: 'Loaded from previous run' });
+    } else {
+      allProjects = await extractAllProjects(sqClient, results);
+      extractedData = await extractServerWideData(sqClient, allProjects, results, perfConfig);
+
+      // Save cache for subsequent runs (migrate, sync-metadata)
+      try {
+        const cacheDir = join(outputDir, 'cache');
+        await mkdir(cacheDir, { recursive: true });
+        const serializable = {
+          allProjects,
+          extractedData: { ...extractedData, projectBindings: [...extractedData.projectBindings.entries()] }
+        };
+        await writeFile(join(cacheDir, 'server-wide-data.json'), JSON.stringify(serializable));
+        logger.info('Server-wide data cached for subsequent runs');
+      } catch (e) {
+        logger.warn(`Failed to write server-wide data cache: ${e.message}`);
+      }
+    }
 
     logger.info('=== Step 3: Generating organization mappings ===');
     const { orgMapping, resourceMappings } = await generateOrgMappings(

@@ -152,6 +152,15 @@ Performance config is resolved at startup by `resolvePerformanceConfig()`, which
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
 
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
+- [Changelog](CHANGELOG.md) — release history and notable changes
+
 <!--
 ## Change Log
 | Date | Section | Change |

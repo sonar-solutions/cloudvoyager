@@ -188,3 +188,13 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
   - Troubleshooting guide
 - Updated README with download instructions and migration constraints
 - Added compliance scan script for internal code quality checks
+
+---
+
+## 📚 Further Reading
+
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Full Migration — Single Org](scenario-single-org.md) — step-by-step migration guide
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them

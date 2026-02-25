@@ -331,6 +331,14 @@ You can also sync just one type of metadata at a time:
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Changelog](CHANGELOG.md) — release history and notable changes
+
 <!--
 ## Change Log
 | Date | Section | Change |

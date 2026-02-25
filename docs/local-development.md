@@ -742,6 +742,8 @@ The following npm scripts are available for building, testing, and linting:
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

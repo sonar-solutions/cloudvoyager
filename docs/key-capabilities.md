@@ -860,6 +860,15 @@ API client errors include specific diagnostics based on the underlying network e
 5. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
 6. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
 
+## 📚 Further Reading
+
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Full Migration — Single Org](scenario-single-org.md) — step-by-step guide for migrating to one org
+- [Changelog](CHANGELOG.md) — release history and notable changes
+
 <!--
 ## Change Log
 | Date | Section | Change |

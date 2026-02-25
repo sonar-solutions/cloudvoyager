@@ -256,6 +256,14 @@ scanner-report.zip:
 
 Measures are only generated for file components (no project-level `measures-1.pb`). Components use a flat structure where all files are direct children of the project (no directory components).
 
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Changelog](CHANGELOG.md) — release history and notable changes
+
 <!--
 ## Change Log
 | Date | Section | Change |

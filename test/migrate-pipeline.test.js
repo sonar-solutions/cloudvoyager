@@ -1233,3 +1233,106 @@ test.serial('migrateAll records skipped step with empty detail when migrateNewCo
   // Line 190: result.detail || '' — detail is undefined, so fallback to ''
   t.is(ncpStep.detail, '');
 });
+
+// ===== Coverage: migrate-pipeline.js — server-wide data caching =====
+
+test.serial('migrateAll saves server-wide data cache after fresh extraction', async t => {
+  const { outputDir } = t.context;
+  const opts = baseMigrateOptions(outputDir);
+  // Run as dry-run to trigger fresh extraction and cache save
+  opts.migrateConfig.dryRun = true;
+  const results = await migrateAll(opts);
+  t.is(results.dryRun, true);
+  // The cache file should have been written to outputDir/cache/server-wide-data.json
+  await t.notThrowsAsync(access(join(outputDir, 'cache', 'server-wide-data.json')));
+});
+
+test.serial('migrateAll reuses cached server-wide data on non-dry-run', async t => {
+  const { stubs, outputDir } = t.context;
+  // Pre-create the cache directory and a valid cache file
+  const cacheDir = join(outputDir, 'cache');
+  await mkdir(cacheDir, { recursive: true });
+  const cachedData = {
+    allProjects: [{ key: 'proj1', name: 'Project One' }],
+    extractedData: {
+      projects: [{ key: 'proj1', name: 'Project One' }],
+      qualityGates: [], qualityProfiles: [], groups: [],
+      globalPermissions: [], permissionTemplates: { templates: [], defaultTemplates: [] },
+      portfolios: [], almSettings: [], projectBindings: [],
+      serverInfo: { system: {}, plugins: [], settings: [] },
+      serverWebhooks: []
+    }
+  };
+  await writeFile(join(cacheDir, 'server-wide-data.json'), JSON.stringify(cachedData));
+
+  const opts = baseMigrateOptions(outputDir);
+  const results = await migrateAll(opts);
+  // Should have used cached data — listAllProjects should NOT have been called
+  // (because it's called inside extractAllProjects which is skipped when using cache)
+  t.false(stubs.sq.listAllProjects.called, 'should skip extraction when cache is available');
+  // Should have a "cached" server step
+  const cachedStep = results.serverSteps.find(s => s.status === 'cached');
+  t.truthy(cachedStep);
+  t.is(cachedStep.step, 'Server-wide data');
+});
+
+test.serial('migrateAll handles corrupt cache file gracefully and re-extracts', async t => {
+  const { stubs, outputDir } = t.context;
+  // Pre-create a corrupt cache file
+  const cacheDir = join(outputDir, 'cache');
+  await mkdir(cacheDir, { recursive: true });
+  await writeFile(join(cacheDir, 'server-wide-data.json'), '{ corrupt json !!!');
+
+  const opts = baseMigrateOptions(outputDir);
+  const results = await migrateAll(opts);
+  // Should have fallen back to fresh extraction
+  t.true(stubs.sq.listAllProjects.called, 'should re-extract when cache is corrupt');
+  t.truthy(results.endTime);
+});
+
+test.serial('migrateAll handles cache write failure gracefully', async t => {
+  const { outputDir } = t.context;
+
+  // Use esmock to replace writeFile with one that fails for cache writes
+  const { migrateAll: migrateAllMocked } = await esmock('../src/migrate-pipeline.js', {
+    'node:fs/promises': {
+      mkdir: (await import('node:fs/promises')).mkdir,
+      rm: (await import('node:fs/promises')).rm,
+      readFile: (await import('node:fs/promises')).readFile,
+      writeFile: async (path, data) => {
+        if (path.includes('server-wide-data.json')) {
+          throw new Error('Disk full');
+        }
+        return (await import('node:fs/promises')).writeFile(path, data);
+      }
+    }
+  });
+
+  const opts = baseMigrateOptions(outputDir);
+  opts.migrateConfig.dryRun = true;
+  const results = await migrateAllMocked(opts);
+  // Pipeline should still complete despite cache write failure
+  t.truthy(results);
+  t.is(results.dryRun, true);
+});
+
+// ===== Coverage: migrate-pipeline.js — skipProjectConfig flag =====
+
+test.serial('migrateAll with skipProjectConfig skips project config steps', async t => {
+  const { stubs, outputDir } = t.context;
+  const opts = baseMigrateOptions(outputDir);
+  opts.migrateConfig.skipProjectConfig = true;
+  const results = await migrateAll(opts);
+
+  const proj = results.projects[0];
+  // Project settings, tags, links, etc. should NOT appear in steps (since skipProjectConfig skips migrateProjectConfig entirely)
+  const settingsStep = proj.steps.find(s => s.step === 'Project settings');
+  t.falsy(settingsStep, 'should not have Project settings step when skipProjectConfig=true');
+  const tagsStep = proj.steps.find(s => s.step === 'Project tags');
+  t.falsy(tagsStep, 'should not have Project tags step when skipProjectConfig=true');
+
+  // Issue sync should still run (it's not part of project config)
+  const issueStep = proj.steps.find(s => s.step === 'Sync issues');
+  t.truthy(issueStep);
+  t.truthy(results.endTime);
+});
