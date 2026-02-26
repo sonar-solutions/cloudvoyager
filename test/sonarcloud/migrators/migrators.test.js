@@ -23,7 +23,7 @@ import { migrateProjectSettings, migrateProjectTags, migrateProjectLinks, migrat
 import { migratePortfolios } from '../../../src/sonarcloud/migrators/portfolios.js';
 
 // Issue Sync
-import { syncIssues } from '../../../src/sonarcloud/migrators/issue-sync.js';
+import { syncIssues, mapChangelogDiffToTransition, extractTransitionsFromChangelog } from '../../../src/sonarcloud/migrators/issue-sync.js';
 
 // Hotspot Sync
 import { syncHotspots } from '../../../src/sonarcloud/migrators/hotspot-sync.js';
@@ -1944,7 +1944,7 @@ test('syncIssues handles multiple SC issues at same location', async t => {
   t.is(stats.matched, 2);
 });
 
-test('syncIssues does not transition for unmapped status', async t => {
+test('syncIssues handles REOPENED status via fallback', async t => {
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
@@ -1963,7 +1963,29 @@ test('syncIssues does not transition for unmapped status', async t => {
 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
 
-  // REOPENED is not in STATUS_TRANSITION_MAP, so no transition
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'reopen');
+});
+
+test('syncIssues does not transition for unknown/unmapped status', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'js:S1001',
+      component: 'proj:src/a.js',
+      line: 5,
+      status: 'UNKNOWN_STATUS',
+      resolution: null
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
   t.is(stats.transitioned, 0);
   t.is(client.transitionIssue.callCount, 0);
 });
@@ -1993,6 +2015,265 @@ test('syncIssues syncs multiple comments', async t => {
 
   t.is(stats.commented, 3);
   t.is(client.addIssueComment.callCount, 3);
+});
+
+// ============================================================================
+// issue-sync.js - mapChangelogDiffToTransition
+// ============================================================================
+
+test('mapChangelogDiffToTransition returns confirm for CONFIRMED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }]);
+  t.is(result, 'confirm');
+});
+
+test('mapChangelogDiffToTransition returns reopen for REOPENED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }]);
+  t.is(result, 'reopen');
+});
+
+test('mapChangelogDiffToTransition returns unconfirm for OPEN status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'CONFIRMED', newValue: 'OPEN' }]);
+  t.is(result, 'unconfirm');
+});
+
+test('mapChangelogDiffToTransition returns resolve for RESOLVED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' }]);
+  t.is(result, 'resolve');
+});
+
+test('mapChangelogDiffToTransition returns resolve for CLOSED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'RESOLVED', newValue: 'CLOSED' }]);
+  t.is(result, 'resolve');
+});
+
+test('mapChangelogDiffToTransition returns accept for ACCEPTED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'ACCEPTED' }]);
+  t.is(result, 'accept');
+});
+
+test('mapChangelogDiffToTransition returns falsepositive when resolution is FALSE-POSITIVE', t => {
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+  ]);
+  t.is(result, 'falsepositive');
+});
+
+test('mapChangelogDiffToTransition returns wontfix when resolution is WONTFIX', t => {
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'WONTFIX' }
+  ]);
+  t.is(result, 'wontfix');
+});
+
+test('mapChangelogDiffToTransition returns null when no status diff', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'assignee', oldValue: '', newValue: 'alice' }]);
+  t.is(result, null);
+});
+
+test('mapChangelogDiffToTransition returns null for unknown status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'UNKNOWN' }]);
+  t.is(result, null);
+});
+
+test('mapChangelogDiffToTransition resolution takes priority over status', t => {
+  // Even though status says RESOLVED, FALSE-POSITIVE resolution should win
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+  ]);
+  t.is(result, 'falsepositive');
+});
+
+// ============================================================================
+// issue-sync.js - extractTransitionsFromChangelog
+// ============================================================================
+
+test('extractTransitionsFromChangelog extracts ordered transitions from changelog', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }, // non-status, skipped
+    { diffs: [
+      { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+      { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+    ] },
+    { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+  ];
+
+  const transitions = extractTransitionsFromChangelog(changelog);
+  t.deepEqual(transitions, ['confirm', 'falsepositive', 'reopen']);
+});
+
+test('extractTransitionsFromChangelog returns empty array for empty changelog', t => {
+  t.deepEqual(extractTransitionsFromChangelog([]), []);
+});
+
+test('extractTransitionsFromChangelog skips entries with no status diff', t => {
+  const changelog = [
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] },
+    { diffs: [{ key: 'severity', oldValue: 'MAJOR', newValue: 'CRITICAL' }] }
+  ];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), []);
+});
+
+test('extractTransitionsFromChangelog skips entries with empty diffs', t => {
+  const changelog = [{ diffs: [] }, {}];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), []);
+});
+
+test('extractTransitionsFromChangelog skips unknown status transitions', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+    { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'UNKNOWN' }] },
+    { diffs: [{ key: 'status', oldValue: 'UNKNOWN', newValue: 'REOPENED' }] }
+  ];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), ['confirm', 'reopen']);
+});
+
+// ============================================================================
+// issue-sync.js - syncIssues with sqClient (changelog replay)
+// ============================================================================
+
+test('syncIssues with sqClient replays changelog transitions in order', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [
+        { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+        { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+      ] },
+      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.callCount, 3);
+  t.is(client.transitionIssue.getCall(0).args[1], 'confirm');
+  t.is(client.transitionIssue.getCall(1).args[1], 'falsepositive');
+  t.is(client.transitionIssue.getCall(2).args[1], 'reopen');
+});
+
+test('syncIssues with sqClient falls back when changelog has no status changes', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
+});
+
+test('syncIssues with sqClient falls back when changelog fetch fails', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().rejects(new Error('changelog API error'))
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  // Falls back to single transition
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
+});
+
+test('syncIssues with sqClient handles partial transition failures in replay', async t => {
+  const transitionStub = sinon.stub();
+  transitionStub.onFirstCall().resolves();
+  transitionStub.onSecondCall().rejects(new Error('transition not available'));
+  transitionStub.onThirdCall().resolves();
+
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ]),
+    transitionIssue: transitionStub
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] },
+      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  // Still counted as transitioned since at least one succeeded
+  t.is(stats.transitioned, 1);
+  t.is(transitionStub.callCount, 3);
+});
+
+test('syncIssues with sqClient returns not transitioned when all replay transitions fail', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ]),
+    transitionIssue: sinon.stub().rejects(new Error('all fail'))
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'RESOLVED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 0);
+});
+
+test('syncIssues with sqClient skips changelog fetch when statuses match', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 0);
+  t.is(sqClient.getIssueChangelog.callCount, 0);
 });
 
 // ============================================================================

@@ -68,6 +68,7 @@ export async function migrateAll(options) {
   await mkdir(outputDir, { recursive: true });
   await mkdir(join(outputDir, 'state'), { recursive: true });
   await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
+  await mkdir(join(outputDir, 'logs'), { recursive: true });
 
   const results = createEmptyResults();
   results.environment = collectEnvironmentInfo();

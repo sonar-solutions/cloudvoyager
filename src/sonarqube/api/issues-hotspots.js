@@ -12,6 +12,12 @@ export async function getIssuesWithComments(getPaginated, projectKey, filters = 
   return await getPaginated('/api/issues/search', params, 'issues');
 }
 
+export async function getIssueChangelog(client, issueKey) {
+  logger.debug(`Fetching changelog for issue: ${issueKey}`);
+  const response = await client.get('/api/issues/changelog', { params: { issue: issueKey } });
+  return response.data.changelog || [];
+}
+
 export async function getHotspots(getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching hotspots for project: ${projectKey}`);
   const params = { projectKey, ...filters };

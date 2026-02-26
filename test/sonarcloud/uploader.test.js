@@ -95,6 +95,20 @@ test('submitToComputeEngine submits form data', async t => {
   t.truthy(result.id);
 });
 
+test('submitToComputeEngine includes branch characteristics for non-main branches', async t => {
+  const client = mockClient();
+  const uploader = new ReportUploader(client);
+  const metadata = { version: '1.0', branchName: 'feature/feature-x', branchType: 'BRANCH' };
+  const result = await uploader.submitToComputeEngine(Buffer.from('data'), metadata);
+  t.truthy(result.id);
+  // Verify the form data sent to the post call includes the characteristic fields
+  const postCall = client.client.post.getCall(0);
+  const bodyBuffer = postCall.args[1];
+  const bodyStr = bodyBuffer.toString('utf-8');
+  t.true(bodyStr.includes('branch=feature/feature-x'), 'should include branch characteristic');
+  t.true(bodyStr.includes('branchType=BRANCH'), 'should include branchType characteristic');
+});
+
 test('submitToComputeEngine handles response without ceTask', async t => {
   const client = mockClient();
   client.client.post.resolves({ data: { taskId: 'task-2' } });

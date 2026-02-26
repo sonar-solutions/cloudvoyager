@@ -571,6 +571,31 @@ test.serial('transferProject with includeBranches excluding main branch skips en
   }
 });
 
+test.serial('transferProject passes branch characteristics in upload metadata for non-main branches', async t => {
+  const stubs = setupBranchStubs();
+  try {
+    await transferProject(baseOptions({ skipConnectionTest: true }));
+
+    // upload called 3 times: main, develop, feature-x
+    t.is(stubs.upload.callCount, 3);
+
+    // Main branch upload should NOT have branchName in metadata
+    const mainMeta = stubs.upload.getCall(0).args[1];
+    t.falsy(mainMeta.branchName, 'main branch upload should not include branchName');
+
+    // Non-main branch uploads should have branchName and branchType
+    const developMeta = stubs.upload.getCall(1).args[1];
+    t.is(developMeta.branchName, 'develop');
+    t.is(developMeta.branchType, 'BRANCH');
+
+    const featureMeta = stubs.upload.getCall(2).args[1];
+    t.is(featureMeta.branchName, 'feature-x');
+    t.is(featureMeta.branchType, 'BRANCH');
+  } finally {
+    sinon.restore();
+  }
+});
+
 test.serial('transferProject with includeBranches=null transfers all branches', async t => {
   const stubs = setupBranchStubs();
   try {

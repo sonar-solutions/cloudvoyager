@@ -149,6 +149,14 @@ export class ReportUploader {
       form.append('projectKey', this.client.projectKey);
       form.append('organization', this.client.organization);
 
+      // For non-main branches, send branch characteristics so the CE endpoint
+      // routes the analysis to the correct branch instead of defaulting to main.
+      if (metadata.branchName) {
+        form.append('characteristic', `branch=${metadata.branchName}`);
+        form.append('characteristic', `branchType=${metadata.branchType || 'BRANCH'}`);
+        logger.info(`Branch characteristics: branch=${metadata.branchName}, branchType=${metadata.branchType || 'BRANCH'}`);
+      }
+
       const analysisProperties = [
         `sonar.projectKey=${this.client.projectKey}`,
         `sonar.organization=${this.client.organization}`,

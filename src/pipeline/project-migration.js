@@ -152,7 +152,7 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
   try {
     logger.info('Syncing issue metadata...');
     const sqIssues = await projectSqClient.getIssuesWithComments();
-    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency });
+    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient });
     results.issueSyncStats.matched += issueStats.matched;
     results.issueSyncStats.transitioned += issueStats.transitioned;
     projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned`, durationMs: Date.now() - start });

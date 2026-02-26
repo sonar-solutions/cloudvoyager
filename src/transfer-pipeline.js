@@ -108,7 +108,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
     referenceBranchName: sonarCloudMainBranch,
     wait,
     sonarCloudClient,
-    label: 'main'
+    label: 'main',
+    isMainBranch: true
   });
 
   // Track aggregated stats across all branches
@@ -198,7 +199,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
  * @param {string} options.label - Human-readable label for logging
  * @returns {Promise<object>} Branch transfer stats
  */
-async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label }) {
+async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false }) {
   // Build protobuf messages
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
@@ -219,7 +220,10 @@ async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfi
   const metadata = {
     projectKey: sonarcloudConfig.projectKey,
     organization: sonarcloudConfig.organization,
-    version: '1.0.0'
+    version: '1.0.0',
+    // Branch characteristics — used by CE endpoint to route analysis to the correct branch.
+    // For non-main branches, the CE endpoint requires explicit branch/branchType characteristics.
+    ...(!isMainBranch && branchName ? { branchName, branchType: 'BRANCH' } : {})
   };
 
   if (wait) {
