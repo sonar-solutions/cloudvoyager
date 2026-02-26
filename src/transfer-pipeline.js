@@ -158,6 +158,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
           // Accumulate stats
           aggregatedStats.issuesTransferred += branchStats.issuesTransferred;
+          aggregatedStats.hotspotsTransferred = (aggregatedStats.hotspotsTransferred || 0) + (branchStats.hotspotsTransferred || 0);
           aggregatedStats.componentsTransferred += branchStats.componentsTransferred;
           aggregatedStats.sourcesTransferred += branchStats.sourcesTransferred;
           aggregatedStats.linesOfCode += branchStats.linesOfCode;
@@ -236,8 +237,10 @@ async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfi
 
   // Compute stats for this branch
   const nclocMeasure = (extractedData.measures.measures || []).find(m => m.metric === 'ncloc');
+  const hotspotCount = extractedData.issues.filter(i => i.type === 'SECURITY_HOTSPOT').length;
   return {
-    issuesTransferred: extractedData.issues.length,
+    issuesTransferred: extractedData.issues.length - hotspotCount,
+    hotspotsTransferred: hotspotCount,
     componentsTransferred: extractedData.components.length,
     sourcesTransferred: extractedData.sources.length,
     linesOfCode: nclocMeasure ? parseInt(nclocMeasure.value, 10) || 0 : 0

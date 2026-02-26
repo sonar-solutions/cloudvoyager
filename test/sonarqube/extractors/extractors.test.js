@@ -577,6 +577,105 @@ test('extractHotspots with branch', async t => {
   t.is(client.getHotspots.firstCall.args[0].branch, 'develop');
 });
 
+// === hotspots-to-issues.js ===
+import { extractHotspotsAsIssues } from '../../../src/sonarqube/extractors/hotspots-to-issues.js';
+
+test('extractHotspotsAsIssues returns empty array when no hotspots', async t => {
+  const client = mockClient();
+  const result = await extractHotspotsAsIssues(client);
+  t.deepEqual(result, []);
+});
+
+test('extractHotspotsAsIssues converts hotspots to issue format', async t => {
+  const client = mockClient({
+    getHotspots: sinon.stub().resolves([
+      {
+        key: 'h1',
+        ruleKey: 'javascript:S5247',
+        component: 'proj:src/index.js',
+        project: 'proj',
+        vulnerabilityProbability: 'HIGH',
+        status: 'TO_REVIEW',
+        line: 21,
+        message: 'Make sure disabling auto-escaping is safe here.',
+        author: 'dev@example.com',
+        creationDate: '2024-01-01T00:00:00+0000',
+        updateDate: '2024-01-02T00:00:00+0000',
+        textRange: { startLine: 21, endLine: 21, startOffset: 10, endOffset: 20 },
+        flows: [{ locations: [{ component: 'proj:src/index.js', textRange: { startLine: 21, endLine: 21, startOffset: 23, endOffset: 33 } }] }]
+      },
+      {
+        key: 'h2',
+        ruleKey: 'javascript:S2245',
+        component: 'proj:src/utils.js',
+        project: 'proj',
+        vulnerabilityProbability: 'LOW',
+        status: 'TO_REVIEW',
+        line: 5,
+        message: 'Using pseudorandom number generators is security-sensitive.',
+        textRange: { startLine: 5, endLine: 5, startOffset: 0, endOffset: 10 }
+      }
+    ])
+  });
+  const result = await extractHotspotsAsIssues(client);
+  t.is(result.length, 2);
+
+  // First hotspot — HIGH probability → CRITICAL severity
+  t.is(result[0].rule, 'javascript:S5247');
+  t.is(result[0].severity, 'CRITICAL');
+  t.is(result[0].component, 'proj:src/index.js');
+  t.is(result[0].message, 'Make sure disabling auto-escaping is safe here.');
+  t.is(result[0].type, 'SECURITY_HOTSPOT');
+  t.is(result[0].line, 21);
+  t.deepEqual(result[0].textRange, { startLine: 21, endLine: 21, startOffset: 10, endOffset: 20 });
+  t.is(result[0].flows.length, 1);
+  t.is(result[0].author, 'dev@example.com');
+
+  // Second hotspot — LOW probability → MINOR severity
+  t.is(result[1].rule, 'javascript:S2245');
+  t.is(result[1].severity, 'MINOR');
+  t.is(result[1].type, 'SECURITY_HOTSPOT');
+  t.falsy(result[1].author);
+});
+
+test('extractHotspotsAsIssues passes branch filter', async t => {
+  const client = mockClient({ getHotspots: sinon.stub().resolves([]) });
+  await extractHotspotsAsIssues(client, 'develop');
+  t.is(client.getHotspots.firstCall.args[0].branch, 'develop');
+});
+
+test('extractHotspotsAsIssues maps MEDIUM probability to MAJOR severity', async t => {
+  const client = mockClient({
+    getHotspots: sinon.stub().resolves([
+      { key: 'h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', vulnerabilityProbability: 'MEDIUM', status: 'TO_REVIEW', line: 1, message: 'Check' }
+    ])
+  });
+  const result = await extractHotspotsAsIssues(client);
+  t.is(result[0].severity, 'MAJOR');
+});
+
+test('extractHotspotsAsIssues defaults unknown probability to MAJOR', async t => {
+  const client = mockClient({
+    getHotspots: sinon.stub().resolves([
+      { key: 'h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', status: 'TO_REVIEW', line: 1, message: 'Check' }
+    ])
+  });
+  const result = await extractHotspotsAsIssues(client);
+  t.is(result[0].severity, 'MAJOR');
+});
+
+test('extractHotspotsAsIssues handles missing optional fields', async t => {
+  const client = mockClient({
+    getHotspots: sinon.stub().resolves([
+      { key: 'h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', status: 'TO_REVIEW', line: 10, message: 'msg' }
+    ])
+  });
+  const result = await extractHotspotsAsIssues(client);
+  t.is(result[0].textRange, null);
+  t.deepEqual(result[0].flows, []);
+  t.falsy(result[0].author);
+});
+
 // === changesets.js ===
 test('extractChangesets creates changeset data', async t => {
   const sourceFiles = [
@@ -873,6 +972,29 @@ test('DataExtractor.extractAll without SCM revision', async t => {
   t.falsy(result.metadata.scmRevisionId);
 });
 
+test('DataExtractor.extractAll includes hotspots in issues array', async t => {
+  const client = mockClient({
+    getMetrics: sinon.stub().resolves([]),
+    getComponentTree: sinon.stub().resolves([]),
+    getSourceFiles: sinon.stub().resolves([]),
+    getIssues: sinon.stub().resolves([{ key: 'i1', rule: 'javascript:S1234', component: 'proj:src/a.js', message: 'issue' }]),
+    getMeasures: sinon.stub().resolves({ key: 'proj', measures: [] }),
+    getHotspots: sinon.stub().resolves([
+      { key: 'h1', ruleKey: 'javascript:S5247', component: 'proj:src/b.js', project: 'proj', vulnerabilityProbability: 'HIGH', status: 'TO_REVIEW', line: 10, message: 'hotspot msg' }
+    ])
+  });
+  const config = { transfer: { mode: 'full' } };
+  const extractor = new DataExtractor(client, config);
+  const result = await extractor.extractAll();
+
+  // Should have 1 regular issue + 1 hotspot
+  t.is(result.issues.length, 2);
+  const hotspot = result.issues.find(i => i.type === 'SECURITY_HOTSPOT');
+  t.truthy(hotspot);
+  t.is(hotspot.rule, 'javascript:S5247');
+  t.is(hotspot.component, 'proj:src/b.js');
+});
+
 test('DataExtractor.extractAll propagates errors', async t => {
   const client = mockClient({
     getProject: sinon.stub().rejects(new Error('connection failed'))
@@ -904,6 +1026,29 @@ test('DataExtractor.extractBranch extracts branch-specific data', async t => {
   t.truthy(result.issues);
   t.truthy(result.components);
   t.truthy(result.sources);
+});
+
+test('DataExtractor.extractBranch includes hotspots in issues', async t => {
+  const client = mockClient({
+    getMetrics: sinon.stub().resolves([{ key: 'ncloc' }]),
+    getComponentTree: sinon.stub().resolves([]),
+    getSourceFiles: sinon.stub().resolves([]),
+    getIssues: sinon.stub().resolves([{ key: 'i1' }]),
+    getMeasures: sinon.stub().resolves({ key: 'proj', measures: [] }),
+    getHotspots: sinon.stub().resolves([
+      { key: 'h1', ruleKey: 'java:S2245', component: 'proj:src/Util.java', project: 'proj', vulnerabilityProbability: 'MEDIUM', status: 'TO_REVIEW', line: 3, message: 'random' }
+    ])
+  });
+  const config = { transfer: { mode: 'full' } };
+  const extractor = new DataExtractor(client, config);
+  const mainData = { project: { branches: [] }, metrics: [{ key: 'ncloc' }], activeRules: [] };
+  const result = await extractor.extractBranch('feature', mainData);
+
+  t.is(result.issues.length, 2);
+  t.is(result.issues[1].type, 'SECURITY_HOTSPOT');
+  t.is(result.issues[1].rule, 'java:S2245');
+  // Verify branch was passed to getHotspots
+  t.is(client.getHotspots.firstCall.args[0].branch, 'feature');
 });
 
 test('DataExtractor.logExtractionSummary does not throw', t => {
