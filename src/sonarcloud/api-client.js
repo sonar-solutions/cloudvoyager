@@ -203,4 +203,21 @@ export class SonarCloudClient {
   async setGitlabBinding(pk, a, r) { return pc.setGitlabBinding(this.client, pk, a, r); }
   async setAzureBinding(pk, a, p, r) { return pc.setAzureBinding(this.client, pk, a, p, r); }
   async setBitbucketBinding(pk, a, r, s) { return pc.setBitbucketBinding(this.client, pk, a, r, s); }
+
+  /**
+   * Fetch all rule repository keys available in SonarCloud.
+   * Uses /api/rules/repositories which returns { repositories: [{ key, name, language }] }.
+   * @returns {Promise<Set<string>>} Set of repository keys (e.g. "javascript", "typescript", "csharpsquid")
+   */
+  async getRuleRepositories() {
+    try {
+      const response = await this.client.get('/api/rules/repositories');
+      const repos = (response.data.repositories || []).map(r => r.key);
+      logger.debug(`SonarCloud has ${repos.length} rule repositories`);
+      return new Set(repos);
+    } catch (error) {
+      logger.warn(`Failed to fetch SonarCloud rule repositories: ${error.message}. External issue auto-detection will be skipped.`);
+      return new Set();
+    }
+  }
 }

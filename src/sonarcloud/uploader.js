@@ -100,6 +100,22 @@ export class ReportUploader {
       logger.debug(`Added ${changesetFileCount} changeset files`);
     }
 
+    // Add external issues files (external-issues-{ref}.pb)
+    if (encodedReport.externalIssues && encodedReport.externalIssues.size > 0) {
+      let extIssueFileCount = 0;
+      encodedReport.externalIssues.forEach((buffer, componentRef) => {
+        zip.addFile(`external-issues-${componentRef}.pb`, Buffer.from(buffer));
+        extIssueFileCount++;
+      });
+      logger.debug(`Added ${extIssueFileCount} external issue files`);
+    }
+
+    // Add ad-hoc rules file (adhocrules.pb)
+    if (encodedReport.adHocRules && encodedReport.adHocRules.length > 0) {
+      zip.addFile('adhocrules.pb', Buffer.from(encodedReport.adHocRules));
+      logger.debug(`Added adhocrules.pb (${encodedReport.adHocRules.length} bytes)`);
+    }
+
     // Add context-props.pb - empty file (matches real scanner behavior)
     zip.addFile('context-props.pb', Buffer.alloc(0));
     logger.debug('Added context-props.pb (empty)');
@@ -151,10 +167,13 @@ export class ReportUploader {
 
       // For non-main branches, send branch characteristics so the CE endpoint
       // routes the analysis to the correct branch instead of defaulting to main.
+      // SonarCloud expects branchType=LONG (long-lived branch) — sending "BRANCH"
+      // returns 400 "Unsupported branch type", and omitting branchType returns 400
+      // "One and only one of branchType and pullRequest must be specified".
       if (metadata.branchName) {
         form.append('characteristic', `branch=${metadata.branchName}`);
-        form.append('characteristic', `branchType=${metadata.branchType || 'BRANCH'}`);
-        logger.info(`Branch characteristics: branch=${metadata.branchName}, branchType=${metadata.branchType || 'BRANCH'}`);
+        form.append('characteristic', 'branchType=LONG');
+        logger.info(`Branch characteristics: branch=${metadata.branchName}, branchType=LONG`);
       }
 
       const analysisProperties = [

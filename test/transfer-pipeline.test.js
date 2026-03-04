@@ -239,6 +239,10 @@ function setupBranchStubs() {
     measures: { measures: [{ metric: 'ncloc', value: '500' }] }
   });
 
+  // Stub waitForAnalysis — the pipeline now waits for the main branch CE task
+  // to complete before uploading non-main branches
+  stubs.waitForAnalysis = sinon.stub(SonarCloudClient.prototype, 'waitForAnalysis').resolves({ id: 'ce-task-1', status: 'SUCCESS' });
+
   // Stub branch completion tracking
   stubs.isBranchCompleted = sinon.stub(StateTracker.prototype, 'isBranchCompleted').returns(false);
   stubs.markBranchCompleted = sinon.stub(StateTracker.prototype, 'markBranchCompleted');
@@ -583,14 +587,12 @@ test.serial('transferProject passes branch characteristics in upload metadata fo
     const mainMeta = stubs.upload.getCall(0).args[1];
     t.falsy(mainMeta.branchName, 'main branch upload should not include branchName');
 
-    // Non-main branch uploads should have branchName and branchType
+    // Non-main branch uploads should have branchName (branchType is set by uploader, not metadata)
     const developMeta = stubs.upload.getCall(1).args[1];
     t.is(developMeta.branchName, 'develop');
-    t.is(developMeta.branchType, 'BRANCH');
 
     const featureMeta = stubs.upload.getCall(2).args[1];
     t.is(featureMeta.branchName, 'feature-x');
-    t.is(featureMeta.branchType, 'BRANCH');
   } finally {
     sinon.restore();
   }
