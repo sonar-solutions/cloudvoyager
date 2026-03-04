@@ -70,6 +70,8 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     assigned: 0,
     commented: 0,
     tagged: 0,
+    metadataSyncTagged: 0,
+    sourceLinked: 0,
     failed: 0
   };
 
@@ -108,7 +110,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
 
   if (matchedPairs.length === 0) {
-    logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.failed} failed`);
+    logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
     return stats;
   }
 
@@ -153,6 +155,29 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
             logger.debug(`Failed to set tags on issue ${scIssue.key}: ${error.message}`);
           }
         }
+
+        // Mark issue as metadata-synchronized
+        try {
+          const existingTags = scIssue.tags || [];
+          if (!existingTags.includes('metadata-synchronized')) {
+            const updatedTags = [...new Set([...existingTags, 'metadata-synchronized'])];
+            await client.setIssueTags(scIssue.key, updatedTags);
+            stats.metadataSyncTagged++;
+          }
+        } catch (error) {
+          logger.debug(`Failed to add metadata-synchronized tag to issue ${scIssue.key}: ${error.message}`);
+        }
+
+        // Add comment with link back to original SonarQube issue
+        if (sqClient && sqClient.baseURL && sqClient.projectKey) {
+          try {
+            const sqUrl = `${sqClient.baseURL}/project/issues?id=${encodeURIComponent(sqClient.projectKey)}&issues=${encodeURIComponent(sqIssue.key)}&open=${encodeURIComponent(sqIssue.key)}`;
+            await client.addIssueComment(scIssue.key, `[SonarQube Source] Original issue: ${sqUrl}`);
+            stats.sourceLinked++;
+          } catch (error) {
+            logger.debug(`Failed to add source link comment to issue ${scIssue.key}: ${error.message}`);
+          }
+        }
       } catch (error) {
         stats.failed++;
         logger.debug(`Failed to sync issue ${sqIssue.key}: ${error.message}`);
@@ -165,7 +190,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     }
   );
 
-  logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.failed} failed`);
+  logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
   return stats;
 }
 

@@ -1,5 +1,12 @@
 import logger from '../../utils/logger.js';
 
+// Permissions that exist in SonarQube (Enterprise) but not in SonarCloud.
+// These are excluded from comparison since they cannot be migrated.
+const SC_UNSUPPORTED_PERMISSIONS = new Set([
+  'applicationcreator',
+  'portfoliocreator'
+]);
+
 /**
  * Verify global permissions between SonarQube and SonarCloud.
  *
@@ -20,7 +27,8 @@ export async function verifyGlobalPermissions(sqClient, scClient) {
   const scPermMap = buildPermissionMap(scGroups);
 
   for (const sqGroup of sqGroups) {
-    const sqPerms = (sqGroup.permissions || []).sort();
+    // Filter out SQ-only permissions that don't exist in SonarCloud
+    const sqPerms = (sqGroup.permissions || []).filter(p => !SC_UNSUPPORTED_PERMISSIONS.has(p)).sort();
     const scPerms = (scPermMap.get(sqGroup.name) || []).sort();
 
     const missing = sqPerms.filter(p => !scPerms.includes(p));

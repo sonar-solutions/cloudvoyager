@@ -75,6 +75,8 @@ export function logVerificationSummary(results) {
       if (project.checks.issues) {
         const iss = project.checks.issues;
         const parts = [`${iss.matched}/${iss.sqCount} matched`];
+        if (iss.unmatched > 0) parts.push(`${iss.unmatched} unmatched`);
+        if (iss.scOnlyIssues?.length > 0) parts.push(`${iss.scOnlyIssues.length} SC-only`);
         if (iss.statusMismatches?.length > 0) parts.push(`${iss.statusMismatches.length} status mismatches`);
         if (iss.assignmentMismatches?.length > 0) parts.push(`${iss.assignmentMismatches.length} assignment mismatches`);
         if (iss.commentMismatches?.length > 0) parts.push(`${iss.commentMismatches.length} comment mismatches`);
@@ -82,15 +84,61 @@ export function logVerificationSummary(results) {
         if (iss.unsyncable?.typeChanges > 0) parts.push(`${iss.unsyncable.typeChanges} type changes (unsyncable)`);
         if (iss.unsyncable?.severityChanges > 0) parts.push(`${iss.unsyncable.severityChanges} severity changes (unsyncable)`);
         logger.info(`         Issues: ${parts.join(', ')}`);
+
+        // Type breakdown diff
+        const sqTypes = iss.typeBreakdown?.sq || {};
+        const scTypes = iss.typeBreakdown?.sc || {};
+        if (Object.keys(sqTypes).length > 0 || Object.keys(scTypes).length > 0) {
+          const allTypes = [...new Set([...Object.keys(sqTypes), ...Object.keys(scTypes)])].sort();
+          const typeDiffs = allTypes.map(t => {
+            const sq = sqTypes[t] || 0;
+            const sc = scTypes[t] || 0;
+            const delta = sc - sq;
+            const deltaStr = delta === 0 ? '' : ` (${delta > 0 ? '+' : ''}${delta})`;
+            return `${t}: SQ=${sq} SC=${sc}${deltaStr}`;
+          });
+          logger.info(`           Types: ${typeDiffs.join(', ')}`);
+        }
+
+        // Severity breakdown diff
+        const sqSev = iss.severityBreakdown?.sq || {};
+        const scSev = iss.severityBreakdown?.sc || {};
+        if (Object.keys(sqSev).length > 0 || Object.keys(scSev).length > 0) {
+          const allSev = [...new Set([...Object.keys(sqSev), ...Object.keys(scSev)])].sort();
+          const sevDiffs = allSev.map(s => {
+            const sq = sqSev[s] || 0;
+            const sc = scSev[s] || 0;
+            const delta = sc - sq;
+            const deltaStr = delta === 0 ? '' : ` (${delta > 0 ? '+' : ''}${delta})`;
+            return `${s}: SQ=${sq} SC=${sc}${deltaStr}`;
+          });
+          logger.info(`           Severities: ${sevDiffs.join(', ')}`);
+        }
       }
 
       if (project.checks.hotspots) {
         const hs = project.checks.hotspots;
         const parts = [`${hs.matched}/${hs.sqCount} matched`];
+        if (hs.unmatched > 0) parts.push(`${hs.unmatched} unmatched`);
+        if (hs.scOnlyHotspots?.length > 0) parts.push(`${hs.scOnlyHotspots.length} SC-only`);
         if (hs.statusMismatches?.length > 0) parts.push(`${hs.statusMismatches.length} status mismatches`);
         if (hs.commentMismatches?.length > 0) parts.push(`${hs.commentMismatches.length} comment mismatches`);
         if (hs.unsyncable?.assignments > 0) parts.push(`${hs.unsyncable.assignments} assignment diffs (unsyncable)`);
         logger.info(`         Hotspots: ${parts.join(', ')}`);
+      }
+
+      if (project.checks.measures) {
+        const meas = project.checks.measures;
+        const parts = [`${meas.compared} compared`];
+        if (meas.mismatches?.length > 0) parts.push(`${meas.mismatches.length} mismatches`);
+        if (meas.sqOnly?.length > 0) parts.push(`${meas.sqOnly.length} SQ-only`);
+        if (meas.scOnly?.length > 0) parts.push(`${meas.scOnly.length} SC-only`);
+        logger.info(`         Measures: ${parts.join(', ')}`);
+        if (meas.mismatches?.length > 0) {
+          for (const m of meas.mismatches) {
+            logger.info(`           ${m.metric}: SQ=${m.sqValue} SC=${m.scValue}`);
+          }
+        }
       }
     }
   }

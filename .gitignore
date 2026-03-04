@@ -42,6 +42,7 @@ temp/
 coverage/
 archives/
 migration-output/
+verification-output/
 .scannerwork/
 
 # Local Only files

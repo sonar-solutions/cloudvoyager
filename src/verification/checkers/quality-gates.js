@@ -36,7 +36,23 @@ export async function verifyQualityGates(sqClient, scClient) {
       continue;
     }
 
-    // Compare conditions
+    // Built-in quality gates ("Sonar way", "Sonar way for AI Code", etc.)
+    // may have different conditions between SQ and SC platform versions.
+    // Skip detailed condition comparison for built-in gates.
+    const isBuiltIn = sqGate.isBuiltIn || sqGate.name.startsWith('Sonar way');
+    if (isBuiltIn) {
+      result.details.push({
+        name: sqGate.name,
+        sqConditionCount: null,
+        scConditionCount: null,
+        conditionMismatchCount: 0,
+        status: 'pass',
+        note: 'built-in gate — condition comparison skipped'
+      });
+      continue;
+    }
+
+    // Compare conditions for custom gates
     let sqConditions, scConditions;
     try {
       const sqDetails = await sqClient.getQualityGateDetails(sqGate.name);

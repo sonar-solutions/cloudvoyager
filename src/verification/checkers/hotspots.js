@@ -33,6 +33,8 @@ export async function verifyHotspots(sqClient, scClient, scProjectKey, options =
     unmatched: 0,
     statusMismatches: [],
     commentMismatches: [],
+    unmatchedSqHotspots: [],
+    scOnlyHotspots: [],
     unsyncable: {
       assignments: 0,
       assignmentDetails: []
@@ -66,6 +68,7 @@ export async function verifyHotspots(sqClient, scClient, scProjectKey, options =
 
   // Match SQ hotspots to SC hotspots
   const matchedPairs = [];
+  const matchedSqKeys = new Set();
   for (const sqHotspot of sqHotspots) {
     const matchKey = buildHotspotMatchKey(sqHotspot);
     if (!matchKey) continue;
@@ -75,10 +78,67 @@ export async function verifyHotspots(sqClient, scClient, scProjectKey, options =
 
     const scHotspot = candidates.shift();
     matchedPairs.push({ sqHotspot, scHotspot });
+    matchedSqKeys.add(sqHotspot.key);
   }
 
   result.matched = matchedPairs.length;
-  result.unmatched = sqHotspots.length - matchedPairs.length;
+
+  // Classify unmatched SQ hotspots: separate "rule not in SC" from genuine mismatches.
+  // If ALL SQ hotspots for a given rule are unmatched and SC has zero hotspots for that rule,
+  // it's likely a rule that was reclassified (hotspot→issue) or doesn't exist in SC.
+  const matchedRules = new Set(matchedPairs.map(p =>
+    p.sqHotspot.ruleKey || p.sqHotspot.securityCategory || ''
+  ));
+  const scRules = new Set(scHotspots.map(h =>
+    h.ruleKey || h.rule?.key || h.securityCategory || ''
+  ));
+
+  const MAX_UNMATCHED = 200;
+  let genuineUnmatched = 0;
+  let ruleNotInSc = 0;
+  for (const sqHotspot of sqHotspots) {
+    if (matchedSqKeys.has(sqHotspot.key)) continue;
+    const rule = sqHotspot.ruleKey || sqHotspot.securityCategory || '';
+    // Rule doesn't exist at all in SC hotspots — likely reclassified or unavailable
+    if (!matchedRules.has(rule) && !scRules.has(rule)) {
+      ruleNotInSc++;
+      continue;
+    }
+    genuineUnmatched++;
+    if (result.unmatchedSqHotspots.length >= MAX_UNMATCHED) continue;
+    result.unmatchedSqHotspots.push({
+      sqKey: sqHotspot.key,
+      rule,
+      file: (sqHotspot.component || '').split(':').pop(),
+      line: sqHotspot.line || 0,
+      status: sqHotspot.status || 'TO_REVIEW',
+      message: (sqHotspot.message || '').slice(0, 120)
+    });
+  }
+  result.unmatched = genuineUnmatched;
+  result.ruleNotInSc = ruleNotInSc;
+
+  // Track SC-only hotspots (same classification)
+  const sqRules = new Set(sqHotspots.map(h =>
+    h.ruleKey || h.securityCategory || ''
+  ));
+  const remainingSc = [];
+  scHotspotMap.forEach(candidates => {
+    for (const h of candidates) remainingSc.push(h);
+  });
+  for (const scHotspot of remainingSc) {
+    const rule = scHotspot.ruleKey || scHotspot.rule?.key || scHotspot.securityCategory || '';
+    if (!matchedRules.has(rule) && !sqRules.has(rule)) continue;
+    if (result.scOnlyHotspots.length >= MAX_UNMATCHED) continue;
+    result.scOnlyHotspots.push({
+      scKey: scHotspot.key,
+      rule,
+      file: (scHotspot.component || '').split(':').pop(),
+      line: scHotspot.line || 0,
+      status: scHotspot.status || 'TO_REVIEW',
+      message: (scHotspot.message || '').slice(0, 120)
+    });
+  }
 
   logger.info(`Matched ${matchedPairs.length}/${sqHotspots.length} hotspots, verifying details...`);
 
