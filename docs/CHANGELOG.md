@@ -10,6 +10,22 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-02-25 — Transfer-All Deprecation, Further Reading, Server-Wide Data Caching
+
+#### Deprecated
+- Removed `transfer-all` command, config schema, example config, scenario docs, and all references — replaced by the more capable `migrate` command
+- Removed `examples/transfer-all-config.example.json` and `docs/scenario-transfer-all.md`
+
+#### Documentation
+- Added "Further Reading" sections with cross-links to all documentation files for easier navigation
+- Fixed configuration reference to reflect two (not three) configuration formats
+- Updated hidden HTML timestamps across modified documentation files
+
+#### Server-Wide Data Caching
+- Implemented server-wide data caching in the migration pipeline for improved extraction performance
+
+---
+
 ### 2026-02-20 — Enterprise Portfolio API, Configuration Updates
 
 #### Enterprise Portfolio API (V2)
@@ -188,3 +204,13 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
   - Troubleshooting guide
 - Updated README with download instructions and migration constraints
 - Added compliance scan script for internal code quality checks
+
+---
+
+## 📚 Further Reading
+
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Full Migration — Single Org](scenario-single-org.md) — step-by-step migration guide
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them

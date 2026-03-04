@@ -42,6 +42,7 @@ export function registerSyncMetadataCommand(program) {
         logSystemInfo(perfConfig);
 
         migrateConfig.dryRun = false;
+        migrateConfig.skipProjectConfig = true;
         const results = await migrateAll({
           sonarqubeConfig: config.sonarqube,
           sonarcloudOrgs: config.sonarcloud.organizations,

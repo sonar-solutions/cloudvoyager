@@ -54,6 +54,8 @@ export class ProtobufEncoder {
   encodeMeasureDelimited(m) { return encodeMessageDelimited(this.root, 'Measure', m); }
   encodeActiveRuleDelimited(r) { return encodeMessageDelimited(this.root, 'ActiveRule', r); }
   encodeChangeset(c) { return encodeMessage(this.root, 'Changesets', c); }
+  encodeExternalIssueDelimited(i) { return encodeMessageDelimited(this.root, 'ExternalIssue', i); }
+  encodeAdHocRuleDelimited(r) { return encodeMessageDelimited(this.root, 'AdHocRule', r); }
 
   encodeAll(messages) {
     logger.info('Encoding all messages to protobuf...');
@@ -105,6 +107,26 @@ export class ProtobufEncoder {
       messages.changesetsByComponent.forEach((changeset, componentRef) => {
         encoded.changesets.set(componentRef, this.encodeChangeset(changeset));
       });
+
+      // Encode external issues (same pattern as regular issues)
+      encoded.externalIssues = new Map();
+      if (messages.externalIssuesByComponent && messages.externalIssuesByComponent.size > 0) {
+        logger.debug(`Encoding external issues for ${messages.externalIssuesByComponent.size} components...`);
+        messages.externalIssuesByComponent.forEach((issues, componentRef) => {
+          const buffers = issues.map(issue => this.encodeExternalIssueDelimited(issue));
+          encoded.externalIssues.set(componentRef, Buffer.concat(buffers));
+        });
+      }
+
+      // Encode ad-hoc rules (same pattern as active rules)
+      encoded.adHocRules = Buffer.alloc(0);
+      if (messages.adHocRules && messages.adHocRules.length > 0) {
+        logger.debug(`Encoding ${messages.adHocRules.length} ad-hoc rules...`);
+        const adHocRuleBuffers = messages.adHocRules.map(rule =>
+          this.encodeAdHocRuleDelimited(rule)
+        );
+        encoded.adHocRules = Buffer.concat(adHocRuleBuffers);
+      }
 
       logger.info('All messages encoded successfully');
       return encoded;

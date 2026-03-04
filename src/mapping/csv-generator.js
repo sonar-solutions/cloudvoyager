@@ -43,26 +43,51 @@ function generateOrganizationsCsv(data) {
 }
 
 function generateProjectsCsv(data) {
-  const { orgAssignments, projectBindings, projectMetadata } = data;
+  const { orgAssignments, projectBindings, projectMetadata, projectBranches } = data;
   const rows = [toCsvRow([
-    'Include', 'Project Key', 'Project Name', 'Target Organization', 'ALM Platform',
+    'Include', 'Project Key', 'Project Name', 'Branch', 'Target Organization', 'ALM Platform',
     'Repository', 'Monorepo', 'Visibility', 'Last Analysis'
   ])];
   for (const assignment of orgAssignments) {
     for (const project of assignment.projects) {
       const binding = projectBindings?.get(project.key);
       const meta = projectMetadata?.get(project.key) || project;
-      rows.push(toCsvRow([
-        'yes',
-        project.key,
-        meta.name || project.name || project.key,
-        assignment.org.key,
-        binding?.alm || 'none',
-        binding?.repository || '',
-        binding?.monorepo || false,
-        meta.visibility || 'public',
-        meta.lastAnalysisDate || ''
-      ]));
+      const branches = projectBranches?.get(project.key) || [];
+
+      if (branches.length > 0) {
+        const sorted = [...branches].sort((a, b) => {
+          if (a.isMain && !b.isMain) return -1;
+          if (!a.isMain && b.isMain) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        for (const branch of sorted) {
+          rows.push(toCsvRow([
+            'yes',
+            project.key,
+            meta.name || project.name || project.key,
+            branch.name,
+            assignment.org.key,
+            binding?.alm || 'none',
+            binding?.repository || '',
+            binding?.monorepo || false,
+            meta.visibility || 'public',
+            meta.lastAnalysisDate || ''
+          ]));
+        }
+      } else {
+        rows.push(toCsvRow([
+          'yes',
+          project.key,
+          meta.name || project.name || project.key,
+          '',
+          assignment.org.key,
+          binding?.alm || 'none',
+          binding?.repository || '',
+          binding?.monorepo || false,
+          meta.visibility || 'public',
+          meta.lastAnalysisDate || ''
+        ]));
+      }
     }
   }
   return rows.join('\n') + '\n';

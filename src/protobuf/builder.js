@@ -3,6 +3,7 @@ import logger from '../utils/logger.js';
 import { ProtobufEncodingError } from '../utils/errors.js';
 import { buildComponents } from './build-components.js';
 import { buildIssues } from './build-issues.js';
+import { buildExternalIssues } from './build-external-issues.js';
 import { buildMeasures, buildMeasure, parseMeasureValue } from './build-measures.js';
 
 export class ProtobufBuilder {
@@ -16,6 +17,8 @@ export class ProtobufBuilder {
     // For non-main branches, this should be the main branch name so SonarCloud
     // knows which branch to use as the new-code reference.
     this.referenceBranchName = options.referenceBranchName || null;
+    // Set of rule repository keys available in SonarCloud — used to auto-detect external issues
+    this.sonarCloudRepos = options.sonarCloudRepos || new Set();
   }
 
   buildMetadata() {
@@ -49,6 +52,7 @@ export class ProtobufBuilder {
 
   buildComponents() { return buildComponents(this); }
   buildIssues() { return buildIssues(this); }
+  buildExternalIssues() { return buildExternalIssues(this); }
   buildMeasures() { return buildMeasures(this); }
   buildMeasure(measure) { return buildMeasure(measure); }
   parseMeasureValue(rawValue) { return parseMeasureValue(rawValue); }
@@ -72,8 +76,16 @@ export class ProtobufBuilder {
     if (this.sonarCloudProfiles?.length > 0) {
       this.sonarCloudProfiles.forEach(p => { langToSCProfileKey.set(p.language.toLowerCase(), p.key); });
     }
+    const sonarCloudRepos = this.sonarCloudRepos;
     const activeRules = [];
+    let skippedExternal = 0;
     this.data.activeRules.forEach(rule => {
+      // Skip rules from repositories not available in SonarCloud — these are
+      // handled via ExternalIssue + AdHocRule instead of ActiveRule.
+      if (sonarCloudRepos && sonarCloudRepos.size > 0 && !sonarCloudRepos.has(rule.ruleRepository)) {
+        skippedExternal++;
+        return;
+      }
       let ruleKey = rule.ruleKey;
       if (ruleKey?.includes(':')) ruleKey = ruleKey.split(':').pop();
       let qProfileKey = rule.qProfileKey;
@@ -90,6 +102,9 @@ export class ProtobufBuilder {
       }
       activeRules.push(activeRule);
     });
+    if (skippedExternal > 0) {
+      logger.info(`Skipped ${skippedExternal} active rules from external repositories (handled via ad-hoc rules)`);
+    }
     logger.info(`Built ${activeRules.length} active rule messages`);
     return activeRules;
   }
@@ -103,6 +118,8 @@ export class ProtobufBuilder {
 
   buildQProfiles() {
     const qprofiles = {};
+    // Collect known SC languages so we can skip unsupported plugin languages
+    const scLanguages = new Set(this.sonarCloudProfiles.map(p => p.language.toLowerCase()));
     const languages = [...new Set([
       ...this.data.activeRules.map(r => r.language).filter(Boolean),
       ...this.data.sources.map(s => s.language).filter(Boolean)
@@ -116,6 +133,10 @@ export class ProtobufBuilder {
           rulesUpdatedAt: new Date(scProfile.rulesUpdatedAt).getTime()
         };
         logger.debug(`QProfile for ${languageKey}: ${scProfile.key} (${scProfile.name})`);
+      } else if (!scLanguages.has(languageKey)) {
+        // Language not recognized by SonarCloud at all (e.g. from an unsupported plugin).
+        // Including it in qprofiles would cause the CE to reject the report.
+        logger.debug(`Skipping unsupported language from qprofiles: ${languageKey}`);
       } else {
         qprofiles[languageKey] = { key: `default-${languageKey}`, name: 'Sonar way', language: languageKey, rulesUpdatedAt: Date.now() };
         logger.warn(`No SonarCloud profile found for language: ${languageKey}, using fallback`);
@@ -129,9 +150,12 @@ export class ProtobufBuilder {
   }
 
   buildFileCountsByType() {
+    const scLanguages = new Set(this.sonarCloudProfiles.map(p => p.language.toLowerCase()));
     const counts = {};
     this.data.sources.forEach(source => {
-      const lang = source.language || 'unknown';
+      const lang = (source.language || 'unknown').toLowerCase();
+      // Skip languages from unsupported plugins
+      if (lang !== 'unknown' && scLanguages.size > 0 && !scLanguages.has(lang)) return;
       counts[lang] = (counts[lang] || 0) + 1;
     });
     return counts;
@@ -164,14 +188,19 @@ export class ProtobufBuilder {
   buildAll() {
     logger.info('Building all protobuf messages...');
     try {
+      const metadata = this.buildMetadata();
+      const components = this.buildComponents(); // must run first — populates validComponentKeys & componentRefMap
+      const externalResult = this.buildExternalIssues();
       const messages = {
-        metadata: this.buildMetadata(),
-        components: this.buildComponents(),
+        metadata,
+        components,
         issuesByComponent: this.buildIssues(),
         measuresByComponent: this.buildMeasures(),
         sourceFiles: this.buildSourceFiles(),
         activeRules: this.buildActiveRules(),
         changesetsByComponent: this.buildChangesets(),
+        externalIssuesByComponent: externalResult.externalIssuesByComponent,
+        adHocRules: externalResult.adHocRules,
       };
       logger.info('Successfully built all protobuf messages');
       return messages;

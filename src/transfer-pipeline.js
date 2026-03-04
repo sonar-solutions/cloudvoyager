@@ -32,6 +32,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // Resolve branch sync settings (default: sync all branches)
   const syncAllBranches = transferConfig.syncAllBranches !== false;
   const excludeBranches = new Set(transferConfig.excludeBranches || []);
+  const includeBranches = transferConfig.includeBranches || null; // Set<string> from CSV, or null = all
 
   // Initialize state tracker
   const stateTracker = new StateTracker(transferConfig.stateFile);
@@ -66,6 +67,22 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // Ensure SonarCloud project exists (with the original human-readable name)
   await sonarCloudClient.ensureProject(projectName);
 
+  // If CSV specifies branch includes, verify the main branch is included
+  if (includeBranches) {
+    // Peek at the SonarQube main branch name to check against the include set
+    const sqBranches = await sonarQubeClient.getBranches();
+    const sqMainBranch = sqBranches.find(b => b.isMain);
+    const sqMainBranchName = sqMainBranch?.name || 'main';
+    if (!includeBranches.has(sqMainBranchName)) {
+      logger.warn(`Main branch '${sqMainBranchName}' is excluded by CSV for project ${projectKey} — skipping entire project`);
+      return {
+        projectKey,
+        sonarCloudProjectKey: sonarcloudConfig.projectKey,
+        stats: { issuesTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0, branchesTransferred: [] }
+      };
+    }
+  }
+
   // Extract data from SonarQube (main branch)
   logger.info('Starting data extraction from SonarQube (main branch)...');
   const config = { sonarqube: sonarqubeConfig, sonarcloud: sonarcloudConfig, transfer: transferConfig };
@@ -82,8 +99,12 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   const sonarCloudProfiles = await sonarCloudClient.getQualityProfiles();
   const sonarCloudMainBranch = await sonarCloudClient.getMainBranchName();
 
+  // Fetch SonarCloud rule repositories for auto-detecting external issues
+  logger.info('Fetching SonarCloud rule repositories...');
+  const sonarCloudRepos = await sonarCloudClient.getRuleRepositories();
+
   // --- Transfer main branch ---
-  const mainBranchStats = await transferBranch({
+  const mainBranchResult = await transferBranch({
     extractedData,
     sonarcloudConfig,
     sonarCloudProfiles,
@@ -91,11 +112,13 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
     referenceBranchName: sonarCloudMainBranch,
     wait,
     sonarCloudClient,
-    label: 'main'
+    label: 'main',
+    isMainBranch: true,
+    sonarCloudRepos
   });
 
   // Track aggregated stats across all branches
-  const aggregatedStats = { ...mainBranchStats, branchesTransferred: [sonarCloudMainBranch] };
+  const aggregatedStats = { ...mainBranchResult.stats, branchesTransferred: [sonarCloudMainBranch] };
 
   if (transferConfig.mode === 'incremental') {
     stateTracker.markBranchCompleted(sonarCloudMainBranch);
@@ -104,9 +127,28 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // --- Transfer non-main branches ---
   if (syncAllBranches) {
     const allBranches = extractedData.project.branches || [];
-    const nonMainBranches = allBranches.filter(b => !b.isMain && !excludeBranches.has(b.name));
+    const nonMainBranches = allBranches.filter(b => {
+      if (b.isMain) return false;
+      if (excludeBranches.has(b.name)) return false;
+      if (includeBranches && !includeBranches.has(b.name)) return false;
+      return true;
+    });
 
     if (nonMainBranches.length > 0) {
+      // SonarCloud requires the main branch analysis to complete before non-main
+      // branch reports can be processed (the main branch serves as the reference
+      // baseline).  If we haven't already waited (wait=false), poll now.
+      if (!wait && mainBranchResult.ceTask?.id) {
+        logger.info(`Waiting for main branch CE task ${mainBranchResult.ceTask.id} to complete before syncing non-main branches...`);
+        try {
+          await sonarCloudClient.waitForAnalysis(mainBranchResult.ceTask.id, 600);
+          logger.info('Main branch analysis completed — proceeding with non-main branches');
+        } catch (error) {
+          logger.error(`Main branch analysis did not complete successfully: ${error.message}`);
+          logger.warn('Attempting non-main branch transfers anyway...');
+        }
+      }
+
       logger.info(`Syncing ${nonMainBranches.length} additional branch(es): ${nonMainBranches.map(b => b.name).join(', ')}`);
 
       for (const branch of nonMainBranches) {
@@ -122,7 +164,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
           logger.info(`--- Extracting branch: ${branchName} ---`);
           const branchData = await extractor.extractBranch(branchName, extractedData);
 
-          const branchStats = await transferBranch({
+          const branchResult = await transferBranch({
             extractedData: branchData,
             sonarcloudConfig,
             sonarCloudProfiles,
@@ -130,14 +172,16 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
             referenceBranchName: sonarCloudMainBranch,
             wait,
             sonarCloudClient,
-            label: branchName
+            label: branchName,
+            sonarCloudRepos
           });
 
           // Accumulate stats
-          aggregatedStats.issuesTransferred += branchStats.issuesTransferred;
-          aggregatedStats.componentsTransferred += branchStats.componentsTransferred;
-          aggregatedStats.sourcesTransferred += branchStats.sourcesTransferred;
-          aggregatedStats.linesOfCode += branchStats.linesOfCode;
+          aggregatedStats.issuesTransferred += branchResult.stats.issuesTransferred;
+          aggregatedStats.hotspotsTransferred = (aggregatedStats.hotspotsTransferred || 0) + (branchResult.stats.hotspotsTransferred || 0);
+          aggregatedStats.componentsTransferred += branchResult.stats.componentsTransferred;
+          aggregatedStats.sourcesTransferred += branchResult.stats.sourcesTransferred;
+          aggregatedStats.linesOfCode += branchResult.stats.linesOfCode;
           aggregatedStats.branchesTransferred.push(branchName);
 
           if (transferConfig.mode === 'incremental') {
@@ -145,7 +189,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
           }
         } catch (error) {
           logger.error(`Failed to transfer branch '${branchName}': ${error.message}`);
-          logger.warn(`Continuing with remaining branches...`);
+          logger.warn('Continuing with remaining branches...');
         }
       }
     } else {
@@ -174,14 +218,15 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
  * @param {boolean} options.wait - Whether to wait for analysis completion
  * @param {object} options.sonarCloudClient - SonarCloud API client
  * @param {string} options.label - Human-readable label for logging
- * @returns {Promise<object>} Branch transfer stats
+ * @returns {Promise<object>} { stats, ceTask } — branch transfer stats and the CE task object
  */
-async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label }) {
+async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set() }) {
   // Build protobuf messages
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
     sonarCloudBranchName: branchName,
-    referenceBranchName
+    referenceBranchName,
+    sonarCloudRepos,
   });
   const messages = builder.buildAll();
 
@@ -197,23 +242,32 @@ async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfi
   const metadata = {
     projectKey: sonarcloudConfig.projectKey,
     organization: sonarcloudConfig.organization,
-    version: '1.0.0'
+    version: '1.0.0',
+    // Branch name — used by CE endpoint to route analysis to the correct branch.
+    // For non-main branches, the uploader sends branch characteristics to the CE endpoint.
+    ...(!isMainBranch && branchName ? { branchName } : {})
   };
 
+  let ceTask;
   if (wait) {
-    await uploader.uploadAndWait(encodedReport, metadata);
+    ceTask = await uploader.uploadAndWait(encodedReport, metadata);
     logger.info(`[${label}] Analysis completed successfully`);
   } else {
-    const ceTask = await uploader.upload(encodedReport, metadata);
+    ceTask = await uploader.upload(encodedReport, metadata);
     logger.info(`[${label}] Upload complete. CE Task ID: ${ceTask.id}`);
   }
 
   // Compute stats for this branch
   const nclocMeasure = (extractedData.measures.measures || []).find(m => m.metric === 'ncloc');
+  const hotspotCount = extractedData.issues.filter(i => i.type === 'SECURITY_HOTSPOT').length;
   return {
-    issuesTransferred: extractedData.issues.length,
-    componentsTransferred: extractedData.components.length,
-    sourcesTransferred: extractedData.sources.length,
-    linesOfCode: nclocMeasure ? parseInt(nclocMeasure.value, 10) || 0 : 0
+    stats: {
+      issuesTransferred: extractedData.issues.length - hotspotCount,
+      hotspotsTransferred: hotspotCount,
+      componentsTransferred: extractedData.components.length,
+      sourcesTransferred: extractedData.sources.length,
+      linesOfCode: nclocMeasure ? parseInt(nclocMeasure.value, 10) || 0 : 0
+    },
+    ceTask
   };
 }

@@ -10,14 +10,17 @@ import logger from '../utils/logger.js';
  * @param {object} extractedData
  * @param {object} resourceMappings
  * @param {Array} orgAssignments
- * @returns {{ filteredExtractedData: object, filteredResourceMappings: object, filteredOrgAssignments: Array }}
+ * @returns {{ filteredExtractedData: object, filteredResourceMappings: object, filteredOrgAssignments: Array, projectBranchIncludes: Map<string, Set<string>> }}
  */
 export function applyCsvOverrides(parsedCsvs, extractedData, resourceMappings, orgAssignments) {
   const filtered = structuredClone(extractedData);
   let filteredAssignments = structuredClone(orgAssignments);
+  let projectBranchIncludes = new Map();
 
   if (parsedCsvs.has('projects.csv')) {
-    filteredAssignments = applyProjectsCsv(parsedCsvs.get('projects.csv'), filteredAssignments);
+    const result = applyProjectsCsv(parsedCsvs.get('projects.csv'), filteredAssignments);
+    filteredAssignments = result.orgAssignments;
+    projectBranchIncludes = result.projectBranchIncludes;
   }
   if (parsedCsvs.has('gate-mappings.csv')) {
     filtered.qualityGates = applyGateMappingsCsv(parsedCsvs.get('gate-mappings.csv'), filtered.qualityGates);
@@ -40,88 +43,91 @@ export function applyCsvOverrides(parsedCsvs, extractedData, resourceMappings, o
 
   const filteredResourceMappings = mapResourcesToOrganizations(filtered, filteredAssignments);
 
-  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments };
+  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments, projectBranchIncludes };
 }
 
 /**
  * Filter org assignments to exclude projects marked Include!=yes.
+ * When a Branch column is present, also builds a per-project branch include map.
+ *
+ * @returns {{ orgAssignments: Array, projectBranchIncludes: Map<string, Set<string>> }}
  */
 function applyProjectsCsv(csvData, orgAssignments) {
+  const hasBranchColumn = csvData.headers.includes('Branch');
   const excludedKeys = new Set();
-  for (const row of csvData.rows) {
-    if (!isIncluded(row['Include'])) {
-      excludedKeys.add(row['Project Key']);
+  const projectBranchIncludes = new Map();
+
+  if (!hasBranchColumn) {
+    // Legacy CSV without Branch column — behave as before
+    for (const row of csvData.rows) {
+      if (!isIncluded(row['Include'])) {
+        excludedKeys.add(row['Project Key']);
+      }
+    }
+  } else {
+    // New CSV with per-branch rows
+    const rowsByProject = new Map();
+    for (const row of csvData.rows) {
+      const pk = row['Project Key'];
+      if (!rowsByProject.has(pk)) rowsByProject.set(pk, []);
+      rowsByProject.get(pk).push(row);
+    }
+
+    for (const [projectKey, rows] of rowsByProject) {
+      const includedBranches = new Set();
+      const excludedBranches = new Set();
+
+      for (const row of rows) {
+        const branchName = row['Branch'] || '';
+        if (isIncluded(row['Include'])) {
+          if (branchName) includedBranches.add(branchName);
+        } else {
+          if (branchName) excludedBranches.add(branchName);
+        }
+      }
+
+      if (includedBranches.size === 0) {
+        // All branches excluded → exclude entire project
+        excludedKeys.add(projectKey);
+      } else if (excludedBranches.size > 0) {
+        // Some branches excluded → record which branches to include
+        projectBranchIncludes.set(projectKey, includedBranches);
+      }
+      // If no branches excluded, don't add to map (all branches included)
     }
   }
 
-  if (excludedKeys.size === 0) return orgAssignments;
-
-  logger.info(`CSV override: excluding ${excludedKeys.size} project(s): ${[...excludedKeys].join(', ')}`);
-
-  for (const assignment of orgAssignments) {
-    assignment.projects = assignment.projects.filter(p => !excludedKeys.has(p.key));
+  if (excludedKeys.size > 0) {
+    logger.info(`CSV override: excluding ${excludedKeys.size} project(s): ${[...excludedKeys].join(', ')}`);
+    for (const assignment of orgAssignments) {
+      assignment.projects = assignment.projects.filter(p => !excludedKeys.has(p.key));
+    }
   }
-  return orgAssignments;
+  if (projectBranchIncludes.size > 0) {
+    logger.info(`CSV override: branch-level filtering for ${projectBranchIncludes.size} project(s)`);
+  }
+
+  return { orgAssignments, projectBranchIncludes };
 }
 
 /**
- * Filter quality gates and rebuild conditions from CSV (supports threshold/operator edits).
+ * Filter quality gates by Include column. Conditions are always preserved as-is from SonarQube.
  */
 function applyGateMappingsCsv(csvData, qualityGates) {
   if (!qualityGates) return qualityGates;
 
-  // Group CSV rows by gate name
-  const gateRows = new Map();
+  const excludedNames = new Set();
   for (const row of csvData.rows) {
-    const name = row['Gate Name'];
-    if (!gateRows.has(name)) gateRows.set(name, []);
-    gateRows.get(name).push(row);
-  }
-
-  const result = [];
-  let excludedCount = 0;
-  let conditionChanges = 0;
-
-  for (const gate of qualityGates) {
-    const rows = gateRows.get(gate.name);
-    if (!rows) {
-      // Gate not in CSV — keep as-is
-      result.push(gate);
-      continue;
-    }
-
-    // Find header row (Condition Metric is empty)
-    const headerRow = rows.find(r => !r['Condition Metric']);
-    if (headerRow && !isIncluded(headerRow['Include'])) {
-      excludedCount++;
-      continue;
-    }
-
-    // Rebuild conditions from included condition rows
-    const conditionRows = rows.filter(r => r['Condition Metric']);
-    const newConditions = [];
-    for (const cr of conditionRows) {
-      if (!isIncluded(cr['Include'])) {
-        conditionChanges++;
-        continue;
-      }
-      newConditions.push({
-        metric: cr['Condition Metric'],
-        op: cr['Condition Operator'],
-        error: cr['Condition Threshold']
-      });
-    }
-
-    result.push({ ...gate, conditions: newConditions });
-    if (newConditions.length !== (gate.conditions?.length || 0)) {
-      conditionChanges++;
+    if (!isIncluded(row['Include'])) {
+      excludedNames.add(row['Gate Name']);
     }
   }
 
-  if (excludedCount > 0) logger.info(`CSV override: excluded ${excludedCount} quality gate(s)`);
-  if (conditionChanges > 0) logger.info('CSV override: modified conditions in quality gate(s)');
+  if (excludedNames.size === 0) return qualityGates;
 
-  return result;
+  logger.info(`CSV override: excluded ${excludedNames.size} quality gate(s): ${[...excludedNames].join(', ')}`);
+
+  return qualityGates.filter(g => !excludedNames.has(g.name));
 }
 
 /**

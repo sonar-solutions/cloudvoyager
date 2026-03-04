@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📡 Protobuf Encoding
@@ -110,10 +110,10 @@ The `--dry-run` flag generates 8 exhaustive CSV files covering projects, organiz
 
 **Pipeline integration:**
 1. `migrate --dry-run` extracts data from SonarQube, generates CSVs, then stops
-2. User reviews/edits CSVs (set `Include=no`, change gate thresholds, remove permissions)
+2. User reviews/edits CSVs (set `Include=no` to exclude resources from migration)
 3. `migrate` (without `--dry-run`) detects existing CSVs, reads them into memory **before** wiping the output directory, re-extracts from SonarQube, then applies CSV overrides via `applyCsvOverrides()` which returns filtered copies using `structuredClone`
 
-Quality gate CSVs use a parent/child row pattern — gate header rows (empty condition fields) control entire gates, while condition rows allow per-condition exclusion and threshold/operator editing. Portfolio and permission template CSVs use the same pattern for their member/permission rows.
+Quality gate CSVs use a flat one-row-per-gate pattern — users can include or exclude entire gates, but conditions are always migrated as-is from SonarQube. Portfolio and permission template CSVs use a parent/child pattern for their member/permission rows.
 
 See [dry-run-csv-reference.md](dry-run-csv-reference.md) for full CSV schema documentation.
 
@@ -151,6 +151,15 @@ Performance config is resolved at startup by `resolvePerformanceConfig()`, which
 ## 💾 Memory Management
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
+
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

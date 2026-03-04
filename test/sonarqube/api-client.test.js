@@ -739,6 +739,26 @@ test('getIssuesWithComments fetches issues with comments field', async t => {
   t.is(stub.firstCall.args[1].params.additionalFields, 'comments');
 });
 
+// getIssueChangelog
+test('getIssueChangelog fetches changelog for an issue', async t => {
+  const client = createClient();
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] }
+  ];
+  mockGet(client, { data: { changelog } });
+
+  const result = await client.getIssueChangelog('ISSUE-1');
+  t.deepEqual(result, changelog);
+});
+
+test('getIssueChangelog returns empty array when changelog is missing', async t => {
+  const client = createClient();
+  mockGet(client, { data: {} });
+
+  const result = await client.getIssueChangelog('ISSUE-1');
+  t.deepEqual(result, []);
+});
+
 // testConnection
 test('testConnection returns true on success', async t => {
   const client = createClient();

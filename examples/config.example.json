@@ -18,9 +18,9 @@
     "excludeBranches": []
   },
   "rateLimit": {
-    "maxRetries": 5,
+    "maxRetries": 3,
     "baseDelay": 1000,
-    "minRequestInterval": 150
+    "minRequestInterval": 0
   },
   "performance": {
     "autoTune": false,

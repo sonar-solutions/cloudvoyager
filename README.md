@@ -1,6 +1,6 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-02-19 -->
+<!-- Last updated: 2026-02-25 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
@@ -33,6 +33,19 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ## 🛠️ Local Development
 
 Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) for step-by-step instructions.
+
+<!-- Updated: 2026-02-25 -->
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Key Capabilities](docs/key-capabilities.md) | Comprehensive overview of engineering, architecture, and capabilities |
+| [Architecture](docs/architecture.md) | Project structure, data flow, and report format |
+| [Configuration Reference](docs/configuration.md) | All config options, environment variables, and npm scripts |
+| [Technical Details](docs/technical-details.md) | Protobuf encoding, measure types, concurrency model |
+| [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
+| [Dry-Run CSV Reference](docs/dry-run-csv-reference.md) | CSV schema documentation for the dry-run workflow |
+| [Changelog](docs/CHANGELOG.md) | Release history and notable changes |
 
 <!-- Updated: 2026-02-17 -->
 ## 📝 License

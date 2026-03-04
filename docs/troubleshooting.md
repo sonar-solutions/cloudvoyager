@@ -1,6 +1,6 @@
 # 🔧 Troubleshooting
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🐛 Debugging a Migration Run
@@ -330,6 +330,14 @@ You can also sync just one type of metadata at a time:
 # Sync only hotspot metadata
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
+
+## 📚 Further Reading
+
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

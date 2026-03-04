@@ -28,6 +28,8 @@ export function createIssueData(issue) {
     creationDate: issue.creationDate,
     updateDate: issue.updateDate,
     type: issue.type,
+    cleanCodeAttribute: issue.cleanCodeAttribute || null,
+    impacts: issue.impacts || [],
   };
 }
 

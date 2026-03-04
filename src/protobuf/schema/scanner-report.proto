@@ -237,7 +237,7 @@ message ExternalIssue {
   optional IssueType type = 8;
   repeated MessageFormatting msgFormatting = 9;
   repeated Impact impacts = 10;
-  optional string cleanCodeAttribute = 11;
+  optional CleanCodeAttribute cleanCodeAttribute = 11;
 }
 
 message AdHocRule {
@@ -247,8 +247,26 @@ message AdHocRule {
   string description = 4;
   optional Severity severity = 5;
   optional IssueType type = 6;
-  optional string cleanCodeAttribute = 7;
+  optional CleanCodeAttribute cleanCodeAttribute = 7;
   repeated Impact defaultImpacts = 8;
+}
+
+enum CleanCodeAttribute {
+  CLEAN_CODE_ATTRIBUTE_UNSPECIFIED = 0;
+  CONVENTIONAL = 1;
+  FORMATTED = 2;
+  IDENTIFIABLE = 3;
+  CLEAR = 4;
+  COMPLETE = 5;
+  EFFICIENT = 6;
+  LOGICAL = 7;
+  DISTINCT = 8;
+  FOCUSED = 9;
+  MODULAR = 10;
+  TESTED = 11;
+  LAWFUL = 12;
+  RESPECTFUL = 13;
+  TRUSTWORTHY = 14;
 }
 
 enum IssueType {

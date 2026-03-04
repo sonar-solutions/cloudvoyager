@@ -239,6 +239,10 @@ function setupBranchStubs() {
     measures: { measures: [{ metric: 'ncloc', value: '500' }] }
   });
 
+  // Stub waitForAnalysis — the pipeline now waits for the main branch CE task
+  // to complete before uploading non-main branches
+  stubs.waitForAnalysis = sinon.stub(SonarCloudClient.prototype, 'waitForAnalysis').resolves({ id: 'ce-task-1', status: 'SUCCESS' });
+
   // Stub branch completion tracking
   stubs.isBranchCompleted = sinon.stub(StateTracker.prototype, 'isBranchCompleted').returns(false);
   stubs.markBranchCompleted = sinon.stub(StateTracker.prototype, 'markBranchCompleted');
@@ -515,12 +519,100 @@ test.serial('transferProject returns 0 linesOfCode when no ncloc measure exists'
 });
 
 // ---------------------------------------------------------------------------
-// Note on transfer-pipeline.js lines 121-124 (excludeBranches.has inside loop)
+// includeBranches filtering (CSV-driven per-project branch selection)
 // ---------------------------------------------------------------------------
-// Lines 121-124 are architecturally unreachable dead code. The nonMainBranches
-// array at line 107 is already filtered with !excludeBranches.has(b.name),
-// so the subsequent check at line 121 (excludeBranches.has(branchName)) inside
-// the loop can never be true. The check is a redundant safety net that provides
-// no functional behavior in the current code structure.
-// The existing test 'transferProject skips excluded branches' (above) verifies
-// that excluded branches are properly filtered at line 107.
+
+test.serial('transferProject with includeBranches filters non-main branches', async t => {
+  const stubs = setupBranchStubs();
+  // Stub getBranches for the main branch check
+  stubs.sqGetBranches = sinon.stub(SonarQubeClient.prototype, 'getBranches').resolves([
+    { name: 'main', isMain: true },
+    { name: 'develop', isMain: false },
+    { name: 'feature-x', isMain: false }
+  ]);
+  try {
+    const result = await transferProject(baseOptions({
+      skipConnectionTest: true,
+      transferConfig: {
+        mode: 'full', stateFile: '/tmp/test-state.json', batchSize: 100,
+        includeBranches: new Set(['main', 'develop'])
+      }
+    }));
+
+    // Only develop should be extracted as a non-main branch (feature-x excluded)
+    t.is(stubs.extractBranch.callCount, 1);
+    t.is(stubs.extractBranch.firstCall.args[0], 'develop');
+
+    // main + develop transferred
+    t.deepEqual(result.stats.branchesTransferred, ['main', 'develop']);
+  } finally {
+    sinon.restore();
+  }
+});
+
+test.serial('transferProject with includeBranches excluding main branch skips entire project', async t => {
+  const stubs = setupBranchStubs();
+  stubs.sqGetBranches = sinon.stub(SonarQubeClient.prototype, 'getBranches').resolves([
+    { name: 'main', isMain: true },
+    { name: 'develop', isMain: false }
+  ]);
+  try {
+    const result = await transferProject(baseOptions({
+      skipConnectionTest: true,
+      transferConfig: {
+        mode: 'full', stateFile: '/tmp/test-state.json', batchSize: 100,
+        includeBranches: new Set(['develop']) // main not included
+      }
+    }));
+
+    // Project skipped entirely — no extraction or upload
+    t.is(stubs.extractAll.callCount, 0);
+    t.is(stubs.upload.callCount, 0);
+    t.deepEqual(result.stats.branchesTransferred, []);
+    t.is(result.stats.issuesTransferred, 0);
+  } finally {
+    sinon.restore();
+  }
+});
+
+test.serial('transferProject passes branch characteristics in upload metadata for non-main branches', async t => {
+  const stubs = setupBranchStubs();
+  try {
+    await transferProject(baseOptions({ skipConnectionTest: true }));
+
+    // upload called 3 times: main, develop, feature-x
+    t.is(stubs.upload.callCount, 3);
+
+    // Main branch upload should NOT have branchName in metadata
+    const mainMeta = stubs.upload.getCall(0).args[1];
+    t.falsy(mainMeta.branchName, 'main branch upload should not include branchName');
+
+    // Non-main branch uploads should have branchName (branchType is set by uploader, not metadata)
+    const developMeta = stubs.upload.getCall(1).args[1];
+    t.is(developMeta.branchName, 'develop');
+
+    const featureMeta = stubs.upload.getCall(2).args[1];
+    t.is(featureMeta.branchName, 'feature-x');
+  } finally {
+    sinon.restore();
+  }
+});
+
+test.serial('transferProject with includeBranches=null transfers all branches', async t => {
+  const stubs = setupBranchStubs();
+  try {
+    const result = await transferProject(baseOptions({
+      skipConnectionTest: true,
+      transferConfig: {
+        mode: 'full', stateFile: '/tmp/test-state.json', batchSize: 100,
+        includeBranches: null
+      }
+    }));
+
+    // All non-main branches extracted
+    t.is(stubs.extractBranch.callCount, 2);
+    t.deepEqual(result.stats.branchesTransferred, ['main', 'develop', 'feature-x']);
+  } finally {
+    sinon.restore();
+  }
+});

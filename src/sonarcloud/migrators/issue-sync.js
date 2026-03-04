@@ -2,32 +2,67 @@ import logger from '../../utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../utils/concurrency.js';
 
 /**
- * Map SonarQube issue statuses to SonarCloud transitions
+ * Map a changelog diff entry (newStatus + newResolution) to a SonarCloud transition.
+ * Returns null if no transition is needed.
  */
-const STATUS_TRANSITION_MAP = {
-  'CONFIRMED': 'confirm',
-  'RESOLVED': 'resolve',
-  'CLOSED': 'resolve',
-  'ACCEPTED': 'accept',
-  // Resolutions
-  'FALSE-POSITIVE': 'falsepositive',
-  'WONTFIX': 'wontfix'
-};
+export function mapChangelogDiffToTransition(diffs) {
+  const statusDiff = diffs.find(d => d.key === 'status');
+  const resolutionDiff = diffs.find(d => d.key === 'resolution');
+
+  const newStatus = statusDiff?.newValue;
+  const newResolution = resolutionDiff?.newValue;
+
+  if (!newStatus) return null;
+
+  // Resolution-based transitions take priority
+  if (newResolution === 'FALSE-POSITIVE') return 'falsepositive';
+  if (newResolution === 'WONTFIX') return 'wontfix';
+
+  switch (newStatus) {
+    case 'CONFIRMED': return 'confirm';
+    case 'REOPENED': return 'reopen';
+    case 'OPEN': return 'unconfirm';
+    case 'RESOLVED': return 'resolve';
+    case 'CLOSED': return 'resolve';
+    case 'ACCEPTED': return 'accept';
+    default: return null;
+  }
+}
 
 /**
- * Sync issue statuses, assignments, comments, and tags from SonarQube to SonarCloud
- * After scanner report creates issues in SonarCloud, match them with SonarQube issues
- * and sync metadata.
+ * Extract the ordered list of status transitions from a SonarQube issue changelog.
+ * Only includes entries that contain a status change diff.
+ */
+export function extractTransitionsFromChangelog(changelog) {
+  const transitions = [];
+  for (const entry of changelog) {
+    const diffs = entry.diffs || [];
+    const hasStatusChange = diffs.some(d => d.key === 'status');
+    if (!hasStatusChange) continue;
+
+    const transition = mapChangelogDiffToTransition(diffs);
+    if (transition) {
+      transitions.push(transition);
+    }
+  }
+  return transitions;
+}
+
+/**
+ * Sync issue statuses, assignments, comments, and tags from SonarQube to SonarCloud.
+ * For status sync, fetches the SonarQube changelog and replays all transitions in order.
  *
  * @param {string} projectKey - SonarCloud project key
  * @param {Array} sqIssues - Issues extracted from SonarQube (with comments, tags, assignments)
  * @param {import('../api-client.js').SonarCloudClient} client - SonarCloud client
  * @param {object} [options] - Performance options
  * @param {number} [options.concurrency=5] - Max concurrent issue sync operations
+ * @param {object} [options.sqClient] - SonarQube client (needed for changelog-based status replay)
  * @returns {Promise<object>} Sync statistics
  */
 export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const concurrency = options.concurrency || 5;
+  const sqClient = options.sqClient || null;
 
   const stats = {
     matched: 0,
@@ -83,8 +118,8 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     matchedPairs,
     async ({ sqIssue, scIssue }) => {
       try {
-        // Sync status
-        const transitioned = await syncIssueStatus(scIssue, sqIssue, client);
+        // Sync status via changelog replay (or fallback to single-transition)
+        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
         if (transitioned) stats.transitioned++;
 
         // Sync assignment
@@ -149,29 +184,67 @@ function buildMatchKey(issue) {
 }
 
 /**
- * Sync issue status using appropriate transition
+ * Determine a single fallback transition from the current SQ status/resolution.
+ * Used when no SQ client is available for changelog replay.
  */
-async function syncIssueStatus(scIssue, sqIssue, client) {
+function getFallbackTransition(sqIssue) {
+  if (sqIssue.resolution === 'FALSE-POSITIVE') return 'falsepositive';
+  if (sqIssue.resolution === 'WONTFIX') return 'wontfix';
+
+  switch (sqIssue.status) {
+    case 'CONFIRMED': return 'confirm';
+    case 'RESOLVED':
+    case 'CLOSED': return 'resolve';
+    case 'ACCEPTED': return 'accept';
+    case 'REOPENED': return 'reopen';
+    default: return null;
+  }
+}
+
+/**
+ * Sync issue status by replaying the full changelog transition sequence.
+ * Falls back to single-transition when no SQ client is provided.
+ */
+async function syncIssueStatus(scIssue, sqIssue, client, sqClient) {
   // Only transition if statuses differ
   if (scIssue.status === sqIssue.status) return false;
 
-  // Determine the appropriate transition
-  let transition = null;
+  // If SQ client available, replay the full changelog
+  if (sqClient) {
+    try {
+      const changelog = await sqClient.getIssueChangelog(sqIssue.key);
+      const transitions = extractTransitionsFromChangelog(changelog);
 
-  if (sqIssue.resolution === 'FALSE-POSITIVE') {
-    transition = 'falsepositive';
-  } else if (sqIssue.resolution === 'WONTFIX') {
-    transition = 'wontfix';
-  } else if (sqIssue.status === 'CONFIRMED') {
-    transition = 'confirm';
-  } else if (sqIssue.status === 'RESOLVED' || sqIssue.status === 'CLOSED') {
-    transition = 'resolve';
-  } else if (sqIssue.status === 'ACCEPTED') {
-    transition = 'accept';
-  } else {
-    transition = STATUS_TRANSITION_MAP[sqIssue.status] || null;
+      if (transitions.length === 0) {
+        // No status changes in changelog — try fallback
+        return await applyFallbackTransition(scIssue, sqIssue, client);
+      }
+
+      let applied = false;
+      for (const transition of transitions) {
+        try {
+          await client.transitionIssue(scIssue.key, transition);
+          applied = true;
+        } catch (error) {
+          logger.debug(`Failed to apply transition '${transition}' on issue ${scIssue.key}: ${error.message}`);
+        }
+      }
+      return applied;
+    } catch (error) {
+      logger.debug(`Failed to fetch changelog for issue ${sqIssue.key}, falling back to single transition: ${error.message}`);
+      return await applyFallbackTransition(scIssue, sqIssue, client);
+    }
   }
 
+  // No SQ client — single-transition fallback
+  return await applyFallbackTransition(scIssue, sqIssue, client);
+}
+
+/**
+ * Apply a single transition based on the current SQ issue state (legacy behavior).
+ */
+async function applyFallbackTransition(scIssue, sqIssue, client) {
+  const transition = getFallbackTransition(sqIssue);
   if (!transition) return false;
 
   try {

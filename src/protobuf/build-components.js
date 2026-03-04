@@ -3,6 +3,15 @@ import logger from '../utils/logger.js';
 export function buildComponents(builder) {
   logger.info('Building component messages...');
 
+  // Languages recognized by SonarCloud — used to strip unsupported plugin languages
+  const scLanguages = new Set(builder.sonarCloudProfiles.map(p => p.language.toLowerCase()));
+  const sanitizeLang = (lang) => {
+    if (!lang) return '';
+    const key = lang.toLowerCase();
+    if (scLanguages.size > 0 && !scLanguages.has(key)) return '';
+    return key;
+  };
+
   const componentsMap = new Map();
   const project = builder.data.project.project;
   componentsMap.set(project.key, {
@@ -29,7 +38,7 @@ export function buildComponents(builder) {
       componentsMap.set(comp.key, {
         ref: ref,
         type: 4, // ComponentType.FILE
-        language: comp.language || info.language || '',
+        language: sanitizeLang(comp.language || info.language),
         lines: lineCount,
         status: 3, // FileStatus.ADDED
         projectRelativePath: comp.path || comp.name
@@ -44,7 +53,7 @@ export function buildComponents(builder) {
       componentsMap.set(source.key, {
         ref: builder.getComponentRef(source.key),
         type: 4, // ComponentType.FILE
-        language: source.language || '',
+        language: sanitizeLang(source.language),
         lines: lineCount,
         status: 3, // FileStatus.ADDED
         projectRelativePath: componentName

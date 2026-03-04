@@ -75,9 +75,10 @@ export class SonarQubeClient {
     return projects[0];
   }
 
-  async getBranches() {
-    logger.info(`Fetching branches for project: ${this.projectKey}`);
-    const response = await this.client.get('/api/project_branches/list', { params: { project: this.projectKey } });
+  async getBranches(pk = null) {
+    const projectKey = pk || this.projectKey;
+    logger.debug(`Fetching branches for project: ${projectKey}`);
+    const response = await this.client.get('/api/project_branches/list', { params: { project: projectKey } });
     return response.data.branches || [];
   }
 
@@ -174,6 +175,7 @@ export class SonarQubeClient {
 
   async getIssues(f = {}) { return ih.getIssues(this.getPaginated.bind(this), this.projectKey, f); }
   async getIssuesWithComments(f = {}) { return ih.getIssuesWithComments(this.getPaginated.bind(this), this.projectKey, f); }
+  async getIssueChangelog(k) { return ih.getIssueChangelog(this.client, k); }
   async getHotspots(f = {}) { return ih.getHotspots(this.getPaginated.bind(this), this.projectKey, f); }
   async getHotspotDetails(k) { return ih.getHotspotDetails(this.client, k); }
   async getQualityGates() { return qual.getQualityGates(this.client); }

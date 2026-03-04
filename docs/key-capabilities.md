@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -726,7 +726,7 @@ All configuration is validated at startup using **Ajv (Another JSON Validator)**
 
 | Scope | Config File | Used By |
 |-------|------------|---------|
-| Single project transfer | `config.json` | `transfer`, `transfer-all` |
+| Single project transfer | `config.json` | `transfer` |
 | Full migration | `migrate-config.json` | `migrate`, `sync-metadata` |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -757,7 +757,6 @@ Performance and rate-limit schemas are shared across all configuration types, en
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `transfer` | Single project transfer | `--wait`, `--concurrency`, `--max-memory`, `--auto-tune` |
-| `transfer-all` | All projects to one org (code + issues) | `--dry-run`, `--wait`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--only <components>`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `validate` | Configuration validation | — |
@@ -859,6 +858,15 @@ API client errors include specific diagnostics based on the underlying network e
 4. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
 5. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
 6. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
+
+## 📚 Further Reading
+
+- [Architecture](architecture.md) — project structure, data flow, report format
+- [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
+- [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
+- [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Full Migration — Single Org](scenario-single-org.md) — step-by-step guide for migrating to one org
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

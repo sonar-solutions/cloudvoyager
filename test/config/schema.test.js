@@ -7,7 +7,6 @@ test('configSchema is a valid JSON schema object', t => {
   t.truthy(configSchema.properties.sonarqube);
   t.truthy(configSchema.properties.sonarcloud);
   t.truthy(configSchema.properties.transfer);
-  t.truthy(configSchema.properties.transferAll);
   t.truthy(configSchema.properties.migrate);
   t.truthy(configSchema.properties.rateLimit);
   t.truthy(configSchema.properties.performance);

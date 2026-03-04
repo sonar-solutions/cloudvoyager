@@ -103,8 +103,11 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
   }
 
   // Project config (component-aware) — skip if project doesn't exist in SonarCloud
-  if (reportUploadOk) {
+  // Also skip if ctx.skipProjectConfig is set (e.g. sync-metadata, since migrate already applied config)
+  if (reportUploadOk && !ctx.skipProjectConfig) {
     await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only);
+  } else if (ctx.skipProjectConfig) {
+    logger.debug(`Skipping project config for ${scProjectKey} (already applied by migrate)`);
   }
 
   finalizeProjectResult(projectResult);
@@ -117,10 +120,11 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
   try {
     const stateFile = join(ctx.outputDir, 'state', `.state.${project.key}.json`);
     const syncAllBranches = syncAllBranchesOverride !== undefined ? syncAllBranchesOverride : ctx.transferConfig.syncAllBranches;
+    const includeBranches = ctx.projectBranchIncludes?.get(project.key) || null;
     const transferResult = await transferProject({
       sonarqubeConfig: { url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key },
       sonarcloudConfig: { url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig },
-      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches },
+      transferConfig: { mode: ctx.transferConfig.mode, stateFile, batchSize: ctx.transferConfig.batchSize, syncAllBranches, excludeBranches: ctx.transferConfig.excludeBranches, includeBranches },
       performanceConfig: ctx.perfConfig,
       wait: ctx.wait, skipConnectionTest: true, projectName: project.name
     });
@@ -148,7 +152,7 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
   try {
     logger.info('Syncing issue metadata...');
     const sqIssues = await projectSqClient.getIssuesWithComments();
-    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency });
+    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient });
     results.issueSyncStats.matched += issueStats.matched;
     results.issueSyncStats.transitioned += issueStats.transitioned;
     projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned`, durationMs: Date.now() - start });

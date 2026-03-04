@@ -1,6 +1,6 @@
 # 🏢 Migrate Everything to Multiple SonarCloud Organizations
 
-<!-- Last updated: Feb 20, 2026 at 04:02:27 PM -->
+<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
 
 Use this when you want to migrate **all projects and configuration** from your SonarQube server to **multiple** SonarCloud organizations — for example, when different teams or business units each have their own SonarCloud org.
 
@@ -266,6 +266,9 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
+- [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
 ## Change Log

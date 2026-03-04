@@ -23,10 +23,10 @@ import { migrateProjectSettings, migrateProjectTags, migrateProjectLinks, migrat
 import { migratePortfolios } from '../../../src/sonarcloud/migrators/portfolios.js';
 
 // Issue Sync
-import { syncIssues } from '../../../src/sonarcloud/migrators/issue-sync.js';
+import { syncIssues, mapChangelogDiffToTransition, extractTransitionsFromChangelog } from '../../../src/sonarcloud/migrators/issue-sync.js';
 
 // Hotspot Sync
-import { syncHotspots } from '../../../src/sonarcloud/migrators/hotspot-sync.js';
+import { syncHotspots, mapHotspotChangelogDiffToAction, extractHotspotTransitionsFromChangelog } from '../../../src/sonarcloud/migrators/hotspot-sync.js';
 
 test.afterEach(() => sinon.restore());
 
@@ -1944,7 +1944,7 @@ test('syncIssues handles multiple SC issues at same location', async t => {
   t.is(stats.matched, 2);
 });
 
-test('syncIssues does not transition for unmapped status', async t => {
+test('syncIssues handles REOPENED status via fallback', async t => {
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
@@ -1963,7 +1963,29 @@ test('syncIssues does not transition for unmapped status', async t => {
 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
 
-  // REOPENED is not in STATUS_TRANSITION_MAP, so no transition
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'reopen');
+});
+
+test('syncIssues does not transition for unknown/unmapped status', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqIssues = [
+    {
+      key: 'sq-i1',
+      rule: 'js:S1001',
+      component: 'proj:src/a.js',
+      line: 5,
+      status: 'UNKNOWN_STATUS',
+      resolution: null
+    }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
+
   t.is(stats.transitioned, 0);
   t.is(client.transitionIssue.callCount, 0);
 });
@@ -1996,7 +2018,681 @@ test('syncIssues syncs multiple comments', async t => {
 });
 
 // ============================================================================
-// hotspot-sync.js - syncHotspots
+// issue-sync.js - mapChangelogDiffToTransition
+// ============================================================================
+
+test('mapChangelogDiffToTransition returns confirm for CONFIRMED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }]);
+  t.is(result, 'confirm');
+});
+
+test('mapChangelogDiffToTransition returns reopen for REOPENED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }]);
+  t.is(result, 'reopen');
+});
+
+test('mapChangelogDiffToTransition returns unconfirm for OPEN status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'CONFIRMED', newValue: 'OPEN' }]);
+  t.is(result, 'unconfirm');
+});
+
+test('mapChangelogDiffToTransition returns resolve for RESOLVED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' }]);
+  t.is(result, 'resolve');
+});
+
+test('mapChangelogDiffToTransition returns resolve for CLOSED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'RESOLVED', newValue: 'CLOSED' }]);
+  t.is(result, 'resolve');
+});
+
+test('mapChangelogDiffToTransition returns accept for ACCEPTED status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'ACCEPTED' }]);
+  t.is(result, 'accept');
+});
+
+test('mapChangelogDiffToTransition returns falsepositive when resolution is FALSE-POSITIVE', t => {
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+  ]);
+  t.is(result, 'falsepositive');
+});
+
+test('mapChangelogDiffToTransition returns wontfix when resolution is WONTFIX', t => {
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'OPEN', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'WONTFIX' }
+  ]);
+  t.is(result, 'wontfix');
+});
+
+test('mapChangelogDiffToTransition returns null when no status diff', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'assignee', oldValue: '', newValue: 'alice' }]);
+  t.is(result, null);
+});
+
+test('mapChangelogDiffToTransition returns null for unknown status', t => {
+  const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'UNKNOWN' }]);
+  t.is(result, null);
+});
+
+test('mapChangelogDiffToTransition resolution takes priority over status', t => {
+  // Even though status says RESOLVED, FALSE-POSITIVE resolution should win
+  const result = mapChangelogDiffToTransition([
+    { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+    { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+  ]);
+  t.is(result, 'falsepositive');
+});
+
+// ============================================================================
+// issue-sync.js - extractTransitionsFromChangelog
+// ============================================================================
+
+test('extractTransitionsFromChangelog extracts ordered transitions from changelog', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }, // non-status, skipped
+    { diffs: [
+      { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+      { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+    ] },
+    { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+  ];
+
+  const transitions = extractTransitionsFromChangelog(changelog);
+  t.deepEqual(transitions, ['confirm', 'falsepositive', 'reopen']);
+});
+
+test('extractTransitionsFromChangelog returns empty array for empty changelog', t => {
+  t.deepEqual(extractTransitionsFromChangelog([]), []);
+});
+
+test('extractTransitionsFromChangelog skips entries with no status diff', t => {
+  const changelog = [
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] },
+    { diffs: [{ key: 'severity', oldValue: 'MAJOR', newValue: 'CRITICAL' }] }
+  ];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), []);
+});
+
+test('extractTransitionsFromChangelog skips entries with empty diffs', t => {
+  const changelog = [{ diffs: [] }, {}];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), []);
+});
+
+test('extractTransitionsFromChangelog skips unknown status transitions', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+    { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'UNKNOWN' }] },
+    { diffs: [{ key: 'status', oldValue: 'UNKNOWN', newValue: 'REOPENED' }] }
+  ];
+  t.deepEqual(extractTransitionsFromChangelog(changelog), ['confirm', 'reopen']);
+});
+
+// ============================================================================
+// issue-sync.js - syncIssues with sqClient (changelog replay)
+// ============================================================================
+
+test('syncIssues with sqClient replays changelog transitions in order', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [
+        { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
+        { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
+      ] },
+      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.callCount, 3);
+  t.is(client.transitionIssue.getCall(0).args[1], 'confirm');
+  t.is(client.transitionIssue.getCall(1).args[1], 'falsepositive');
+  t.is(client.transitionIssue.getCall(2).args[1], 'reopen');
+});
+
+test('syncIssues with sqClient falls back when changelog has no status changes', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
+});
+
+test('syncIssues with sqClient falls back when changelog fetch fails', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().rejects(new Error('changelog API error'))
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  // Falls back to single transition
+  t.is(stats.transitioned, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
+});
+
+test('syncIssues with sqClient handles partial transition failures in replay', async t => {
+  const transitionStub = sinon.stub();
+  transitionStub.onFirstCall().resolves();
+  transitionStub.onSecondCall().rejects(new Error('transition not available'));
+  transitionStub.onThirdCall().resolves();
+
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ]),
+    transitionIssue: transitionStub
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] },
+      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  // Still counted as transitioned since at least one succeeded
+  t.is(stats.transitioned, 1);
+  t.is(transitionStub.callCount, 3);
+});
+
+test('syncIssues with sqClient returns not transitioned when all replay transitions fail', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
+    ]),
+    transitionIssue: sinon.stub().rejects(new Error('all fail'))
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([
+      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] }
+    ])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'RESOLVED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 0);
+});
+
+test('syncIssues with sqClient skips changelog fetch when statuses match', async t => {
+  const client = mockClient({
+    searchIssues: sinon.stub().resolves([
+      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+    ])
+  });
+  const sqClient = {
+    getIssueChangelog: sinon.stub().resolves([])
+  };
+  const sqIssues = [
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
+  ];
+
+  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
+
+  t.is(stats.transitioned, 0);
+  t.is(sqClient.getIssueChangelog.callCount, 0);
+});
+
+// ============================================================================
+// hotspot-sync.js - mapHotspotChangelogDiffToAction
+// ============================================================================
+
+test('mapHotspotChangelogDiffToAction returns TO_REVIEW action for reopen', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'REVIEWED', newValue: 'TO_REVIEW' }
+  ]);
+  t.deepEqual(action, { status: 'TO_REVIEW', resolution: null });
+});
+
+test('mapHotspotChangelogDiffToAction returns REVIEWED with explicit resolution', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' },
+    { key: 'resolution', oldValue: '', newValue: 'SAFE' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'SAFE' });
+});
+
+test('mapHotspotChangelogDiffToAction defaults to SAFE when REVIEWED without resolution diff', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'SAFE' });
+});
+
+test('mapHotspotChangelogDiffToAction maps ACKNOWLEDGED resolution', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' },
+    { key: 'resolution', oldValue: '', newValue: 'ACKNOWLEDGED' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'ACKNOWLEDGED' });
+});
+
+test('mapHotspotChangelogDiffToAction maps FIXED resolution', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' },
+    { key: 'resolution', oldValue: '', newValue: 'FIXED' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'FIXED' });
+});
+
+test('mapHotspotChangelogDiffToAction maps SAFE as direct status (newer SQ)', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'SAFE' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'SAFE' });
+});
+
+test('mapHotspotChangelogDiffToAction maps ACKNOWLEDGED as direct status (newer SQ)', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'ACKNOWLEDGED' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'ACKNOWLEDGED' });
+});
+
+test('mapHotspotChangelogDiffToAction maps FIXED as direct status (newer SQ)', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'FIXED' }
+  ]);
+  t.deepEqual(action, { status: 'REVIEWED', resolution: 'FIXED' });
+});
+
+test('mapHotspotChangelogDiffToAction returns null for unknown status', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'status', oldValue: 'TO_REVIEW', newValue: 'UNKNOWN' }
+  ]);
+  t.is(action, null);
+});
+
+test('mapHotspotChangelogDiffToAction returns null when no status diff', t => {
+  const action = mapHotspotChangelogDiffToAction([
+    { key: 'assignee', oldValue: 'alice', newValue: 'bob' }
+  ]);
+  t.is(action, null);
+});
+
+// ============================================================================
+// hotspot-sync.js - extractHotspotTransitionsFromChangelog
+// ============================================================================
+
+test('extractHotspotTransitionsFromChangelog extracts ordered transitions', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', oldValue: '', newValue: 'SAFE' }] },
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] },
+    { diffs: [{ key: 'status', oldValue: 'REVIEWED', newValue: 'TO_REVIEW' }] },
+    { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', oldValue: '', newValue: 'FIXED' }] }
+  ];
+  const transitions = extractHotspotTransitionsFromChangelog(changelog);
+  t.is(transitions.length, 3);
+  t.deepEqual(transitions[0], { status: 'REVIEWED', resolution: 'SAFE' });
+  t.deepEqual(transitions[1], { status: 'TO_REVIEW', resolution: null });
+  t.deepEqual(transitions[2], { status: 'REVIEWED', resolution: 'FIXED' });
+});
+
+test('extractHotspotTransitionsFromChangelog returns empty for no status changes', t => {
+  const changelog = [
+    { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }
+  ];
+  t.deepEqual(extractHotspotTransitionsFromChangelog(changelog), []);
+});
+
+test('extractHotspotTransitionsFromChangelog returns empty for empty changelog', t => {
+  t.deepEqual(extractHotspotTransitionsFromChangelog([]), []);
+});
+
+test('extractHotspotTransitionsFromChangelog skips entries with unknown status transitions', t => {
+  const changelog = [
+    { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'SAFE' }] },
+    { diffs: [{ key: 'status', oldValue: 'REVIEWED', newValue: 'MYSTERY' }] }
+  ];
+  const transitions = extractHotspotTransitionsFromChangelog(changelog);
+  t.is(transitions.length, 1);
+  t.deepEqual(transitions[0], { status: 'REVIEWED', resolution: 'SAFE' });
+});
+
+// ============================================================================
+// hotspot-sync.js - syncHotspots with changelog replay
+// ============================================================================
+
+test('syncHotspots replays changelog transitions in order', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'FIXED',
+      comments: [],
+      changelog: [
+        { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'SAFE' }] },
+        { diffs: [{ key: 'status', oldValue: 'REVIEWED', newValue: 'TO_REVIEW' }] },
+        { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'FIXED' }] }
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  t.is(client.changeHotspotStatus.callCount, 3);
+  t.deepEqual(client.changeHotspotStatus.getCall(0).args, ['sc-h1', 'REVIEWED', 'SAFE']);
+  t.deepEqual(client.changeHotspotStatus.getCall(1).args, ['sc-h1', 'TO_REVIEW']);
+  t.deepEqual(client.changeHotspotStatus.getCall(2).args, ['sc-h1', 'REVIEWED', 'FIXED']);
+});
+
+test('syncHotspots falls back to single transition when changelog has no status changes', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'SAFE',
+      comments: [],
+      changelog: [
+        { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  t.is(client.changeHotspotStatus.callCount, 1);
+  t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'SAFE']);
+});
+
+test('syncHotspots falls back to single transition when changelog is empty', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'SAFE',
+      comments: [],
+      changelog: []
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'SAFE']);
+});
+
+test('syncHotspots falls back when no changelog property exists', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'SAFE',
+      comments: []
+      // no changelog property
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'SAFE']);
+});
+
+test('syncHotspots handles reopen (SQ TO_REVIEW, SC REVIEWED) via fallback', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'REVIEWED', resolution: 'SAFE' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'TO_REVIEW',
+      resolution: null,
+      comments: []
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'TO_REVIEW']);
+});
+
+test('syncHotspots handles resolution change (SC REVIEWED/SAFE → SQ REVIEWED/FIXED) via fallback with reopen', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'REVIEWED', resolution: 'SAFE' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'FIXED',
+      comments: []
+      // no changelog — forces fallback path
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 1);
+  // Should reopen first, then re-review with new resolution
+  t.is(client.changeHotspotStatus.callCount, 2);
+  t.deepEqual(client.changeHotspotStatus.getCall(0).args, ['sc-h1', 'TO_REVIEW']);
+  t.deepEqual(client.changeHotspotStatus.getCall(1).args, ['sc-h1', 'REVIEWED', 'FIXED']);
+});
+
+test('syncHotspots skips when status and resolution already match', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'REVIEWED', resolution: 'SAFE' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'SAFE',
+      comments: []
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 0);
+  t.is(client.changeHotspotStatus.callCount, 0);
+});
+
+test('syncHotspots handles partial changelog replay failure gracefully', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ]),
+    changeHotspotStatus: sinon.stub()
+      .onFirstCall().resolves({})
+      .onSecondCall().rejects(new Error('API error'))
+      .onThirdCall().resolves({})
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'FIXED',
+      comments: [],
+      changelog: [
+        { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'SAFE' }] },
+        { diffs: [{ key: 'status', oldValue: 'REVIEWED', newValue: 'TO_REVIEW' }] },
+        { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'FIXED' }] }
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  // Should still count as changed because some transitions succeeded
+  t.is(stats.statusChanged, 1);
+  t.is(client.changeHotspotStatus.callCount, 3);
+});
+
+test('syncHotspots counts 0 statusChanged when all changelog transitions fail', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'TO_REVIEW' }
+    ]),
+    changeHotspotStatus: sinon.stub().rejects(new Error('API error'))
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'REVIEWED',
+      resolution: 'FIXED',
+      comments: [],
+      changelog: [
+        { diffs: [{ key: 'status', oldValue: 'TO_REVIEW', newValue: 'REVIEWED' }, { key: 'resolution', newValue: 'SAFE' }] }
+      ]
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 0);
+});
+
+test('syncHotspots fallback returns false for unmappable resolution', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'SOME_OTHER_STATUS',
+      resolution: 'UNKNOWN_RESOLUTION',
+      comments: []
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 0);
+  t.is(client.changeHotspotStatus.callCount, 0);
+});
+
+test('syncHotspots fallback handles reopen failure gracefully', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 20, status: 'REVIEWED', resolution: 'SAFE' }
+    ]),
+    changeHotspotStatus: sinon.stub().rejects(new Error('reopen failed'))
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 20,
+      status: 'TO_REVIEW',
+      resolution: null,
+      comments: []
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  t.is(stats.statusChanged, 0);
+});
+
+// ============================================================================
+// hotspot-sync.js - syncHotspots (existing tests updated for new behavior)
 // ============================================================================
 
 test('syncHotspots matches hotspots and syncs status and comments', async t => {
@@ -2052,7 +2748,7 @@ test('syncHotspots maps ACKNOWLEDGED resolution when status is not REVIEWED', as
   t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'ACKNOWLEDGED']);
 });
 
-test('syncHotspots maps REVIEWED status to SAFE resolution', async t => {
+test('syncHotspots maps REVIEWED status with ACKNOWLEDGED resolution correctly', async t => {
   const client = mockClient({
     searchHotspots: sinon.stub().resolves([
       { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
@@ -2071,7 +2767,31 @@ test('syncHotspots maps REVIEWED status to SAFE resolution', async t => {
 
   const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
 
-  // When status is REVIEWED, mapHotspotResolution returns SAFE regardless of resolution field
+  // Explicit resolution takes priority over status-based inference
+  t.is(stats.statusChanged, 1);
+  t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'ACKNOWLEDGED']);
+});
+
+test('syncHotspots maps REVIEWED status without resolution to SAFE', async t => {
+  const client = mockClient({
+    searchHotspots: sinon.stub().resolves([
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
+    ])
+  });
+  const sqHotspots = [
+    {
+      key: 'sq-h1',
+      ruleKey: 'java:S1234',
+      component: 'proj:src/Main.java',
+      line: 10,
+      status: 'REVIEWED',
+      resolution: null
+    }
+  ];
+
+  const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
+
+  // No explicit resolution, status is REVIEWED → defaults to SAFE
   t.is(stats.statusChanged, 1);
   t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'SAFE']);
 });
@@ -2099,10 +2819,10 @@ test('syncHotspots maps FIXED resolution when status is not REVIEWED', async t =
   t.deepEqual(client.changeHotspotStatus.firstCall.args, ['sc-h1', 'REVIEWED', 'FIXED']);
 });
 
-test('syncHotspots skips status change when SC is not TO_REVIEW', async t => {
+test('syncHotspots skips status change when SC and SQ status+resolution match', async t => {
   const client = mockClient({
     searchHotspots: sinon.stub().resolves([
-      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'REVIEWED' }
+      { key: 'sc-h1', ruleKey: 'java:S1234', component: 'proj:src/Main.java', line: 10, status: 'REVIEWED', resolution: 'SAFE' }
     ])
   });
   const sqHotspots = [

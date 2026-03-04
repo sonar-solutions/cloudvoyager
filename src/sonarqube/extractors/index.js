@@ -8,6 +8,7 @@ import { extractActiveRules } from './rules.js';
 import { extractChangesets } from './changesets.js';
 import { extractSymbols } from './symbols.js';
 import { extractSyntaxHighlighting } from './syntax-highlighting.js';
+import { extractHotspotsAsIssues } from './hotspots-to-issues.js';
 
 /**
  * Main extractor orchestrator
@@ -78,6 +79,18 @@ export class DataExtractor {
       logger.info('Step 5/7: Extracting issues...');
       extractedData.issues = await extractIssues(this.client, this.state);
 
+      // 5b. Extract security hotspots and include them as issues in the report.
+      // SonarQube's /api/issues/search does not return hotspots — they have a
+      // separate API.  By converting them to issue format, the protobuf builder
+      // will include them in the scanner report so SonarCloud's CE creates the
+      // corresponding hotspot entities (enabling the later hotspot metadata sync).
+      logger.info('Step 5b: Extracting security hotspots for scanner report...');
+      const hotspotIssues = await extractHotspotsAsIssues(this.client);
+      if (hotspotIssues.length > 0) {
+        extractedData.issues = extractedData.issues.concat(hotspotIssues);
+        logger.info(`Added ${hotspotIssues.length} hotspots to issue list (total: ${extractedData.issues.length})`);
+      }
+
       // 6. Extract project measures
       logger.info('Step 6/7: Extracting project measures...');
       extractedData.measures = await extractMeasures(this.client, metricKeys);
@@ -146,6 +159,14 @@ export class DataExtractor {
     logger.info(`  [${branch}] Extracting issues...`);
     const issues = await extractIssues(this.client, this.state, branch);
 
+    // Include security hotspots as issues in the branch report
+    logger.info(`  [${branch}] Extracting security hotspots for scanner report...`);
+    const hotspotIssues = await extractHotspotsAsIssues(this.client, branch);
+    if (hotspotIssues.length > 0) {
+      issues.push(...hotspotIssues);
+      logger.info(`  [${branch}] Added ${hotspotIssues.length} hotspots to issue list (total: ${issues.length})`);
+    }
+
     logger.info(`  [${branch}] Extracting project measures...`);
     const measures = await extractMeasures(this.client, metricKeys, branch);
 
@@ -196,7 +217,8 @@ export class DataExtractor {
     logger.info(`Branches: ${data.project.branches.length}`);
     logger.info(`Metrics: ${data.metrics.length}`);
     logger.info(`Active Rules: ${data.activeRules.length}`);
-    logger.info(`Issues: ${data.issues.length}`);
+    const hotspotCount = data.issues.filter(i => i.type === 'SECURITY_HOTSPOT').length;
+    logger.info(`Issues: ${data.issues.length - hotspotCount} (+ ${hotspotCount} security hotspots)`);
     logger.info(`Project Measures: ${data.measures.measures.length}`);
     logger.info(`Components: ${data.components.length}`);
     logger.info(`Source Files: ${data.sources.length}`);
