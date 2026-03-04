@@ -9,6 +9,7 @@ import logger from './utils/logger.js';
 import { registerTransferCommand } from './commands/transfer.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerSyncMetadataCommand } from './commands/sync-metadata.js';
+import { registerVerifyCommand } from './commands/verify.js';
 
 const program = new Command();
 
@@ -20,6 +21,7 @@ program
 registerTransferCommand(program);
 registerMigrateCommand(program);
 registerSyncMetadataCommand(program);
+registerVerifyCommand(program);
 
 program
   .command('validate')
