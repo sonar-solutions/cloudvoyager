@@ -27,7 +27,12 @@ function mapIssueType(type) {
  * Map SonarQube issue type to a SoftwareQuality enum value.
  */
 function mapSoftwareQuality(type) {
-  const qualityMap = { 'CODE_SMELL': 1, 'BUG': 2, 'VULNERABILITY': 3, 'SECURITY_HOTSPOT': 3 };
+  const qualityMap = {
+    // New impact-based names (from SonarQube 10.x impacts API)
+    'MAINTAINABILITY': 1, 'RELIABILITY': 2, 'SECURITY': 3,
+    // Old type-based fallback names
+    'CODE_SMELL': 1, 'BUG': 2, 'VULNERABILITY': 3, 'SECURITY_HOTSPOT': 3,
+  };
   return qualityMap[type] || 1; // default to MAINTAINABILITY
 }
 

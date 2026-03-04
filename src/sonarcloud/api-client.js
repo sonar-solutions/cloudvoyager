@@ -204,6 +204,135 @@ export class SonarCloudClient {
   async setAzureBinding(pk, a, p, r) { return pc.setAzureBinding(this.client, pk, a, p, r); }
   async setBitbucketBinding(pk, a, r, s) { return pc.setBitbucketBinding(this.client, pk, a, r, s); }
 
+  // --- Read-only query methods (used by verification) ---
+
+  async getPaginated(endpoint, params = {}, dataKey = 'components') {
+    let allResults = [];
+    let page = 1;
+    const pageSize = params.ps || 500;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const response = await this.client.get(endpoint, { params: { ...params, p: page, ps: pageSize } });
+      const data = response.data;
+      const results = data[dataKey] || [];
+      allResults = allResults.concat(results);
+      const total = data.paging?.total || data.total || 0;
+      if (page * pageSize >= total || results.length < pageSize) break;
+      page++;
+    }
+    return allResults;
+  }
+
+  async listProjects() {
+    return this.getPaginated('/api/projects/search', { organization: this.organization }, 'components');
+  }
+
+  async getProjectBranches(projectKey) {
+    const response = await this.client.get('/api/project_branches/list', { params: { project: projectKey } });
+    return response.data.branches || [];
+  }
+
+  async listQualityGates() {
+    const response = await this.client.get('/api/qualitygates/list', { params: { organization: this.organization } });
+    return response.data;
+  }
+
+  async getQualityGateDetails(id) {
+    const response = await this.client.get('/api/qualitygates/show', { params: { id, organization: this.organization } });
+    return response.data;
+  }
+
+  async getQualityGateForProject(projectKey) {
+    try {
+      const response = await this.client.get('/api/qualitygates/get_by_project', { params: { project: projectKey, organization: this.organization } });
+      return response.data.qualityGate || null;
+    } catch (error) {
+      logger.debug(`Failed to get quality gate for project ${projectKey}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async getProjectMeasures(projectKey, metricKeys) {
+    const response = await this.client.get('/api/measures/component', {
+      params: { component: projectKey, metricKeys: metricKeys.join(',') }
+    });
+    return response.data.component || {};
+  }
+
+  async getProjectSettings(projectKey) {
+    const response = await this.client.get('/api/settings/values', { params: { component: projectKey } });
+    return response.data.settings || [];
+  }
+
+  async getProjectLinks(projectKey) {
+    const response = await this.client.get('/api/project_links/search', { params: { projectKey } });
+    return response.data.links || [];
+  }
+
+  async getProjectTagsForProject(projectKey) {
+    try {
+      const response = await this.client.get('/api/project_tags/search', { params: { project: projectKey, ps: 100 } });
+      return response.data.tags || [];
+    } catch (error) {
+      logger.debug(`Failed to get project tags for ${projectKey}: ${error.message}`);
+      return [];
+    }
+  }
+
+  async getNewCodePeriods(projectKey) {
+    let projectLevel = null;
+    let branchOverrides = [];
+    try {
+      const response = await this.client.get('/api/new_code_periods/show', { params: { project: projectKey } });
+      projectLevel = response.data;
+    } catch (error) {
+      logger.debug(`No project-level new code period for ${projectKey}: ${error.message}`);
+    }
+    try {
+      const response = await this.client.get('/api/new_code_periods/list', { params: { project: projectKey } });
+      branchOverrides = response.data.newCodePeriods || [];
+    } catch (error) {
+      logger.debug(`Failed to get branch-level new code periods for ${projectKey}: ${error.message}`);
+    }
+    return { projectLevel, branchOverrides };
+  }
+
+  async getProjectBinding(projectKey) {
+    try {
+      const response = await this.client.get('/api/alm_settings/get_binding', { params: { project: projectKey } });
+      return response.data;
+    } catch (error) {
+      logger.debug(`No binding found for project ${projectKey}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async getGroups() {
+    return this.getPaginated('/api/user_groups/search', { organization: this.organization }, 'groups');
+  }
+
+  async getGlobalPermissions() {
+    return this.getPaginated('/api/permissions/groups', { organization: this.organization, ps: 100 }, 'groups');
+  }
+
+  async getProjectPermissions(projectKey) {
+    return this.getPaginated('/api/permissions/groups', { projectKey, organization: this.organization, ps: 100 }, 'groups');
+  }
+
+  async getPermissionTemplates() {
+    const response = await this.client.get('/api/permissions/search_templates', { params: { organization: this.organization } });
+    return response.data;
+  }
+
+  async searchIssuesWithComments(projectKey, filters = {}) {
+    return iss.searchIssues(this.client, this.organization, projectKey, { additionalFields: 'comments', ...filters });
+  }
+
+  async getHotspotDetails(hotspotKey) {
+    const response = await this.client.get('/api/hotspots/show', { params: { hotspot: hotspotKey } });
+    return response.data;
+  }
+
   /**
    * Fetch all rule repository keys available in SonarCloud.
    * Uses /api/rules/repositories which returns { repositories: [{ key, name, language }] }.
