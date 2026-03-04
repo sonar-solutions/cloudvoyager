@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -29,7 +29,8 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 18. [Configuration System and Schema Validation](#18-configuration-system-and-schema-validation)
 19. [CLI Design and Operational Modes](#19-cli-design-and-operational-modes)
 20. [Error Handling Architecture](#20-error-handling-architecture)
-21. [Engineering Summary](#21-engineering-summary)
+21. [Migration Verification Pipeline](#21-migration-verification-pipeline)
+22. [Engineering Summary](#22-engineering-summary)
 
 ---
 
@@ -727,7 +728,7 @@ All configuration is validated at startup using **Ajv (Another JSON Validator)**
 | Scope | Config File | Used By |
 |-------|------------|---------|
 | Single project transfer | `config.json` | `transfer` |
-| Full migration | `migrate-config.json` | `migrate`, `sync-metadata` |
+| Full migration | `migrate-config.json` | `migrate`, `sync-metadata`, `verify` |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Environment Variable Overrides
@@ -759,6 +760,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 | `transfer` | Single project transfer | `--wait`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `migrate` | Full multi-org migration | `--dry-run`, `--wait`, `--only <components>`, `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--project-concurrency`, `--auto-tune` |
 | `sync-metadata` | Standalone metadata sync | `--skip-issue-metadata-sync`, `--skip-hotspot-metadata-sync`, `--skip-quality-profile-sync`, `--concurrency`, `--max-memory`, `--auto-tune` |
+| `verify` | Migration verification | `--only <components>`, `--output-dir`, `--concurrency`, `--max-memory`, `--auto-tune` |
 | `validate` | Configuration validation | — |
 | `test` | Connection testing | — |
 | `status` | View sync state | — |
@@ -816,8 +818,61 @@ API client errors include specific diagnostics based on the underlying network e
 
 ---
 
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+## 21. Migration Verification Pipeline
+
+After migration, CloudVoyager can **verify** that all data was transferred correctly by exhaustively comparing SonarQube and SonarCloud. The `verify` command performs read-only checks and generates a detailed pass/fail report.
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### What Gets Verified
+
+| Category | Checks |
+|----------|--------|
+| **Issues** | Count parity, status matching (False Positive, Accepted, Won't Fix, Confirmed, Resolved, Reopened, Open), assignments, comments (`[Migrated from SonarQube]` prefix detection), custom tags |
+| **Hotspots** | Count parity, status matching (Safe, Acknowledged, Fixed, To Review), comments |
+| **Branches** | All SQ branches exist in SC |
+| **Measures** | 18 key metrics (ncloc, complexity, violations, coverage, etc.) |
+| **Quality Gates** | Org-level: existence + condition matching. Project-level: correct gate assigned |
+| **Quality Profiles** | Org-level: existence + rule count matching. Project-level: correct profiles per language |
+| **Permissions** | Global permissions, project permissions, permission templates |
+| **Project Config** | Settings, tags, links, new code periods, DevOps bindings |
+| **Groups** | Custom user group existence |
+| **Portfolios** | Reference check (SQ-side only) |
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### Unsyncable Items
+
+Certain differences are **expected** and reported as warnings (not failures):
+
+| Item | Reason |
+|------|--------|
+| Issue type changes | SQ Standard Experience allows manual type changes; not API-syncable to SC |
+| Issue severity changes | Severity overrides are not API-syncable in either Standard or MQR mode |
+| Hotspot assignments | The hotspot sync API does not support assignment transfers |
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### Verification Reports
+
+Reports are generated in 3 formats:
+- **JSON** — Machine-readable structured data
+- **Markdown** — With collapsible detail sections for each mismatch category
+- **PDF** — Presentation-ready summary with pass/fail tables
+
+The console outputs a summary with per-project breakdowns, unsyncable warnings, and overall pass/fail counts.
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### Issue and Hotspot Matching
+
+Verification reuses the same matching keys as migration:
+- **Issues**: matched by `rule|file|line` (same as `issue-sync.js:buildMatchKey`)
+- **Hotspots**: matched by `ruleKey|file|line` (same as `hotspot-sync.js:buildHotspotMatchKey`)
+
+This ensures the verification is comparing exactly the same pairs that were synced during migration.
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 21. Engineering Summary
+## 22. Engineering Summary
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### By the Numbers
@@ -828,7 +883,7 @@ API client errors include specific diagnostics based on the underlying network e
 | Source files | 100+ |
 | SonarQube extractor modules | 24 |
 | SonarCloud migrator modules | 9 |
-| CLI commands | 8 |
+| CLI commands | 9 |
 | Report output formats | 6 (JSON, MD, TXT, PDF x3 types) |
 | Supported binary platforms | 6 (all via Node.js SEA) |
 | Production dependencies | 9 |
@@ -872,6 +927,7 @@ API client errors include specific diagnostics based on the underlying network e
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Verification Pipeline, CLI, Summary | Added migration verification capability |
 | 2026-02-20 | Permissions/Governance, Portfolio | V2 Enterprise API for portfolios |
 | 2026-02-19 | Summary, Protobuf, Pipeline, Packaging, Build, Reporting, Config, CLI | API expansion, modular builders, test suite |
 | 2026-02-18 | Encoding, Upload, Quality Profiles, Auto-Tune, Reports | Encoding refactor, diff reports, --wait flag |

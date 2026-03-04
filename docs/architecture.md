@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📁 Project Structure
@@ -13,7 +13,8 @@ src/
 ├── commands/                 # CLI command handlers
 │   ├── transfer.js            # Single-project transfer command
 │   ├── migrate.js             # Full migration command
-│   └── sync-metadata.js       # Standalone metadata sync command
+│   ├── sync-metadata.js       # Standalone metadata sync command
+│   └── verify.js              # Migration verification command
 ├── config/
 │   ├── loader.js             # Config loading and validation (Ajv + ajv-formats) for transfer commands
 │   ├── loader-migrate.js     # Config loading for migrate/sync-metadata commands
@@ -109,6 +110,23 @@ src/
 │   ├── pdf-exec-sections.js   # Executive summary PDF section builders
 │   ├── pdf-perf-sections.js   # Performance report PDF section builders
 │   └── perf-tables.js         # Performance data table formatters
+├── verification/
+│   ├── verify-pipeline.js   # Verification orchestrator (read-only comparison)
+│   ├── checkers/            # Per-check verification modules
+│   │   ├── issues.js         # Issue matching and status/assignment/comment/tag verification
+│   │   ├── hotspots.js       # Hotspot matching and status/comment verification
+│   │   ├── branches.js       # Branch parity verification
+│   │   ├── measures.js       # Metrics comparison
+│   │   ├── quality-gates.js  # Quality gate existence, conditions, and assignment
+│   │   ├── quality-profiles.js # Quality profile existence, rules, and assignment
+│   │   ├── groups.js         # User group existence
+│   │   ├── permissions.js    # Global, project, and template permissions
+│   │   ├── project-config.js # Settings, tags, links, new code periods, DevOps bindings
+│   │   └── portfolios.js     # Portfolio verification (reference)
+│   └── reports/             # Verification report generation
+│       ├── index.js          # Report orchestrator (JSON + MD + PDF + console)
+│       ├── format-markdown.js # Markdown verification report
+│       └── format-pdf.js     # PDF verification report
 ├── state/
 │   ├── storage.js            # File-based state persistence
 │   └── tracker.js            # Incremental transfer state tracking
@@ -162,6 +180,32 @@ Uses `migrate-pipeline.js`:
      - Assign migrated built-in quality profiles
      - Set project-level permissions
    - Create portfolios and assign projects
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### `verify` — Migration Verification
+
+Uses `verify-pipeline.js`:
+
+1. **Connect to SonarQube** — verify connectivity
+2. **Fetch project list** — get all projects from SonarQube
+3. **Build org mappings** — map projects to target orgs (same logic as `migrate`)
+4. **For each target organization:**
+   - Verify quality gates (existence + conditions)
+   - Verify quality profiles (existence + rule counts)
+   - Verify groups
+   - Verify global permissions
+   - Verify permission templates
+   - For each project:
+     - Verify project exists in SonarCloud
+     - Verify branches (SQ vs SC)
+     - Verify issues (matched by rule+file+line; compare statuses, assignments, comments, tags)
+     - Verify hotspots (matched by rule+file+line; compare statuses, comments)
+     - Verify measures (18 key metrics)
+     - Verify quality gate and profile assignments
+     - Verify project settings, tags, links, new code periods, DevOps bindings
+     - Verify project permissions
+5. **Portfolio check** — reference verification (SQ only)
+6. **Generate reports** — JSON, Markdown, PDF, and console summary
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧩 Key Design Patterns
@@ -258,6 +302,7 @@ Measures are only generated for file components (no project-level `measures-1.pb
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Project Structure, Commands | Added verify command and verification subsystem |
 | 2026-02-19 | Project Structure, Commands, Build | API expansion, pipeline refactor, Node 21 build |
 | 2026-02-18 | Output Structure, Reports | Windows ARM64, report generation |
 | 2026-02-17 | Commands, Patterns, Concurrency | Migration engine, concurrency tuning |

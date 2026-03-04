@@ -1,6 +1,6 @@
 # 🔧 Troubleshooting
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🐛 Debugging a Migration Run
@@ -331,6 +331,62 @@ You can also sync just one type of metadata at a time:
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+## ✅ Verification Reports
+
+After migration, use the `verify` command to generate a detailed pass/fail comparison of SonarQube vs SonarCloud data:
+
+```bash
+./cloudvoyager verify -c migrate-config.json --verbose
+```
+
+Verification reports are written to `./verification-output/` (configurable via `--output-dir`):
+
+| File | Purpose |
+|------|---------|
+| `verification-report.json` | Machine-readable structured results |
+| `verification-report.md` | Markdown report with collapsible mismatch details |
+| `verification-report.pdf` | PDF summary for stakeholders |
+
+The console also prints a summary with per-project breakdowns and overall pass/fail counts.
+
+### Understanding verification results
+
+| Status | Meaning |
+|--------|---------|
+| **pass** | SonarQube and SonarCloud data match |
+| **fail** | Differences detected that should have been migrated |
+| **warning** | Unsyncable differences (expected — see below) |
+| **skipped** | Check was skipped (e.g., project not found in SC) |
+| **error** | Check failed due to an API or connectivity error |
+
+### Unsyncable items (expected differences)
+
+Some differences are expected because the SonarCloud API does not support syncing them:
+
+| Item | Why it's unsyncable |
+|------|-------------------|
+| Issue type changes | SQ Standard Experience allows manual type changes; not API-syncable to SC |
+| Issue severity changes | Severity overrides are not API-syncable in either Standard or MQR mode |
+| Hotspot assignments | The hotspot sync API does not support assignment transfers |
+
+These are reported as **warnings**, not failures. If the only differences are unsyncable items, the verification is considered successful.
+
+### Selective verification
+
+You can verify specific components to save time:
+
+```bash
+# Only check issue metadata
+./cloudvoyager verify -c migrate-config.json --only issue-metadata
+
+# Only check quality gates and profiles
+./cloudvoyager verify -c migrate-config.json --only quality-gates,quality-profiles
+
+# Only check permissions
+./cloudvoyager verify -c migrate-config.json --only permissions
+```
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -343,6 +399,7 @@ You can also sync just one type of metadata at a time:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Verification Reports | Added verification report troubleshooting |
 | 2026-02-18 | Debugging, Reports, Memory, Performance | Report-based debugging, auto-tune, memory management |
 | 2026-02-17 | Migration issues, Rate Limiting, Keys, Permissions, Pagination | Migration engine troubleshooting |
 | 2026-02-16 | Auth, Connections, Reports, Logging | Core transfer troubleshooting |

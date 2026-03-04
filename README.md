@@ -1,6 +1,6 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-02-25 -->
+<!-- Last updated: 2026-02-28 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
@@ -27,7 +27,11 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ```bash
 ./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune
 ```
-5. Once the migration finishes, review the `./migration-output` directory for any errors or warnings, and verify that your projects and data have been migrated successfully to SonarCloud.
+5. Once the migration finishes, review the `./migration-output` directory for any errors or warnings.
+6. Run the verification command to confirm everything was migrated correctly:
+```bash
+./cloudvoyager verify -c migrate-config.json --verbose
+```
 
 <!-- Updated: 2026-02-19 -->
 ## 🛠️ Local Development
@@ -56,6 +60,7 @@ MIT
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Single Command Migration | Added verify step |
 | 2026-02-19 | Quick Start, Local Dev | Links to scenario and local dev docs |
 | 2026-02-18 | Single Command Migration | Migrate command with --auto-tune |
 | 2026-02-17 | License | MIT license added |
