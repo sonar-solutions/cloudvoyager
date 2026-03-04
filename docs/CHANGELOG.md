@@ -10,6 +10,33 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-02-28 — Migration Verification Command
+
+#### New Feature: `verify` Command
+- Added a `verify` command that exhaustively compares SonarQube and SonarCloud data to confirm migration completeness
+- Performs read-only checks — no data is modified in either SonarQube or SonarCloud
+- Reuses the existing migration config file (no new config schema needed)
+- Supports the same `--only` component filtering as the `migrate` command
+
+#### Verification Checks
+- **Per-project:** Issue matching (status, assignments, comments, tags), hotspot matching (status, comments), branch parity, measures comparison, quality gate/profile assignments, project settings, tags, links, new code periods, DevOps bindings, project permissions
+- **Org-wide:** Quality gates (existence + conditions), quality profiles (existence + rule counts), groups, global permissions, permission templates
+- **Unsyncable detection:** Reports issue type changes, issue severity changes, and hotspot assignments as warnings (expected differences that cannot be synced via API)
+
+#### Verification Reports
+- Generates reports in 3 formats: **JSON**, **Markdown**, and **PDF** to the `--output-dir` directory (default: `./verification-output`)
+- Console summary with per-project pass/fail breakdown and unsyncable warnings
+- Markdown report includes collapsible detail sections for status, assignment, comment, and tag mismatches
+
+#### npm Scripts
+- Added `verify`, `verify:auto-tune`, and 8 selective `verify:only-*` npm scripts
+
+#### Documentation
+- Updated architecture, key capabilities, configuration, local development, scenario guides, troubleshooting, and README to document the verify command
+- Updated hidden HTML timestamps across all modified files
+
+---
+
 ### 2026-02-25 — Transfer-All Deprecation, Further Reading, Server-Wide Data Caching
 
 #### Deprecated

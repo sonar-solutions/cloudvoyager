@@ -199,4 +199,12 @@ export class SonarQubeClient {
   async getSystemInfo() { return sc.getSystemInfo(this.client); }
   async getInstalledPlugins() { return sc.getInstalledPlugins(this.client); }
   async getWebhooks(pk = null) { return sc.getWebhooks(this.client, pk); }
+
+  async getDuplications(componentKey, branch = null) {
+    logger.debug(`Fetching duplications for: ${componentKey}`);
+    const params = { key: componentKey };
+    if (branch) params.branch = branch;
+    const response = await this.client.get('/api/duplications/show', { params });
+    return response.data;
+  }
 }

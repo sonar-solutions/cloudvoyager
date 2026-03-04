@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -105,6 +105,12 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 
 # Sync metadata only (issues + hotspots)
 ./cloudvoyager sync-metadata -c migrate-config.json --verbose
+
+# Verify migration completeness
+./cloudvoyager verify -c migrate-config.json --verbose
+
+# Verify only specific components
+./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata,hotspot-metadata
 
 # Check transfer status
 ./cloudvoyager status -c config.json
@@ -456,6 +462,68 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### `verify` — Verify migration completeness by comparing SonarQube and SonarCloud data
+
+| Flag | Short | Required | Argument | Description |
+|------|-------|----------|----------|-------------|
+| `--config <path>` | `-c` | Yes | File path | Path to the migration configuration file |
+| `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
+| `--only <components>` | — | No | Comma-separated list | Only verify specific components. Valid values: `scan-data`, `scan-data-all-branches`, `portfolios`, `quality-gates`, `quality-profiles`, `permission-templates`, `permissions`, `issue-metadata`, `hotspot-metadata`, `project-settings` |
+| `--output-dir <path>` | — | No | Directory path | Output directory for verification reports (default: `./verification-output`) |
+| `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations |
+| `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
+| `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
+
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+#### Examples
+
+```bash
+# Verify all migration data
+./cloudvoyager verify -c migrate-config.json
+
+# Verify with verbose logging
+./cloudvoyager verify -c migrate-config.json --verbose
+
+# Verify with auto-tuned performance
+./cloudvoyager verify -c migrate-config.json --verbose --auto-tune
+
+# Verify only issue metadata
+./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata
+
+# Verify only hotspot metadata
+./cloudvoyager verify -c migrate-config.json --verbose --only hotspot-metadata
+
+# Verify only scan data (branches + measures)
+./cloudvoyager verify -c migrate-config.json --verbose --only scan-data
+
+# Verify only quality gates
+./cloudvoyager verify -c migrate-config.json --verbose --only quality-gates
+
+# Verify only quality profiles
+./cloudvoyager verify -c migrate-config.json --verbose --only quality-profiles
+
+# Verify only permissions (groups + global + project)
+./cloudvoyager verify -c migrate-config.json --verbose --only permissions
+
+# Verify only project settings
+./cloudvoyager verify -c migrate-config.json --verbose --only project-settings
+
+# Verify multiple components
+./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata,hotspot-metadata,quality-gates
+
+# Verify with custom output directory
+./cloudvoyager verify -c migrate-config.json --verbose --output-dir ./my-verification
+
+# Verify with custom concurrency
+./cloudvoyager verify -c migrate-config.json --verbose --concurrency 8
+
+# Verify with auto-tune and max-memory override
+./cloudvoyager verify -c migrate-config.json --verbose --auto-tune --max-memory 8192
+```
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `sync-metadata` — Sync issue and hotspot metadata for already-migrated projects
 
@@ -641,6 +709,16 @@ The following npm scripts are available for building, testing, and linting:
 | Sync metadata, skip issue metadata | `npm run sync-metadata:skip-issue-metadata` |
 | Sync metadata, skip hotspot metadata | `npm run sync-metadata:skip-hotspot-metadata` |
 | Sync metadata, skip quality profiles | `npm run sync-metadata:skip-quality-profiles` |
+| Verify migration completeness | `npm run verify` |
+| Verify migration (auto-tuned) | `npm run verify:auto-tune` |
+| Verify only scan data | `npm run verify:only-scan-data` |
+| Verify only scan data (all branches) | `npm run verify:only-scan-data-all-branches` |
+| Verify only issue metadata | `npm run verify:only-issue-metadata` |
+| Verify only hotspot metadata | `npm run verify:only-hotspot-metadata` |
+| Verify only quality gates | `npm run verify:only-quality-gates` |
+| Verify only quality profiles | `npm run verify:only-quality-profiles` |
+| Verify only permissions | `npm run verify:only-permissions` |
+| Verify only project settings | `npm run verify:only-project-settings` |
 
 > **Note:** Always use the built binary to run CloudVoyager commands (e.g. `./cloudvoyager migrate -c ...`). See the [CLI Reference](#-cli-reference) section for all available commands and flags.
 
@@ -660,6 +738,7 @@ The following npm scripts are available for building, testing, and linting:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | verify command, npm Scripts | Added verify CLI reference and npm scripts |
 | 2026-02-21 | Bun Compile | Fixed dependency type: optionalDependency not devDependency |
 | 2026-02-19 | Building, CLI Reference, Tests, npm Scripts | API expansion, test suite, bun builds |
 | 2026-02-18 | Output, transfer, migrate | --wait flag, --auto-tune, Windows ARM64 |

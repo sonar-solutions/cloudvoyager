@@ -9,6 +9,7 @@ import { extractChangesets } from './changesets.js';
 import { extractSymbols } from './symbols.js';
 import { extractSyntaxHighlighting } from './syntax-highlighting.js';
 import { extractHotspotsAsIssues } from './hotspots-to-issues.js';
+import { extractDuplications } from './duplications.js';
 
 /**
  * Main extractor orchestrator
@@ -38,6 +39,7 @@ export class DataExtractor {
       components: [],
       sources: [],
       activeRules: [],
+      duplications: new Map(),
       changesets: new Map(),
       symbols: new Map(),
       syntaxHighlightings: new Map(),
@@ -100,6 +102,12 @@ export class DataExtractor {
       const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
       extractedData.sources = await extractSources(this.client, null, maxFiles, {
         concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
+      });
+
+      // 7b. Extract duplications
+      logger.info('Step 7b: Extracting duplications...');
+      extractedData.duplications = await extractDuplications(this.client, extractedData.components, null, {
+        concurrency: this.performanceConfig.sourceExtraction?.concurrency || 5
       });
 
       // 8. Extract changesets (SCM blame data)
@@ -176,6 +184,11 @@ export class DataExtractor {
       concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
     });
 
+    logger.info(`  [${branch}] Extracting duplications...`);
+    const duplications = await extractDuplications(this.client, components, branch, {
+      concurrency: this.performanceConfig.sourceExtraction?.concurrency || 5
+    });
+
     logger.info(`  [${branch}] Extracting changesets...`);
     const changesets = await extractChangesets(this.client, sourceFilesList, components);
 
@@ -197,6 +210,7 @@ export class DataExtractor {
       measures,
       components,
       sources,
+      duplications,
       changesets,
       symbols,
       syntaxHighlightings,

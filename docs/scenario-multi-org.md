@@ -1,6 +1,6 @@
 # 🏢 Migrate Everything to Multiple SonarCloud Organizations
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 Use this when you want to migrate **all projects and configuration** from your SonarQube server to **multiple** SonarCloud organizations — for example, when different teams or business units each have their own SonarCloud org.
 
@@ -162,6 +162,25 @@ This step is safely retryable — if it hits rate limits, just run it again. You
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### Step 3d: Verify migration completeness (recommended)
+
+After syncing metadata, run the verification command to confirm everything was migrated correctly across all organizations:
+
+```bash
+./cloudvoyager verify -c migrate-config.json --verbose
+```
+
+This performs read-only checks comparing SonarQube and SonarCloud data and generates a detailed pass/fail report in `./verification-output/`. You can also verify specific components:
+
+```bash
+# Verify only issue and hotspot metadata
+./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata,hotspot-metadata
+
+# Verify only quality gates and profiles
+./cloudvoyager verify -c migrate-config.json --verbose --only quality-gates,quality-profiles
+```
+
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -230,9 +249,20 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
 Per-project state files are saved to `{outputDir}/state/` for incremental transfer tracking.
 
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+### Verification Output Files
+
+When you run `./cloudvoyager verify`, reports are written to `./verification-output/` (or the path specified by `--output-dir`):
+
+| File | What's in it |
+|------|-------------|
+| `verification-report.json` | Machine-readable structured verification results |
+| `verification-report.md` | Markdown report with collapsible mismatch details |
+| `verification-report.pdf` | PDF summary for stakeholders |
+
 ---
 
-<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
 ## 🚩 All CLI Flags
 
 | Flag | What it does |
@@ -274,6 +304,7 @@ Per-project state files are saved to `{outputDir}/state/` for incremental transf
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Step 3d Verify | Added verify as recommended final step |
 | 2026-02-18 | Performance, Output Files, CLI Flags | Auto-tune, reports, --wait flag |
 | 2026-02-17 | All | Initial multi-org migration scenario |
 | 2026-02-16 | Download | Base download instructions |

@@ -1,6 +1,6 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
 
 CloudVoyager supports two configuration formats depending on the command you're using.
 
@@ -37,9 +37,9 @@ See `examples/config.example.json` for a complete example.
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📋 Migration Config
 
-Used by: `migrate`, `sync-metadata`
+Used by: `migrate`, `sync-metadata`, `verify`
 
-Performs a full migration from a SonarQube server to one or more SonarCloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more. The `sync-metadata` command uses the same config to sync only issue and hotspot metadata for already-migrated projects.
+Performs a full migration from a SonarQube server to one or more SonarCloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more. The `sync-metadata` command uses the same config to sync only issue and hotspot metadata for already-migrated projects. The `verify` command uses the same config to compare SonarQube and SonarCloud data and confirm migration completeness.
 
 ```json
 {
@@ -212,9 +212,9 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 
 | Flag | Description | Available on |
 |------|-------------|-------------|
-| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values | `transfer`, `migrate`, `sync-metadata` |
-| `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `migrate`, `sync-metadata` |
-| `--max-memory <mb>` | Set max heap size in MB | `transfer`, `migrate`, `sync-metadata` |
+| `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values | `transfer`, `migrate`, `sync-metadata`, `verify` |
+| `--concurrency <n>` | Override max concurrency for all I/O operations | `transfer`, `migrate`, `sync-metadata`, `verify` |
+| `--max-memory <mb>` | Set max heap size in MB | `transfer`, `migrate`, `sync-metadata`, `verify` |
 | `--project-concurrency <n>` | Max concurrent project migrations | `migrate` |
 | `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `migrate`, `sync-metadata` |
 
@@ -222,11 +222,11 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 
 | Flag | Description | Available on |
 |------|-------------|-------------|
-| `--only <components>` | Only migrate specific components (comma-separated). See table below | `migrate` |
+| `--only <components>` | Only migrate/verify specific components (comma-separated). See table below | `migrate`, `verify` |
 
 Valid `--only` components:
 
-| Component | What it migrates |
+| Component | What it migrates/verifies |
 |-----------|-----------------|
 | `scan-data` | Project main branch scanner report only (no non-main branches) |
 | `scan-data-all-branches` | Project scanner reports for all branches |
@@ -246,6 +246,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 | Flag | Description | Available on |
 |------|-------------|-------------|
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `migrate` |
+| `--output-dir <path>` | Output directory for verification reports (default: `./verification-output`) | `verify` |
 
 **Example: high-performance migration:**
 
@@ -316,6 +317,17 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Migrate only hotspot metadata | `npm run migrate:only-hotspot-metadata` | `./cloudvoyager migrate -c migrate-config.json --verbose --only hotspot-metadata` |
 | Migrate only project settings | `npm run migrate:only-project-settings` | `./cloudvoyager migrate -c migrate-config.json --verbose --only project-settings` |
 | Migrate scan data + quality gates + permissions | — | `./cloudvoyager migrate -c migrate-config.json --verbose --only scan-data,quality-gates,permissions` |
+| Verify migration completeness | `npm run verify` | `./cloudvoyager verify -c migrate-config.json --verbose` |
+| Verify migration (auto-tuned) | `npm run verify:auto-tune` | `./cloudvoyager verify -c migrate-config.json --verbose --auto-tune` |
+| Verify only scan data | `npm run verify:only-scan-data` | `./cloudvoyager verify -c migrate-config.json --verbose --only scan-data` |
+| Verify only scan data (all branches) | `npm run verify:only-scan-data-all-branches` | `./cloudvoyager verify -c migrate-config.json --verbose --only scan-data-all-branches` |
+| Verify only issue metadata | `npm run verify:only-issue-metadata` | `./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata` |
+| Verify only hotspot metadata | `npm run verify:only-hotspot-metadata` | `./cloudvoyager verify -c migrate-config.json --verbose --only hotspot-metadata` |
+| Verify only quality gates | `npm run verify:only-quality-gates` | `./cloudvoyager verify -c migrate-config.json --verbose --only quality-gates` |
+| Verify only quality profiles | `npm run verify:only-quality-profiles` | `./cloudvoyager verify -c migrate-config.json --verbose --only quality-profiles` |
+| Verify only permissions | `npm run verify:only-permissions` | `./cloudvoyager verify -c migrate-config.json --verbose --only permissions` |
+| Verify only project settings | `npm run verify:only-project-settings` | `./cloudvoyager verify -c migrate-config.json --verbose --only project-settings` |
+| Verify specific components | — | `./cloudvoyager verify -c migrate-config.json --verbose --only issue-metadata,hotspot-metadata` |
 
 > **Note:** The npm scripts use hardcoded config file paths (`config.json` or `migrate-config.json`). When using the binary directly, you can specify any config file path with `-c <path>`.
 
@@ -377,6 +389,7 @@ This step is safely retryable — if it hits rate limits, just run it again. Alr
 | Dry run | Validates config, generates mappings | Catches errors before committing |
 | Migrate skip-all-metadata | Transfers reports + org-level config | Fast, avoids rate limits on SC |
 | Sync metadata | Transitions issue/hotspot statuses | Retryable, isolated from main migration |
+| Verify | Compares SQ and SC data exhaustively | Confirms 1:1 migration completeness |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔄 Incremental Transfers
@@ -412,6 +425,7 @@ The state file (`.cloudvoyager-state.json` by default) contains:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-02-28 | Migration Config, CLI overrides, npm Scripts | Added verify command references |
 | 2026-02-20 | Migration Config, Multi-Org Settings | Enterprise config for V2 portfolio API |
 | 2026-02-19 | npm Scripts | Expanded script table with all commands |
 | 2026-02-18 | Performance Settings | Auto-tune feature added |
