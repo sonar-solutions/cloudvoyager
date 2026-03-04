@@ -20,12 +20,12 @@ function inferImpactsFromType(rule) {
   return [{ softwareQuality: quality, severity: mapImpactSeverityFromRuleSeverity(rule.severity) }];
 }
 
-function mapSoftwareQuality(quality) {
+export function mapSoftwareQuality(quality) {
   const qualityMap = { 'MAINTAINABILITY': 1, 'RELIABILITY': 2, 'SECURITY': 3 };
   return qualityMap[quality?.toUpperCase()] || 1;
 }
 
-function mapImpactSeverity(severity) {
+export function mapImpactSeverity(severity) {
   const severityMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'BLOCKER': 4 };
   return severityMap[severity?.toUpperCase()] || 2;
 }

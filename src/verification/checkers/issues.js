@@ -1,5 +1,6 @@
 import logger from '../../utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../utils/concurrency.js';
+import { extractTransitionsFromChangelog } from '../../sonarcloud/migrators/issue-sync.js';
 
 /**
  * Normalize a rule key for matching.
@@ -43,6 +44,7 @@ export async function verifyIssues(sqClient, scClient, scProjectKey, options = {
     matched: 0,
     unmatched: 0,
     statusMismatches: [],
+    statusHistoryMismatches: [],
     assignmentMismatches: [],
     commentMismatches: [],
     tagMismatches: [],
@@ -193,6 +195,41 @@ export async function verifyIssues(sqClient, scClient, scProjectKey, options = {
         });
       }
 
+      // Check status history (changelog transitions)
+      try {
+        const sqChangelog = await sqClient.getIssueChangelog(sqIssue.key);
+        const sqTransitions = extractTransitionsFromChangelog(sqChangelog);
+        if (sqTransitions.length > 0) {
+          const scChangelog = await scClient.getIssueChangelog(scIssue.key);
+          const scTransitions = extractTransitionsFromChangelog(scChangelog);
+          // Check that every SQ transition appears in SC in order
+          let scIdx = 0;
+          const missingTransitions = [];
+          for (const sqT of sqTransitions) {
+            let found = false;
+            while (scIdx < scTransitions.length) {
+              if (scTransitions[scIdx] === sqT) { found = true; scIdx++; break; }
+              scIdx++;
+            }
+            if (!found) missingTransitions.push(sqT);
+          }
+          if (missingTransitions.length > 0) {
+            result.statusHistoryMismatches.push({
+              sqKey: sqIssue.key,
+              scKey: scIssue.key,
+              rule: sqIssue.rule,
+              file: (sqIssue.component || '').split(':').pop(),
+              line: sqIssue.line || sqIssue.textRange?.startLine || 0,
+              sqTransitions,
+              scTransitions,
+              missingTransitions
+            });
+          }
+        }
+      } catch (error) {
+        logger.debug(`Failed to compare changelogs for issue ${sqIssue.key}: ${error.message}`);
+      }
+
       // Check assignment match
       if ((sqIssue.assignee || null) !== (scIssue.assignee || null)) {
         result.assignmentMismatches.push({
@@ -275,13 +312,13 @@ export async function verifyIssues(sqClient, scClient, scProjectKey, options = {
   );
 
   // Set overall status
-  if (result.unmatched > 0 || result.statusMismatches.length > 0) {
+  if (result.unmatched > 0 || result.statusMismatches.length > 0 || result.statusHistoryMismatches.length > 0) {
     result.status = 'fail';
   } else if (result.assignmentMismatches.length > 0 || result.commentMismatches.length > 0 || result.tagMismatches.length > 0) {
     result.status = 'fail';
   }
 
-  logger.info(`Issue verification: ${result.matched} matched, ${result.unmatched} unmatched, ${result.statusMismatches.length} status mismatches, ${result.unsyncable.typeChanges} unsyncable type changes, ${result.unsyncable.severityChanges} unsyncable severity changes`);
+  logger.info(`Issue verification: ${result.matched} matched, ${result.unmatched} unmatched, ${result.statusMismatches.length} status mismatches, ${result.statusHistoryMismatches.length} status history mismatches, ${result.unsyncable.typeChanges} unsyncable type changes, ${result.unsyncable.severityChanges} unsyncable severity changes`);
   return result;
 }
 

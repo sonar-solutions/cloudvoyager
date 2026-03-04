@@ -78,6 +78,7 @@ export function logVerificationSummary(results) {
         if (iss.unmatched > 0) parts.push(`${iss.unmatched} unmatched`);
         if (iss.scOnlyIssues?.length > 0) parts.push(`${iss.scOnlyIssues.length} SC-only`);
         if (iss.statusMismatches?.length > 0) parts.push(`${iss.statusMismatches.length} status mismatches`);
+        if (iss.statusHistoryMismatches?.length > 0) parts.push(`${iss.statusHistoryMismatches.length} status history mismatches`);
         if (iss.assignmentMismatches?.length > 0) parts.push(`${iss.assignmentMismatches.length} assignment mismatches`);
         if (iss.commentMismatches?.length > 0) parts.push(`${iss.commentMismatches.length} comment mismatches`);
         if (iss.tagMismatches?.length > 0) parts.push(`${iss.tagMismatches.length} tag mismatches`);

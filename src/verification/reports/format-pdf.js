@@ -158,7 +158,7 @@ function buildProjectResults(results) {
     const c = project.checks;
     if (c.existence) rows.push(['Exists', statusCell(c.existence.status), '']);
     if (c.branches) rows.push(['Branches', statusCell(c.branches.status), `SQ: ${c.branches.sqCount}, SC: ${c.branches.scCount}, Missing: ${(c.branches.missing || []).length}`]);
-    if (c.issues) rows.push(['Issues', statusCell(c.issues.status), `Matched: ${c.issues.matched}/${c.issues.sqCount}, Status mismatches: ${(c.issues.statusMismatches || []).length}`]);
+    if (c.issues) rows.push(['Issues', statusCell(c.issues.status), `Matched: ${c.issues.matched}/${c.issues.sqCount}, Status mismatches: ${(c.issues.statusMismatches || []).length}, History mismatches: ${(c.issues.statusHistoryMismatches || []).length}`]);
     if (c.hotspots) rows.push(['Hotspots', statusCell(c.hotspots.status), `Matched: ${c.hotspots.matched}/${c.hotspots.sqCount}, Status mismatches: ${(c.hotspots.statusMismatches || []).length}`]);
     if (c.measures) rows.push(['Measures', statusCell(c.measures.status), `${c.measures.compared || 0} compared, ${(c.measures.mismatches || []).length} mismatches`]);
     if (c.qualityGate) rows.push(['Quality Gate', statusCell(c.qualityGate.status), `SQ: ${c.qualityGate.sqGate || 'none'}, SC: ${c.qualityGate.scGate || 'none'}`]);
@@ -250,6 +250,17 @@ function buildProjectResults(results) {
       }
       if (c.issues.statusMismatches.length > 100) statusRows.push([{ text: `... and ${c.issues.statusMismatches.length - 100} more`, colSpan: 5, italics: true }, '', '', '', '']);
       nodes.push(smallTable(statusRows, [80, '*', 30, 80, 80]));
+    }
+
+    // Issue Status History Mismatches
+    if (c.issues?.statusHistoryMismatches?.length > 0) {
+      nodes.push({ text: `Issue Status History Mismatches (${c.issues.statusHistoryMismatches.length})`, style: 'subheading' });
+      const histRows = [[h('Rule'), h('File'), h('Line'), h('SQ Transitions'), h('SC Transitions'), h('Missing')]];
+      for (const m of c.issues.statusHistoryMismatches.slice(0, 100)) {
+        histRows.push([m.rule, truncate(m.file, 25), String(m.line), m.sqTransitions.join(' → '), m.scTransitions.join(' → ') || 'none', m.missingTransitions.join(', ')]);
+      }
+      if (c.issues.statusHistoryMismatches.length > 100) histRows.push([{ text: `... and ${c.issues.statusHistoryMismatches.length - 100} more`, colSpan: 6, italics: true }, '', '', '', '', '']);
+      nodes.push(smallTable(histRows, [65, 80, 25, '*', '*', 70]));
     }
 
     // Issue Assignment Mismatches

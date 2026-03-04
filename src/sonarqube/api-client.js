@@ -173,6 +173,20 @@ export class SonarQubeClient {
     }
   }
 
+  /**
+   * Fetch the SonarQube server version from /api/system/status.
+   * @returns {Promise<string>} Version string (e.g., "9.9.0.12345")
+   */
+  async getServerVersion() {
+    try {
+      const response = await this.client.get('/api/system/status');
+      return response.data.version || 'unknown';
+    } catch (error) {
+      logger.warn(`Failed to get server version: ${error.message}`);
+      return 'unknown';
+    }
+  }
+
   async getIssues(f = {}) { return ih.getIssues(this.getPaginated.bind(this), this.projectKey, f); }
   async getIssuesWithComments(f = {}) { return ih.getIssuesWithComments(this.getPaginated.bind(this), this.projectKey, f); }
   async getIssueChangelog(k) { return ih.getIssueChangelog(this.client, k); }

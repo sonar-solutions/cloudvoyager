@@ -11,6 +11,8 @@ import { migratePortfolios } from '../sonarcloud/migrators/portfolios.js';
 import { mapProjectsToOrganizations, mapResourcesToOrganizations } from '../mapping/org-mapper.js';
 import { generateMappingCsvs } from '../mapping/csv-generator.js';
 import logger from '../utils/logger.js';
+import { parseSonarQubeVersion, hasCleanCodeTaxonomy } from '../utils/version.js';
+import { buildRuleEnrichmentMap } from '../sonarcloud/rule-enrichment.js';
 import { migrateOrgProjects, resolveProjectKey } from './project-migration.js';
 
 export async function generateOrgMappings(allProjects, extractedData, sonarcloudOrgs, outputDir) {
@@ -155,6 +157,23 @@ export async function migrateOneOrganization(assignment, extractedData, resource
   }
 
   const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
+
+  // Detect SQ version and build rule enrichment map once per org (for SQ 9.9 compat)
+  const sqVersionStr = extractedData.serverInfo?.system?.version || await sqClient.getServerVersion();
+  const sqVersion = parseSonarQubeVersion(sqVersionStr);
+  logger.info(`SonarQube server version: ${sqVersion.raw}`);
+
+  if (!hasCleanCodeTaxonomy(sqVersion) && !ctx.ruleEnrichmentMap) {
+    logger.warn(`SonarQube ${sqVersion.raw} does not support Clean Code taxonomy. Building enrichment map from SonarCloud...`);
+    try {
+      const scProfiles = await scClient.getQualityProfiles();
+      ctx.ruleEnrichmentMap = await buildRuleEnrichmentMap(scClient, scProfiles);
+    } catch (error) {
+      logger.warn(`Failed to build rule enrichment map: ${error.message}. Falling back to type-based inference.`);
+      ctx.ruleEnrichmentMap = new Map();
+    }
+  }
+
   const { gateMapping, builtInProfileMapping } = await migrateOrgWideResources(extractedData, scClient, sqClient, orgResult, results, ctx);
 
   const only = ctx.onlyComponents;

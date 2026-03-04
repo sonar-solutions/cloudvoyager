@@ -177,11 +177,13 @@ export class SonarCloudClient {
   async addQualityProfileUserPermission(q, l, u) { return qp.addQualityProfileUserPermission(this.client, this.organization, q, l, u); }
   async searchQualityProfiles(l = null) { return qp.searchQualityProfiles(this.client, this.organization, l); }
   async getActiveRules(pk) { return qp.getActiveRules(this.client, this.organization, pk); }
+  async getActiveRulesWithCleanCodeFields(pk) { return qp.getActiveRulesWithCleanCodeFields(this.client, this.organization, pk); }
   async addQualityProfileToProject(l, q, pk) { return qp.addQualityProfileToProject(this.client, this.organization, l, q, pk); }
   async createQualityGate(n) { return qg.createQualityGate(this.client, this.organization, n); }
   async createQualityGateCondition(g, m, o, e) { return qg.createQualityGateCondition(this.client, this.organization, g, m, o, e); }
   async setDefaultQualityGate(id) { return qg.setDefaultQualityGate(this.client, this.organization, id); }
   async assignQualityGateToProject(g, pk) { return qg.assignQualityGateToProject(this.client, this.organization, g, pk); }
+  async getIssueChangelog(k) { return iss.getIssueChangelog(this.client, k); }
   async transitionIssue(i, t) { return iss.transitionIssue(this.client, i, t); }
   async assignIssue(i, a) { return iss.assignIssue(this.client, i, a); }
   async addIssueComment(i, t) { return iss.addIssueComment(this.client, i, t); }
