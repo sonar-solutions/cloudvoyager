@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📁 Project Structure
@@ -113,7 +113,7 @@ src/
 ├── verification/
 │   ├── verify-pipeline.js   # Verification orchestrator (read-only comparison)
 │   ├── checkers/            # Per-check verification modules
-│   │   ├── issues.js         # Issue matching and status/assignment/comment/tag verification
+│   │   ├── issues.js         # Issue matching and status/status history/assignment/comment/tag verification
 │   │   ├── hotspots.js       # Hotspot matching and status/comment verification
 │   │   ├── branches.js       # Branch parity verification
 │   │   ├── measures.js       # Metrics comparison
@@ -181,7 +181,7 @@ Uses `migrate-pipeline.js`:
      - Set project-level permissions
    - Create portfolios and assign projects
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
 ### `verify` — Migration Verification
 
 Uses `verify-pipeline.js`:
@@ -198,7 +198,7 @@ Uses `verify-pipeline.js`:
    - For each project:
      - Verify project exists in SonarCloud
      - Verify branches (SQ vs SC)
-     - Verify issues (matched by rule+file+line; compare statuses, assignments, comments, tags)
+     - Verify issues (matched by rule+file+line; compare statuses, status history via changelog, assignments, comments, tags)
      - Verify hotspots (matched by rule+file+line; compare statuses, comments)
      - Verify measures (18 key metrics)
      - Verify quality gate and profile assignments
@@ -302,6 +302,7 @@ Measures are only generated for file components (no project-level `measures-1.pb
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-04 | Commands, Verification | Added issue status history (changelog) verification |
 | 2026-02-28 | Project Structure, Commands | Added verify command and verification subsystem |
 | 2026-02-19 | Project Structure, Commands, Build | API expansion, pipeline refactor, Node 21 build |
 | 2026-02-18 | Output Structure, Reports | Windows ARM64, report generation |

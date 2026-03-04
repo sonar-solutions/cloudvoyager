@@ -131,14 +131,15 @@ The most detailed check. Compares all issues between SQ and SC.
 | **External rules** | SQ `mulesoft:MS058` matches SC `external_mulesoft:MS058` — the `external_` prefix is normalized |
 | **Status** | Normalized from `status + resolution` (OPEN, FIXED, FALSE-POSITIVE, WONTFIX) |
 | **Assignment** | Direct comparison of assignee |
+| **Status history** | Fetches changelogs from both SQ and SC, extracts status transitions, and verifies that all SQ transitions appear in SC in order. Issues with no status changes are skipped |
 | **Comments** | Counts SC comments containing `[Migrated from SonarQube]` marker; flags if fewer than SQ comment count |
 | **Tags** | Only flags if SQ tags are **missing** from SC; SC adding extra tags (e.g., `type-dependent`) is expected |
 | **External issue tags** | **Skipped entirely** — SC external issues don't preserve tags |
 | **Rule not in SC** | If a rule has zero presence in SC (no matches at all), unmatched issues for that rule are **excluded** from the failure count — it's a platform difference, not a migration failure |
 | **Type/severity changes** | Tracked as "unsyncable" warnings (SQ and SC may classify rules differently) |
 
-**Pass** if all genuine issues match (excluding platform-unavailable rules) and no status/assignment/comment mismatches.
-**Fail** if there are genuine unmatched issues, status mismatches, or missing comments.
+**Pass** if all genuine issues match (excluding platform-unavailable rules) and no status/assignment/comment/status-history mismatches.
+**Fail** if there are genuine unmatched issues, status mismatches, status history mismatches, or missing comments.
 
 **Breakdowns reported:**
 - Type distribution (BUG, CODE_SMELL, VULNERABILITY) for both SQ and SC

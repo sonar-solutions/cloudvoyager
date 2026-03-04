@@ -10,6 +10,20 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-03-04 — Issue Status History Verification
+
+#### Enhancement: `verify` Command
+- Added **status history (changelog) verification** to the issue metadata checker
+- Fetches changelogs from both SonarQube and SonarCloud via `/api/issues/changelog`
+- Extracts status transitions from each changelog and compares them in order
+- Flags issues where SQ transitions are missing from SC as `statusHistoryMismatches`
+- Issues with no status changes (never transitioned) are skipped
+- Added `getIssueChangelog` to the SonarCloud API client
+- Updated Markdown, PDF, and console reports to include status history mismatch details
+- Updated verification documentation with new check description and pass/fail criteria
+
+---
+
 ### 2026-02-28 — Migration Verification Command
 
 #### New Feature: `verify` Command

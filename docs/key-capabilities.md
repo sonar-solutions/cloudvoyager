@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -823,12 +823,12 @@ API client errors include specific diagnostics based on the underlying network e
 
 After migration, CloudVoyager can **verify** that all data was transferred correctly by exhaustively comparing SonarQube and SonarCloud. The `verify` command performs read-only checks and generates a detailed pass/fail report.
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
 ### What Gets Verified
 
 | Category | Checks |
 |----------|--------|
-| **Issues** | Count parity, status matching (False Positive, Accepted, Won't Fix, Confirmed, Resolved, Reopened, Open), assignments, comments (`[Migrated from SonarQube]` prefix detection), custom tags |
+| **Issues** | Count parity, status matching (False Positive, Accepted, Won't Fix, Confirmed, Resolved, Reopened, Open), status history (changelog transition sequence verification), assignments, comments (`[Migrated from SonarQube]` prefix detection), custom tags |
 | **Hotspots** | Count parity, status matching (Safe, Acknowledged, Fixed, To Review), comments |
 | **Branches** | All SQ branches exist in SC |
 | **Measures** | 18 key metrics (ncloc, complexity, violations, coverage, etc.) |
@@ -927,6 +927,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-04 | Verification Pipeline | Added issue status history (changelog) verification |
 | 2026-02-28 | Verification Pipeline, CLI, Summary | Added migration verification capability |
 | 2026-02-20 | Permissions/Governance, Portfolio | V2 Enterprise API for portfolios |
 | 2026-02-19 | Summary, Protobuf, Pipeline, Packaging, Build, Reporting, Config, CLI | API expansion, modular builders, test suite |
