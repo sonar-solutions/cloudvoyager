@@ -56,6 +56,7 @@ export class ProtobufEncoder {
   encodeChangeset(c) { return encodeMessage(this.root, 'Changesets', c); }
   encodeExternalIssueDelimited(i) { return encodeMessageDelimited(this.root, 'ExternalIssue', i); }
   encodeAdHocRuleDelimited(r) { return encodeMessageDelimited(this.root, 'AdHocRule', r); }
+  encodeDuplicationDelimited(d) { return encodeMessageDelimited(this.root, 'Duplication', d); }
 
   encodeAll(messages) {
     logger.info('Encoding all messages to protobuf...');
@@ -126,6 +127,16 @@ export class ProtobufEncoder {
           this.encodeAdHocRuleDelimited(rule)
         );
         encoded.adHocRules = Buffer.concat(adHocRuleBuffers);
+      }
+
+      // Encode duplications (length-delimited Duplication messages per component)
+      encoded.duplications = new Map();
+      if (messages.duplicationsByComponent && messages.duplicationsByComponent.size > 0) {
+        logger.debug(`Encoding duplications for ${messages.duplicationsByComponent.size} components...`);
+        messages.duplicationsByComponent.forEach((duplications, componentRef) => {
+          const buffers = duplications.map(dup => this.encodeDuplicationDelimited(dup));
+          encoded.duplications.set(componentRef, Buffer.concat(buffers));
+        });
       }
 
       logger.info('All messages encoded successfully');

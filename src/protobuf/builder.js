@@ -5,6 +5,7 @@ import { buildComponents } from './build-components.js';
 import { buildIssues } from './build-issues.js';
 import { buildExternalIssues } from './build-external-issues.js';
 import { buildMeasures, buildMeasure, parseMeasureValue } from './build-measures.js';
+import { buildDuplications } from './build-duplications.js';
 
 export class ProtobufBuilder {
   constructor(extractedData, sonarCloudConfig = {}, sonarCloudProfiles = [], options = {}) {
@@ -54,6 +55,7 @@ export class ProtobufBuilder {
   buildIssues() { return buildIssues(this); }
   buildExternalIssues() { return buildExternalIssues(this); }
   buildMeasures() { return buildMeasures(this); }
+  buildDuplications() { return buildDuplications(this); }
   buildMeasure(measure) { return buildMeasure(measure); }
   parseMeasureValue(rawValue) { return parseMeasureValue(rawValue); }
 
@@ -199,6 +201,7 @@ export class ProtobufBuilder {
         sourceFiles: this.buildSourceFiles(),
         activeRules: this.buildActiveRules(),
         changesetsByComponent: this.buildChangesets(),
+        duplicationsByComponent: this.buildDuplications(),
         externalIssuesByComponent: externalResult.externalIssuesByComponent,
         adHocRules: externalResult.adHocRules,
       };

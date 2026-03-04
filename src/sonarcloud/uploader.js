@@ -100,6 +100,16 @@ export class ReportUploader {
       logger.debug(`Added ${changesetFileCount} changeset files`);
     }
 
+    // Add duplication files (duplications-{ref}.pb)
+    if (encodedReport.duplications && encodedReport.duplications.size > 0) {
+      let dupFileCount = 0;
+      encodedReport.duplications.forEach((buffer, componentRef) => {
+        zip.addFile(`duplications-${componentRef}.pb`, Buffer.from(buffer));
+        dupFileCount++;
+      });
+      logger.debug(`Added ${dupFileCount} duplication files`);
+    }
+
     // Add external issues files (external-issues-{ref}.pb)
     if (encodedReport.externalIssues && encodedReport.externalIssues.size > 0) {
       let extIssueFileCount = 0;
