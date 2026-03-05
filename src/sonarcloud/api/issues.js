@@ -32,6 +32,16 @@ export async function setIssueTags(client, issue, tags) {
   });
 }
 
+export async function getIssueChangelog(client, issueKey) {
+  logger.debug(`Fetching changelog for issue: ${issueKey}`);
+  const response = await client.get('/api/issues/changelog', { params: { issue: issueKey } });
+  return response.data.changelog || [];
+}
+
+// All issue statuses — include both old and new lifecycle values so the
+// metadata sync can match issues regardless of their current status.
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED';
+
 export async function searchIssues(client, organization, projectKey, filters = {}) {
   logger.debug(`Searching issues in project: ${projectKey}`);
 
@@ -45,6 +55,7 @@ export async function searchIssues(client, organization, projectKey, filters = {
       params: {
         componentKeys: projectKey,
         organization,
+        statuses: ALL_STATUSES,
         ps: pageSize,
         p: page,
         ...filters

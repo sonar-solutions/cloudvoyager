@@ -119,6 +119,47 @@ export async function getActiveRules(client, organization, profileKey) {
   return allRules;
 }
 
+/**
+ * Fetch active rules for a SC quality profile with Clean Code taxonomy fields.
+ * Used to enrich rules from SonarQube 9.9 (which lack cleanCodeAttribute/impacts).
+ *
+ * @param {object} client - Axios-like client
+ * @param {string} organization - SC organization key
+ * @param {string} profileKey - Quality profile key
+ * @returns {Promise<Array>} Rules with cleanCodeAttribute and impacts fields populated
+ */
+export async function getActiveRulesWithCleanCodeFields(client, organization, profileKey) {
+  logger.debug(`Fetching active rules with Clean Code fields for SC profile: ${profileKey}`);
+
+  let allRules = [];
+  let page = 1;
+  const pageSize = 100;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const response = await client.get('/api/rules/search', {
+      params: {
+        qprofile: profileKey,
+        organization,
+        activation: 'true',
+        f: 'cleanCodeAttribute,impacts',
+        ps: pageSize,
+        p: page
+      }
+    });
+
+    const rules = response.data.rules || [];
+    allRules = allRules.concat(rules);
+
+    const total = response.data.total || 0;
+    if (page * pageSize >= total || rules.length < pageSize) break;
+    page++;
+  }
+
+  logger.debug(`Retrieved ${allRules.length} active rules with Clean Code fields for profile ${profileKey}`);
+  return allRules;
+}
+
 export async function addQualityProfileToProject(client, organization, language, qualityProfile, projectKey) {
   logger.debug(`Assigning profile "${qualityProfile}" (${language}) to project ${projectKey}`);
 

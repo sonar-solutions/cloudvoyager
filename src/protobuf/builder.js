@@ -6,6 +6,7 @@ import { buildIssues } from './build-issues.js';
 import { buildExternalIssues } from './build-external-issues.js';
 import { buildMeasures, buildMeasure, parseMeasureValue } from './build-measures.js';
 import { buildDuplications } from './build-duplications.js';
+import { mapSoftwareQuality, mapImpactSeverity } from '../sonarqube/extractors/rule-helpers.js';
 
 export class ProtobufBuilder {
   constructor(extractedData, sonarCloudConfig = {}, sonarCloudProfiles = [], options = {}) {
@@ -20,6 +21,8 @@ export class ProtobufBuilder {
     this.referenceBranchName = options.referenceBranchName || null;
     // Set of rule repository keys available in SonarCloud — used to auto-detect external issues
     this.sonarCloudRepos = options.sonarCloudRepos || new Set();
+    // Rule enrichment map from SonarCloud — used to enrich SQ 9.9 rules with Clean Code taxonomy
+    this.ruleEnrichmentMap = options.ruleEnrichmentMap || new Map();
   }
 
   buildMetadata() {
@@ -101,6 +104,16 @@ export class ProtobufBuilder {
       };
       if (rule.impacts?.length > 0) {
         activeRule.impacts = rule.impacts.map(impact => ({ softwareQuality: impact.softwareQuality, severity: impact.severity }));
+      } else if (this.ruleEnrichmentMap.size > 0) {
+        // SQ lacked impacts (e.g., SQ 9.9) — use SonarCloud enrichment data
+        const qualifiedKey = `${rule.ruleRepository}:${ruleKey}`;
+        const enrichment = this.ruleEnrichmentMap.get(qualifiedKey);
+        if (enrichment?.impacts?.length > 0) {
+          activeRule.impacts = enrichment.impacts.map(impact => ({
+            softwareQuality: mapSoftwareQuality(impact.softwareQuality),
+            severity: mapImpactSeverity(impact.severity)
+          }));
+        }
       }
       activeRules.push(activeRule);
     });

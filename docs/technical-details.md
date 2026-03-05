@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Feb 25, 2026 at 10:30:00 AM -->
+<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📡 Protobuf Encoding
@@ -68,15 +68,17 @@ The SonarCloud API client supports a configurable two-layer strategy for rate li
 
 2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
 ## 🔄 Issue Sync
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
 1. Searches for a matching issue in SonarCloud by rule, component, and text range
-2. Transitions the issue status (Open, Confirmed, Accepted/Won't Fix, False Positive)
+2. Fetches the SonarQube issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.)
 3. Sets the assignee
 4. Copies comments
 5. Sets tags
+
+The `verify` command validates this by fetching changelogs from both sides (`/api/issues/changelog`) and comparing the transition sequences.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔥 Hotspot Sync

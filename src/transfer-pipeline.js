@@ -5,6 +5,8 @@ import { ProtobufBuilder } from './protobuf/builder.js';
 import { ProtobufEncoder } from './protobuf/encoder.js';
 import { ReportUploader } from './sonarcloud/uploader.js';
 import { StateTracker } from './state/tracker.js';
+import { parseSonarQubeVersion, hasCleanCodeTaxonomy } from './utils/version.js';
+import { buildRuleEnrichmentMap } from './sonarcloud/rule-enrichment.js';
 import logger from './utils/logger.js';
 
 /**
@@ -25,7 +27,7 @@ import logger from './utils/logger.js';
  * @param {string} [options.projectName=null] - Human-readable project name from SonarQube
  * @returns {Promise<object>} Transfer result with stats
  */
-export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null }) {
+export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null, ruleEnrichmentMap: prebuiltEnrichmentMap = null }) {
   const projectKey = sonarqubeConfig.projectKey;
   logger.info(`Starting transfer for project: ${projectKey}`);
 
@@ -103,6 +105,21 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   logger.info('Fetching SonarCloud rule repositories...');
   const sonarCloudRepos = await sonarCloudClient.getRuleRepositories();
 
+  // Detect SonarQube version and build rule enrichment map if needed
+  const sqVersionStr = await sonarQubeClient.getServerVersion();
+  const sqVersion = parseSonarQubeVersion(sqVersionStr);
+  logger.info(`SonarQube server version: ${sqVersion.raw}`);
+
+  let ruleEnrichmentMap = prebuiltEnrichmentMap || new Map();
+  if (!prebuiltEnrichmentMap && !hasCleanCodeTaxonomy(sqVersion)) {
+    logger.warn(`SonarQube ${sqVersion.raw} does not support Clean Code taxonomy (requires 10.0+). Fetching enrichment from SonarCloud...`);
+    try {
+      ruleEnrichmentMap = await buildRuleEnrichmentMap(sonarCloudClient, sonarCloudProfiles);
+    } catch (error) {
+      logger.warn(`Failed to build rule enrichment map: ${error.message}. Falling back to type-based inference.`);
+    }
+  }
+
   // --- Transfer main branch ---
   const mainBranchResult = await transferBranch({
     extractedData,
@@ -114,7 +131,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
     sonarCloudClient,
     label: 'main',
     isMainBranch: true,
-    sonarCloudRepos
+    sonarCloudRepos,
+    ruleEnrichmentMap
   });
 
   // Track aggregated stats across all branches
@@ -173,7 +191,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
             wait,
             sonarCloudClient,
             label: branchName,
-            sonarCloudRepos
+            sonarCloudRepos,
+            ruleEnrichmentMap
           });
 
           // Accumulate stats
@@ -220,13 +239,14 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
  * @param {string} options.label - Human-readable label for logging
  * @returns {Promise<object>} { stats, ceTask } — branch transfer stats and the CE task object
  */
-async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set() }) {
+async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
   // Build protobuf messages
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
     sonarCloudBranchName: branchName,
     referenceBranchName,
     sonarCloudRepos,
+    ruleEnrichmentMap,
   });
   const messages = builder.buildAll();
 

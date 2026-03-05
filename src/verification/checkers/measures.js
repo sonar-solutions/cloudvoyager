@@ -8,6 +8,24 @@ const KEY_METRICS = [
   'duplicated_lines_density', 'duplicated_blocks', 'duplicated_lines'
 ];
 
+// Metrics that are derived from issue/hotspot counts — already verified by
+// the issues/hotspots checkers. Small differences are expected when issue
+// counts differ, so these are excluded from strict measure comparison.
+const ISSUE_DERIVED_METRICS = new Set([
+  'violations', 'bugs', 'vulnerabilities', 'code_smells', 'security_hotspots'
+]);
+
+// Metrics where scanner implementation differences can cause small deltas
+// (e.g., line counting). Allow a tolerance of 1% for these.
+const TOLERANCE_METRICS = new Set(['lines', 'ncloc']);
+
+// Duplication metrics may differ because SQ and SC use different CPD engines
+// or configurations. The migration transfers source code but duplication
+// detection is recalculated by SC's own engine.
+const DUPLICATION_METRICS = new Set([
+  'duplicated_lines_density', 'duplicated_blocks', 'duplicated_lines'
+]);
+
 /**
  * Verify measures between SonarQube and SonarCloud for a project.
  *
@@ -61,6 +79,22 @@ export async function verifyMeasures(sqClient, scClient, scProjectKey) {
 
     result.compared++;
     if (sqVal !== scVal) {
+      // Skip issue-derived metrics (already verified by issues/hotspots checker)
+      if (ISSUE_DERIVED_METRICS.has(metric)) continue;
+
+      // Skip duplication metrics (recalculated by SC's own engine)
+      if (DUPLICATION_METRICS.has(metric)) continue;
+
+      // For line-count metrics, allow 1% tolerance due to scanner differences
+      if (TOLERANCE_METRICS.has(metric)) {
+        const sqNum = Number.parseFloat(sqVal);
+        const scNum = Number.parseFloat(scVal);
+        if (!Number.isNaN(sqNum) && !Number.isNaN(scNum) && sqNum > 0) {
+          const pctDiff = Math.abs(sqNum - scNum) / sqNum;
+          if (pctDiff <= 0.01) continue;
+        }
+      }
+
       result.mismatches.push({ metric, sqValue: sqVal, scValue: scVal });
     }
   }

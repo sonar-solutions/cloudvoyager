@@ -12,6 +12,7 @@ export const COMMON_METRICS = [
   'line_coverage',            // Line coverage
   'branch_coverage',          // Branch coverage
   'duplicated_lines_density', // Duplicated lines density
+  'duplicated_blocks',        // Duplicated blocks (used by duplication extraction)
   'violations',               // Total issues
   'bugs',                     // Bug count
   'vulnerabilities',          // Vulnerability count

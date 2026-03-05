@@ -130,10 +130,12 @@ export function buildExternalIssues(builder) {
 
   logger.info('Auto-detecting external issues (rule repos not in SonarCloud)...');
 
+  const ruleEnrichmentMap = builder.ruleEnrichmentMap || new Map();
   const externalIssuesByComponent = new Map();
   const adHocRules = new Map(); // keyed by "engineId:ruleId"
   const detectedEngines = new Set();
   let skippedIssues = 0;
+  let enrichedCount = 0;
 
   builder.data.issues.forEach(issue => {
     if (!isExternalIssue(issue, sonarCloudRepos)) return;
@@ -153,9 +155,31 @@ export function buildExternalIssues(builder) {
     const ruleId = ruleParts[1] || issue.rule;
     detectedEngines.add(engineId);
 
-    const cleanCodeAttr = issue.cleanCodeAttribute
-      ? mapCleanCodeAttribute(issue.cleanCodeAttribute)
-      : defaultCleanCodeAttribute(issue.type);
+    // Resolve cleanCodeAttribute: issue data → SC enrichment → type-based fallback
+    const fullRuleKey = `${engineId}:${ruleId}`;
+    const enrichment = ruleEnrichmentMap.get(fullRuleKey);
+    let cleanCodeAttr;
+    if (issue.cleanCodeAttribute) {
+      cleanCodeAttr = mapCleanCodeAttribute(issue.cleanCodeAttribute);
+    } else if (enrichment?.cleanCodeAttribute) {
+      cleanCodeAttr = mapCleanCodeAttribute(enrichment.cleanCodeAttribute);
+      enrichedCount++;
+    } else {
+      cleanCodeAttr = defaultCleanCodeAttribute(issue.type);
+    }
+
+    // Resolve impacts: issue data → SC enrichment → type-based fallback
+    let impacts;
+    if (issue.impacts && issue.impacts.length > 0) {
+      impacts = buildImpacts(issue);
+    } else if (enrichment?.impacts?.length > 0) {
+      impacts = enrichment.impacts.map(impact => ({
+        softwareQuality: mapSoftwareQuality(impact.softwareQuality) || mapSoftwareQuality(issue.type),
+        severity: mapImpactSeverity(impact.severity),
+      }));
+    } else {
+      impacts = buildImpacts(issue); // falls back to type-based derivation
+    }
 
     const externalIssue = {
       engineId,
@@ -165,7 +189,7 @@ export function buildExternalIssues(builder) {
       effort: parseEffortToMinutes(issue.effort || issue.debt),
       type: mapIssueType(issue.type),
       cleanCodeAttribute: cleanCodeAttr,
-      impacts: buildImpacts(issue),
+      impacts,
     };
 
     if (issue.textRange) {
@@ -198,9 +222,8 @@ export function buildExternalIssues(builder) {
     externalIssuesByComponent.get(componentRef).push(externalIssue);
 
     // Collect unique ad-hoc rules
-    const ruleKey = `${engineId}:${ruleId}`;
-    if (!adHocRules.has(ruleKey)) {
-      adHocRules.set(ruleKey, {
+    if (!adHocRules.has(fullRuleKey)) {
+      adHocRules.set(fullRuleKey, {
         engineId,
         ruleId,
         name: ruleId,
@@ -208,7 +231,7 @@ export function buildExternalIssues(builder) {
         severity: builder.mapSeverity(issue.severity),
         type: mapIssueType(issue.type),
         cleanCodeAttribute: cleanCodeAttr,
-        defaultImpacts: buildImpacts(issue),
+        defaultImpacts: impacts,
       });
     }
   });
@@ -219,6 +242,9 @@ export function buildExternalIssues(builder) {
   }
   if (detectedEngines.size > 0) {
     logger.info(`Auto-detected external engines: ${[...detectedEngines].join(', ')}`);
+  }
+  if (enrichedCount > 0) {
+    logger.info(`Enriched ${enrichedCount} external issues with SonarCloud Clean Code data`);
   }
   logger.info(`Built ${totalExternal} external issue messages across ${externalIssuesByComponent.size} components, ${adHocRules.size} ad-hoc rules`);
 

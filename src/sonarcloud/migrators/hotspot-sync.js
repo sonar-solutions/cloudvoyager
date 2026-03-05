@@ -69,6 +69,8 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
     matched: 0,
     statusChanged: 0,
     commented: 0,
+    metadataSyncCommented: 0,
+    sourceLinked: 0,
     failed: 0
   };
 
@@ -105,7 +107,7 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
   logger.info(`Matched ${matchedPairs.length} hotspots, syncing with concurrency=${concurrency}`);
 
   if (matchedPairs.length === 0) {
-    logger.info(`Hotspot sync: ${stats.matched} matched, ${stats.statusChanged} status changed, ${stats.commented} comments, ${stats.failed} failed`);
+    logger.info(`Hotspot sync: ${stats.matched} matched, ${stats.statusChanged} status changed, ${stats.commented} comments, ${stats.metadataSyncCommented} metadata-sync-commented, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
     return stats;
   }
 
@@ -129,6 +131,27 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
             logger.debug(`Failed to add comment to hotspot ${scHotspot.key}: ${error.message}`);
           }
         }
+
+        // Mark hotspot as metadata-synchronized via comment
+        try {
+          await client.addHotspotComment(scHotspot.key, '[Metadata Synchronized] This hotspot\'s metadata has been synced from SonarQube.');
+          stats.metadataSyncCommented++;
+        } catch (error) {
+          logger.debug(`Failed to add metadata-synchronized comment to hotspot ${scHotspot.key}: ${error.message}`);
+        }
+
+        // Add comment with link back to original SonarQube hotspot
+        const sonarqubeUrl = options.sonarqubeUrl;
+        const sonarqubeProjectKey = options.sonarqubeProjectKey;
+        if (sonarqubeUrl && sonarqubeProjectKey) {
+          try {
+            const sqUrl = `${sonarqubeUrl}/security_hotspots?id=${encodeURIComponent(sonarqubeProjectKey)}&hotspots=${encodeURIComponent(sqHotspot.key)}`;
+            await client.addHotspotComment(scHotspot.key, `[SonarQube Source] Original hotspot: ${sqUrl}`);
+            stats.sourceLinked++;
+          } catch (error) {
+            logger.debug(`Failed to add source link comment to hotspot ${scHotspot.key}: ${error.message}`);
+          }
+        }
       } catch (error) {
         stats.failed++;
         logger.debug(`Failed to sync hotspot ${sqHotspot.key}: ${error.message}`);
@@ -141,7 +164,7 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
     }
   );
 
-  logger.info(`Hotspot sync: ${stats.matched} matched, ${stats.statusChanged} status changed, ${stats.commented} comments, ${stats.failed} failed`);
+  logger.info(`Hotspot sync: ${stats.matched} matched, ${stats.statusChanged} status changed, ${stats.commented} comments, ${stats.metadataSyncCommented} metadata-sync-commented, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
   return stats;
 }
 

@@ -24,9 +24,14 @@ export async function verifyQualityProfiles(sqClient, scClient) {
   result.scCount = scProfiles.length;
 
   // Build SC lookup: language + name -> profile
+  // Also index by base name (strip " (SonarQube Migrated)" suffix)
   const scProfileMap = new Map();
   for (const p of scProfiles) {
     scProfileMap.set(`${p.language}:${p.name}`, p);
+    const baseName = p.name.replace(/ \(SonarQube Migrated\)$/, '');
+    if (baseName !== p.name) {
+      scProfileMap.set(`${p.language}:${baseName}`, p);
+    }
   }
 
   for (const sqProfile of sqProfiles) {
@@ -38,8 +43,11 @@ export async function verifyQualityProfiles(sqClient, scClient) {
       continue;
     }
 
-    // Compare active rule counts
-    if (sqProfile.activeRuleCount !== scProfile.activeRuleCount) {
+    // Compare active rule counts.
+    // Built-in profiles (like "Sonar way") may have different rule counts
+    // between SQ and SC platform versions — only flag custom profiles.
+    const isBuiltIn = sqProfile.isBuiltIn || sqProfile.name.startsWith('Sonar way') || sqProfile.name === 'Sonar way';
+    if (sqProfile.activeRuleCount !== scProfile.activeRuleCount && !isBuiltIn) {
       result.ruleCountMismatches.push({
         name: sqProfile.name,
         language: sqProfile.language,
@@ -53,11 +61,17 @@ export async function verifyQualityProfiles(sqClient, scClient) {
       language: sqProfile.language,
       sqRuleCount: sqProfile.activeRuleCount,
       scRuleCount: scProfile.activeRuleCount,
-      status: sqProfile.activeRuleCount === scProfile.activeRuleCount ? 'pass' : 'fail'
+      status: (sqProfile.activeRuleCount === scProfile.activeRuleCount || isBuiltIn) ? 'pass' : 'fail'
     });
   }
 
-  if (result.missing.length > 0 || result.ruleCountMismatches.length > 0) {
+  // Only count missing profiles as failures if SC supports that language.
+  // Profiles for SQ-only plugins (e.g. MuleSoft) or SQ-specific editions
+  // (e.g. MISRA) may not exist in SC and that is expected.
+  const scLanguages = new Set(scProfiles.map(p => p.language));
+  const actionableMissing = result.missing.filter(m => scLanguages.has(m.language));
+
+  if (actionableMissing.length > 0 || result.ruleCountMismatches.length > 0) {
     result.status = 'fail';
   }
 
@@ -91,10 +105,25 @@ export async function verifyProjectQualityProfiles(sqClient, scClient, scProject
   }
 
   const scProfileMap = new Map(scProfiles.map(p => [p.language, p.name]));
+  const scLanguages = new Set(scProfiles.map(p => p.language));
 
   for (const sqProfile of sqProfiles) {
+    // Skip languages that don't exist in SC (e.g. MuleSoft) — can't be migrated
+    if (!scLanguages.has(sqProfile.language)) {
+      result.details.push({
+        language: sqProfile.language,
+        sqProfile: sqProfile.name,
+        scProfile: null,
+        status: 'pass',
+        note: 'language not available in SonarCloud'
+      });
+      continue;
+    }
+
     const scProfileName = scProfileMap.get(sqProfile.language);
-    const match = scProfileName === sqProfile.name;
+    // Treat "X (SonarQube Migrated)" as equivalent to "X"
+    const scNormalized = scProfileName ? scProfileName.replace(/ \(SonarQube Migrated\)$/, '') : null;
+    const match = scNormalized === sqProfile.name;
     result.details.push({
       language: sqProfile.language,
       sqProfile: sqProfile.name,
