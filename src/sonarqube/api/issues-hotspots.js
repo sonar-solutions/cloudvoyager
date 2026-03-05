@@ -1,14 +1,18 @@
 import logger from '../../utils/logger.js';
 
+// All issue statuses — pre-10.4 lifecycle + 10.4+ lifecycle.
+// The SonarQube API ignores unknown values, so including both sets is safe.
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED';
+
 export async function getIssues(getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);
-  const params = { componentKeys: projectKey, ...filters };
+  const params = { componentKeys: projectKey, statuses: ALL_STATUSES, ...filters };
   return await getPaginated('/api/issues/search', params, 'issues');
 }
 
 export async function getIssuesWithComments(getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues with comments for project: ${projectKey}`);
-  const params = { componentKeys: projectKey, additionalFields: 'comments', ...filters };
+  const params = { componentKeys: projectKey, additionalFields: 'comments', statuses: ALL_STATUSES, ...filters };
   return await getPaginated('/api/issues/search', params, 'issues');
 }
 
