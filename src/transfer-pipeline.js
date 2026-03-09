@@ -1,11 +1,11 @@
-import { SonarQubeClient } from './sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from './sonarqube/version-aware-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { DataExtractor } from './sonarqube/extractors/index.js';
 import { ProtobufBuilder } from './protobuf/builder.js';
 import { ProtobufEncoder } from './protobuf/encoder.js';
 import { ReportUploader } from './sonarcloud/uploader.js';
 import { StateTracker } from './state/tracker.js';
-import { parseSonarQubeVersion, hasCleanCodeTaxonomy } from './utils/version.js';
+import { hasCleanCodeTaxonomy } from './utils/version.js';
 import { buildRuleEnrichmentMap } from './sonarcloud/rule-enrichment.js';
 import logger from './utils/logger.js';
 
@@ -105,10 +105,8 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   logger.info('Fetching SonarCloud rule repositories...');
   const sonarCloudRepos = await sonarCloudClient.getRuleRepositories();
 
-  // Detect SonarQube version and build rule enrichment map if needed
-  const sqVersionStr = await sonarQubeClient.getServerVersion();
-  const sqVersion = parseSonarQubeVersion(sqVersionStr);
-  logger.info(`SonarQube server version: ${sqVersion.raw}`);
+  // Use cached version from testConnection() / detectVersion(), or detect now
+  const sqVersion = sonarQubeClient.parsedVersion || await sonarQubeClient.detectVersion();
 
   let ruleEnrichmentMap = prebuiltEnrichmentMap || new Map();
   if (!prebuiltEnrichmentMap && !hasCleanCodeTaxonomy(sqVersion)) {

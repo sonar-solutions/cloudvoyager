@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { loadConfig, requireProjectKeys } from './config/loader.js';
-import { SonarQubeClient } from './sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from './sonarqube/version-aware-client.js';
 import { SonarCloudClient } from './sonarcloud/api-client.js';
 import { StateTracker } from './state/tracker.js';
 import logger from './utils/logger.js';
