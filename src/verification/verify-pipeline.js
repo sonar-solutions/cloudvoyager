@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { SonarQubeClient } from '../sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from '../sonarqube/version-aware-client.js';
 import { SonarCloudClient } from '../sonarcloud/api-client.js';
 import { resolvePerformanceConfig, collectEnvironmentInfo } from '../utils/concurrency.js';
 import { mapProjectsToOrganizations } from '../mapping/org-mapper.js';

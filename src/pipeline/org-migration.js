@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SonarQubeClient } from '../sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from '../sonarqube/version-aware-client.js';
 import { SonarCloudClient } from '../sonarcloud/api-client.js';
 import { migrateQualityGates } from '../sonarcloud/migrators/quality-gates.js';
 import { migrateQualityProfiles } from '../sonarcloud/migrators/quality-profiles.js';
@@ -11,7 +11,7 @@ import { migratePortfolios } from '../sonarcloud/migrators/portfolios.js';
 import { mapProjectsToOrganizations, mapResourcesToOrganizations } from '../mapping/org-mapper.js';
 import { generateMappingCsvs } from '../mapping/csv-generator.js';
 import logger from '../utils/logger.js';
-import { parseSonarQubeVersion, hasCleanCodeTaxonomy } from '../utils/version.js';
+import { hasCleanCodeTaxonomy } from '../utils/version.js';
 import { buildRuleEnrichmentMap } from '../sonarcloud/rule-enrichment.js';
 import { migrateOrgProjects, resolveProjectKey } from './project-migration.js';
 
@@ -158,10 +158,8 @@ export async function migrateOneOrganization(assignment, extractedData, resource
 
   const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
 
-  // Detect SQ version and build rule enrichment map once per org (for SQ 9.9 compat)
-  const sqVersionStr = extractedData.serverInfo?.system?.version || await sqClient.getServerVersion();
-  const sqVersion = parseSonarQubeVersion(sqVersionStr);
-  logger.info(`SonarQube server version: ${sqVersion.raw}`);
+  // Use cached version or detect now (VersionAwareSonarQubeClient handles caching)
+  const sqVersion = sqClient.parsedVersion || await sqClient.detectVersion();
 
   if (!hasCleanCodeTaxonomy(sqVersion) && !ctx.ruleEnrichmentMap) {
     logger.warn(`SonarQube ${sqVersion.raw} does not support Clean Code taxonomy. Building enrichment map from SonarCloud...`);

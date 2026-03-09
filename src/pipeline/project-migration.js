@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { SonarQubeClient } from '../sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from '../sonarqube/version-aware-client.js';
 import { SonarCloudClient } from '../sonarcloud/api-client.js';
 import { transferProject } from '../transfer-pipeline.js';
 import { extractHotspots } from '../sonarqube/extractors/hotspots.js';

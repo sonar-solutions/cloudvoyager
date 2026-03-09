@@ -30,3 +30,16 @@ export function parseSonarQubeVersion(versionStr) {
 export function hasCleanCodeTaxonomy(version) {
   return version.major >= 10;
 }
+
+/**
+ * Check if the parsed SQ version is at least major.minor.
+ * Works for both old numbering (9.9, 10.4) and 2025.x scheme.
+ * @param {{ major: number, minor: number }} version
+ * @param {number} major
+ * @param {number} [minor=0]
+ * @returns {boolean}
+ */
+export function isAtLeast(version, major, minor = 0) {
+  if (version.major !== major) return version.major > major;
+  return version.minor >= minor;
+}

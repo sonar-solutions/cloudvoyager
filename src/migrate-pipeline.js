@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SonarQubeClient } from './sonarqube/api-client.js';
+import { VersionAwareSonarQubeClient as SonarQubeClient } from './sonarqube/version-aware-client.js';
 import { resolvePerformanceConfig, collectEnvironmentInfo } from './utils/concurrency.js';
 import logger from './utils/logger.js';
 import { writeAllReports } from './reports/index.js';
