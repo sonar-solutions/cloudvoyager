@@ -33,6 +33,20 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ./cloudvoyager verify -c migrate-config.json --verbose
 ```
 
+<!-- Updated: 2026-03-09 -->
+## 🔄 SonarQube Version Compatibility
+
+CloudVoyager automatically detects the SonarQube server version and adapts its API calls accordingly. No special configuration is needed.
+
+| SonarQube Version | Support Level | Notes |
+|-------------------|--------------|-------|
+| **9.9 LTS** | Full | Clean Code taxonomy enriched from SonarCloud |
+| **10.0 – 10.3** | Full | Native Clean Code taxonomy |
+| **10.4 – 10.8** | Full | Modern issue status API |
+| **2025.1+** | Full | Modern issue status API, V2 API fallbacks |
+
+See [Backward Compatibility](docs/backward-compatibility.md) for technical details on how version differences are handled.
+
 <!-- Updated: 2026-02-19 -->
 ## 🛠️ Local Development
 
@@ -49,6 +63,8 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 | [Technical Details](docs/technical-details.md) | Protobuf encoding, measure types, concurrency model |
 | [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
 | [Dry-Run CSV Reference](docs/dry-run-csv-reference.md) | CSV schema documentation for the dry-run workflow |
+| [Backward Compatibility](docs/backward-compatibility.md) | SonarQube version support (9.9 LTS through 2025.1+) |
+| [Contributing](CONTRIBUTING.md) | Architectural patterns, conventions, and contribution guidelines |
 | [Changelog](docs/CHANGELOG.md) | Release history and notable changes |
 
 <!-- Updated: 2026-02-17 -->
