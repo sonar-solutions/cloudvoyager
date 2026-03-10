@@ -13,7 +13,7 @@ export function createEmptyResults() {
     qualityProfiles: 0,
     groups: 0,
     portfolios: 0,
-    issueSyncStats: { matched: 0, transitioned: 0 },
+    issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     projectKeyWarnings: [],
     errors: [],
@@ -82,7 +82,7 @@ export function logMigrationSummary(results, outputDir) {
   logger.info(`Quality Profiles: ${results.qualityProfiles} migrated`);
   logger.info(`Groups: ${results.groups} created`);
   logger.info(`Portfolios: ${results.portfolios} created`);
-  logger.info(`Issues synced: ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`);
+  logger.info(`Issues synced: ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned, ${results.issueSyncStats.assigned} assigned, ${results.issueSyncStats.assignmentFailed} assignment-failed`);
   logger.info(`Hotspots synced: ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`);
   if (results.projectKeyWarnings.length > 0) {
     logger.warn(`Project key conflicts: ${results.projectKeyWarnings.length} project(s) could not use the original SonarQube key on SonarCloud`);

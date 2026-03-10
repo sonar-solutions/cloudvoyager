@@ -63,11 +63,16 @@ export function extractTransitionsFromChangelog(changelog) {
 export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const concurrency = options.concurrency || 5;
   const sqClient = options.sqClient || null;
+  const userMappings = options.userMappings || null;
 
   const stats = {
     matched: 0,
     transitioned: 0,
     assigned: 0,
+    assignmentFailed: 0,
+    assignmentSkipped: 0,
+    assignmentMapped: 0,
+    failedAssignments: [],
     commented: 0,
     tagged: 0,
     metadataSyncTagged: 0,
@@ -110,7 +115,9 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
 
   if (matchedPairs.length === 0) {
-    logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
+    const mappingDetail = stats.assignmentMapped > 0 ? `, ${stats.assignmentMapped} mapped` : '';
+  const skipDetail = stats.assignmentSkipped > 0 ? `, ${stats.assignmentSkipped} assignment-skipped` : '';
+  logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mappingDetail}, ${stats.assignmentFailed} assignment-failed${skipDetail}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
     return stats;
   }
 
@@ -126,11 +133,25 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
 
         // Sync assignment
         if (sqIssue.assignee && sqIssue.assignee !== scIssue.assignee) {
-          try {
-            await client.assignIssue(scIssue.key, sqIssue.assignee);
-            stats.assigned++;
-          } catch (error) {
-            logger.debug(`Failed to assign issue ${scIssue.key}: ${error.message}`);
+          // Apply user mapping if available
+          const mapping = userMappings?.get(sqIssue.assignee);
+          if (mapping && !mapping.include) {
+            stats.assignmentSkipped++;
+            logger.debug(`Skipping assignment for "${sqIssue.assignee}" (excluded in user-mappings.csv)`);
+          } else {
+            const targetAssignee = mapping?.scLogin || sqIssue.assignee;
+            if (mapping?.scLogin) {
+              stats.assignmentMapped++;
+              logger.debug(`Mapping assignee "${sqIssue.assignee}" -> "${targetAssignee}" (from user-mappings.csv)`);
+            }
+            try {
+              await client.assignIssue(scIssue.key, targetAssignee);
+              stats.assigned++;
+            } catch (error) {
+              stats.assignmentFailed++;
+              stats.failedAssignments.push({ issueKey: scIssue.key, assignee: targetAssignee, sqAssignee: sqIssue.assignee, error: error.message });
+              logger.warn(`Failed to assign issue ${scIssue.key} to "${targetAssignee}": ${error.message}`);
+            }
           }
         }
 
@@ -190,7 +211,9 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     }
   );
 
-  logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
+  const mappingDetail = stats.assignmentMapped > 0 ? `, ${stats.assignmentMapped} mapped` : '';
+  const skipDetail = stats.assignmentSkipped > 0 ? `, ${stats.assignmentSkipped} assignment-skipped` : '';
+  logger.info(`Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mappingDetail}, ${stats.assignmentFailed} assignment-failed${skipDetail}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
   return stats;
 }
 

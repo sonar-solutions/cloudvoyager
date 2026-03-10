@@ -110,3 +110,17 @@ export function generateGlobalPermissionsCsv(data) {
   }
   return rows.join('\n') + '\n';
 }
+
+export function generateUserMappingsCsv(data) {
+  const { assigneeCounts, assigneeDetails } = data;
+  const rows = [toCsvRow(['Include', 'SonarQube Login', 'SonarCloud Login', 'Display Name', 'Email', 'Issue Count'])];
+  if (assigneeCounts) {
+    // Sort by issue count descending for easier review
+    const sorted = [...assigneeCounts.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [login, count] of sorted) {
+      const details = assigneeDetails?.get(login) || { name: '', email: '' };
+      rows.push(toCsvRow(['yes', login, '', details.name, details.email, count]));
+    }
+  }
+  return rows.join('\n') + '\n';
+}

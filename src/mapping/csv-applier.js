@@ -41,9 +41,14 @@ export function applyCsvOverrides(parsedCsvs, extractedData, resourceMappings, o
     filtered.portfolios = applyPortfolioMappingsCsv(parsedCsvs.get('portfolio-mappings.csv'), filtered.portfolios);
   }
 
+  let userMappings = null;
+  if (parsedCsvs.has('user-mappings.csv')) {
+    userMappings = applyUserMappingsCsv(parsedCsvs.get('user-mappings.csv'));
+  }
+
   const filteredResourceMappings = mapResourcesToOrganizations(filtered, filteredAssignments);
 
-  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments, projectBranchIncludes };
+  return { filteredExtractedData: filtered, filteredResourceMappings, filteredOrgAssignments: filteredAssignments, projectBranchIncludes, userMappings };
 }
 
 /**
@@ -257,6 +262,45 @@ function applyTemplateMappingsCsv(csvData, permissionTemplates) {
   });
 
   return { templates: filteredTemplates, defaultTemplates: filteredDefaults };
+}
+
+/**
+ * Build a user mapping from the user-mappings CSV.
+ * Returns a Map<sqLogin, { scLogin: string|null, include: boolean }>.
+ * - If Include=no, the user is excluded from assignment entirely.
+ * - If SonarCloud Login is filled in, it maps the SQ login to the SC login.
+ * - If SonarCloud Login is empty, falls back to the SQ login (current behavior).
+ */
+function applyUserMappingsCsv(csvData) {
+  const mappings = new Map();
+  let mappedCount = 0;
+  let excludedCount = 0;
+
+  for (const row of csvData.rows) {
+    const sqLogin = row['SonarQube Login'];
+    if (!sqLogin) continue;
+
+    const include = isIncluded(row['Include']);
+    const scLogin = (row['SonarCloud Login'] || '').trim();
+
+    if (!include) {
+      mappings.set(sqLogin, { scLogin: null, include: false });
+      excludedCount++;
+    } else if (scLogin) {
+      mappings.set(sqLogin, { scLogin, include: true });
+      mappedCount++;
+    }
+    // If include=yes and no SC login, don't add to map → falls back to SQ login
+  }
+
+  if (mappedCount > 0) {
+    logger.info(`CSV override: ${mappedCount} user(s) mapped to SonarCloud logins`);
+  }
+  if (excludedCount > 0) {
+    logger.info(`CSV override: ${excludedCount} user(s) excluded from assignment`);
+  }
+
+  return mappings.size > 0 ? mappings : null;
 }
 
 /**

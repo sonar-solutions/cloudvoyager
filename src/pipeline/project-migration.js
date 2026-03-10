@@ -153,10 +153,14 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
   try {
     logger.info('Syncing issue metadata...');
     const sqIssues = await projectSqClient.getIssuesWithComments();
-    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient });
+    const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient, userMappings: ctx.userMappings });
     results.issueSyncStats.matched += issueStats.matched;
     results.issueSyncStats.transitioned += issueStats.transitioned;
-    projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned`, durationMs: Date.now() - start });
+    results.issueSyncStats.assigned += issueStats.assigned;
+    results.issueSyncStats.assignmentFailed += issueStats.assignmentFailed;
+    results.issueSyncStats.failedAssignments.push(...issueStats.failedAssignments);
+    const assignDetail = issueStats.assignmentFailed > 0 ? `, ${issueStats.assigned} assigned, ${issueStats.assignmentFailed} assignment-failed` : '';
+    projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned${assignDetail}`, durationMs: Date.now() - start });
   } catch (error) {
     projectResult.steps.push({ step: 'Sync issues', status: 'failed', error: error.message, durationMs: Date.now() - start });
     projectResult.errors.push(error.message);

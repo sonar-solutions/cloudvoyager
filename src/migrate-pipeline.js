@@ -10,6 +10,7 @@ import { extractAllProjects, extractServerWideData } from './pipeline/extraction
 import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
 import { loadMappingCsvs } from './mapping/csv-reader.js';
 import { applyCsvOverrides } from './mapping/csv-applier.js';
+import { extractUniqueAssignees, enrichAssigneeDetails } from './sonarqube/extractors/users.js';
 
 export async function migrateAll(options) {
   const {
@@ -133,8 +134,23 @@ export async function migrateAll(options) {
     }
 
     logger.info('=== Step 3: Generating organization mappings ===');
+
+    // Collect unique assignees for user-mappings.csv (lightweight facet query)
+    let extraMappingData = {};
+    if (dryRun) {
+      logger.info('Collecting unique issue assignees across all projects...');
+      const projectKeys = allProjects.map(p => p.key);
+      const assigneeCounts = await extractUniqueAssignees(sqClient, projectKeys);
+      let assigneeDetails = new Map();
+      if (assigneeCounts.size > 0) {
+        logger.info('Enriching assignee details (display names, emails)...');
+        assigneeDetails = await enrichAssigneeDetails(sqClient, [...assigneeCounts.keys()]);
+      }
+      extraMappingData = { assigneeCounts, assigneeDetails };
+    }
+
     const { orgMapping, resourceMappings } = await generateOrgMappings(
-      allProjects, extractedData, sonarcloudOrgs, outputDir
+      allProjects, extractedData, sonarcloudOrgs, outputDir, extraMappingData
     );
 
     if (dryRun) {
@@ -147,6 +163,8 @@ export async function migrateAll(options) {
       logger.info('  - Edit quality gate condition thresholds (Condition Threshold column)');
       logger.info('  - Remove specific permission assignments');
       logger.info('  - Exclude specific portfolio project memberships');
+      logger.info('  - Fill in SonarCloud Login in user-mappings.csv to map SQ users to SC users');
+      logger.info('  - Set Include=no in user-mappings.csv to skip assignment for specific users');
       logger.info('');
       logger.info('When ready, re-run without --dry-run:');
       logger.info('  cloudvoyager migrate -c config.json');
@@ -170,6 +188,7 @@ export async function migrateAll(options) {
       effectiveResourceMappings = overrideResult.filteredResourceMappings;
       effectiveOrgAssignments = overrideResult.filteredOrgAssignments;
       ctx.projectBranchIncludes = overrideResult.projectBranchIncludes || new Map();
+      ctx.userMappings = overrideResult.userMappings || null;
 
       const origProjectCount = orgMapping.orgAssignments.reduce((n, a) => n + a.projects.length, 0);
       const filteredProjectCount = effectiveOrgAssignments.reduce((n, a) => n + a.projects.length, 0);
