@@ -1,6 +1,6 @@
 import { formatDuration, formatTimestamp, computeProjectStats, computeTotalDurationMs, getNewCodePeriodSkippedProjects, formatNumber, computeTotalLoc } from './shared.js';
 import { generatePdfBuffer, pdfStyles } from './pdf-helpers.js';
-import { buildServerSteps, buildOrgResults, buildProblemProjects, buildAllProjects } from './pdf-sections.js';
+import { buildServerSteps, buildOrgResults, buildProblemProjects, buildAllProjects, buildFailedAssignments } from './pdf-sections.js';
 
 export async function generatePdfReport(results) {
   const content = [];
@@ -12,6 +12,7 @@ export async function generatePdfReport(results) {
   content.push(...buildOrgResults(results));
   content.push(...buildProblemProjects(results));
   content.push(...buildAllProjects(results));
+  content.push(...buildFailedAssignments(results));
   content.push(...buildEnvironment(results));
   content.push(...buildConfiguration(results));
 
@@ -75,7 +76,7 @@ function buildSummaryTable(results) {
     ['Quality Profiles', `${results.qualityProfiles} migrated`],
     ['Groups', `${results.groups} created`],
     ['Portfolios', `${results.portfolios} created`],
-    ['Issues', `${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned`],
+    ['Issues', `${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned, ${results.issueSyncStats.assigned} assigned${results.issueSyncStats.assignmentFailed > 0 ? `, ${results.issueSyncStats.assignmentFailed} assignment-failed` : ''}`],
     ['Hotspots', `${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed`],
   ];
   const totalLoc = computeTotalLoc(results);

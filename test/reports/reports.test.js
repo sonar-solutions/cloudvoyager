@@ -170,7 +170,7 @@ function makeResults(overrides = {}) {
     qualityProfiles: 5,
     groups: 2,
     portfolios: 1,
-    issueSyncStats: { matched: 150, transitioned: 20 },
+    issueSyncStats: { matched: 150, transitioned: 20, assigned: 15, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 10, statusChanged: 3 },
     projectKeyWarnings: [],
     serverSteps: [
@@ -209,7 +209,7 @@ function makeMinimalResults() {
     qualityProfiles: 0,
     groups: 0,
     portfolios: 0,
-    issueSyncStats: { matched: 0, transitioned: 0 },
+    issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
   });
 }
@@ -418,7 +418,7 @@ test('formatTextReport includes SUMMARY section with counts', t => {
   t.true(text.includes('Quality Profiles: 5 migrated'));
   t.true(text.includes('Groups:           2 created'));
   t.true(text.includes('Portfolios:       1 created'));
-  t.true(text.includes('150 matched, 20 transitioned'));
+  t.true(text.includes('150 matched, 20 transitioned, 15 assigned'));
   t.true(text.includes('10 matched, 3 status changed'));
 });
 
@@ -529,7 +529,7 @@ test('formatMarkdownReport includes summary table', t => {
   t.true(md.includes('| Quality Profiles | 5 migrated |'));
   t.true(md.includes('| Groups | 2 created |'));
   t.true(md.includes('| Portfolios | 1 created |'));
-  t.true(md.includes('| Issues | 150 matched, 20 transitioned |'));
+  t.true(md.includes('150 matched, 20 transitioned, 15 assigned'));
   t.true(md.includes('| Hotspots | 10 matched, 3 status changed |'));
 });
 

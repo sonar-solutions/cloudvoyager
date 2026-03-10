@@ -19,6 +19,7 @@ export function formatMarkdownReport(results) {
   sections.push(formatOrgResults(results));
   sections.push(formatProblemProjects(results));
   sections.push(formatAllProjects(results));
+  sections.push(formatFailedAssignments(results));
   sections.push(formatEnvironment(results));
   sections.push(formatConfiguration(results));
 
@@ -58,7 +59,7 @@ function formatSummary(results) {
     `| Quality Profiles | ${results.qualityProfiles} migrated |`,
     `| Groups | ${results.groups} created |`,
     `| Portfolios | ${results.portfolios} created |`,
-    `| Issues | ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned |`,
+    `| Issues | ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned, ${results.issueSyncStats.assigned} assigned${results.issueSyncStats.assignmentFailed > 0 ? `, ${results.issueSyncStats.assignmentFailed} assignment-failed` : ''} |`,
     `| Hotspots | ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed |`,
   ];
   const totalLoc = computeTotalLoc(results);
@@ -190,6 +191,24 @@ function formatAllProjects(results) {
     lines.push(`| ${i + 1} | \`${project.projectKey}\` | ${loc} | ${status} | ${failedList} |`);
   });
 
+  lines.push('');
+  return lines.join('\n');
+}
+
+function formatFailedAssignments(results) {
+  const failures = results.issueSyncStats.failedAssignments || [];
+  if (failures.length === 0) return null;
+
+  const lines = [
+    '## Failed Issue Assignments\n',
+    `> **${failures.length} issue(s)** could not be assigned because the SonarQube assignee login does not match a valid SonarCloud user. These issues need manual assignment in SonarCloud.\n`,
+    '| Issue Key | SQ Assignee | Target Assignee | Error |',
+    '|-----------|-------------|-----------------|-------|',
+  ];
+  for (const f of failures) {
+    const target = f.sqAssignee && f.sqAssignee !== f.assignee ? f.assignee : '';
+    lines.push(`| \`${f.issueKey}\` | ${f.sqAssignee || f.assignee} | ${target} | ${f.error} |`);
+  }
   lines.push('');
   return lines.join('\n');
 }

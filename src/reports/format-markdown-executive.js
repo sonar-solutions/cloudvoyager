@@ -82,7 +82,7 @@ function formatKeyMetrics(results, stats) {
     `| Quality Gates Migrated | ${results.qualityGates} |`,
     `| Groups Created | ${results.groups} |`,
     `| Portfolios Created | ${results.portfolios} |`,
-    `| Issues Synced | ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned |`,
+    `| Issues Synced | ${results.issueSyncStats.matched} matched, ${results.issueSyncStats.transitioned} transitioned, ${results.issueSyncStats.assigned} assigned${results.issueSyncStats.assignmentFailed > 0 ? `, ${results.issueSyncStats.assignmentFailed} assignment-failed` : ''} |`,
     `| Hotspots Synced | ${results.hotspotSyncStats.matched} matched, ${results.hotspotSyncStats.statusChanged} status changed |`,
   ];
   const totalLoc = computeTotalLoc(results);
@@ -101,7 +101,9 @@ function formatWarningsAndRisks(results, stats) {
   const keyWarnings = results.projectKeyWarnings || [];
   const ncpSkipped = getNewCodePeriodSkippedProjects(results);
 
-  if (keyWarnings.length === 0 && ncpSkipped.length === 0 && stats.failed === 0) {
+  const assignmentFailed = results.issueSyncStats.assignmentFailed || 0;
+
+  if (keyWarnings.length === 0 && ncpSkipped.length === 0 && stats.failed === 0 && assignmentFailed === 0) {
     return '## Warnings & Risks\n\nNo warnings or risks identified.\n';
   }
 
@@ -127,6 +129,11 @@ function formatWarningsAndRisks(results, stats) {
     lines.push(`**${stats.partial} project(s)** had one or more steps fail. These projects may need manual intervention to complete migration.\n`);
   }
 
+  if (assignmentFailed > 0) {
+    lines.push('### Failed Issue Assignments\n');
+    lines.push(`**${assignmentFailed} issue(s)** could not be assigned because the SonarQube assignee login does not match a valid SonarCloud user. These issues need manual assignment.\n`);
+  }
+
   return lines.join('\n');
 }
 
@@ -146,6 +153,10 @@ function formatActionItems(results, stats) {
   }
   if (stats.partial > 0) {
     items.push(`- [ ] Review partially migrated projects and fix failed steps (${stats.partial} project(s))`);
+  }
+  const assignmentFailedCount = results.issueSyncStats.assignmentFailed || 0;
+  if (assignmentFailedCount > 0) {
+    items.push(`- [ ] Manually assign issues where automatic assignment failed (${assignmentFailedCount} issue(s))`);
   }
   items.push('- [ ] Review quality profile rule gaps in `quality-profiles/quality-profile-diff.json`');
   items.push('- [ ] Verify project permissions in SonarCloud dashboard');

@@ -1829,6 +1829,10 @@ test('syncIssues handles assign failure gracefully', async t => {
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
 
   t.is(stats.assigned, 0);
+  t.is(stats.assignmentFailed, 1);
+  t.is(stats.failedAssignments.length, 1);
+  t.is(stats.failedAssignments[0].issueKey, 'sc-i1');
+  t.is(stats.failedAssignments[0].assignee, 'alice');
   t.is(stats.matched, 1);
 });
 

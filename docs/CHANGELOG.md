@@ -10,6 +10,37 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-03-09 — SonarQube 9.9 & 2025.1 Backward Compatibility
+
+#### New: Version-Aware SonarQube Client
+- Added `VersionAwareSonarQubeClient` subclass (`src/sonarqube/version-aware-client.js`) that auto-detects the SonarQube server version and adapts API calls accordingly
+- All backward-compatibility logic is **isolated** in the subclass — the base `SonarQubeClient` and all API modules remain untouched
+- Version is detected once on connection and cached for the lifetime of the client
+
+#### Version-Aware Issue Fetching
+- **SonarQube < 10.4**: Uses legacy `statuses` parameter with combined pre-10.4 and 10.4+ status values
+- **SonarQube >= 10.4 / 2025.1**: Uses modern `issueStatuses` parameter, avoiding deprecation warnings and future breakage
+- Falls back to legacy behavior when version is unknown (safe default)
+
+#### Defensive API Wrappers
+- `getGroups()` wrapped with try/catch for `/api/user_groups/search` endpoint being migrated to Web API V2
+
+#### Version Utilities
+- Added `isAtLeast(version, major, minor)` to `src/utils/version.js` for generic version comparisons
+- Works with both old numbering (9.9, 10.4) and the new 2025.x year-based scheme
+
+#### Pipeline Simplification
+- `transfer-pipeline.js` and `pipeline/org-migration.js` now use the client's cached version instead of inline `getServerVersion()` + `parseSonarQubeVersion()` calls
+
+#### Documentation
+- Created `CONTRIBUTING.md` with comprehensive guide to all codebase patterns and conventions (extractor, API module, migrator, client, isolation, error handling, pagination, concurrency, testing)
+- Updated `docs/backward-compatibility.md` with version-aware client architecture, issue status parameter differences, and expanded version support table
+- Added SonarQube version compatibility section to `README.md` with support matrix
+- Added `sonarqubeCompatibility` metadata and version keywords to `package.json`
+- Updated documentation table in `README.md` with backward compatibility and contributing links
+
+---
+
 ### 2026-03-04 — Issue Status History Verification
 
 #### Enhancement: `verify` Command

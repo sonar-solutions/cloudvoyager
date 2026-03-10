@@ -295,6 +295,7 @@ Measures are only generated for file components (no project-level `measures-1.pb
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Pseudocode Explanation](pseudocode-explanation.md) — every feature documented in pseudocode
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
 - [Changelog](CHANGELOG.md) — release history and notable changes
 

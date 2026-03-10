@@ -1008,7 +1008,7 @@ test.serial('migrateOrgProjects skips quality profile assignment when --only exc
   const gateMapping = new Map();
   const extractedData = { projectBindings: new Map() };
   const results = {
-    projects: [], issueSyncStats: { matched: 0, transitioned: 0 },
+    projects: [], issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     projectKeyWarnings: [], errors: [], totalLinesOfCode: 0, projectLinesOfCode: []
   };
@@ -1160,7 +1160,7 @@ test.serial('migrateEnterprisePortfolios handles extractedData with undefined po
     projectKeyWarnings: [],
     errors: [],
     serverSteps: [],
-    issueSyncStats: { matched: 0, transitioned: 0 },
+    issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     totalLinesOfCode: 0,
     projectLinesOfCode: []
@@ -1206,7 +1206,7 @@ test.serial('migrateAll records skipped step with empty detail when migrateNewCo
   const gateMapping = new Map();
   const extractedData = { projectBindings: new Map() };
   const results = {
-    projects: [], issueSyncStats: { matched: 0, transitioned: 0 },
+    projects: [], issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     projectKeyWarnings: [], errors: [], totalLinesOfCode: 0, projectLinesOfCode: []
   };

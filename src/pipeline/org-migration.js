@@ -15,7 +15,7 @@ import { hasCleanCodeTaxonomy } from '../utils/version.js';
 import { buildRuleEnrichmentMap } from '../sonarcloud/rule-enrichment.js';
 import { migrateOrgProjects, resolveProjectKey } from './project-migration.js';
 
-export async function generateOrgMappings(allProjects, extractedData, sonarcloudOrgs, outputDir) {
+export async function generateOrgMappings(allProjects, extractedData, sonarcloudOrgs, outputDir, extraMappingData = {}) {
   const orgMapping = mapProjectsToOrganizations(allProjects, extractedData.projectBindings, sonarcloudOrgs);
   const resourceMappings = mapResourcesToOrganizations(extractedData, orgMapping.orgAssignments);
 
@@ -26,7 +26,8 @@ export async function generateOrgMappings(allProjects, extractedData, sonarcloud
     projectMetadata: new Map(allProjects.map(p => [p.key, p])),
     projectBranches: extractedData.projectBranches || new Map(),
     resourceMappings,
-    extractedData
+    extractedData,
+    ...extraMappingData
   }, join(outputDir, 'mappings'));
 
   return { orgMapping, resourceMappings };

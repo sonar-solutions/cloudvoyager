@@ -1,28 +1,72 @@
-# Backward Compatibility: SonarQube 9.9 Support
+# Backward Compatibility: SonarQube Version Support
 
-CloudVoyager supports migrating from **SonarQube 9.9** (and other pre-10.x versions) to SonarCloud. This document explains how the tool handles the differences between SonarQube versions.
+CloudVoyager supports migrating from **SonarQube 9.9 LTS** through **SonarQube 2025.1** (and newer) to SonarCloud. This document explains how the tool handles the differences between SonarQube versions.
 
 ## Background
 
-SonarQube 10.0 introduced the **Clean Code taxonomy**:
+Different SonarQube versions introduced significant API and taxonomy changes:
+
+**SonarQube 10.0** introduced the **Clean Code taxonomy**:
 - **Clean Code Attributes** (e.g., `CONVENTIONAL`, `LOGICAL`, `TRUSTWORTHY`) — classify *why* code is problematic
 - **Software Qualities** (`MAINTAINABILITY`, `RELIABILITY`, `SECURITY`) — classify *what* is affected
 - **Impact Severities** (`LOW`, `MEDIUM`, `HIGH`, `BLOCKER`) — classify *how severe* the impact is
 
-SonarQube 9.9 uses the older taxonomy:
+**SonarQube 10.4** introduced a **new issue lifecycle**:
+- Replaced the `statuses` API parameter with `issueStatuses`
+- Removed `REOPENED`, `RESOLVED`, and `CLOSED` statuses
+- Added `ACCEPTED` (replacing "Won't Fix") and `FIXED` statuses
+
+**SonarQube 2025.1** removed web services deprecated in 8.x/9.x, and continues the migration to Web API V2.
+
+**SonarQube 9.9 LTS** uses the older taxonomy:
 - **Issue Types** (`CODE_SMELL`, `BUG`, `VULNERABILITY`, `SECURITY_HOTSPOT`)
 - **Severities** (`INFO`, `MINOR`, `MAJOR`, `CRITICAL`, `BLOCKER`)
+- Legacy `statuses` parameter with `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
 
-SonarCloud (always the latest version) uses the new Clean Code taxonomy. CloudVoyager bridges this gap automatically.
+SonarCloud (always the latest version) uses the new Clean Code taxonomy. CloudVoyager bridges these gaps automatically.
 
 ## How It Works
 
+### Version-Aware Client
+
+CloudVoyager uses a `VersionAwareSonarQubeClient` (defined in `src/sonarqube/version-aware-client.js`) that extends the base `SonarQubeClient` without modifying it. All backward-compatibility logic is isolated in this subclass.
+
 ### Automatic Version Detection
 
-When a transfer or migration starts, CloudVoyager detects the SonarQube server version via `/api/system/status`. If the version is below 10.0, it activates backward compatibility mode:
+When a connection test or transfer starts, CloudVoyager detects the SonarQube server version via `/api/system/status` and logs which compatibility mode is active:
 
 ```
-SonarQube server version: 9.9.0.65466
+SonarQube server version: 9.9.0.65466 (legacy 9.x — pre-Clean Code taxonomy)
+SonarQube server version: 10.4.1.88267 (modern 10.4+ issue statuses)
+SonarQube server version: 2025.1.0.12345 (modern 10.4+ issue statuses)
+```
+
+The version is detected once and cached for the lifetime of the client — no redundant API calls.
+
+### Version-Aware Issue Fetching
+
+The issue search API changed in SonarQube 10.4:
+
+| SQ Version | API Parameter | Status Values |
+|------------|--------------|---------------|
+| < 10.4 | `statuses` | `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED` |
+| >= 10.4 | `issueStatuses` | `OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED` |
+
+CloudVoyager automatically uses the correct parameter based on the detected version. This avoids deprecation warnings on newer SonarQube versions and prevents future breakage when the old `statuses` parameter is removed.
+
+If the version has not been detected (e.g., connection test was skipped), the client defaults to the legacy `statuses` parameter — so existing behavior is preserved.
+
+### Defensive API Wrappers
+
+Some SonarQube API endpoints are being migrated to the Web API V2 in newer versions (2025.x+). CloudVoyager wraps these calls with try/catch guards so the migration continues even if an endpoint is unavailable:
+
+- `/api/user_groups/search` — wrapped with fallback to empty array
+
+### Clean Code Taxonomy Enrichment
+
+For SonarQube < 10.0, CloudVoyager fetches the Clean Code taxonomy directly from SonarCloud:
+
+```
 SonarQube 9.9.0.65466 does not support Clean Code taxonomy (requires 10.0+). Fetching enrichment from SonarCloud...
 Rule enrichment map built: 1,247 rules with Clean Code data
 ```
@@ -82,26 +126,55 @@ These components work the same regardless of SonarQube version:
 - Security hotspot conversion
 - Issue metadata sync (statuses, comments, transitions)
 - Multi-branch support
+- Pagination (handles both `paging.total` and legacy `total` response formats)
 
 ## Usage
 
 No special configuration is needed. CloudVoyager detects the SonarQube version automatically and handles the differences transparently:
 
 ```bash
-# Works with SQ 9.9, 10.x, or any supported version
+# Works with SQ 9.9, 10.x, 2025.1, or any supported version
 node src/index.js transfer -c config.json --verbose
 node src/index.js migrate -c config.json
 ```
 
 Use `--verbose` to see detailed logs about version detection and rule enrichment.
 
+Use the `test` command to verify connectivity and see which compatibility mode is detected:
+
+```bash
+node src/index.js test -c config.json
+# Output includes: SonarQube server version: 9.9.0.65466 (legacy 9.x — pre-Clean Code taxonomy)
+```
+
 ## Supported SonarQube Versions
 
 | Version | Support Level | Notes |
 |---------|--------------|-------|
-| 9.9 LTS | Full | Clean Code enriched from SonarCloud |
-| 10.0 - 10.x | Full | Native Clean Code taxonomy |
+| 9.9 LTS | Full | Clean Code enriched from SonarCloud; legacy `statuses` param |
+| 10.0 - 10.3 | Full | Native Clean Code taxonomy; legacy `statuses` param |
+| 10.4 - 10.8 | Full | Modern `issueStatuses` param |
+| 2025.1+ | Full | Modern `issueStatuses` param; V2 API fallbacks |
 | < 9.9 | Best effort | APIs may differ; not actively tested |
+
+## Architecture: Isolation
+
+All version-specific logic is isolated in `src/sonarqube/version-aware-client.js`, a subclass of the base `SonarQubeClient`. The original client and all API modules remain untouched.
+
+```
+SonarQubeClient (src/sonarqube/api-client.js)        — base client, unmodified
+  └─ VersionAwareSonarQubeClient (version-aware-client.js) — overrides version-sensitive methods
+       ├─ detectVersion()          — detect + cache server version
+       ├─ getIssues()              — version-aware status param
+       ├─ getIssuesWithComments()  — version-aware status param
+       ├─ getGroups()              — defensive try/catch wrapper
+       └─ testConnection()         — auto-detect version on connect
+```
+
+Version utilities live in `src/utils/version.js`:
+- `parseSonarQubeVersion(str)` — parse version string to `{ major, minor, patch, raw }`
+- `hasCleanCodeTaxonomy(version)` — true for SQ >= 10.0
+- `isAtLeast(version, major, minor)` — generic version comparison
 
 ## Troubleshooting
 

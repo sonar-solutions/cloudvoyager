@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import logger from '../utils/logger.js';
-import { toCsvRow, generateGroupMappingsCsv, generateProfileMappingsCsv, generateGateMappingsCsv, generatePortfolioMappingsCsv, generateTemplateMappingsCsv, generateGlobalPermissionsCsv } from './csv-tables.js';
+import { toCsvRow, generateGroupMappingsCsv, generateProfileMappingsCsv, generateGateMappingsCsv, generatePortfolioMappingsCsv, generateTemplateMappingsCsv, generateGlobalPermissionsCsv, generateUserMappingsCsv } from './csv-tables.js';
 
 export async function generateMappingCsvs(mappingData, outputDir) {
   await mkdir(outputDir, { recursive: true });
@@ -13,7 +13,8 @@ export async function generateMappingCsvs(mappingData, outputDir) {
     { name: 'gate-mappings.csv', fn: () => generateGateMappingsCsv(mappingData) },
     { name: 'portfolio-mappings.csv', fn: () => generatePortfolioMappingsCsv(mappingData) },
     { name: 'template-mappings.csv', fn: () => generateTemplateMappingsCsv(mappingData) },
-    { name: 'global-permissions.csv', fn: () => generateGlobalPermissionsCsv(mappingData) }
+    { name: 'global-permissions.csv', fn: () => generateGlobalPermissionsCsv(mappingData) },
+    { name: 'user-mappings.csv', fn: () => generateUserMappingsCsv(mappingData) }
   ];
   for (const { name, fn } of files) {
     const content = fn();

@@ -64,8 +64,16 @@
     "sonarcloud",
     "migration",
     "cli",
-    "scanner"
+    "scanner",
+    "sonarqube-9.9",
+    "sonarqube-10",
+    "sonarqube-2025"
   ],
+  "sonarqubeCompatibility": {
+    "minimum": "9.9",
+    "tested": ["9.9", "10.4", "10.8", "2025.1"],
+    "notes": "Auto-detects server version and adapts API calls. See docs/backward-compatibility.md"
+  },
   "author": "",
   "license": "MIT",
   "dependencies": {
