@@ -36,7 +36,9 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 <!-- Updated: 2026-03-10 -->
 ## 🔄 Pause and Resume
 
-All migrations support **automatic checkpointing**. If a migration is interrupted (CTRL+C, crash, network failure), simply re-run the same command to resume from where it left off. No data is lost or duplicated.
+All migrations support **automatic checkpointing**. Progress is saved after every phase (extract, build, encode, upload). If a migration is interrupted — whether by CTRL+C (graceful shutdown), a crash, or a network failure — simply re-run the same command to resume from where it left off. No data is lost or duplicated.
+
+A **lock file** prevents concurrent runs against the same project, so you cannot accidentally start two migrations at once.
 
 ```bash
 # Transfer was interrupted — just re-run to resume
@@ -44,9 +46,18 @@ All migrations support **automatic checkpointing**. If a migration is interrupte
 
 # Check progress without running
 ./cloudvoyager transfer -c config.json --show-progress
+
+# Discard checkpoint and start the migration from scratch
+./cloudvoyager transfer -c config.json --force-restart
+
+# Re-extract data from SonarQube but keep other cached phases
+./cloudvoyager transfer -c config.json --force-fresh-extract
+
+# Clear a stale lock file (e.g. after a hard crash)
+./cloudvoyager transfer -c config.json --force-unlock
 ```
 
-See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for checkpoint options.
+See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for checkpoint options (`transfer.checkpoint`).
 
 <!-- Updated: 2026-03-09 -->
 ## 🔄 SonarQube Version Compatibility
