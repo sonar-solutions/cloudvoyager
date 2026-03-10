@@ -50,7 +50,7 @@ export class VersionAwareSonarQubeClient extends SonarQubeClient {
    * Falls back to legacy when version has not been detected yet.
    */
   async getIssues(filters = {}) {
-    const params = { componentKeys: this.projectKey, ...this._buildStatusParams(), ...filters };
+    const params = { componentKeys: this.projectKey, ...(await this._buildStatusParams()), ...filters };
     logger.info(`Fetching issues for project: ${this.projectKey}`);
     return await this.getPaginated('/api/issues/search', params, 'issues');
   }
@@ -59,7 +59,7 @@ export class VersionAwareSonarQubeClient extends SonarQubeClient {
     const params = {
       componentKeys: this.projectKey,
       additionalFields: 'comments',
-      ...this._buildStatusParams(),
+      ...(await this._buildStatusParams()),
       ...filters
     };
     logger.info(`Fetching issues with comments for project: ${this.projectKey}`);
@@ -93,8 +93,11 @@ export class VersionAwareSonarQubeClient extends SonarQubeClient {
 
   // ── Internal helpers ─────────────────────────────────────────────
 
-  _buildStatusParams() {
-    if (this._parsedVersion && isAtLeast(this._parsedVersion, 10, 4)) {
+  async _buildStatusParams() {
+    if (!this._parsedVersion) {
+      await this.detectVersion();
+    }
+    if (isAtLeast(this._parsedVersion, 10, 4)) {
       return { issueStatuses: MODERN_ISSUE_STATUSES };
     }
     return { statuses: LEGACY_STATUSES };
