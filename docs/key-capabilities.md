@@ -25,12 +25,13 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 14. [Build Pipeline Optimizations](#14-build-pipeline-optimizations)
 15. [Rate Limiting and API Resilience](#15-rate-limiting-and-api-resilience)
 16. [Incremental and Stateful Transfers](#16-incremental-and-stateful-transfers)
-17. [Comprehensive Reporting Suite](#17-comprehensive-reporting-suite)
-18. [Configuration System and Schema Validation](#18-configuration-system-and-schema-validation)
-19. [CLI Design and Operational Modes](#19-cli-design-and-operational-modes)
-20. [Error Handling Architecture](#20-error-handling-architecture)
-21. [Migration Verification Pipeline](#21-migration-verification-pipeline)
-22. [Engineering Summary](#22-engineering-summary)
+17. [Checkpoint Journal and Pause/Resume](#17-checkpoint-journal-and-pauseresume)
+18. [Comprehensive Reporting Suite](#18-comprehensive-reporting-suite)
+19. [Configuration System and Schema Validation](#19-configuration-system-and-schema-validation)
+20. [CLI Design and Operational Modes](#20-cli-design-and-operational-modes)
+21. [Error Handling Architecture](#21-error-handling-architecture)
+22. [Migration Verification Pipeline](#22-migration-verification-pipeline)
+23. [Engineering Summary](#23-engineering-summary)
 
 ---
 
@@ -674,8 +675,76 @@ When set to `"full"`, all data is re-extracted and re-transferred regardless of 
 
 ---
 
+<!-- Updated: Mar 10, 2026 -->
+## 17. Checkpoint Journal and Pause/Resume
+
+CloudVoyager's checkpoint system enables true pause/resume for all migration commands. Progress is saved at the phase level, so interrupted transfers resume from the last completed step rather than starting over.
+
+### Architecture
+
+The checkpoint system consists of five cooperating components:
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **Checkpoint Journal** | `src/state/checkpoint.js` | Write-ahead journal tracking phase completion, branch status, upload dedup |
+| **Extraction Cache** | `src/state/extraction-cache.js` | Disk-backed cache (gzipped JSON) of extraction results per phase |
+| **Lock File** | `src/state/lock.js` | Advisory lock preventing concurrent runs (PID + hostname + stale detection) |
+| **Shutdown Coordinator** | `src/utils/shutdown.js` | SIGINT/SIGTERM handler ensuring clean journal save before exit |
+| **Migration Journal** | `src/state/migration-journal.js` | Per-org, per-project completion tracking for the `migrate` command |
+| **Atomic Storage** | `src/state/storage.js` | Write-to-temp, fsync, rename pattern with backup rotation |
+
+### Checkpoint Journal Structure
+
+```json
+{
+  "version": 2,
+  "sessionFingerprint": {
+    "sonarQubeVersion": "10.8.0",
+    "sonarQubeUrl": "https://sq.example.com",
+    "projectKey": "my-project",
+    "startedAt": "2026-03-10T10:00:00Z"
+  },
+  "status": "in_progress",
+  "phases": {
+    "connection_test": { "status": "completed" },
+    "extract:issues": { "status": "completed", "cacheFile": "..." },
+    "extract:sources": { "status": "in_progress" },
+    "build_protobuf": { "status": "pending" },
+    "upload": { "status": "pending" }
+  },
+  "branches": {
+    "main": { "status": "completed", "ceTaskId": "AY..." },
+    "develop": { "status": "in_progress", "currentPhase": "extract:issues" }
+  },
+  "uploadedCeTasks": {
+    "main": { "taskId": "AY...", "submittedAt": "...", "status": "SUCCESS" }
+  }
+}
+```
+
+### Key Behaviors
+
+- **Automatic resume**: Running the same command after interruption resumes from the last checkpoint
+- **Graceful shutdown**: First CTRL+C saves journal and exits cleanly; second CTRL+C forces immediate exit
+- **Concurrent run prevention**: Lock file with PID and hostname prevents two instances from corrupting state
+- **Stale lock detection**: Dead-process locks are auto-released; cross-machine locks require `--force-unlock`
+- **Upload deduplication**: Before re-uploading after a crash, checks CE activity to prevent duplicate tasks
+- **Session fingerprint validation**: Warns (or blocks with `strictResume`) on SonarQube version changes between runs
+- **Atomic state writes**: Write-to-temp + fsync + rename prevents corruption from mid-write crashes
+
+### CLI Flags
+
+| Flag | Command | Description |
+|------|---------|-------------|
+| `--force-restart` | `transfer`, `migrate` | Discard checkpoint/migration journal and start fresh |
+| `--force-fresh-extract` | `transfer` | Clear extraction caches, re-extract all data |
+| `--force-unlock` | `transfer`, `migrate` | Force release a stale lock file |
+| `--show-progress` | `transfer` | Display checkpoint progress and exit |
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 17. Comprehensive Reporting Suite
+## 18. Comprehensive Reporting Suite
 
 The migration pipeline generates reports in **6 formats** across **3 report types**:
 
@@ -719,7 +788,7 @@ A specialized JSON report (`quality-profile-diff.json`) compares active rules pe
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 18. Configuration System and Schema Validation
+## 19. Configuration System and Schema Validation
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Schema-Validated Configuration
@@ -754,7 +823,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 19. CLI Design and Operational Modes
+## 20. CLI Design and Operational Modes
 
 <!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ### Command Suite
@@ -790,7 +859,7 @@ Winston-based logging with:
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 20. Error Handling Architecture
+## 21. Error Handling Architecture
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Custom Error Hierarchy
@@ -823,7 +892,7 @@ API client errors include specific diagnostics based on the underlying network e
 ---
 
 <!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
-## 21. Migration Verification Pipeline
+## 22. Migration Verification Pipeline
 
 After migration, CloudVoyager can **verify** that all data was transferred correctly by exhaustively comparing SonarQube and SonarCloud. The `verify` command performs read-only checks and generates a detailed pass/fail report.
 
@@ -876,7 +945,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 22. Engineering Summary
+## 23. Engineering Summary
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### By the Numbers
@@ -931,6 +1000,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | Checkpoint Journal (new section 17) | Added pause/resume capability documentation |
 | 2026-03-04 | Verification Pipeline | Added issue status history (changelog) verification |
 | 2026-02-28 | Verification Pipeline, CLI, Summary | Added migration verification capability |
 | 2026-02-20 | Permissions/Governance, Portfolio | V2 Enterprise API for portfolios |

@@ -1,10 +1,13 @@
-import { readFile, writeFile, unlink } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readFile, unlink, rename, copyFile, open } from 'node:fs/promises';
+import { existsSync, statfsSync } from 'node:fs';
+import { dirname } from 'node:path';
 import logger from '../utils/logger.js';
 import { StateError } from '../utils/errors.js';
 
+const MIN_DISK_SPACE_BYTES = 10 * 1024 * 1024; // 10MB
+
 /**
- * Persistent state storage
+ * Persistent state storage with atomic save and backup support
  */
 export class StateStorage {
   constructor(stateFilePath) {
@@ -12,65 +15,140 @@ export class StateStorage {
   }
 
   /**
-   * Load state from file
+   * Load state from file with fallback to backup
    * @returns {Promise<object|null>} State object or null if doesn't exist
    */
   async load() {
-    try {
-      if (!existsSync(this.filePath)) {
-        logger.debug('State file does not exist');
-        return null;
+    // Try main file first
+    const mainState = await this._tryLoadFile(this.filePath);
+    if (mainState !== null) return mainState;
+
+    // Fallback to backup file
+    const backupPath = `${this.filePath}.backup`;
+    if (existsSync(backupPath)) {
+      logger.warn(`Main state file missing or corrupt, falling back to backup: ${backupPath}`);
+      const backupState = await this._tryLoadFile(backupPath);
+      if (backupState !== null) {
+        // Restore backup as main file
+        try {
+          await copyFile(backupPath, this.filePath);
+          logger.info('Restored state from backup file');
+        } catch { /* best effort */ }
+        return backupState;
       }
+      logger.warn('Backup state file is also corrupt');
+    }
 
-      logger.debug(`Loading state from: ${this.filePath}`);
+    logger.debug('No valid state file found');
+    return null;
+  }
 
-      const content = await readFile(this.filePath, 'utf-8');
+  /**
+   * Try to load and parse a JSON file
+   * @param {string} filePath
+   * @returns {Promise<object|null>}
+   */
+  async _tryLoadFile(filePath) {
+    try {
+      if (!existsSync(filePath)) return null;
+      logger.debug(`Loading state from: ${filePath}`);
+      const content = await readFile(filePath, 'utf-8');
+      if (!content.trim()) return null;
       const state = JSON.parse(content);
-
-      logger.info(`Loaded state from ${this.filePath}`);
+      logger.info(`Loaded state from ${filePath}`);
       return state;
-
     } catch (error) {
       if (error instanceof SyntaxError) {
-        throw new StateError(`Invalid JSON in state file: ${error.message}`);
+        logger.warn(`Invalid JSON in state file ${filePath}: ${error.message}`);
+        return null;
       }
-      throw new StateError(`Failed to load state: ${error.message}`);
+      if (error.code === 'ENOENT') return null;
+      throw new StateError(`Failed to load state from ${filePath}: ${error.message}`);
     }
   }
 
   /**
-   * Save state to file
+   * Save state to file atomically (write-to-temp, fsync, rename)
    * @param {object} state - State object to save
    */
   async save(state) {
     try {
       logger.debug(`Saving state to: ${this.filePath}`);
 
+      // Check disk space
+      this._checkDiskSpace();
+
+      // Backup current file before overwriting
+      if (existsSync(this.filePath)) {
+        try {
+          await copyFile(this.filePath, `${this.filePath}.backup`);
+        } catch (err) {
+          logger.debug(`Could not create backup: ${err.message}`);
+        }
+      }
+
+      // Atomic write: write to temp, fsync, rename
+      const tmpPath = `${this.filePath}.tmp`;
       const content = JSON.stringify(state, null, 2);
-      await writeFile(this.filePath, content, 'utf-8');
+      const fd = await open(tmpPath, 'w');
+      try {
+        await fd.writeFile(content, 'utf-8');
+        await fd.sync();
+      } finally {
+        await fd.close();
+      }
+      await rename(tmpPath, this.filePath);
 
       logger.info(`Saved state to ${this.filePath}`);
-
     } catch (error) {
+      if (error instanceof StateError) throw error;
       throw new StateError(`Failed to save state: ${error.message}`);
     }
   }
 
   /**
-   * Clear state file
+   * Check available disk space before writing
+   * @throws {StateError} if insufficient disk space
    */
-  async clear() {
+  _checkDiskSpace() {
     try {
-      if (existsSync(this.filePath)) {
-        logger.info(`Clearing state file: ${this.filePath}`);
-        await unlink(this.filePath);
-        logger.info('State file cleared');
-      } else {
-        logger.debug('State file does not exist, nothing to clear');
+      const dir = dirname(this.filePath);
+      const stats = statfsSync(dir);
+      const availableBytes = stats.bavail * stats.bsize;
+      if (availableBytes < MIN_DISK_SPACE_BYTES) {
+        throw new StateError(
+          `Insufficient disk space: ${Math.round(availableBytes / 1024 / 1024)}MB available, need at least 10MB`
+        );
       }
     } catch (error) {
-      throw new StateError(`Failed to clear state: ${error.message}`);
+      if (error instanceof StateError) throw error;
+      // statfsSync may not be available on all platforms; proceed without check
+      logger.debug(`Could not check disk space: ${error.message}`);
     }
+  }
+
+  /**
+   * Clear state file and its backup/temp files
+   */
+  async clear() {
+    const filesToClear = [
+      this.filePath,
+      `${this.filePath}.backup`,
+      `${this.filePath}.tmp`,
+    ];
+
+    for (const file of filesToClear) {
+      try {
+        if (existsSync(file)) {
+          await unlink(file);
+          logger.debug(`Cleared: ${file}`);
+        }
+      } catch (error) {
+        logger.debug(`Could not clear ${file}: ${error.message}`);
+      }
+    }
+
+    logger.info('State file cleared');
   }
 
   /**

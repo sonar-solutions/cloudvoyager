@@ -234,6 +234,10 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts the process with increased heap if the current heap is too small |
 | `--auto-tune` | — | No | — | Auto-detect hardware (CPU cores, available memory) and set optimal concurrency and memory values |
 | `--skip-all-branch-sync` | — | No | — | Only sync the main branch (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
+| `--force-restart` | — | No | — | Discard checkpoint journal and start a fresh transfer from scratch |
+| `--force-fresh-extract` | — | No | — | Discard extraction caches and re-extract all data from SonarQube |
+| `--force-unlock` | — | No | — | Force release a stale lock file from a previous run |
+| `--show-progress` | — | No | — | Display checkpoint progress status table and exit |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 #### Examples
@@ -289,6 +293,21 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 # Transfer with verbose, auto-tune, and max-memory override
 ./cloudvoyager transfer -c config.json --verbose --auto-tune --max-memory 8192
+
+# Show checkpoint progress without running a transfer
+./cloudvoyager transfer -c config.json --show-progress
+
+# Resume a previously interrupted transfer (automatic — just re-run)
+./cloudvoyager transfer -c config.json --verbose
+
+# Force restart from scratch (discard checkpoint journal)
+./cloudvoyager transfer -c config.json --verbose --force-restart
+
+# Re-extract all data but keep checkpoint journal
+./cloudvoyager transfer -c config.json --verbose --force-fresh-extract
+
+# Force release a stale lock from a crashed run
+./cloudvoyager transfer -c config.json --verbose --force-unlock
 ```
 
 ---
@@ -313,6 +332,8 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency, memory, and project-concurrency values |
 | `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 | `--only <components>` | — | No | Comma-separated list | Only migrate specific components. Valid values: `scan-data`, `scan-data-all-branches`, `portfolios`, `quality-gates`, `quality-profiles`, `permission-templates`, `permissions`, `issue-metadata`, `hotspot-metadata`, `project-settings` |
+| `--force-restart` | — | No | — | Discard migration journal and start a fresh migration from scratch |
+| `--force-unlock` | — | No | — | Force release a stale lock file from a previous run |
 
 <!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 #### Examples
@@ -458,6 +479,15 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 # Selective migration with project concurrency
 ./cloudvoyager migrate -c migrate-config.json --verbose --project-concurrency 3 --only scan-data
+
+# Resume a previously interrupted migration (automatic — just re-run)
+./cloudvoyager migrate -c migrate-config.json --verbose
+
+# Force restart migration from scratch (discard migration journal)
+./cloudvoyager migrate -c migrate-config.json --verbose --force-restart
+
+# Force release a stale lock from a crashed migration
+./cloudvoyager migrate -c migrate-config.json --verbose --force-unlock
 ```
 
 ---
@@ -684,6 +714,7 @@ The following npm scripts are available for building, testing, and linting:
 | Reset state | `npm run reset` |
 | Transfer single project | `npm run transfer` |
 | Transfer single project (auto-tune) | `npm run transfer:auto-tune` |
+| Show transfer checkpoint progress | `npm run transfer:show-progress` |
 | Full migration | `npm run migrate` |
 | Full migration (dry-run) | `npm run migrate:dry-run` |
 | Full migration (auto-tune) | `npm run migrate:auto-tune` |
@@ -738,6 +769,7 @@ The following npm scripts are available for building, testing, and linting:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | transfer, migrate, npm Scripts | Added checkpoint/resume CLI flags |
 | 2026-02-28 | verify command, npm Scripts | Added verify CLI reference and npm scripts |
 | 2026-02-21 | Bun Compile | Fixed dependency type: optionalDependency not devDependency |
 | 2026-02-19 | Building, CLI Reference, Tests, npm Scripts | API expansion, test suite, bun builds |

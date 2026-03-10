@@ -33,6 +33,21 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ./cloudvoyager verify -c migrate-config.json --verbose
 ```
 
+<!-- Updated: 2026-03-10 -->
+## 🔄 Pause and Resume
+
+All migrations support **automatic checkpointing**. If a migration is interrupted (CTRL+C, crash, network failure), simply re-run the same command to resume from where it left off. No data is lost or duplicated.
+
+```bash
+# Transfer was interrupted — just re-run to resume
+./cloudvoyager transfer -c config.json --verbose
+
+# Check progress without running
+./cloudvoyager transfer -c config.json --show-progress
+```
+
+See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for checkpoint options.
+
 <!-- Updated: 2026-03-09 -->
 ## 🔄 SonarQube Version Compatibility
 

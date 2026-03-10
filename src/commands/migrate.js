@@ -2,7 +2,8 @@ import { loadMigrateConfig } from '../config/loader.js';
 import { migrateAll } from '../migrate-pipeline.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
 import logger, { enableFileLogging } from '../utils/logger.js';
-import { CloudVoyagerError } from '../utils/errors.js';
+import { CloudVoyagerError, GracefulShutdownError } from '../utils/errors.js';
+import { ShutdownCoordinator } from '../utils/shutdown.js';
 
 export const VALID_ONLY_COMPONENTS = [
   'scan-data', 'scan-data-all-branches', 'portfolios', 'quality-gates',
@@ -27,7 +28,12 @@ export function registerMigrateCommand(program) {
     .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
     .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
+    .option('--force-restart', 'Discard migration journal and start from scratch')
+    .option('--force-unlock', 'Force release a stale lock file from a previous run')
     .action(async (options) => {
+      const shutdownCoordinator = new ShutdownCoordinator();
+      shutdownCoordinator.bind();
+
       try {
         if (options.verbose) logger.level = 'debug';
         enableFileLogging('migrate');
@@ -36,6 +42,7 @@ export function registerMigrateCommand(program) {
         const config = await loadMigrateConfig(options.config);
         const migrateConfig = config.migrate || {};
         if (options.dryRun) migrateConfig.dryRun = true;
+        if (options.forceRestart) migrateConfig.forceRestart = true;
         if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
         if (options.skipHotspotMetadataSync) migrateConfig.skipHotspotMetadataSync = true;
         if (options.skipQualityProfileSync) migrateConfig.skipQualityProfileSync = true;
@@ -89,7 +96,10 @@ export function registerMigrateCommand(program) {
         logger.info('=== Migration completed successfully ===');
         process.exit(0);
       } catch (error) {
-        if (error instanceof CloudVoyagerError) {
+        if (error instanceof GracefulShutdownError) {
+          logger.info('Migration interrupted gracefully. Resume by running the same command again.');
+          process.exit(0);
+        } else if (error instanceof CloudVoyagerError) {
           logger.error(`Migration failed: ${error.message}`);
         } else {
           logger.error(`Unexpected error: ${error.message}`);

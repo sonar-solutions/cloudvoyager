@@ -19,12 +19,28 @@ import { finalizeProjectResult, recordProjectOutcome } from './results.js';
 export async function migrateOrgProjects(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping) {
   const projectKeyMap = new Map();
   const projectKeyWarnings = [];
+  const migrationJournal = ctx.migrationJournal || null;
+
   for (let i = 0; i < projects.length; i++) {
     const project = projects[i];
+
+    // Check if project already completed in migration journal
+    if (migrationJournal && migrationJournal.getProjectStatus(org.key, project.key) === 'completed') {
+      logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} — already completed, skipping ---`);
+      const { scProjectKey } = await resolveProjectKey(project, org, scClient);
+      projectKeyMap.set(project.key, scProjectKey);
+      continue;
+    }
+
     const { scProjectKey, warning } = await resolveProjectKey(project, org, scClient);
     if (warning) projectKeyWarnings.push(warning);
     projectKeyMap.set(project.key, scProjectKey);
     logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} -> ${scProjectKey} ---`);
+
+    if (migrationJournal) {
+      await migrationJournal.startProject(org.key, project.key);
+    }
+
     const projectResult = await migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping });
     results.projects.push(projectResult);
     if (projectResult.linesOfCode > 0) {
@@ -32,6 +48,15 @@ export async function migrateOrgProjects(projects, org, scClient, gateMapping, e
       results.projectLinesOfCode.push({ projectKey: project.key, linesOfCode: projectResult.linesOfCode });
     }
     recordProjectOutcome(project, projectResult, results);
+
+    // Update migration journal
+    if (migrationJournal) {
+      if (projectResult.status === 'success') {
+        await migrationJournal.markProjectCompleted(org.key, project.key);
+      } else {
+        await migrationJournal.markProjectFailed(org.key, project.key, projectResult.errors?.[0] || 'Unknown error');
+      }
+    }
   }
   return { projectKeyMap, projectKeyWarnings };
 }
@@ -59,6 +84,19 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
     organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig
   });
 
+  // Migration journal for per-step checkpointing
+  const migrationJournal = ctx.migrationJournal || null;
+  const STEP_ORDER = [
+    'upload_scanner_report', 'sync_issues', 'sync_hotspots',
+    'project_settings', 'project_tags', 'project_links', 'new_code_definitions',
+    'devops_binding', 'assign_quality_gate', 'assign_quality_profiles', 'project_permissions'
+  ];
+  const isStepDone = (step) =>
+    migrationJournal && migrationJournal.isProjectStepCompleted(org?.key, project.key, step, STEP_ORDER);
+  const recordStep = async (step) => {
+    if (migrationJournal) await migrationJournal.completeProjectStep(org?.key, project.key, step);
+  };
+
   // Scanner report upload
   const wantsScanData = shouldRun('scan-data') || shouldRun('scan-data-all-branches');
   let reportUploadOk = false;
@@ -73,7 +111,14 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
         syncAllBranchesOverride = false; // main branch only
       }
     }
-    reportUploadOk = await uploadScannerReport(project, scProjectKey, org, projectResult, ctx, syncAllBranchesOverride);
+    if (isStepDone('upload_scanner_report')) {
+      logger.info(`Scanner report upload for ${project.key} — already completed, skipping`);
+      reportUploadOk = true;
+      projectResult.steps.push({ step: 'Upload scanner report', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+    } else {
+      reportUploadOk = await uploadScannerReport(project, scProjectKey, org, projectResult, ctx, syncAllBranchesOverride);
+      if (reportUploadOk) await recordStep('upload_scanner_report');
+    }
   } else if (only) {
     projectResult.steps.push({ step: 'Upload scanner report', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
     // Verify project exists in SonarCloud before attempting downstream operations
@@ -90,14 +135,26 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
 
   // Issue metadata sync
   if (shouldRun('issue-metadata')) {
-    await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+    if (isStepDone('sync_issues')) {
+      logger.info(`Issue sync for ${project.key} — already completed, skipping`);
+      projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+    } else {
+      await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+      await recordStep('sync_issues');
+    }
   } else if (only) {
     projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }
 
   // Hotspot metadata sync
   if (shouldRun('hotspot-metadata')) {
-    await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+    if (isStepDone('sync_hotspots')) {
+      logger.info(`Hotspot sync for ${project.key} — already completed, skipping`);
+      projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+    } else {
+      await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
+      await recordStep('sync_hotspots');
+    }
   } else if (only) {
     projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }

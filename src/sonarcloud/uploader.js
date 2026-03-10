@@ -330,6 +330,38 @@ export class ReportUploader {
   }
 
   /**
+   * Check if a CE task already exists for this project from the current session.
+   * Used for upload deduplication on resume — prevents uploading twice after crash.
+   *
+   * @param {string} sessionStartTime - ISO timestamp of when the journal session started
+   * @returns {Promise<object|null>} Existing CE task or null
+   */
+  async checkExistingUpload(sessionStartTime) {
+    try {
+      const task = await this.client.getMostRecentCeTask();
+      if (!task) return null;
+
+      const taskSubmittedAt = task.submittedAt ? new Date(task.submittedAt).getTime() : 0;
+      const sessionStart = new Date(sessionStartTime).getTime();
+
+      if (taskSubmittedAt >= sessionStart) {
+        const status = task.status || 'UNKNOWN';
+        if (status === 'SUCCESS' || status === 'IN_PROGRESS' || status === 'PENDING') {
+          logger.info(`Found existing CE task ${task.id} (status: ${status}) from current session — skipping re-upload`);
+          return { id: task.id, status };
+        }
+        // FAILED or CANCELED — safe to re-upload
+        logger.info(`Found CE task ${task.id} with status ${status} — will re-upload`);
+      }
+
+      return null;
+    } catch (error) {
+      logger.debug(`Could not check for existing upload: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Validate report before upload
    */
   validateReport(encodedReport) {

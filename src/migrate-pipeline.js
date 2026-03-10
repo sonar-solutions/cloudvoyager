@@ -11,6 +11,7 @@ import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnt
 import { loadMappingCsvs } from './mapping/csv-reader.js';
 import { applyCsvOverrides } from './mapping/csv-applier.js';
 import { extractUniqueAssignees, enrichAssigneeDetails } from './sonarqube/extractors/users.js';
+import { MigrationJournal } from './state/migration-journal.js';
 
 export async function migrateAll(options) {
   const {
@@ -64,12 +65,37 @@ export async function migrateAll(options) {
     }
   }
 
-  logger.info(`Cleaning output directory: ${outputDir}`);
-  await rm(outputDir, { recursive: true, force: true });
-  await mkdir(outputDir, { recursive: true });
-  await mkdir(join(outputDir, 'state'), { recursive: true });
-  await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
-  await mkdir(join(outputDir, 'logs'), { recursive: true });
+  // Check for existing migration journal (resume scenario)
+  const migrationJournalPath = join(outputDir, 'state', 'migration.journal');
+  const migrationJournal = new MigrationJournal(migrationJournalPath);
+  const forceRestart = migrateConfig.forceRestart || false;
+
+  let isResume = false;
+  if (!dryRun && !forceRestart && existsSync(migrationJournalPath)) {
+    isResume = true;
+    logger.info('=== RESUME MODE: Detected previous migration journal ===');
+    logger.info('Will skip completed organizations and projects. Use --force-restart to start fresh.');
+  }
+
+  if (isResume) {
+    // Do NOT wipe outputDir on resume — preserve existing state files and cache
+    await mkdir(outputDir, { recursive: true });
+    await mkdir(join(outputDir, 'state'), { recursive: true });
+    await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
+    await mkdir(join(outputDir, 'logs'), { recursive: true });
+  } else {
+    logger.info(`Cleaning output directory: ${outputDir}`);
+    await rm(outputDir, { recursive: true, force: true });
+    await mkdir(outputDir, { recursive: true });
+    await mkdir(join(outputDir, 'state'), { recursive: true });
+    await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
+    await mkdir(join(outputDir, 'logs'), { recursive: true });
+  }
+
+  // Initialize migration journal (creates or loads)
+  if (!dryRun) {
+    await migrationJournal.initialize();
+  }
 
   const results = createEmptyResults();
   results.environment = collectEnvironmentInfo();
@@ -94,7 +120,7 @@ export async function migrateAll(options) {
   const ctx = {
     sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
     perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, skipProjectConfig, wait,
-    onlyComponents, projectBranchIncludes: new Map()
+    onlyComponents, projectBranchIncludes: new Map(), migrationJournal: dryRun ? null : migrationJournal
   };
 
   try {
@@ -215,6 +241,11 @@ export async function migrateAll(options) {
       await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
     } else {
       logger.info('Skipping enterprise portfolio migration (not included in --only)');
+    }
+
+    // Mark migration as completed in journal
+    if (!dryRun && migrationJournal) {
+      await migrationJournal.markCompleted();
     }
 
     logMigrationSummary(results, outputDir);

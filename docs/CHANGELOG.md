@@ -10,6 +10,83 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-03-10 — Incremental Migrations with Pause/Resume
+
+#### New Feature: Checkpoint Journal System
+- Added a **write-ahead checkpoint journal** that tracks phase-by-phase progress for both `transfer` and `migrate` commands, enabling true pause/resume across all migration workflows
+- Interrupted migrations (CTRL+C, crashes, network failures) can now be resumed from the exact point of interruption — no re-processing of completed work
+- The journal stores a session fingerprint (SonarQube version, URL, project key) and validates it on resume, warning on version mismatches
+
+#### Graceful Shutdown (SIGINT/SIGTERM)
+- First CTRL+C: finishes the current atomic operation, saves progress to the journal, releases the lock, and exits cleanly
+- Second CTRL+C: forces immediate exit
+- Cleanup handlers are registered for saving state, releasing locks, and flushing logs
+
+#### Concurrent Run Prevention
+- Advisory lock file (`<stateFile>.lock`) prevents two instances from running on the same state file simultaneously
+- Stale lock detection: auto-releases locks from dead processes (PID check) or locks older than 6 hours
+- Different-hostname locks require `--force-unlock` for NFS safety
+
+#### Extraction Caching
+- Extraction results are cached to disk as gzipped JSON files, so resumed runs skip already-completed extraction phases
+- Cache files auto-purge after 7 days (configurable via `transfer.checkpoint.cacheMaxAgeDays`)
+- Corrupt cache files are handled gracefully (phase re-executes)
+
+#### Upload Deduplication
+- Before re-uploading after a crash, checks `/api/ce/activity` for existing CE tasks from the current session
+- Prevents duplicate CE tasks — the most dangerous edge case in crash-during-upload scenarios
+
+#### Migration Journal (Multi-Project)
+- Per-organization and per-project completion tracking for the `migrate` command
+- On resume: completed orgs and projects are skipped, in-progress projects resume from their last completed step
+- Output directory is preserved on resume (no longer wiped)
+
+#### Atomic State Writes
+- State files now use write-to-temp, `fsync`, then atomic rename — prevents corruption on crash
+- Backup rotation: current state is copied to `.backup` before each save
+- Safe load with fallback: tries main file, then `.backup`, then returns null
+- Disk space pre-check (10MB minimum) before writing
+
+#### New CLI Flags
+- `--force-restart` — Discard checkpoint/migration journal and start from scratch (`transfer`, `migrate`)
+- `--force-fresh-extract` — Discard extraction caches and re-extract everything (`transfer`)
+- `--force-unlock` — Force release a stale lock file from a previous run (`transfer`, `migrate`)
+- `--show-progress` — Display checkpoint progress table and exit (`transfer`)
+
+#### New Config Options
+- `transfer.checkpoint.enabled` — Enable/disable checkpoint journal (default: `true`)
+- `transfer.checkpoint.cacheExtractions` — Enable/disable extraction caching (default: `true`)
+- `transfer.checkpoint.cacheMaxAgeDays` — Max age of cache files in days (default: `7`)
+- `transfer.checkpoint.strictResume` — Fail on SonarQube version mismatch when resuming (default: `false`)
+
+#### Enhanced Commands
+- `status` command now shows checkpoint journal progress (phases, branches, completion %) when a journal exists
+- `reset` command now clears checkpoint journals, lock files, and extraction caches in addition to state files
+
+#### Files Added
+- **New:** `src/state/lock.js` — Advisory lock file with PID-based stale detection
+- **New:** `src/utils/shutdown.js` — Graceful SIGINT/SIGTERM coordination
+- **New:** `src/state/checkpoint.js` — Phase-level checkpoint journal
+- **New:** `src/state/extraction-cache.js` — Gzipped disk cache for extraction results
+- **New:** `src/state/migration-journal.js` — Multi-project migration progress tracking
+- **New:** `src/utils/progress.js` — Progress display for checkpoint and migration journals
+
+#### Files Modified
+- **Modified:** `src/state/storage.js` — Atomic save with backup rotation and disk space checks
+- **Modified:** `src/state/tracker.js` — Lock file integration and per-branch save
+- **Modified:** `src/utils/errors.js` — Added `GracefulShutdownError`, `LockError`, `StaleResumeError`
+- **Modified:** `src/sonarqube/extractors/index.js` — Checkpoint-aware extraction with journal + cache
+- **Modified:** `src/sonarcloud/uploader.js` — Upload deduplication via CE activity check
+- **Modified:** `src/transfer-pipeline.js` — Full journal/lock/shutdown integration
+- **Modified:** `src/migrate-pipeline.js` — Migration journal and conditional output-dir preservation
+- **Modified:** `src/pipeline/project-migration.js` — Per-step checkpoints in migration journal
+- **Modified:** `src/config/schema.js` — Added `transfer.checkpoint` config block
+- **Modified:** `src/commands/transfer.js` — New CLI flags, shutdown coordinator
+- **Modified:** `src/commands/migrate.js` — New CLI flags, shutdown coordinator
+- **Modified:** `src/index.js` — Enhanced `status` and `reset` commands
+
+---
+
 ### 2026-03-10 — User Mapping CSV for Issue Assignment
 
 #### New Feature: User Mapping

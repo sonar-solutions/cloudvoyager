@@ -178,6 +178,29 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
+## 🔄 Pause and Resume
+
+Transfers are automatically checkpointed. If a transfer is interrupted (CTRL+C, crash, network failure), simply re-run the same command to resume from where it left off:
+
+```bash
+# Resume an interrupted transfer (just re-run the same command)
+./cloudvoyager transfer -c config.json --verbose
+```
+
+Use `--show-progress` to see the current checkpoint status without running a transfer:
+
+```bash
+./cloudvoyager transfer -c config.json --show-progress
+```
+
+To discard progress and start fresh, use `--force-restart`:
+
+```bash
+./cloudvoyager transfer -c config.json --verbose --force-restart
+```
+
+---
+
 <!-- Updated: Feb 22, 2026 at 10:30:00 AM -->
 ## 🚩 All CLI Flags
 
@@ -189,6 +212,10 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 | `--max-memory <mb>` | Set max heap size in MB |
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) |
 | `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches) |
+| `--force-restart` | Discard checkpoint journal and start fresh |
+| `--force-fresh-extract` | Re-extract all data (discard extraction caches) |
+| `--force-unlock` | Release a stale lock file from a crashed run |
+| `--show-progress` | Show checkpoint progress and exit |
 
 ---
 
@@ -213,6 +240,7 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | Pause and Resume, CLI Flags | Added checkpoint/resume workflow and new flags |
 | 2026-02-22 | CLI Flags | Removed duplicate --skip-all-branch-sync entry |
 | 2026-02-21 | CLI Flags, Limitations | Added --skip-all-branch-sync flag |
 | 2026-02-18 | CLI Flags | Added --wait and --auto-tune flags |
