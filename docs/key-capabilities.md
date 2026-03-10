@@ -283,6 +283,7 @@ Server-wide extraction wraps each item in a non-fatal handler. If extracting qua
 
 The `--dry-run` flag executes all extraction and mapping steps but stops before making any changes to SonarCloud. This allows teams to:
 - Review the generated organization mapping CSVs
+- Map SonarQube users to SonarCloud users via `user-mappings.csv` (since logins typically differ between SQ and SC)
 - Validate that all SonarQube data is accessible
 - Verify project key resolution without side effects
 
@@ -305,7 +306,10 @@ For each issue in SonarQube, the sync engine:
    - `ACCEPTED` → `accept`
    - `FALSE-POSITIVE` → `wontfix` (false positive)
    - `WONTFIX` → `wontfix`
-3. **Assigns** the issue to the same user (if the user exists in SonarCloud)
+3. **Assigns** the issue to the corresponding user, using the `user-mappings.csv` when available:
+   - If a SonarCloud Login is mapped in the CSV, uses the mapped login
+   - If the user is excluded (`Include=no`), skips assignment
+   - Otherwise, falls back to the original SonarQube login
 4. **Copies comments** from SonarQube to SonarCloud
 5. **Sets tags** to match the SonarQube tags
 

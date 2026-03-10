@@ -67,7 +67,8 @@
     "scanner",
     "sonarqube-9.9",
     "sonarqube-10",
-    "sonarqube-2025"
+    "sonarqube-2025",
+    "user-mapping"
   ],
   "sonarqubeCompatibility": {
     "minimum": "9.9",

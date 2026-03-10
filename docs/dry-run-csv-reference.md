@@ -1,10 +1,10 @@
 # Dry-Run CSV Reference
 
-<!-- Last updated: 2026-02-25 -->
+<!-- Last updated: 2026-03-10 -->
 
 ## Overview
 
-The `--dry-run` flag generates 8 exhaustive CSV files in `migration-output/mappings/`. Each CSV includes an **Include** column (first field) that defaults to `yes`. You can edit these CSVs to customize the migration before running the actual migration.
+The `--dry-run` flag generates 9 exhaustive CSV files in `migration-output/mappings/`. Each CSV includes an **Include** column (first field) that defaults to `yes`. You can edit these CSVs to customize the migration before running the actual migration.
 
 ## Workflow
 
@@ -166,6 +166,38 @@ One row per group+permission combination.
 | Group Name | Read-only | Group name |
 | Permission | Read-only | Permission key (e.g., `admin`, `scan`, `provisioning`) |
 
+### user-mappings.csv
+
+One row per unique SonarQube issue assignee, sorted by issue count (descending). This CSV enables mapping SonarQube usernames to SonarCloud logins, which typically differ because SonarCloud uses SSO/GitHub authentication.
+
+| Column | Editable | Description |
+|--------|----------|-------------|
+| Include | Yes | Set to `no` to skip assignment for this user entirely |
+| SonarQube Login | Read-only | Username/login from SonarQube |
+| SonarCloud Login | **Yes** | Fill in the corresponding SonarCloud login for this user |
+| Display Name | Read-only | User's display name from SonarQube (for identification) |
+| Email | Read-only | User's email from SonarQube (for identification) |
+| Issue Count | Read-only | Total number of issues assigned to this user across all projects |
+
+**Example:**
+```csv
+Include,SonarQube Login,SonarCloud Login,Display Name,Email,Issue Count
+yes,john.doe,john-doe-github,John Doe,john@example.com,42
+yes,jane.smith,jsmith,Jane Smith,jane@example.com,15
+no,service-account,,Service Account,,3
+yes,dev.user,,Dev User,dev@example.com,1
+```
+
+In this example:
+- `john.doe` will be mapped to `john-doe-github` in SonarCloud
+- `jane.smith` will be mapped to `jsmith` in SonarCloud
+- `service-account` is excluded — its issues will not be assigned to anyone
+- `dev.user` has no SonarCloud Login filled in — assignment will be attempted with the original SQ login `dev.user` (current default behavior)
+
+**Note:** The Display Name and Email columns are provided to help identify users — they are not used during migration.
+
+---
+
 ## Common Edit Scenarios
 
 ### Exclude a project from migration
@@ -182,6 +214,12 @@ In `group-mappings.csv`, set `Include` to `no` for the group row.
 
 ### Remove a specific permission from a template
 In `template-mappings.csv`, set `Include` to `no` on the specific permission row (not the template header).
+
+### Map a SonarQube user to a SonarCloud user
+In `user-mappings.csv`, fill in the `SonarCloud Login` column with the user's SonarCloud login (e.g., their GitHub username).
+
+### Skip assignment for a service account
+In `user-mappings.csv`, set `Include` to `no` for the service account row.
 
 ### Remove a project from a portfolio
 In `portfolio-mappings.csv`, set `Include` to `no` on the specific member row (not the portfolio header).
