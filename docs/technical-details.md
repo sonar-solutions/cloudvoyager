@@ -154,6 +154,41 @@ Performance config is resolved at startup by `resolvePerformanceConfig()`, which
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
 
+<!-- Updated: Mar 10, 2026 -->
+## 🔄 Checkpoint Journal and Pause/Resume
+
+CloudVoyager uses a write-ahead checkpoint journal to track progress at every major phase. If a transfer or migration is interrupted (CTRL+C, crash, network failure), re-running the same command resumes from the last completed checkpoint.
+
+### Journal Structure
+
+Each transfer creates a checkpoint journal file alongside the state file:
+
+- **Phase tracking**: Each extraction phase (project metadata, metrics, components, rules, issues, hotspots, measures, sources, etc.) is tracked individually
+- **Branch tracking**: Per-branch completion status with CE task IDs for upload deduplication
+- **Session fingerprint**: SonarQube version, URL, and project key are recorded to detect environment changes between runs
+
+### Atomic State Persistence
+
+State files use a write-to-temp-then-rename pattern for crash safety:
+1. Write to `<file>.tmp`
+2. `fsync` to ensure data hits disk
+3. Rename to final path (atomic on POSIX)
+4. Backup rotation: previous state copied to `<file>.backup` before each save
+
+If the main state file is corrupted, the system falls back to the `.backup` file automatically.
+
+### Extraction Caching
+
+Completed extraction phases are cached as gzipped JSON in `<outputDir>/cache/extractions/<projectKey>/`. On resume, cached phases are loaded from disk instead of re-fetching from SonarQube. Cache files include integrity metadata and auto-purge after 7 days (configurable via `transfer.checkpoint.cacheMaxAgeDays`).
+
+### Upload Deduplication
+
+Before re-uploading after a crash, the uploader queries `/api/ce/activity` for recent tasks on the project. If a task was submitted after the session start and is still SUCCESS/IN_PROGRESS/PENDING, the upload is skipped to prevent duplicate CE tasks.
+
+### Lock Files
+
+Advisory lock files (`<stateFile>.lock`) prevent concurrent runs. Lock metadata includes PID, hostname, and timestamp. Stale locks (dead PID or >6 hours old) are auto-released. Cross-machine locks (NFS) require manual `--force-unlock`.
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts

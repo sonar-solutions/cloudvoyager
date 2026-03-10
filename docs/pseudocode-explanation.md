@@ -24,6 +24,7 @@ This document describes each feature of the CloudVoyager migration tool in pseud
 16. [State Management](#16-state-management)
 17. [Configuration & Validation](#17-configuration--validation)
 18. [Performance Tuning](#18-performance-tuning)
+19. [Checkpoint Journal and Pause/Resume](#19-checkpoint-journal--pauseresume)
 
 ---
 
@@ -97,6 +98,14 @@ FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, perf
   sqClient = new VersionAwareSonarQubeClient(sonarqubeConfig)
   scClient = new SonarCloudClient(sonarcloudConfig)
 
+  // --- Checkpoint Setup ---
+  lock = new LockFile(transferConfig.stateFile)
+  lock.acquire()                    // prevents concurrent runs
+  journal = new CheckpointJournal(stateFile + '.journal')
+  journal.initialize({ sonarQubeVersion, sonarQubeUrl, projectKey })
+  cache = new ExtractionCache(outputDir)
+  shutdownCoordinator.register(() => { journal.markInterrupted(); lock.release() })
+
   // --- Connection Test ---
   sqClient.testConnection()
   scClient.testConnection()
@@ -119,8 +128,9 @@ FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, perf
     ruleEnrichmentMap = buildRuleEnrichmentMap(scClient, scProfiles)
     // Fetches Clean Code attributes from SC to enrich old SQ data
 
-  // --- Extract & Transfer Main Branch ---
-  extractedData = DataExtractor.extractAll()
+  // --- Extract & Transfer Main Branch (checkpoint-aware) ---
+  extractedData = DataExtractor.extractAllWithCheckpoints(journal, cache, shutdownCheck)
+  // Each phase: check journal (skip if completed, load from cache) → execute → cache → mark complete
   mainResult = transferBranch(extractedData, mainBranch, ...)
 
   IF wait:
@@ -1076,14 +1086,22 @@ CLASS StateTracker:
       ]
     }
 
-  FUNCTION initialize():
+  FUNCTION initialize(lockFile):
     state = storage.load() OR defaultState
+    IF lockFile:
+      lock = lockFile
+      lock.acquire()    // ensures single-instance access
 
   FUNCTION recordTransfer(stats):
     state.lastSync = now()
     state.syncHistory.PUSH({ timestamp: now(), success: true, stats })
     IF syncHistory.length > 10: TRIM to last 10
     storage.save(state)
+
+  FUNCTION saveAfterBranch(branchName, stats):
+    state.completedBranches.ADD(branchName)
+    state.lastSync = now()
+    storage.save(state)    // persist immediately after each branch
 
   FUNCTION reset():
     state = defaultState
@@ -1208,4 +1226,132 @@ PERFORMANCE FEATURES:
   // Upload retry
   - CE submit has 2 attempts with timeout fallback
   - On timeout: checks /api/ce/activity for the submitted task
+```
+
+---
+
+## 19. Checkpoint Journal and Pause/Resume
+
+```
+CHECKPOINT JOURNAL:
+
+CLASS CheckpointJournal:
+  JOURNAL SHAPE:
+    {
+      version: 2,
+      sessionFingerprint: { sonarQubeVersion, sonarQubeUrl, projectKey, startedAt },
+      status: "in_progress" | "completed" | "interrupted",
+      phases: {
+        "extract:project_metadata": { status: "completed", completedAt },
+        "extract:issues":           { status: "in_progress", startedAt },
+        "extract:hotspots":         { status: "pending" },
+        ...
+      },
+      branches: {
+        "main":    { status: "completed", ceTaskId: "AY..." },
+        "develop": { status: "in_progress" },
+      },
+      uploadedCeTasks: {
+        "main": { taskId, submittedAt, status: "SUCCESS" }
+      }
+    }
+
+  FUNCTION initialize(fingerprint):
+    IF journal file exists:
+      LOAD existing journal
+      validateFingerprint(fingerprint)    // warn/block on SQ version mismatch
+    ELSE:
+      CREATE new journal with fingerprint
+
+  FUNCTION isPhaseCompleted(phaseName):
+    RETURN phases[phaseName].status == "completed"
+
+  FUNCTION startPhase(phaseName):
+    phases[phaseName] = { status: "in_progress", startedAt: now() }
+    atomicSave()
+
+  FUNCTION completePhase(phaseName):
+    phases[phaseName] = { status: "completed", completedAt: now() }
+    atomicSave()
+
+  FUNCTION recordUpload(branch, ceTaskId):
+    uploadedCeTasks[branch] = { taskId: ceTaskId, submittedAt: now() }
+    atomicSave()
+
+  FUNCTION markInterrupted():
+    status = "interrupted"
+    atomicSave()
+
+
+CLASS LockFile:
+  FUNCTION acquire():
+    IF lock file exists:
+      lockData = READ lock file
+      IF lockData.pid is alive AND lockData.hostname == currentHostname:
+        THROW LockError("Another instance is running")
+      IF lockData.hostname != currentHostname:
+        THROW LockError("Lock held by different machine, use --force-unlock")
+      IF lockData is stale (PID dead or >6h old):
+        LOG warning, overwrite lock
+    WRITE { pid, startedAt, hostname } to lock file
+
+  FUNCTION release():
+    DELETE lock file
+
+  FUNCTION forceRelease():
+    DELETE lock file (unconditionally)
+
+
+CLASS ShutdownCoordinator:
+  FUNCTION register(handler):
+    cleanupHandlers.PUSH(handler)
+
+  ON SIGINT (first time):
+    shuttingDown = true
+    RUN all cleanup handlers (save journal, release lock)
+    process.exit(0)
+
+  ON SIGINT (second time):
+    process.exit(1)    // force exit
+
+  FUNCTION isShuttingDown():
+    RETURN shuttingDown
+
+
+CLASS ExtractionCache:
+  FUNCTION save(phaseName, branch, data):
+    path = outputDir/cache/extractions/projectKey/branch/phaseName.json.gz
+    GZIP(JSON.stringify(data))
+    WRITE to path with integrity metadata
+
+  FUNCTION load(phaseName, branch):
+    TRY:
+      READ and decompress from path
+      VERIFY integrity
+      RETURN parsed data
+    CATCH:
+      RETURN null    // corrupt cache = re-extract
+
+
+CLASS MigrationJournal:
+  JOURNAL SHAPE:
+    {
+      version: 1,
+      status: "in_progress",
+      organizations: {
+        "org-1": {
+          status: "in_progress",
+          orgWideResources: "completed",
+          projects: {
+            "project-a": { status: "completed" },
+            "project-b": { status: "in_progress", lastCompletedStep: "upload_scanner_report" },
+          }
+        }
+      }
+    }
+
+  FUNCTION isOrgCompleted(orgKey):     RETURN orgs[orgKey].status == "completed"
+  FUNCTION isProjectCompleted(orgKey, projectKey): RETURN projects[key].status == "completed"
+  FUNCTION completeProject(orgKey, projectKey):    SET status, atomicSave()
+  FUNCTION completeStep(orgKey, projectKey, step): SET lastCompletedStep, atomicSave()
 ```

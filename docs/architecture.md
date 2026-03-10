@@ -128,13 +128,19 @@ src/
 │       ├── format-markdown.js # Markdown verification report
 │       └── format-pdf.js     # PDF verification report
 ├── state/
-│   ├── storage.js            # File-based state persistence
-│   └── tracker.js            # Incremental transfer state tracking
+│   ├── storage.js            # File-based state persistence (atomic write, backup rotation)
+│   ├── tracker.js            # Incremental transfer state tracking (with lock integration)
+│   ├── lock.js               # Advisory lock files for concurrent run prevention
+│   ├── checkpoint.js          # Phase-level checkpoint journal for pause/resume
+│   ├── extraction-cache.js    # Disk-cached extraction results (gzipped JSON)
+│   └── migration-journal.js   # Multi-project migration progress tracking
 └── utils/
     ├── logger.js             # Winston-based logging
-    ├── errors.js             # Custom error classes
+    ├── errors.js             # Custom error classes (including LockError, StaleResumeError, GracefulShutdownError)
     ├── concurrency.js        # Concurrency primitives (limiter, mapConcurrent, progress)
-    └── system-info.js        # System info detection (CPU, memory) and auto-tune
+    ├── system-info.js        # System info detection (CPU, memory) and auto-tune
+    ├── shutdown.js           # Graceful SIGINT/SIGTERM shutdown coordinator
+    └── progress.js           # Checkpoint progress display and ETA
 ```
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -147,12 +153,17 @@ Uses `transfer-pipeline.js`:
 
 1. **Load config** — validate and apply env var overrides
 2. **Initialize state** — load previous state for incremental transfers
-3. **Test connections** — verify SonarQube and SonarCloud connectivity
-4. **Extract data** — extract project data from SonarQube (issues, sources, measures, etc.)
-5. **Build messages** — transform extracted data into protobuf message structures
-6. **Encode** — encode messages to binary protobuf format
-7. **Upload** — submit encoded report to SonarCloud CE endpoint
-8. **Update state** — record successful transfer in state file
+3. **Acquire lock file** — prevent concurrent runs on the same project
+4. **Initialize checkpoint journal** — load or create checkpoint for pause/resume
+5. **Test connections** — verify SonarQube and SonarCloud connectivity
+6. **Extract data** — extract project data from SonarQube (issues, sources, measures, etc.)
+7. **Build messages** — transform extracted data into protobuf message structures
+8. **Encode** — encode messages to binary protobuf format
+9. **Upload** — submit encoded report to SonarCloud CE endpoint
+10. **Release lock** — release the advisory lock file
+11. **Update state** — record successful transfer in state file
+
+Interrupted transfers resume from the last completed checkpoint phase, skipping already-finished steps.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### `migrate` — Full Multi-Org Migration
@@ -162,7 +173,8 @@ Uses `migrate-pipeline.js`:
 1. **Extract server-wide data** — projects, quality gates, quality profiles, groups, permissions, templates, portfolios, DevOps bindings, server info, webhooks
 2. **Generate organization mappings** — map projects to target orgs by DevOps binding, generate CSV files for review
 3. **Save server info** — write system, plugins, settings, webhooks, ALM settings as JSON reference files
-4. **For each target organization:**
+4. **Initialize migration journal** — load or create journal tracking per-org and per-project progress
+5. **For each target organization:**
    - Create groups
    - Set global permissions
    - Create quality gates
@@ -180,6 +192,8 @@ Uses `migrate-pipeline.js`:
      - Assign migrated built-in quality profiles
      - Set project-level permissions
    - Create portfolios and assign projects
+
+On resume, completed organizations and projects are skipped based on the migration journal.
 
 <!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
 ### `verify` — Migration Verification
@@ -215,6 +229,8 @@ Uses `verify-pipeline.js`:
 - **Client-Service Pattern** — API clients handle HTTP, services handle business logic
 - **Builder Pattern** — ProtobufBuilder constructs complex message structures
 - **State Pattern** — StateTracker manages transfer state for incremental sync
+- **Checkpoint Pattern** — write-ahead journal tracks phase completion for crash recovery
+- **Lock Pattern** — advisory lock files prevent concurrent runs with stale detection
 - **Error Hierarchy** — custom error classes provide specific error handling
 - **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
 

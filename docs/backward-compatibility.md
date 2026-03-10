@@ -43,6 +43,8 @@ SonarQube server version: 2025.1.0.12345 (modern 10.4+ issue statuses)
 
 The version is detected once and cached for the lifetime of the client — no redundant API calls.
 
+The detected version is also stored in the checkpoint journal's session fingerprint. On resume, the journal validates that the SonarQube version hasn't changed — a mismatch triggers a warning (or blocks the resume if `transfer.checkpoint.strictResume` is enabled).
+
 ### Version-Aware Issue Fetching
 
 The issue search API changed in SonarQube 10.4:
@@ -127,6 +129,7 @@ These components work the same regardless of SonarQube version:
 - Issue metadata sync (statuses, comments, transitions)
 - Multi-branch support
 - Pagination (handles both `paging.total` and legacy `total` response formats)
+- Checkpoint journal and pause/resume (version-independent state tracking)
 
 ## Usage
 

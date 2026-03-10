@@ -17,6 +17,8 @@ cloudvoyager verify -c migrate-config.json --only issue-metadata
 cloudvoyager verify -c migrate-config.json --only quality-gates
 ```
 
+> **Tip:** Verification is read-only and does not modify any data. If a verification run is interrupted, simply re-run it — there is no checkpoint state to manage for verification.
+
 ## Output
 
 Verification produces three report files in `./verification-output/`:

@@ -21,6 +21,9 @@ The `--dry-run` flag generates 9 exhaustive CSV files in `migration-output/mappi
    -> Detects existing CSVs, reads them into memory BEFORE wiping output dir
    -> Re-extracts from SonarQube, applies CSV overrides
    -> Migrates using filtered data
+
+4. If interrupted, re-run the same command to resume from the last checkpoint.
+   Completed projects and phases are skipped automatically.
 ```
 
 ## Include Column
@@ -230,6 +233,7 @@ In `portfolio-mappings.csv`, set `Include` to `no` on the specific member row (n
 - Running `--dry-run` again will regenerate fresh CSVs, overwriting any edits.
 - If CSV references entities that no longer exist in SonarQube (e.g., a project was deleted between dry-run and full run), a warning is logged and the reference is skipped.
 - Gate names, project keys, and group names are matched **case-sensitively**.
+- If a migration is interrupted mid-run, re-running the same command resumes from the last checkpoint. Already-migrated projects and resources are skipped.
 
 ## 📚 Further Reading
 
