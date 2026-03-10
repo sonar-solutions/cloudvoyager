@@ -194,7 +194,8 @@ function formatFailedAssignments(lines, results, subsep) {
     '',
   );
   for (const f of failures) {
-    lines.push(`  [WARN] ${f.issueKey}: could not assign to "${f.assignee}" -- ${f.error}`);
+    const mappingNote = f.sqAssignee && f.sqAssignee !== f.assignee ? ` (SQ: "${f.sqAssignee}" -> SC: "${f.assignee}")` : `"${f.assignee}"`;
+    lines.push(`  [WARN] ${f.issueKey}: could not assign to ${mappingNote} -- ${f.error}`);
   }
   lines.push('');
 }
