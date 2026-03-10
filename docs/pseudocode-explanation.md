@@ -1,0 +1,1211 @@
+# CloudVoyager - Pseudocode Explanation
+
+This document describes each feature of the CloudVoyager migration tool in pseudocode.
+
+---
+
+## Table of Contents
+
+1. [CLI Commands](#1-cli-commands)
+2. [Transfer Pipeline (Single-Project)](#2-transfer-pipeline)
+3. [Migration Pipeline (Multi-Organization)](#3-migration-pipeline)
+4. [Metadata Sync](#4-metadata-sync)
+5. [Verification Pipeline](#5-verification-pipeline)
+6. [Data Extraction](#6-data-extraction)
+7. [Protobuf Building & Encoding](#7-protobuf-building--encoding)
+8. [Report Upload to SonarCloud](#8-report-upload-to-sonarcloud)
+9. [External Issues & Plugin Migration](#9-external-issues--plugin-migration)
+10. [Issue & Hotspot Metadata Sync](#10-issue--hotspot-metadata-sync)
+11. [Quality Gates Migration](#11-quality-gates-migration)
+12. [Quality Profiles Migration](#12-quality-profiles-migration)
+13. [Permissions & Groups Migration](#13-permissions--groups-migration)
+14. [Organization Mapping & CSV Generation](#14-organization-mapping--csv-generation)
+15. [Version-Aware SonarQube Client](#15-version-aware-sonarqube-client)
+16. [State Management](#16-state-management)
+17. [Configuration & Validation](#17-configuration--validation)
+18. [Performance Tuning](#18-performance-tuning)
+
+---
+
+## 1. CLI Commands
+
+```
+COMMAND: validate
+  INPUT: --config <path>
+  STEPS:
+    1. Load config file from disk
+    2. Validate against JSON schema (Ajv)
+    3. Verify required project keys exist
+    4. Display config summary (URLs, project keys, transfer mode)
+
+COMMAND: test
+  INPUT: --config <path>, [--verbose]
+  STEPS:
+    1. Load config
+    2. Create VersionAwareSonarQubeClient
+    3. Test SonarQube connection (GET /api/system/health)
+    4. Detect and cache SonarQube version
+    5. Create SonarCloud client
+    6. Test SonarCloud connection (GET /api/organizations/search)
+    7. Report success or failure for each
+
+COMMAND: status
+  INPUT: --config <path>
+  STEPS:
+    1. Load config
+    2. Initialize StateTracker from state file
+    3. Display:
+       - Last sync timestamp
+       - Number of processed issues
+       - Completed branches list
+       - Sync history (last 10 entries)
+
+COMMAND: reset
+  INPUT: --config <path>, [--yes]
+  STEPS:
+    1. Load config
+    2. IF not --yes: show confirmation prompt and exit
+    3. Initialize StateTracker
+    4. Clear all state (lastSync, processedIssues, completedBranches, syncHistory)
+    5. Persist reset state to disk
+
+COMMAND: transfer
+  → See "Transfer Pipeline" section
+
+COMMAND: migrate
+  → See "Migration Pipeline" section
+
+COMMAND: sync-metadata
+  → See "Metadata Sync" section
+
+COMMAND: verify
+  → See "Verification Pipeline" section
+```
+
+---
+
+## 2. Transfer Pipeline
+
+Transfers a single SonarQube project to SonarCloud.
+
+```
+FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig, wait):
+
+  // --- Setup ---
+  state = new StateTracker(transferConfig.stateFile)
+  state.initialize()
+  sqClient = new VersionAwareSonarQubeClient(sonarqubeConfig)
+  scClient = new SonarCloudClient(sonarcloudConfig)
+
+  // --- Connection Test ---
+  sqClient.testConnection()
+  scClient.testConnection()
+
+  // --- Project Setup ---
+  projectName = sqClient.getProject().name
+  scClient.ensureProject(projectName)   // create in SC if not exists
+
+  // --- Branch Configuration ---
+  branches = sqClient.getBranches()
+  mainBranch = branches.find(b => b.isMain)
+  nonMainBranches = branches.filter(b => !b.isMain)
+  APPLY excludeBranches filter
+  APPLY includeBranches filter (from CSV if present)
+
+  // --- Rule Enrichment (for SQ < 10.0) ---
+  scProfiles = scClient.getQualityProfiles()
+  scRepos = scClient.getRuleRepositories()
+  IF sqVersion < 10.0:
+    ruleEnrichmentMap = buildRuleEnrichmentMap(scClient, scProfiles)
+    // Fetches Clean Code attributes from SC to enrich old SQ data
+
+  // --- Extract & Transfer Main Branch ---
+  extractedData = DataExtractor.extractAll()
+  mainResult = transferBranch(extractedData, mainBranch, ...)
+
+  IF wait:
+    scClient.waitForAnalysis(mainResult.ceTask.id)
+
+  // --- Extract & Transfer Non-Main Branches ---
+  FOR EACH branch IN nonMainBranches:
+    IF state.isBranchCompleted(branch.name): SKIP
+    IF branch.name IN excludeBranches: SKIP
+
+    branchData = DataExtractor.extractBranch(branch.name, extractedData)
+    branchResult = transferBranch(branchData, branch, ...)
+    state.markBranchCompleted(branch.name)
+
+  // --- Record State ---
+  state.recordTransfer(aggregatedStats)
+  RETURN stats
+
+
+FUNCTION transferBranch(extractedData, branch, scConfig, scProfiles, scRepos, ...):
+
+  // Step 1: Build protobuf messages from extracted data
+  builder = new ProtobufBuilder(extractedData, scConfig, scProfiles, options)
+  messages = builder.buildAll()
+
+  // Step 2: Encode messages to binary protobuf
+  encoder = new ProtobufEncoder()
+  encoder.loadSchemas()
+  encodedReport = encoder.encodeAll(messages)
+
+  // Step 3: Upload to SonarCloud
+  uploader = new ReportUploader(scClient)
+  ceTask = uploader.upload(encodedReport, metadata)
+
+  RETURN { stats, ceTask }
+```
+
+---
+
+## 3. Migration Pipeline
+
+Migrates all projects across multiple SonarCloud organizations.
+
+```
+FUNCTION migrateAll(sonarqubeConfig, sonarcloudOrgs, migrateConfig, transferConfig, ...):
+
+  // --- Output Directory Setup ---
+  CREATE directories: /mappings, /state, /quality-profiles, /cache, /reports, /logs
+
+  // --- Load Cache (from previous runs) ---
+  TRY load existing mapping CSVs (from dry-run)
+  TRY load server-wide data cache
+
+  // --- Connect & Extract Server-Wide Data ---
+  sqClient.testConnection()
+
+  IF cache hit:
+    REUSE cached data
+  ELSE:
+    allProjects       = extractAllProjects()
+    qualityGates      = extractQualityGates()
+    qualityProfiles   = extractQualityProfiles()
+    groups            = extractGroups()
+    permissions       = extractPermissions()
+    permTemplates     = extractPermissionTemplates()
+    portfolios        = extractPortfolios()
+    projectBindings   = extractDevOpsBindings()
+    projectSettings   = extractProjectSettings()
+    SAVE to cache
+
+  // --- Generate Organization Mappings ---
+  orgAssignments = mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs)
+  generateMappingCsvs(orgAssignments, extractedData, mappingsDir)
+  // Produces: projects.csv, quality-gates.csv, quality-profiles.csv,
+  //           groups.csv, permissions.csv, portfolios.csv
+
+  // --- Dry Run: Stop Here ---
+  IF migrateConfig.dryRun:
+    LOG "CSV files generated. Edit them and re-run without --dry-run."
+    RETURN
+
+  // --- Apply CSV Overrides (from user edits) ---
+  IF csvFiles exist in mappingsDir:
+    APPLY Include=no filters (skip excluded items)
+    APPLY threshold edits, project key overrides, etc.
+
+  // --- Migrate Each Organization ---
+  FOR EACH assignment IN orgAssignments:
+    org = assignment.org
+    projects = assignment.projects
+
+    migrateOneOrganization(org, projects, extractedData, ...)
+
+  // --- Migrate Portfolios (Enterprise) ---
+  IF enterpriseConfig exists:
+    migrateEnterprisePortfolios(portfolios, projectKeyMap)
+
+  // --- Generate Reports ---
+  writeAllReports(results)   // Markdown + PDF
+  RETURN results
+
+
+FUNCTION migrateOneOrganization(org, projects, extractedData, ...):
+
+  scClient = new SonarCloudClient(org)
+  scClient.testConnection()
+
+  // --- Org-Wide Resources ---
+  migrateGroups(extractedData.groups, scClient)
+  migrateGlobalPermissions(extractedData.permissions, scClient)
+  gateMapping = migrateQualityGates(extractedData.qualityGates, scClient)
+  profileMapping = migrateQualityProfiles(extractedData.qualityProfiles, scClient)
+  migratePermissionTemplates(extractedData.permTemplates, scClient)
+
+  // --- Migrate Projects ---
+  FOR EACH project IN projects:
+    // 1. Upload scanner report (same as transfer pipeline)
+    transferProject(sqConfig, scConfig(project), transferConfig, ...)
+
+    // 2. Sync issue metadata (status, comments, tags, assignments)
+    IF NOT skipIssueMetadataSync:
+      syncIssues(project, sqIssues, scClient, sqClient)
+
+    // 3. Sync hotspot metadata
+    IF NOT skipHotspotMetadataSync:
+      syncHotspots(project, sqHotspots, scClient)
+
+    // 4. Configure project
+    migrateProjectSettings(project, scClient)
+    migrateProjectTags(project, scClient)
+    migrateProjectLinks(project, scClient)
+    assignQualityGate(project, gateMapping, scClient)
+    assignQualityProfiles(project, profileMapping, scClient)
+    migrateProjectPermissions(project, scClient)
+    migrateNewCodeDefinition(project, scClient)
+    migrateDevOpsBinding(project, scClient)
+```
+
+---
+
+## 4. Metadata Sync
+
+Re-syncs issue and hotspot metadata for already-migrated projects.
+
+```
+COMMAND sync-metadata:
+  INPUT: --config <path>, [skip flags]
+
+  STEPS:
+    1. Load migration config
+    2. SET skipProjectConfig = true    // don't re-run project setup
+    3. SET dryRun = false
+    4. CALL migrateAll() with modified config
+       // Only runs the issue/hotspot sync portions
+    5. Report success/failure
+```
+
+---
+
+## 5. Verification Pipeline
+
+Compares SonarQube and SonarCloud data to verify migration completeness.
+
+```
+FUNCTION verifyAll(sonarqubeConfig, sonarcloudOrgs, outputDir, onlyComponents, ...):
+
+  results = { orgResults: [], projectResults: [], summary: {} }
+
+  // --- Connect ---
+  sqClient.testConnection()
+  allProjects = sqClient.getAllProjects()
+  orgAssignments = mapProjectsToOrganizations(allProjects, ...)
+
+  // --- Per-Organization Checks ---
+  FOR EACH org IN orgAssignments:
+    scClient = new SonarCloudClient(org)
+
+    orgChecks = {
+      qualityGates:       verifyQualityGates(sqClient, scClient),
+      qualityProfiles:    verifyQualityProfiles(sqClient, scClient),
+      groups:             verifyGroups(sqClient, scClient),
+      globalPermissions:  verifyGlobalPermissions(sqClient, scClient),
+      permissionTemplates: verifyPermissionTemplates(sqClient, scClient),
+    }
+
+    // --- Per-Project Checks ---
+    FOR EACH project IN org.projects:
+      scProjectKey = resolveProjectKey(project)
+
+      projectChecks = {
+        existence:        checkProjectExists(scClient, scProjectKey),
+        branches:         verifyBranches(sqClient, scClient, project),
+        issues:           verifyIssues(sqClient, scClient, project),
+        hotspots:         verifyHotspots(sqClient, scClient, project),
+        measures:         verifyMeasures(sqClient, scClient, project),
+        qualityGate:      verifyProjectQualityGate(sqClient, scClient, project),
+        qualityProfiles:  verifyProjectQualityProfiles(sqClient, scClient, project),
+        settings:         verifyProjectSettings(sqClient, scClient, project),
+        tags:             verifyProjectTags(sqClient, scClient, project),
+        links:            verifyProjectLinks(sqClient, scClient, project),
+        newCodePeriods:   verifyNewCodePeriods(sqClient, scClient, project),
+        devOpsBinding:    verifyDevOpsBinding(sqClient, scClient, project),
+        permissions:      verifyProjectPermissions(sqClient, scClient, project),
+      }
+
+      // Each check returns: { status: pass|fail|warning|skipped|error, message, details }
+
+  // --- Portfolios ---
+  IF enterpriseConfig:
+    verifyPortfolios(...)
+
+  // --- Summary ---
+  summary = COUNT passes, failures, warnings, errors across all checks
+
+  // --- Reports ---
+  writeVerificationReport(results, outputDir)   // Markdown + PDF
+  RETURN results
+```
+
+---
+
+## 6. Data Extraction
+
+Extracts all data from SonarQube for a single project.
+
+```
+FUNCTION DataExtractor.extractAll():
+
+  // Step 1: Project metadata
+  project = sqClient.getProject()
+  branches = sqClient.getBranches()
+  qualityGate = sqClient.getQualityGate()
+
+  // Step 2: Metric definitions
+  metrics = sqClient.getMetrics()
+  metricKeys = filterToCommonMetrics(metrics)
+
+  // Step 3: Component tree with measures
+  components = sqClient.getComponentTree(metricKeys)
+
+  // Step 3b: Source file list (for language detection)
+  sourceFilesList = sqClient.getSourceFiles()
+
+  // Step 4: Active rules (filtered by detected languages)
+  languages = UNIQUE(sourceFilesList.map(f => f.language))
+  profiles = sqClient.getAllQualityProfiles()
+  activeRules = []
+  FOR EACH profile matching project languages:
+    rules = sqClient.getActiveRules(profile.key)
+    activeRules.APPEND(rules)
+  DEDUPLICATE activeRules by repo:key
+
+  // Step 5: Issues
+  issues = sqClient.getIssues({ branch, createdAfter: state.lastSync })
+  // Includes: key, rule, severity, status, message, textRange, flows,
+  //           effort, author, tags, type, cleanCodeAttribute, impacts
+
+  // Step 5b: Security hotspots (converted to issue format)
+  hotspots = extractHotspotsAsIssues(sqClient)
+  issues.APPEND(hotspots)
+
+  // Step 6: Project-level measures
+  measures = sqClient.getMeasures(projectKey, metricKeys)
+
+  // Step 7: Source code content
+  sources = []
+  FOR EACH file IN sourceFilesList (with concurrency limit):
+    content = sqClient.getSourceCode(file.key)
+    sources.PUSH({ key: file.key, content, language: file.language })
+
+  // Step 7b: Code duplications
+  duplications = extractDuplications(sqClient, components)
+
+  // Step 8: SCM blame data (changesets)
+  changesets = extractChangesets(sqClient, sourceFilesList, components)
+
+  // Step 9: Symbol references
+  symbols = extractSymbols(sqClient, sourceFilesList)
+
+  // Step 10: Syntax highlighting
+  syntaxHighlightings = extractSyntaxHighlighting(sqClient, sourceFilesList)
+
+  RETURN {
+    project, metrics, issues, measures, components, sources,
+    activeRules, duplications, changesets, symbols, syntaxHighlightings,
+    metadata: { extractedAt, mode, scmRevisionId }
+  }
+
+
+FUNCTION DataExtractor.extractBranch(branchName, mainData):
+  // Same shape as extractAll(), but:
+  // - Reuses metric definitions from mainData
+  // - Passes branch parameter to all API calls
+  // - Returns branch-specific data
+```
+
+---
+
+## 7. Protobuf Building & Encoding
+
+Transforms extracted data into SonarCloud's scanner report protobuf format.
+
+```
+CLASS ProtobufBuilder:
+
+  FUNCTION buildAll():
+    metadata   = buildMetadata()
+    components = buildComponents()
+    { externalIssuesByComponent, adHocRules } = buildExternalIssues()
+    issuesByComponent       = buildIssues()
+    measuresByComponent     = buildMeasures()
+    sourceFiles             = buildSourceFiles()
+    activeRules             = buildActiveRules()
+    changesetsByComponent   = buildChangesets()
+    duplicationsByComponent = buildDuplications()
+
+    RETURN all messages
+
+
+  FUNCTION buildMetadata():
+    RETURN {
+      analysisDate:       current timestamp,
+      organizationKey:    SC org key,
+      projectKey:         SC project key,
+      rootComponentRef:   1 (project component),
+      branchName:         branch name,
+      branchType:         LONG,
+      referenceBranchName: main branch name,
+      scmRevisionId:      commit hash (or generated fake),
+      qprofilesPerLanguage: { lang -> { key, name, rulesUpdatedAt } },
+      analyzedIndexedFileCountPerType: { lang -> file count },
+    }
+
+
+  FUNCTION buildComponents():
+    components = []
+
+    // Project component (ref=1)
+    projectComponent = {
+      ref: 1, type: PROJECT, key: projectKey, name: projectName
+    }
+
+    // File components
+    FOR EACH source file with content:
+      ref = nextRef++
+      componentRefMap.SET(file.key, ref)
+      component = {
+        ref, type: FILE, key: file.key, name: file.path,
+        language: sanitizeLanguage(file.language),
+        lines: lineCount, status: ADDED
+      }
+      components.PUSH(component)
+
+    projectComponent.childRef = components.map(c => c.ref)
+    RETURN [projectComponent, ...components]
+
+
+  FUNCTION buildIssues():
+    issuesByComponent = new Map()
+
+    FOR EACH issue WHERE NOT isExternalIssue(issue):
+      IF component has no source code: SKIP
+
+      componentRef = componentRefMap.GET(issue.component)
+      protoIssue = {
+        ruleRepository: extractRepo(issue.rule),
+        ruleKey: extractKey(issue.rule),
+        msg: issue.message,
+        overriddenSeverity: mapSeverity(issue.severity),
+        textRange: issue.textRange,  // startLine, endLine, startOffset, endOffset
+        flow: issue.flows,           // list of locations
+      }
+      issuesByComponent.GET_OR_CREATE(componentRef).PUSH(protoIssue)
+
+    RETURN issuesByComponent
+
+
+  FUNCTION buildMeasures():
+    measuresByComponent = new Map()
+
+    FOR EACH component WHERE type == FILE:
+      measures = []
+      FOR EACH measure on component:
+        protoMeasure = {
+          metricKey: measure.metric
+        }
+        IF measure is string:  protoMeasure.stringValue = value
+        IF measure is boolean: protoMeasure.booleanValue = value
+        IF measure is int:     protoMeasure.intValue = value
+        IF measure is long:    protoMeasure.longValue = value
+        IF measure is float:   protoMeasure.doubleValue = value
+        measures.PUSH(protoMeasure)
+
+      measuresByComponent.SET(componentRef, measures)
+
+    RETURN measuresByComponent
+
+
+  FUNCTION buildActiveRules():
+    rules = []
+
+    FOR EACH activeRule WHERE NOT isExternalRule(rule):
+      protoRule = {
+        ruleRepository: rule.repo,
+        ruleKey: rule.key,
+        severity: mapSeverity(rule.severity),
+        paramsByKey: rule.params,
+        qProfileKey: resolveProfileKey(rule),
+        createdAt: rule.createdAt,
+        updatedAt: rule.updatedAt,
+      }
+
+      // Resolve impacts (SQ 10.0+ has native, SQ 9.9 uses enrichment map)
+      IF rule.impacts:
+        protoRule.impacts = rule.impacts
+      ELSE IF ruleEnrichmentMap.HAS(rule.repo + ":" + rule.key):
+        protoRule.impacts = ruleEnrichmentMap.GET(...).impacts
+
+      rules.PUSH(protoRule)
+
+    RETURN rules
+
+
+CLASS ProtobufEncoder:
+
+  FUNCTION loadSchemas():
+    root = protobuf.load("constants.proto", "scanner-report.proto")
+
+  FUNCTION encodeAll(messages):
+    RETURN {
+      metadata:      encode("ScannerReport.Metadata", messages.metadata),
+      components:    messages.components.map(c => encode("ScannerReport.Component", c)),
+      issues:        FOR EACH ref: concatenate length-delimited Issue messages,
+      measures:      FOR EACH ref: concatenate length-delimited Measure messages,
+      sourceFilesText: FOR EACH ref: join lines with newlines (plain UTF-8),
+      activeRules:   concatenate length-delimited ActiveRule messages,
+      changesets:    FOR EACH ref: encode Changesets message,
+      externalIssues: FOR EACH ref: concatenate length-delimited ExternalIssue messages,
+      adHocRules:    concatenate length-delimited AdHocRule messages,
+      duplications:  FOR EACH ref: concatenate length-delimited Duplication messages,
+    }
+```
+
+---
+
+## 8. Report Upload to SonarCloud
+
+Packages the encoded protobuf report and submits it to SonarCloud's Compute Engine.
+
+```
+CLASS ReportUploader:
+
+  FUNCTION upload(encodedReport, metadata):
+
+    // Step 1: Package into zip archive
+    zip = new AdmZip()
+    zip.addFile("metadata.pb",                encodedReport.metadata)
+    FOR EACH component:
+      zip.addFile("component-{ref}.pb",       encodedReport.components[i])
+    FOR EACH (ref, buffer) IN encodedReport.issues:
+      zip.addFile("issues-{ref}.pb",          buffer)
+    FOR EACH (ref, buffer) IN encodedReport.measures:
+      zip.addFile("measures-{ref}.pb",        buffer)
+    FOR EACH source IN encodedReport.sourceFilesText:
+      zip.addFile("source-{ref}.txt",         source.text)
+    zip.addFile("activerules.pb",             encodedReport.activeRules)
+    FOR EACH (ref, buffer) IN encodedReport.changesets:
+      zip.addFile("changesets-{ref}.pb",      buffer)
+    FOR EACH (ref, buffer) IN encodedReport.externalIssues:
+      zip.addFile("external-issues-{ref}.pb", buffer)
+    zip.addFile("adhocrules.pb",              encodedReport.adHocRules)
+    FOR EACH (ref, buffer) IN encodedReport.duplications:
+      zip.addFile("duplications-{ref}.pb",    buffer)
+    zip.addFile("context-props.pb",           empty)
+
+    zipBuffer = zip.toBuffer()
+
+    // Step 2: Submit to Compute Engine
+    ceTask = submitToComputeEngine(zipBuffer, metadata)
+    RETURN ceTask
+
+
+  FUNCTION submitToComputeEngine(reportData, metadata):
+    MAX_ATTEMPTS = 2
+
+    FOR attempt = 1 TO MAX_ATTEMPTS:
+      formData = new FormData()
+      formData.append("report", reportData)
+      formData.append("projectKey", metadata.projectKey)
+      formData.append("organization", metadata.organization)
+      IF NOT mainBranch:
+        formData.append("characteristic", "branch=" + branchName)
+        formData.append("characteristic", "branchType=LONG")
+
+      TRY:
+        response = POST /api/ce/submit (formData, timeout=60s)
+        RETURN response.task    // { id: ceTaskId }
+      CATCH timeout:
+        // Response timed out — check if task was created anyway
+        task = _findTaskFromActivity(uploadStartTime)
+        IF task: RETURN task
+        IF last attempt: THROW error
+        // Otherwise retry
+
+
+  FUNCTION uploadAndWait(encodedReport, metadata):
+    ceTask = upload(encodedReport, metadata)
+    finalTask = scClient.waitForAnalysis(ceTask.id)
+    RETURN finalTask
+```
+
+---
+
+## 9. External Issues & Plugin Migration
+
+Automatically detects issues from unsupported rule repositories (e.g., MuleSoft) and migrates them as external issues.
+
+```
+FUNCTION isExternalIssue(issue, sonarCloudRepos):
+  repo = issue.rule.split(":")[0]
+  RETURN NOT sonarCloudRepos.HAS(repo)
+
+
+FUNCTION buildExternalIssues():
+  externalIssuesByComponent = new Map()
+  adHocRules = []
+  seenRules = new Set()
+
+  FOR EACH issue IN extractedData.issues:
+    repo = issue.rule.split(":")[0]
+    IF sonarCloudRepos.HAS(repo): CONTINUE    // native issue, skip
+    IF component has no source code: CONTINUE
+
+    engineId = repo         // e.g., "mulesoft"
+    ruleId = issue.rule.split(":")[1]   // e.g., "MS058"
+
+    // --- Resolve Clean Code Attribute ---
+    //   CRITICAL: Must be a protobuf enum (varint int), NOT a string!
+    //   SonarCloud CE silently ignores external issues if string-encoded.
+    IF issue.cleanCodeAttribute:
+      cleanCodeAttr = mapCleanCodeAttribute(issue.cleanCodeAttribute)
+      // Maps: "CONVENTIONAL"->1, "FORMATTED"->2, ... "TRUSTWORTHY"->14
+    ELSE IF ruleEnrichmentMap.HAS(engineId + ":" + ruleId):
+      cleanCodeAttr = ruleEnrichmentMap.GET(...).cleanCodeAttribute
+    ELSE:
+      cleanCodeAttr = defaultCleanCodeAttribute(issue.type)
+      // CODE_SMELL->1(CONVENTIONAL), BUG->7(LOGICAL), VULNERABILITY->14(TRUSTWORTHY)
+
+    // --- Resolve Impacts ---
+    IF issue.impacts:
+      impacts = issue.impacts.map(i => { softwareQuality, severity })
+    ELSE IF ruleEnrichmentMap.HAS(...):
+      impacts = ruleEnrichmentMap.GET(...).impacts
+    ELSE:
+      impacts = deriveFromTypeAndSeverity(issue.type, issue.severity)
+
+    // --- Create ExternalIssue Message ---
+    externalIssue = {
+      engineId, ruleId,
+      msg: issue.message,
+      severity: mapSeverity(issue.severity),
+      effort: parseEffort(issue.effort),    // "30min" -> 30, "1h30min" -> 90
+      type: mapIssueType(issue.type),
+      cleanCodeAttribute: cleanCodeAttr,    // enum int (1-14)
+      impacts: impacts,
+      textRange: issue.textRange,
+      flow: issue.flows,
+    }
+    externalIssuesByComponent.GET_OR_CREATE(componentRef).PUSH(externalIssue)
+
+    // --- Create AdHocRule (once per unique rule) ---
+    ruleKey = engineId + ":" + ruleId
+    IF NOT seenRules.HAS(ruleKey):
+      seenRules.ADD(ruleKey)
+      adHocRules.PUSH({
+        engineId, ruleId,
+        name: issue.rule,
+        description: issue.message,
+        type: mapIssueType(issue.type),
+        cleanCodeAttribute: cleanCodeAttr,
+        defaultImpacts: impacts,
+      })
+
+  RETURN { externalIssuesByComponent, adHocRules }
+
+
+FUNCTION buildRuleEnrichmentMap(scClient, scProfiles):
+  // For SQ < 10.0: fetch Clean Code taxonomy from SonarCloud
+  enrichmentMap = new Map()
+
+  FOR EACH profile IN scProfiles:
+    rules = scClient.getActiveRules(profile.key)
+    FOR EACH rule:
+      enrichmentMap.SET(rule.repo + ":" + rule.key, {
+        cleanCodeAttribute: rule.cleanCodeAttribute,
+        impacts: rule.impacts,
+      })
+
+  RETURN enrichmentMap
+```
+
+---
+
+## 10. Issue & Hotspot Metadata Sync
+
+Syncs issue/hotspot statuses, assignments, comments, and tags from SonarQube to SonarCloud after scanner report upload.
+
+```
+FUNCTION syncIssues(projectKey, sqIssues, scClient, options):
+
+  // Step 1: Fetch all SC issues for matching
+  scIssues = scClient.searchIssues(projectKey)
+
+  // Step 2: Build match key lookup
+  scIssueMap = new Map()
+  FOR EACH scIssue:
+    matchKey = scIssue.rule + "|" + extractFilePath(scIssue.component) + "|" + scIssue.line
+    scIssueMap.SET(matchKey, scIssue)
+
+  // Step 3: Match SQ issues to SC issues
+  matchedPairs = []
+  FOR EACH sqIssue:
+    matchKey = sqIssue.rule + "|" + extractFilePath(sqIssue.component) + "|" + sqIssue.line
+    scIssue = scIssueMap.GET(matchKey)
+    IF scIssue:
+      matchedPairs.PUSH({ sq: sqIssue, sc: scIssue })
+
+  // Step 4: Sync metadata for each matched pair (with concurrency limit)
+  FOR EACH { sq, sc } IN matchedPairs (CONCURRENT):
+
+    // 4a. Replay status transitions from changelog
+    IF sqClient available:
+      changelog = sqClient.getIssueChangelog(sq.key)
+      FOR EACH statusChange IN changelog:
+        transition = mapChangelogDiffToTransition(statusChange.diffs)
+        // Maps: WONTFIX->'wontfix', FALSE-POSITIVE->'falsepositive',
+        //       CONFIRMED->'confirm', REOPENED->'reopen', ACCEPTED->'accept', etc.
+        IF transition:
+          scClient.transitionIssue(sc.key, transition)
+
+    // 4b. Sync assignment
+    IF sq.assignee AND sq.assignee != sc.assignee:
+      scClient.assignIssue(sc.key, sq.assignee)
+
+    // 4c. Sync comments
+    FOR EACH comment IN sq.comments:
+      scClient.addIssueComment(sc.key, formatComment(comment))
+
+    // 4d. Sync tags
+    IF sq.tags NOT EMPTY:
+      scClient.setIssueTags(sc.key, sq.tags)
+
+    // 4e. Mark as metadata-synchronized
+    scClient.setIssueTags(sc.key, [...existing, "metadata-synchronized"])
+
+    // 4f. Add source link back to SonarQube
+    scClient.addIssueComment(sc.key, "SonarQube Source: {sonarqubeUrl}/issues?id=...")
+
+  RETURN { matched, transitioned, assigned, commented, tagged, failed }
+
+
+FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
+
+  // Step 1: Fetch all SC hotspots
+  scHotspots = scClient.getHotspots(projectKey)
+
+  // Step 2: Match (rule + component + line)
+  matchedPairs = matchByKey(sqHotspots, scHotspots)
+
+  // Step 3: Sync each matched hotspot
+  FOR EACH { sq, sc } IN matchedPairs (CONCURRENT):
+
+    // Status sync
+    IF sq.status != sc.status:
+      scClient.changeHotspotStatus(sc.key, mapStatus(sq.status), mapResolution(sq.resolution))
+
+    // Comments sync
+    FOR EACH comment IN sq.comments:
+      scClient.addHotspotComment(sc.key, formatComment(comment))
+
+    // Source link
+    scClient.addHotspotComment(sc.key, "SonarQube Source: {url}")
+
+  RETURN { matched, statusChanged, commentAdded, failed }
+```
+
+---
+
+## 11. Quality Gates Migration
+
+```
+FUNCTION migrateQualityGates(extractedGates, scClient):
+  gateMapping = new Map()    // gateName -> gateId
+
+  FOR EACH gate IN extractedGates:
+    IF gate.isBuiltIn: SKIP    // SC has its own built-in gates
+
+    // Create gate
+    { id } = scClient.createQualityGate(gate.name)
+
+    // Create conditions
+    FOR EACH condition IN gate.conditions:
+      scClient.createQualityGateCondition(id, condition.metric, condition.op, condition.error)
+
+    // Set as default
+    IF gate.isDefault:
+      scClient.setDefaultQualityGate(id)
+
+    // Set permissions
+    FOR EACH group IN gate.permissions WHERE group.selected:
+      scClient.addGroupPermission(group.name, "gateadmin")
+
+    gateMapping.SET(gate.name, id)
+
+  RETURN gateMapping
+
+
+FUNCTION assignQualityGatesToProjects(gateMapping, projectAssignments, scClient):
+  FOR EACH { projectKey, gateName } IN projectAssignments:
+    gateId = gateMapping.GET(gateName)
+    IF gateId:
+      scClient.assignQualityGateToProject(gateId, projectKey)
+```
+
+---
+
+## 12. Quality Profiles Migration
+
+```
+FUNCTION migrateQualityProfiles(extractedProfiles, scClient):
+  profileMapping = new Map()
+  builtInProfileMapping = new Map()
+
+  // --- Separate custom and built-in ---
+  customProfiles = profiles.filter(p => NOT p.isBuiltIn)
+  builtInProfiles = profiles.filter(p => p.isBuiltIn)
+
+  // --- Restore custom profiles (respecting inheritance order) ---
+  chains = buildInheritanceChains(customProfiles)
+  // chains = [[parent, child, grandchild], ...]
+  // Restore parents before children
+
+  FOR EACH chain IN chains:
+    FOR EACH profile IN chain:
+      scClient.restoreQualityProfile(profile.backupXml)
+      profileMapping.SET(profile.name, profile)
+
+  // --- Restore built-in profiles as custom (with renamed suffix) ---
+  FOR EACH profile IN builtInProfiles:
+    renamedXml = modifyBackupXml(profile.backupXml, {
+      name: profile.name + " (SonarQube Migrated)"
+    })
+    scClient.restoreQualityProfile(renamedXml)
+    builtInProfileMapping.SET(profile.language, profile.name + " (SonarQube Migrated)")
+
+  // --- Set defaults ---
+  FOR EACH profile IN customProfiles WHERE profile.isDefault:
+    scClient.setDefaultQualityProfile(profile.language, profile.name)
+
+  // --- Set permissions ---
+  FOR EACH profile IN customProfiles:
+    FOR EACH group IN profile.permissions.groups WHERE group.selected:
+      scClient.addQualityProfileGroupPermission(profile.name, profile.language, group.name)
+    FOR EACH user IN profile.permissions.users WHERE user.selected:
+      scClient.addQualityProfileUserPermission(profile.name, profile.language, user.login)
+
+  RETURN { profileMapping, builtInProfileMapping }
+
+
+FUNCTION buildInheritanceChains(profiles):
+  parentMap = new Map()    // profileKey -> profile
+  chains = []
+
+  FOR EACH profile:
+    chain = [profile]
+    current = profile
+    WHILE current.parentKey:
+      parent = parentMap.GET(current.parentKey)
+      chain.UNSHIFT(parent)    // parent first
+      current = parent
+    IF chain.length > 1:
+      chains.PUSH(chain)
+
+  RETURN chains
+```
+
+---
+
+## 13. Permissions & Groups Migration
+
+```
+FUNCTION migrateGroups(extractedGroups, scClient):
+  FOR EACH group IN extractedGroups:
+    TRY:
+      scClient.createGroup(group.name, group.description)
+    CATCH already exists:
+      LOG "Group already exists, skipping"
+
+
+FUNCTION migrateGlobalPermissions(extractedPermissions, scClient):
+  FOR EACH permission IN extractedPermissions.global:
+    FOR EACH group IN permission.groups:
+      scClient.addGroupPermission(group.name, permission.key)
+    FOR EACH user IN permission.users:
+      scClient.addUserPermission(user.login, permission.key)
+
+
+FUNCTION migratePermissionTemplates(extractedTemplates, scClient):
+  FOR EACH template IN extractedTemplates:
+    scClient.createPermissionTemplate(template.name, template.description, template.projectKeyPattern)
+
+    FOR EACH permission IN template.permissions:
+      FOR EACH group IN permission.groups:
+        scClient.addGroupToTemplate(template.name, group.name, permission.key)
+      FOR EACH user IN permission.users:
+        scClient.addUserToTemplate(template.name, user.login, permission.key)
+
+
+FUNCTION migrateProjectPermissions(project, scClient):
+  FOR EACH permission IN project.permissions:
+    FOR EACH group IN permission.groups:
+      scClient.addProjectGroupPermission(project.key, group.name, permission.key)
+    FOR EACH user IN permission.users:
+      scClient.addProjectUserPermission(project.key, user.login, permission.key)
+```
+
+---
+
+## 14. Organization Mapping & CSV Generation
+
+Maps SonarQube projects to SonarCloud organizations and generates editable CSV files.
+
+```
+FUNCTION mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs):
+  orgAssignments = []
+
+  FOR EACH org IN sonarcloudOrgs:
+    orgAssignments.PUSH({ org, projects: [] })
+
+  FOR EACH project IN allProjects:
+    binding = projectBindings.GET(project.key)
+
+    IF binding:
+      // Use DevOps binding (ALM + slug) to determine org
+      targetOrg = resolveOrgFromBinding(binding, sonarcloudOrgs)
+    ELSE:
+      // Default to first SC org
+      targetOrg = sonarcloudOrgs[0]
+
+    assignment = orgAssignments.FIND(a => a.org.key == targetOrg.key)
+    assignment.projects.PUSH(project)
+
+  RETURN orgAssignments
+
+
+FUNCTION generateMappingCsvs(orgAssignments, extractedData, mappingsDir):
+
+  // projects.csv
+  //   Include | SonarQubeKey | SonarCloudKey | Organization | Branches
+  //   yes     | my-project   | my-project    | my-org       | main,develop
+
+  // quality-gates.csv
+  //   Include | QualityGateName | Condition | Metric | Threshold | Operator | Groups
+
+  // quality-profiles.csv
+  //   Include | Language | ProfileName | IsDefault | ParentProfile
+
+  // groups.csv
+  //   Include | GroupName | MemberCount
+
+  // permissions.csv
+  //   Include | Type | Name | Permission | GroupOrUser
+
+  // portfolios.csv
+  //   Include | PortfolioKey | Name | ProjectCount | Projects
+
+  WRITE all CSV files to mappingsDir
+  // User reviews/edits, then re-runs without --dry-run
+
+
+FUNCTION applyCsvOverrides(csvData, extractedData, resourceMappings, orgAssignments):
+  // For each CSV:
+  //   - Filter rows where Include == "no"
+  //   - Apply edits (threshold changes, key overrides, etc.)
+  //   - Return filtered versions of all data objects
+  RETURN { filteredData, filteredMappings, filteredAssignments }
+```
+
+---
+
+## 15. Version-Aware SonarQube Client
+
+Automatically detects SonarQube version and adapts API calls.
+
+```
+CLASS VersionAwareSonarQubeClient EXTENDS SonarQubeClient:
+
+  FUNCTION detectVersion():
+    IF _parsedVersion cached: RETURN cached
+
+    versionString = GET /api/system/info -> version
+    _parsedVersion = parse(versionString)
+    // "9.9.1" -> { major: 9, minor: 9, patch: 1, raw: "9.9.1" }
+
+    LOG compatibility mode label
+    RETURN _parsedVersion
+
+
+  FUNCTION getIssues(filters):    // OVERRIDES base class
+    version = detectVersion()
+
+    // SonarQube changed issue status API in 10.4
+    IF version < 10.4:
+      // Legacy status values
+      params.statuses = "OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED"
+    ELSE:
+      // Modern status values
+      params.issueStatuses = "OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED"
+
+    RETURN super.getIssues(params + filters)
+
+
+  FUNCTION getGroups():    // DEFENSIVE WRAPPER
+    TRY:
+      RETURN super.getGroups()
+    CATCH:
+      LOG "Groups endpoint may be migrated in this version"
+      RETURN []
+
+
+  FUNCTION testConnection():    // OVERRIDES base class
+    result = super.testConnection()
+    detectVersion()    // Cache version on first connection
+    RETURN result
+```
+
+---
+
+## 16. State Management
+
+Tracks migration progress for incremental transfers.
+
+```
+CLASS StateTracker:
+  STATE SHAPE:
+    {
+      lastSync: "2026-02-15T00:00:00Z" | null,
+      processedIssues: ["issue-key-1", "issue-key-2", ...],
+      completedBranches: ["main", "develop", ...],
+      syncHistory: [
+        { timestamp, success: true, stats: {...} },
+        ...   // last 10 entries
+      ]
+    }
+
+  FUNCTION initialize():
+    state = storage.load() OR defaultState
+
+  FUNCTION recordTransfer(stats):
+    state.lastSync = now()
+    state.syncHistory.PUSH({ timestamp: now(), success: true, stats })
+    IF syncHistory.length > 10: TRIM to last 10
+    storage.save(state)
+
+  FUNCTION reset():
+    state = defaultState
+    storage.clear()
+
+  // Query methods:
+  getLastSync()              -> state.lastSync
+  isIssueProcessed(key)      -> key IN state.processedIssues
+  isBranchCompleted(name)    -> name IN state.completedBranches
+
+  // Mutation methods:
+  markIssueProcessed(key)    -> ADD key to processedIssues
+  markBranchCompleted(name)  -> ADD name to completedBranches
+  updateLastSync(timestamp)  -> SET lastSync
+```
+
+---
+
+## 17. Configuration & Validation
+
+```
+FUNCTION loadConfig(configPath):
+
+  // Step 1: Read and parse JSON
+  rawConfig = readFile(configPath)
+  config = JSON.parse(rawConfig)
+
+  // Step 2: Apply environment variable overrides
+  IF process.env.SONARQUBE_TOKEN:  config.sonarqube.token = env value
+  IF process.env.SONARCLOUD_TOKEN: config.sonarcloud.token = env value
+  IF process.env.SONARQUBE_URL:    config.sonarqube.url = env value
+  IF process.env.SONARCLOUD_URL:   config.sonarcloud.url = env value
+
+  // Step 3: Validate against JSON schema (Ajv)
+  valid = ajv.validate(configSchema, config)
+  IF NOT valid: THROW ConfigurationError(ajv.errors)
+
+  // Step 4: Apply defaults
+  config.transfer.mode      = config.transfer.mode      OR "incremental"
+  config.transfer.stateFile = config.transfer.stateFile  OR "./.cloudvoyager-state.json"
+  config.transfer.batchSize = config.transfer.batchSize  OR 100
+
+  RETURN config
+
+
+CONFIG SCHEMA:
+  sonarqube:    (required)
+    url:          string (URI format)
+    token:        string (min 1 char)
+    projectKey:   string (optional for migrate command)
+
+  sonarcloud:   (required)
+    url:          string (default: https://sonarcloud.io)
+    token:        string (min 1 char)
+    organization: string (required)
+    projectKey:   string (optional for migrate command)
+
+  transfer:     (optional)
+    mode:             "full" | "incremental" (default: incremental)
+    stateFile:        string (default: ./.cloudvoyager-state.json)
+    batchSize:        integer 1-500 (default: 100)
+    syncAllBranches:  boolean (default: true)
+    excludeBranches:  string[] (default: [])
+
+  migrate:      (optional)
+    outputDir:                string (default: ./migration-output)
+    skipIssueMetadataSync:    boolean
+    skipHotspotMetadataSync:  boolean
+    skipQualityProfileSync:   boolean
+    dryRun:                   boolean
+
+  rateLimit:    (optional)
+    maxRetries:           integer
+    baseDelay:            integer (ms)
+    minRequestInterval:   integer (ms)
+
+  performance:  (optional)
+    maxConcurrency:                   integer
+    sourceExtraction.concurrency:     integer
+    hotspotExtraction.concurrency:    integer
+    issueSync.concurrency:            integer
+    hotspotSync.concurrency:          integer
+    projectMigration.concurrency:     integer
+```
+
+---
+
+## 18. Performance Tuning
+
+```
+PERFORMANCE FEATURES:
+
+  // Concurrency control
+  - Source file extraction uses configurable concurrency (default: 10)
+  - Issue/hotspot sync uses configurable concurrency (default: 5)
+  - Project migration uses configurable concurrency (default: 3)
+  - All concurrent operations use semaphore-style limiting
+
+  // Auto-tuning
+  IF --auto-tune:
+    Detect available CPU cores and memory
+    Set concurrency = min(cores * 2, 20)
+    Set maxMemory based on available RAM
+
+  // CLI overrides
+  --concurrency <n>:     override I/O concurrency
+  --max-memory <mb>:     set Node.js heap size
+  --project-concurrency: max concurrent project migrations
+
+  // Rate limiting
+  rateLimitConfig = {
+    maxRetries: 3,
+    baseDelay: 1000,        // ms between retries (exponential backoff)
+    minRequestInterval: 100 // ms between API calls
+  }
+
+  // Caching
+  - Server-wide extracted data is cached between runs
+  - Mapping CSVs from dry-run are reused in migration run
+  - Rule enrichment map is built once and shared across projects
+
+  // Upload retry
+  - CE submit has 2 attempts with timeout fallback
+  - On timeout: checks /api/ce/activity for the submitted task
+```
