@@ -131,6 +131,67 @@ The migration can be re-run safely. Projects that already exist in SonarCloud wi
 
 ---
 
+## 🔄 Checkpoint and Resume Issues
+
+### Stale Lock File ("Another instance is running")
+
+If a previous run crashed without releasing the lock file, you may see an error about another instance running. Use `--force-unlock` to release the stale lock:
+
+```bash
+./cloudvoyager transfer -c config.json --verbose --force-unlock
+```
+
+The tool automatically detects stale locks from dead processes on the same machine. If the lock was created by a different machine (e.g., NFS-shared state file), manual intervention with `--force-unlock` is required.
+
+### Corrupt Checkpoint Journal
+
+If the checkpoint journal becomes corrupt (e.g., due to a system crash during a write), the tool falls back to the `.journal.backup` file. If both are corrupt:
+
+```bash
+# Discard the journal and start fresh
+./cloudvoyager transfer -c config.json --verbose --force-restart
+```
+
+### SonarQube Version Mismatch on Resume
+
+If you upgrade SonarQube between pause and resume, the tool warns about a version mismatch in the session fingerprint. By default, this is a warning only — the transfer continues. To enforce strict version matching:
+
+```json
+{
+  "transfer": {
+    "checkpoint": {
+      "strictResume": true
+    }
+  }
+}
+```
+
+With `strictResume: true`, a version mismatch will fail the transfer and require `--force-restart` to proceed.
+
+### Source Code Changed Between Pause and Resume
+
+If source code in SonarQube changes between pause and resume (e.g., new analysis uploaded), already-cached extraction phases will use stale data. Use `--force-fresh-extract` to re-extract all data while keeping the checkpoint journal:
+
+```bash
+./cloudvoyager transfer -c config.json --verbose --force-fresh-extract
+```
+
+### Clearing All Checkpoint State
+
+The `reset` command now clears checkpoint journals, lock files, and extraction caches in addition to the state file:
+
+```bash
+./cloudvoyager reset -c config.json --yes
+```
+
+This removes:
+- State file (`.cloudvoyager-state.json`)
+- Checkpoint journal (`.journal`, `.journal.backup`, `.journal.tmp`)
+- Lock file (`.lock`)
+- Extraction cache directory (`cache/`)
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔐 Authentication Errors
 - Verify your tokens have the correct permissions
@@ -414,6 +475,7 @@ You can verify specific components to save time:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | Checkpoint and Resume | Added checkpoint/resume troubleshooting section |
 | 2026-03-10 | Issue Assignment | Added user mapping troubleshooting section |
 | 2026-02-28 | Verification Reports | Added verification report troubleshooting |
 | 2026-02-18 | Debugging, Reports, Memory, Performance | Report-based debugging, auto-tune, memory management |

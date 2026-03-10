@@ -77,3 +77,30 @@ export class ValidationError extends CloudVoyagerError {
     this.errors = errors;
   }
 }
+
+/**
+ * Graceful shutdown error (not a real failure)
+ */
+export class GracefulShutdownError extends CloudVoyagerError {
+  constructor(message = 'Operation interrupted by shutdown signal') {
+    super(message, 0);
+  }
+}
+
+/**
+ * Lock error (another instance is running)
+ */
+export class LockError extends CloudVoyagerError {
+  constructor(message) {
+    super(message, 423);
+  }
+}
+
+/**
+ * Stale resume error (version/config mismatch)
+ */
+export class StaleResumeError extends CloudVoyagerError {
+  constructor(message) {
+    super(message, 409);
+  }
+}

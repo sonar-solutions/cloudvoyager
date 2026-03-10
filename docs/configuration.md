@@ -27,7 +27,13 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
     "stateFile": "./.cloudvoyager-state.json",
     "batchSize": 100,
     "syncAllBranches": true,
-    "excludeBranches": []
+    "excludeBranches": [],
+    "checkpoint": {
+      "enabled": true,
+      "cacheExtractions": true,
+      "cacheMaxAgeDays": 7,
+      "strictResume": false
+    }
   }
 }
 ```
@@ -130,6 +136,18 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `batchSize` | `100` | Number of items per batch (1–500) |
 | `syncAllBranches` | `true` | Sync all branches of every project. Set to `false` to only sync the main branch |
 | `excludeBranches` | `[]` | Branch names to exclude from sync when `syncAllBranches` is `true` |
+| `checkpoint` | `{}` | Checkpoint and resume settings (see below) |
+
+### Checkpoint Settings
+
+The `transfer.checkpoint` block controls the pause/resume behavior. All settings are optional — defaults provide safe, automatic checkpointing.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `true` | Enable checkpoint journal for pause/resume support |
+| `cacheExtractions` | `true` | Cache extraction results to disk for faster resume |
+| `cacheMaxAgeDays` | `7` | Maximum age of extraction cache files in days before auto-purge |
+| `strictResume` | `false` | Fail on SonarQube version mismatch when resuming (default: warn only) |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Migrate Settings
@@ -217,6 +235,10 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `--max-memory <mb>` | Set max heap size in MB | `transfer`, `migrate`, `sync-metadata`, `verify` |
 | `--project-concurrency <n>` | Max concurrent project migrations | `migrate` |
 | `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `migrate`, `sync-metadata` |
+| `--force-restart` | Discard checkpoint journal and start a fresh transfer | `transfer` |
+| `--force-fresh-extract` | Discard extraction caches and re-extract all data | `transfer` |
+| `--force-unlock` | Force release a stale lock file from a previous run | `transfer`, `migrate` |
+| `--show-progress` | Display checkpoint progress table and exit | `transfer` |
 
 **Selective migration flag:**
 
@@ -247,6 +269,10 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 |------|-------------|-------------|
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `migrate` |
 | `--output-dir <path>` | Output directory for verification reports (default: `./verification-output`) | `verify` |
+| `--force-restart` | Discard checkpoint journal and start a fresh transfer | `transfer`, `migrate` |
+| `--force-fresh-extract` | Discard extraction caches and re-extract all data | `transfer` |
+| `--force-unlock` | Force release a stale lock file from a previous run | `transfer`, `migrate` |
+| `--show-progress` | Display checkpoint progress table and exit | `transfer` |
 
 **Example: high-performance migration:**
 
@@ -301,6 +327,7 @@ All CLI flags work identically in both modes. The table below shows every availa
 | Sync only issue metadata | `npm run sync-metadata:skip-hotspot-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-hotspot-metadata-sync` |
 | Sync only hotspot metadata | `npm run sync-metadata:skip-issue-metadata` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-issue-metadata-sync` |
 | Sync metadata, skip quality profiles | `npm run sync-metadata:skip-quality-profiles` | `./cloudvoyager sync-metadata -c migrate-config.json --verbose --skip-quality-profile-sync` |
+| Show transfer checkpoint progress | `npm run transfer:show-progress` | `./cloudvoyager transfer -c config.json --show-progress` |
 | Transfer single project (auto-tuned) | `npm run transfer:auto-tune` | `./cloudvoyager transfer -c config.json --verbose --auto-tune` |
 | Full migration (auto-tuned) | `npm run migrate:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --auto-tune` |
 | Migrate without metadata (auto-tuned) | `npm run migrate:skip-all-metadata:auto-tune` | `./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune` |
@@ -403,7 +430,24 @@ When using incremental mode, the tool:
 
 To force a full transfer, use the `reset` command to clear the state.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+### Checkpoint Journal (Pause/Resume)
+
+The `transfer` command automatically maintains a **checkpoint journal** that tracks progress at the phase level. If a transfer is interrupted (CTRL+C, crash, network failure), you can resume from where it left off by simply running the same command again.
+
+The journal records:
+- Which extraction phases have completed (metrics, issues, sources, etc.)
+- Per-branch transfer status (completed, in-progress, pending)
+- Upload deduplication data (prevents duplicate CE tasks after crashes)
+- Session fingerprint (SonarQube version, URL, project key) for resume validation
+
+**Key behaviors:**
+- **Automatic resume**: Running the same `transfer` command after an interruption automatically resumes from the last checkpoint
+- **Graceful shutdown**: CTRL+C triggers a clean save of the journal before exiting (press twice to force-quit)
+- **Concurrent run prevention**: A lock file prevents two instances from running simultaneously against the same state file
+- **Extraction caching**: Completed extraction phases are cached to disk (gzipped JSON) so they don't need to be re-fetched on resume
+
+Use `--force-restart` to discard the checkpoint journal and start from scratch. Use `--force-fresh-extract` to clear extraction caches while keeping the journal.
+
 ### State File
 
 The state file (`.cloudvoyager-state.json` by default) contains:
@@ -411,6 +455,12 @@ The state file (`.cloudvoyager-state.json` by default) contains:
 - List of processed issue keys
 - Completed branches (used to skip already-synced branches in incremental mode)
 - Sync history (last 10 entries)
+
+Additional files created during transfer:
+- `<stateFile>.journal` — Checkpoint journal for pause/resume
+- `<stateFile>.journal.backup` — Backup of the checkpoint journal
+- `<stateFile>.lock` — Advisory lock file for concurrent run prevention
+- `cache/` directory — Extraction cache files (gzipped JSON)
 
 ## 📚 Further Reading
 
@@ -425,6 +475,7 @@ The state file (`.cloudvoyager-state.json` by default) contains:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | Transfer Settings, Checkpoint, CLI overrides, Incremental Transfers | Added checkpoint/resume config and documentation |
 | 2026-02-28 | Migration Config, CLI overrides, npm Scripts | Added verify command references |
 | 2026-02-20 | Migration Config, Multi-Org Settings | Enterprise config for V2 portfolio API |
 | 2026-02-19 | npm Scripts | Expanded script table with all commands |

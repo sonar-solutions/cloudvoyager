@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { Command } from 'commander';
 import { loadConfig, requireProjectKeys } from './config/loader.js';
 import { VersionAwareSonarQubeClient as SonarQubeClient } from './sonarqube/version-aware-client.js';
@@ -10,6 +13,7 @@ import { registerTransferCommand } from './commands/transfer.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerSyncMetadataCommand } from './commands/sync-metadata.js';
 import { registerVerifyCommand } from './commands/verify.js';
+import { ProgressTracker } from './utils/progress.js';
 
 const program = new Command();
 
@@ -51,7 +55,8 @@ program
   .action(async (options) => {
     try {
       const config = await loadConfig(options.config);
-      const stateTracker = new StateTracker(config.transfer.stateFile);
+      const stateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
+      const stateTracker = new StateTracker(stateFile);
       await stateTracker.initialize();
       const summary = stateTracker.getSummary();
       logger.info('=== Synchronization Status ===');
@@ -63,6 +68,14 @@ program
         summary.completedBranches.forEach(branch => logger.info(`  - ${branch}`));
       }
       logger.info(`Sync history entries: ${summary.syncHistoryCount}`);
+
+      // Show checkpoint journal status if it exists
+      const progressTracker = new ProgressTracker(stateFile);
+      const journalPath = `${stateFile}.journal`;
+      if (existsSync(journalPath)) {
+        logger.info('');
+        await progressTracker.displayStatus();
+      }
     } catch (error) {
       logger.error(`Failed to get status: ${error.message}`);
       process.exit(1);
@@ -78,14 +91,41 @@ program
     try {
       const config = await loadConfig(options.config);
       if (!options.yes) {
-        logger.warn('This will clear all sync state and history.');
-        logger.warn('The next transfer will be a full sync.');
+        logger.warn('This will clear all sync state, checkpoint journals, and extraction caches.');
+        logger.warn('The next transfer will be a full sync from scratch.');
         logger.warn('Use --yes to skip this confirmation.');
         process.exit(0);
       }
-      const stateTracker = new StateTracker(config.transfer.stateFile);
+      const stateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
+      const stateTracker = new StateTracker(stateFile);
       await stateTracker.reset();
-      logger.info('State reset successfully');
+      logger.info('State file reset successfully');
+
+      // Clear checkpoint journal files
+      const journalPath = `${stateFile}.journal`;
+      for (const suffix of ['', '.backup', '.tmp']) {
+        const f = `${journalPath}${suffix}`;
+        if (existsSync(f)) {
+          await rm(f, { force: true });
+          logger.info(`Removed checkpoint journal: ${f}`);
+        }
+      }
+
+      // Clear lock file
+      const lockPath = `${stateFile}.lock`;
+      if (existsSync(lockPath)) {
+        await rm(lockPath, { force: true });
+        logger.info(`Removed lock file: ${lockPath}`);
+      }
+
+      // Clear extraction cache directory
+      const cacheDir = join(dirname(stateFile), 'cache');
+      if (existsSync(cacheDir)) {
+        await rm(cacheDir, { recursive: true, force: true });
+        logger.info(`Removed extraction cache: ${cacheDir}`);
+      }
+
+      logger.info('Full reset complete — all state, journals, and caches cleared');
     } catch (error) {
       logger.error(`Failed to reset state: ${error.message}`);
       process.exit(1);

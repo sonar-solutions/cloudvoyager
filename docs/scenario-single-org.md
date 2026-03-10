@@ -166,6 +166,8 @@ This performs read-only checks comparing SonarQube and SonarCloud data and gener
 ./cloudvoyager verify -c migrate-config.json --verbose --only quality-gates,quality-profiles
 ```
 
+> **Resume after interruption:** If the migration is interrupted (CTRL+C, crash, network failure), simply re-run the same command. The migration journal tracks per-org and per-project completion, so already-completed projects are skipped on resume. Use `--force-restart` to discard the journal and start fresh.
+
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -264,6 +266,8 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 | `--max-memory <mb>` | Set max heap size in MB |
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) |
 | `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches) |
+| `--force-restart` | Discard migration journal and start fresh |
+| `--force-unlock` | Release a stale lock file from a crashed run |
 
 ---
 
@@ -289,6 +293,7 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | CLI Flags, Resume | Added checkpoint/resume flags and resume note |
 | 2026-02-28 | Step 3d Verify | Added verify as recommended final step |
 | 2026-02-18 | Performance, Output Files, CLI Flags | Auto-tune, reports, --wait flag |
 | 2026-02-17 | All | Initial single org migration scenario |

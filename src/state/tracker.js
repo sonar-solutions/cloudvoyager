@@ -1,12 +1,15 @@
 import logger from '../utils/logger.js';
 import { StateStorage } from './storage.js';
+import { LockFile } from './lock.js';
 
 /**
  * State tracker for incremental transfers
  */
 export class StateTracker {
   constructor(stateFilePath) {
+    this.stateFilePath = stateFilePath;
     this.storage = new StateStorage(stateFilePath);
+    this.lock = new LockFile(`${stateFilePath}.lock`);
     this.state = {
       lastSync: null,
       processedIssues: [],
@@ -17,9 +20,16 @@ export class StateTracker {
 
   /**
    * Initialize state (load from file if exists)
+   * @param {object} [options]
+   * @param {boolean} [options.acquireLock=false] - Acquire advisory lock on state file
+   * @param {boolean} [options.forceUnlock=false] - Force release stale/foreign locks
    */
-  async initialize() {
+  async initialize({ acquireLock = false, forceUnlock = false } = {}) {
     logger.info('Initializing state tracker...');
+
+    if (acquireLock) {
+      await this.lock.acquire(forceUnlock);
+    }
 
     const savedState = await this.storage.load();
 
@@ -124,6 +134,23 @@ export class StateTracker {
   }
 
   /**
+   * Save state after a branch completes (convenience for per-branch checkpointing).
+   * @param {string} branchName
+   */
+  async saveAfterBranch(branchName) {
+    this.markBranchCompleted(branchName);
+    await this.save();
+    logger.debug(`State saved after branch completion: ${branchName}`);
+  }
+
+  /**
+   * Release the advisory lock (call at end of pipeline or in cleanup).
+   */
+  async releaseLock() {
+    await this.lock.release();
+  }
+
+  /**
    * Clear state and reset
    */
   async reset() {
@@ -137,6 +164,7 @@ export class StateTracker {
     };
 
     await this.storage.clear();
+    await this.lock.release();
     logger.info('State reset complete');
   }
 
