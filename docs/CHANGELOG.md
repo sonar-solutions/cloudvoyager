@@ -10,6 +10,34 @@ Initial release of CloudVoyager — a CLI tool for migrating data from self-host
 
 ---
 
+### 2026-03-10 — User Mapping CSV for Issue Assignment
+
+#### New Feature: User Mapping
+- Added `user-mappings.csv` to the dry-run CSV workflow, enabling SonarQube-to-SonarCloud user login mapping
+- During `--dry-run`, CloudVoyager now collects all unique issue assignees across all projects using lightweight facet queries and enriches them with display names and emails from the SonarQube user API
+- Users can fill in the `SonarCloud Login` column to map SQ logins to SC logins, or set `Include=no` to skip assignment for specific users (e.g., service accounts)
+- During the actual migration, the user mapping CSV is automatically loaded and applied to issue assignments
+
+#### Issue Assignment Improvements
+- Issue assignment now supports three modes per user: mapped (SQ login → SC login), excluded (skip assignment), or passthrough (original behavior)
+- Added `assignmentMapped` and `assignmentSkipped` counters to issue sync statistics
+- Failed assignment reports now include both the original SQ assignee and the target SC assignee when a mapping was used
+- Updated Markdown, text, and PDF report formatters with a "Target Assignee" column in the failed assignments table
+
+#### Files Added/Modified
+- **New:** `src/sonarqube/extractors/users.js` — `extractUniqueAssignees()` (facet-based) and `enrichAssigneeDetails()` (user API)
+- **Modified:** `src/mapping/csv-tables.js`, `csv-generator.js`, `csv-applier.js` — generate, read, and apply user mappings
+- **Modified:** `src/migrate-pipeline.js` — collect assignees during dry-run, pass `userMappings` through `ctx`
+- **Modified:** `src/pipeline/project-migration.js` — forward `userMappings` to `syncIssues()`
+- **Modified:** `src/sonarcloud/migrators/issue-sync.js` — apply user mapping before assignment
+- **Modified:** `src/reports/format-markdown.js`, `format-text.js`, `pdf-sections.js` — show mapped assignee in failure reports
+
+#### Documentation
+- Updated dry-run CSV reference with `user-mappings.csv` schema, examples, and edit scenarios
+- Updated key capabilities, troubleshooting, changelog, and README
+
+---
+
 ### 2026-03-09 — SonarQube 9.9 & 2025.1 Backward Compatibility
 
 #### New: Version-Aware SonarQube Client

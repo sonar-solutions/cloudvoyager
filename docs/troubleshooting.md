@@ -360,6 +360,21 @@ The console also prints a summary with per-project breakdowns and overall pass/f
 | **skipped** | Check was skipped (e.g., project not found in SC) |
 | **error** | Check failed due to an API or connectivity error |
 
+### Issue assignment failures
+
+If issue assignments are failing during migration, the most likely cause is a **login mismatch** between SonarQube and SonarCloud. SonarQube uses local logins (e.g., `john.doe`) while SonarCloud typically uses SSO/GitHub logins (e.g., `john-doe-github`).
+
+**Fix:** Use the `user-mappings.csv` generated during `--dry-run` to map SQ logins to SC logins:
+
+1. Run `--dry-run` to generate `migration-output/mappings/user-mappings.csv`
+2. Fill in the `SonarCloud Login` column for each user
+3. Set `Include=no` for service accounts or users who should not have issues assigned
+4. Run the actual migration — mappings are applied automatically
+
+If you've already migrated and need to fix assignments, re-run with `--only issue-metadata` after filling in the user mappings CSV.
+
+See [Dry-Run CSV Reference — user-mappings.csv](dry-run-csv-reference.md#user-mappingscsv) for the full schema and examples.
+
 ### Unsyncable items (expected differences)
 
 Some differences are expected because the SonarCloud API does not support syncing them:
@@ -399,6 +414,7 @@ You can verify specific components to save time:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-10 | Issue Assignment | Added user mapping troubleshooting section |
 | 2026-02-28 | Verification Reports | Added verification report troubleshooting |
 | 2026-02-18 | Debugging, Reports, Memory, Performance | Report-based debugging, auto-tune, memory management |
 | 2026-02-17 | Migration issues, Rate Limiting, Keys, Permissions, Pagination | Migration engine troubleshooting |
