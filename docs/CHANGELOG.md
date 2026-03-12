@@ -4,9 +4,25 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
-## [1.0.0] - 2026-02-18
+## [1.1.1] - 2026-03-12
 
-Initial release of CloudVoyager — a CLI tool for migrating data from self-hosted SonarQube to SonarCloud without requiring a full re-scan of source code.
+### Bug Fix: SonarCloud Issue Sync Failure (FALSE_POSITIVE Status Parameter)
+
+Projects were being marked as **partial** because the "Sync issues" step failed for every project with:
+> `Value of parameter 'statuses' (FALSE_POSITIVE) must be one of: [OPEN, CONFIRMED, REOPENED, RESOLVED, CLOSED]`
+
+The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITIVE`, `ACCEPTED`, and `FIXED` appended to the `statuses` parameter. SonarCloud does not accept these values — `FALSE_POSITIVE` and `WONTFIX` are *resolutions* in SonarCloud (issues appear as `RESOLVED` with a `resolution` field), while `ACCEPTED` and `FIXED` are SonarQube 10.4+ statuses that SonarCloud's API does not support. The fix restricts the SonarCloud issue search to `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED` only, which correctly captures all issues including false positives.
+
+#### Files Modified
+- **Fixed:** `src/sonarcloud/api/issues.js` — removed invalid SonarCloud statuses from `ALL_STATUSES` constant
+
+#### Documentation Fixes
+- **Fixed:** `docs/key-capabilities.md` — issue transition mapping had `FALSE-POSITIVE → wontfix` (incorrect); corrected to `FALSE-POSITIVE → falsepositive`; added missing `REOPENED → reopen`, `OPEN → unconfirm`, and `CLOSED → resolve` transitions
+- **Fixed:** `docs/troubleshooting.md` — example migration report outputs were missing the `Assign quality profiles` step between `Assign quality gate` and `Project permissions`
+
+---
+
+## [1.1.0] - 2026-03-10
 
 ---
 

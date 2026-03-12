@@ -38,9 +38,10 @@ export async function getIssueChangelog(client, issueKey) {
   return response.data.changelog || [];
 }
 
-// All issue statuses — include both old and new lifecycle values so the
-// metadata sync can match issues regardless of their current status.
-const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED';
+// SonarCloud only accepts the classic issue statuses for the `statuses` parameter.
+// FALSE_POSITIVE and WONTFIX are resolutions, not statuses — they appear as RESOLVED.
+// ACCEPTED and FIXED are SonarQube 10.4+ statuses that SonarCloud does not support.
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED';
 
 export async function searchIssues(client, organization, projectKey, filters = {}) {
   logger.debug(`Searching issues in project: ${projectKey}`);

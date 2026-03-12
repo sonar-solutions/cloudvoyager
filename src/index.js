@@ -93,7 +93,7 @@ program
       if (!options.yes) {
         logger.warn('This will clear all sync state, checkpoint journals, and extraction caches.');
         logger.warn('The next transfer will be a full sync from scratch.');
-        logger.warn('Use --yes to skip this confirmation.');
+        logger.warn('Re-run with --yes to proceed with the reset.');
         process.exit(0);
       }
       const stateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';

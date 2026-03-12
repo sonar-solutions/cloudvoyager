@@ -28,15 +28,7 @@ export class MigrationJournal {
       logger.info(`Resuming migration from journal (status: ${existing.status})`);
 
       // Reset interrupted items to pending
-      for (const [orgKey, org] of Object.entries(this.journal.organizations || {})) {
-        if (org.status === 'in_progress') {
-          for (const [projKey, proj] of Object.entries(org.projects || {})) {
-            if (proj.status === 'in_progress') {
-              logger.info(`Project '${projKey}' in org '${orgKey}' was interrupted — will re-execute from last completed step`);
-            }
-          }
-        }
-      }
+      this._logInterruptedProjects(this.journal.organizations || {});
 
       this.journal.status = 'in_progress';
       await this.save();
@@ -52,6 +44,19 @@ export class MigrationJournal {
     };
     await this.save();
     return false;
+  }
+
+  // --- Private resume helpers ---
+
+  _logInterruptedProjects(organizations) {
+    for (const [orgKey, org] of Object.entries(organizations)) {
+      if (org.status !== 'in_progress') continue;
+      for (const [projKey, proj] of Object.entries(org.projects || {})) {
+        if (proj.status === 'in_progress') {
+          logger.info(`Project '${projKey}' in org '${orgKey}' was interrupted — will re-execute from last completed step`);
+        }
+      }
+    }
   }
 
   // --- Organization tracking ---
@@ -166,6 +171,8 @@ export class MigrationJournal {
     if (!lastStep) return false;
     const lastIdx = stepOrder.indexOf(lastStep);
     const currentIdx = stepOrder.indexOf(stepName);
+    // Guard: if either step is not in the order array, don't assume completion
+    if (lastIdx === -1 || currentIdx === -1) return false;
     return currentIdx <= lastIdx;
   }
 

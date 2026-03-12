@@ -22,26 +22,32 @@ export function createLimiter(concurrency) {
 
 export async function mapConcurrent(items, fn, { concurrency = 8, settled = false, onProgress = null } = {}) {
   if (items.length === 0) return [];
-  const limiter = createLimiter(concurrency);
+  const results = new Array(items.length);
+  let nextIndex = 0;
   let completed = 0;
-  const promises = items.map((item, index) =>
-    limiter(async () => {
+
+  // Worker-pool pattern: each worker pulls the next item as soon as it finishes,
+  // so only `concurrency` items are ever in-flight simultaneously and the queue
+  // never grows beyond the number of active workers regardless of input size.
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
       try {
-        const result = await fn(item, index);
+        const result = await fn(items[index], index);
         completed++;
         if (onProgress) onProgress(completed, items.length);
-        return { status: 'fulfilled', value: result };
+        results[index] = settled ? { status: 'fulfilled', value: result } : result;
       } catch (error) {
         completed++;
         if (onProgress) onProgress(completed, items.length);
         if (!settled) throw error;
-        return { status: 'rejected', reason: error };
+        results[index] = { status: 'rejected', reason: error };
       }
-    })
-  );
-  if (settled) return Promise.all(promises);
-  const results = await Promise.all(promises);
-  return results.map(r => r.value);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
 }
 
 export function createProgressLogger(label, total) {

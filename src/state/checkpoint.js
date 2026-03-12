@@ -37,23 +37,10 @@ export class CheckpointJournal {
       await this.validateFingerprint(fingerprint);
 
       // Reset interrupted phases to pending (they need re-execution)
-      for (const [name, phase] of Object.entries(this.journal.phases || {})) {
-        if (phase.status === 'in_progress') {
-          logger.info(`Phase '${name}' was interrupted — will re-execute`);
-          phase.status = 'pending';
-          delete phase.startedAt;
-        }
-      }
+      this._resetInterruptedPhases(this.journal.phases || {});
 
       // Reset in-progress branches
-      for (const [name, branch] of Object.entries(this.journal.branches || {})) {
-        if (branch.status === 'in_progress') {
-          logger.info(`Branch '${name}' was interrupted — will re-execute`);
-          branch.status = 'pending';
-          // Reset branch phases too
-          branch.phases = {};
-        }
-      }
+      this._resetInterruptedBranches(this.journal.branches || {});
 
       this.journal.status = 'in_progress';
       await this.save();
@@ -284,6 +271,24 @@ export class CheckpointJournal {
   }
 
   /**
+   * Mark a branch phase as failed.
+   * @param {string} branchName
+   * @param {string} phaseName
+   * @param {string} error - Error message
+   */
+  async failBranchPhase(branchName, phaseName, error) {
+    if (this.journal.branches[branchName]?.phases) {
+      this.journal.branches[branchName].phases[phaseName] = {
+        ...this.journal.branches[branchName].phases[phaseName],
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        error,
+      };
+      await this.save();
+    }
+  }
+
+  /**
    * Mark a branch phase as completed.
    * @param {string} branchName
    * @param {string} phaseName
@@ -295,6 +300,28 @@ export class CheckpointJournal {
         completedAt: new Date().toISOString(),
       };
       await this.save();
+    }
+  }
+
+  // --- Private resume helpers ---
+
+  _resetInterruptedPhases(phases) {
+    for (const [name, phase] of Object.entries(phases)) {
+      if (phase.status === 'in_progress') {
+        logger.info(`Phase '${name}' was interrupted — will re-execute`);
+        phase.status = 'pending';
+        delete phase.startedAt;
+      }
+    }
+  }
+
+  _resetInterruptedBranches(branches) {
+    for (const [name, branch] of Object.entries(branches)) {
+      if (branch.status === 'in_progress') {
+        logger.info(`Branch '${name}' was interrupted — will re-execute from last completed phase`);
+        branch.status = 'pending';
+        this._resetInterruptedPhases(branch.phases || {});
+      }
     }
   }
 

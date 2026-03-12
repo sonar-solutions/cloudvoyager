@@ -45,19 +45,19 @@ export async function loadConfig(configPath) {
 }
 
 function applyEnvironmentOverrides(config) {
-  if (process.env.SONARQUBE_TOKEN) {
+  if (config.sonarqube && process.env.SONARQUBE_TOKEN) {
     config.sonarqube.token = process.env.SONARQUBE_TOKEN;
     logger.debug('Overriding SonarQube token from environment variable');
   }
-  if (process.env.SONARCLOUD_TOKEN) {
+  if (config.sonarcloud && process.env.SONARCLOUD_TOKEN) {
     config.sonarcloud.token = process.env.SONARCLOUD_TOKEN;
     logger.debug('Overriding SonarCloud token from environment variable');
   }
-  if (process.env.SONARQUBE_URL) {
+  if (config.sonarqube && process.env.SONARQUBE_URL) {
     config.sonarqube.url = process.env.SONARQUBE_URL;
     logger.debug('Overriding SonarQube URL from environment variable');
   }
-  if (process.env.SONARCLOUD_URL) {
+  if (config.sonarcloud && process.env.SONARCLOUD_URL) {
     config.sonarcloud.url = process.env.SONARCLOUD_URL;
     logger.debug('Overriding SonarCloud URL from environment variable');
   }

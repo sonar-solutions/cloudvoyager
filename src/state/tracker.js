@@ -115,15 +115,14 @@ export class StateTracker {
    * @param {object} syncInfo - Sync information
    */
   addSyncHistory(syncInfo) {
+    // Keep only last 10 sync history entries: evict oldest before pushing
+    if (this.state.syncHistory.length >= 10) {
+      this.state.syncHistory.shift();
+    }
     this.state.syncHistory.push({
       timestamp: new Date().toISOString(),
       ...syncInfo
     });
-
-    // Keep only last 10 sync history entries
-    if (this.state.syncHistory.length > 10) {
-      this.state.syncHistory = this.state.syncHistory.slice(-10);
-    }
   }
 
   /**

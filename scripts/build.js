@@ -15,6 +15,18 @@ const shouldPackage = args.includes('--package');
 const useBun = args.includes('--bun');
 const crossCompile = args.includes('--cross');
 
+// Node.js SEA packaging requires v20. v22+ embeds the sentinel twice, causing postject to fail.
+if (shouldPackage && !useBun) {
+  const major = Number.parseInt(process.versions.node.split('.')[0], 10);
+  if (major !== 20) {
+    console.error(`\nError: Node.js v20 is required for \`npm run package\` (Node.js SEA).`);
+    console.error(`  Current version: v${process.versions.node}`);
+    console.error(`  Node v22+ causes postject to fail with "Multiple occurrences of sentinel".`);
+    console.error(`\n  Fix: nvm install 20 && nvm use 20 && npm run package\n`);
+    process.exit(1);
+  }
+}
+
 // Bun target mapping: our platform ID → Bun's --target value (experimental)
 // Note: win-arm64 is NOT supported by Bun and is built via Node.js SEA instead.
 const BUN_TARGETS = {

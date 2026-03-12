@@ -303,9 +303,11 @@ For each issue in SonarQube, the sync engine:
 1. **Matches** the corresponding SonarCloud issue by composite key: `rule + component + line number`
 2. **Transitions** the status using SonarCloud's workflow API:
    - `CONFIRMED` → `confirm`
-   - `RESOLVED` → `resolve`
+   - `REOPENED` → `reopen`
+   - `OPEN` → `unconfirm`
+   - `RESOLVED` / `CLOSED` → `resolve`
    - `ACCEPTED` → `accept`
-   - `FALSE-POSITIVE` → `wontfix` (false positive)
+   - `FALSE-POSITIVE` → `falsepositive`
    - `WONTFIX` → `wontfix`
 3. **Assigns** the issue to the corresponding user, using the `user-mappings.csv` when available:
    - If a SonarCloud Login is mapped in the CSV, uses the mapped login
