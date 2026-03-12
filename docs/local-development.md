@@ -6,11 +6,19 @@ Use this guide to build and run CloudVoyager locally. All developers should **bu
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 12, 2026 at 11:00:00 AM -->
 ## ✅ Prerequisites
 
-1. **Node.js** >= 18.0.0
+1. **Node.js** v20 LTS (required for `npm run package` — see note below)
 2. **npm** (comes with Node.js)
+
+> **Note on Node.js version for building binaries:** `npm run package` uses Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) and the `postject` injection tool. Node.js v22+ embeds the SEA sentinel string twice in its binary, which causes `postject` to fail with *"Multiple occurrences of sentinel found in the binary"*. Use **Node.js v20 LTS** to build:
+> ```bash
+> nvm install 20
+> nvm use 20
+> npm run package
+> ```
+> This restriction only applies to building the binary. Running tests, linting, and `npm run build` work fine on any supported Node.js version.
 
 Install dependencies:
 
@@ -33,6 +41,8 @@ npm run package           # Build for current platform
 ```
 
 Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
+
+> **Requires Node.js v20 LTS.** Node.js v22+ causes a `postject` injection failure ("Multiple occurrences of sentinel"). Run `nvm use 20` before packaging. See [Prerequisites](#-prerequisites) for details.
 
 <!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)

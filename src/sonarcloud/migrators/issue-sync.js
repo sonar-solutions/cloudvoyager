@@ -14,9 +14,11 @@ export function mapChangelogDiffToTransition(diffs) {
 
   if (!newStatus) return null;
 
-  // Resolution-based transitions take priority
-  if (newResolution === 'FALSE-POSITIVE') return 'falsepositive';
-  if (newResolution === 'WONTFIX') return 'wontfix';
+  // Resolution-based transitions take priority.
+  // Also handle SonarQube 10.4+ where WONTFIX/FALSE-POSITIVE can appear as a
+  // direct status value (newStatus) rather than only as a resolution.
+  if (newResolution === 'FALSE-POSITIVE' || newStatus === 'FALSE-POSITIVE') return 'falsepositive';
+  if (newResolution === 'WONTFIX' || newStatus === 'WONTFIX') return 'wontfix';
 
   switch (newStatus) {
     case 'CONFIRMED': return 'confirm';
@@ -167,26 +169,23 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
           }
         }
 
-        // Sync tags
-        if (sqIssue.tags && sqIssue.tags.length > 0) {
-          try {
-            await client.setIssueTags(scIssue.key, sqIssue.tags);
-            stats.tagged++;
-          } catch (error) {
-            logger.debug(`Failed to set tags on issue ${scIssue.key}: ${error.message}`);
-          }
-        }
-
-        // Mark issue as metadata-synchronized
+        // Sync tags and add metadata-synchronized marker in a single call.
+        // Use sqIssue.tags as the base (not the stale scIssue.tags) so the
+        // second setIssueTags call does not overwrite the tags just applied.
         try {
-          const existingTags = scIssue.tags || [];
-          if (!existingTags.includes('metadata-synchronized')) {
-            const updatedTags = [...new Set([...existingTags, 'metadata-synchronized'])];
+          const sqTags = sqIssue.tags || [];
+          const baseTags = sqTags.length > 0 ? sqTags : (scIssue.tags || []);
+          if (!baseTags.includes('metadata-synchronized')) {
+            const updatedTags = [...new Set([...baseTags, 'metadata-synchronized'])];
             await client.setIssueTags(scIssue.key, updatedTags);
+            if (sqTags.length > 0) stats.tagged++;
             stats.metadataSyncTagged++;
+          } else if (sqTags.length > 0) {
+            await client.setIssueTags(scIssue.key, sqTags);
+            stats.tagged++;
           }
         } catch (error) {
-          logger.debug(`Failed to add metadata-synchronized tag to issue ${scIssue.key}: ${error.message}`);
+          logger.debug(`Failed to set tags on issue ${scIssue.key}: ${error.message}`);
         }
 
         // Add comment with link back to original SonarQube issue
@@ -236,8 +235,10 @@ function buildMatchKey(issue) {
  * Used when no SQ client is available for changelog replay.
  */
 function getFallbackTransition(sqIssue) {
-  if (sqIssue.resolution === 'FALSE-POSITIVE') return 'falsepositive';
-  if (sqIssue.resolution === 'WONTFIX') return 'wontfix';
+  // Check both resolution and status to handle SonarQube 10.4+ where
+  // WONTFIX/FALSE-POSITIVE may appear as a direct status value.
+  if (sqIssue.resolution === 'FALSE-POSITIVE' || sqIssue.status === 'FALSE-POSITIVE') return 'falsepositive';
+  if (sqIssue.resolution === 'WONTFIX' || sqIssue.status === 'WONTFIX') return 'wontfix';
 
   switch (sqIssue.status) {
     case 'CONFIRMED': return 'confirm';

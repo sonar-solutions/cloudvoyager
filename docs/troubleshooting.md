@@ -44,6 +44,7 @@ FAILED / PARTIAL PROJECTS (DETAILED)
     [OK  ] New code definitions
     [OK  ] DevOps binding
     [OK  ] Assign quality gate
+    [OK  ] Assign quality profiles
     [OK  ] Project permissions
 
   [PARTIAL] big-project -> big-project
@@ -57,6 +58,7 @@ FAILED / PARTIAL PROJECTS (DETAILED)
     [OK  ] New code definitions
     [OK  ] DevOps binding
     [OK  ] Assign quality gate
+    [OK  ] Assign quality profiles
     [OK  ] Project permissions
 ```
 
@@ -189,6 +191,29 @@ This removes:
 - Checkpoint journal (`.journal`, `.journal.backup`, `.journal.tmp`)
 - Lock file (`.lock`)
 - Extraction cache directory (`cache/`)
+
+---
+
+<!-- Updated: Mar 12, 2026 at 11:00:00 AM -->
+## 🏗️ Build Failures
+
+### `npm run package` — "Multiple occurrences of sentinel found in the binary"
+
+**Error:**
+```
+Error: Multiple occurences of sentinel "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2" found in the binary
+```
+
+**Cause:** Node.js v22+ embeds the SEA sentinel string twice in its binary (once as the actual fuse, once in its compiled source). The `postject` injection tool expects exactly one occurrence and fails.
+
+**Fix:** Use Node.js v20 LTS to build:
+```bash
+nvm install 20
+nvm use 20
+npm run package
+```
+
+This only affects building the binary. Tests, linting, and `npm run build` work on any supported Node.js version.
 
 ---
 

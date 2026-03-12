@@ -10,13 +10,15 @@ function parseEffortToMinutes(effort) {
   let minutes = 0;
   const hourMatch = effort.match(/(\d+)h/);
   const minMatch = effort.match(/(\d+)min/);
-  if (hourMatch) minutes += parseInt(hourMatch[1], 10) * 60;
-  if (minMatch) minutes += parseInt(minMatch[1], 10);
+  if (hourMatch) minutes += Number.parseInt(hourMatch[1], 10) * 60;
+  if (minMatch) minutes += Number.parseInt(minMatch[1], 10);
   return minutes;
 }
 
 /**
- * Map SonarQube issue type string to the IssueType enum value.
+ * Map SonarQube issue type string to the IssueType protobuf enum value.
+ * IssueType enum: CODE_SMELL=1, BUG=2, VULNERABILITY=3, SECURITY_HOTSPOT=4
+ * SECURITY_HOTSPOT maps to 4 here because it is a distinct issue type in the scanner report.
  */
 function mapIssueType(type) {
   const typeMap = { 'CODE_SMELL': 1, 'BUG': 2, 'VULNERABILITY': 3, 'SECURITY_HOTSPOT': 4 };
@@ -24,7 +26,10 @@ function mapIssueType(type) {
 }
 
 /**
- * Map SonarQube issue type to a SoftwareQuality enum value.
+ * Map SonarQube issue type to a SoftwareQuality protobuf enum value.
+ * SoftwareQuality enum: MAINTAINABILITY=1, RELIABILITY=2, SECURITY=3
+ * SECURITY_HOTSPOT maps to 3 (SECURITY) here — different from IssueType above —
+ * because it describes the software quality dimension, not the issue classification.
  */
 function mapSoftwareQuality(type) {
   const qualityMap = {

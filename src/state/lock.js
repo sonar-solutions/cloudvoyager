@@ -1,7 +1,6 @@
-import { readFile, unlink, open } from 'node:fs/promises';
+import { readFile, unlink, open, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { hostname } from 'node:os';
-import { rename } from 'node:fs/promises';
 import logger from '../utils/logger.js';
 import { LockError } from '../utils/errors.js';
 
@@ -86,15 +85,16 @@ export class LockFile {
     if (!this.acquired) return;
 
     try {
-      if (existsSync(this.lockPath)) {
-        const existing = await this._readLock();
-        // Only release if we own it
-        if (existing && existing.pid === process.pid) {
-          await unlink(this.lockPath);
-          logger.debug(`Lock released: ${this.lockPath}`);
-        }
+      // Read first to verify ownership, then unlink atomically.
+      // Skipping existsSync avoids the TOCTOU race where the file could be
+      // deleted between the check and the unlink.
+      const existing = await this._readLock();
+      if (existing && existing.pid === process.pid) {
+        await unlink(this.lockPath);
+        logger.debug(`Lock released: ${this.lockPath}`);
       }
     } catch (error) {
+      if (error.code === 'ENOENT') return; // already gone — that's fine
       logger.debug(`Could not release lock: ${error.message}`);
     }
     this.acquired = false;
@@ -135,11 +135,7 @@ export class LockFile {
     // Check age
     const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
     const maxAge = STALE_LOCK_HOURS * 60 * 60 * 1000;
-    if (lockAge > maxAge) {
-      return true;
-    }
-
-    return false;
+    return lockAge > maxAge;
   }
 
   /**

@@ -100,7 +100,7 @@ export class DataExtractor {
 
       // 7. Extract source code (optional, can be limited)
       logger.info('Step 7/7: Extracting source code...');
-      const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
+      const maxFiles = Math.max(0, Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10) || 0);
       extractedData.sources = await extractSources(this.client, null, maxFiles, {
         concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
       });
@@ -180,7 +180,7 @@ export class DataExtractor {
     const measures = await extractMeasures(this.client, metricKeys, branch);
 
     logger.info(`  [${branch}] Extracting source code...`);
-    const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
+    const maxFiles = Math.max(0, Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10) || 0);
     const sources = await extractSources(this.client, branch, maxFiles, {
       concurrency: this.performanceConfig.sourceExtraction?.concurrency || 10
     });
@@ -256,7 +256,7 @@ export class DataExtractor {
     logger.info('Starting checkpoint-aware data extraction from SonarQube...');
 
     const startTime = Date.now();
-    const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
+    const maxFiles = Math.max(0, Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10) || 0);
     const sourceConcurrency = this.performanceConfig.sourceExtraction?.concurrency || 10;
     const dupConcurrency = this.performanceConfig.sourceExtraction?.concurrency || 5;
 
@@ -476,7 +476,7 @@ export class DataExtractor {
 
     const startTime = Date.now();
     const metricKeys = getCommonMetricKeys(mainData.metrics);
-    const maxFiles = Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10);
+    const maxFiles = Math.max(0, Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10) || 0);
     const sourceConcurrency = this.performanceConfig.sourceExtraction?.concurrency || 10;
     const dupConcurrency = this.performanceConfig.sourceExtraction?.concurrency || 5;
 
@@ -606,6 +606,7 @@ export class DataExtractor {
         await cache.save(phase.name, branch, result);
         await journal.completeBranchPhase(branch, phase.name);
       } catch (error) {
+        await journal.failBranchPhase(branch, phase.name, error.message);
         throw error;
       }
     }

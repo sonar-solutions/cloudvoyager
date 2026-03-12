@@ -156,6 +156,8 @@ export class SonarCloudClient {
     logger.info(`Waiting for analysis to complete (task: ${ceTaskId})...`);
     const startTime = Date.now();
     const maxWaitMs = maxWaitSeconds * 1000;
+    let pollInterval = 2000;
+    const maxPollInterval = 30000;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const task = await this.getAnalysisStatus(ceTaskId);
@@ -165,7 +167,8 @@ export class SonarCloudClient {
         throw new SonarCloudAPIError(`Analysis ${task.status.toLowerCase()}: ${task.errorMessage || 'Unknown error'}`);
       }
       if (Date.now() - startTime > maxWaitMs) throw new SonarCloudAPIError(`Analysis timeout after ${maxWaitSeconds} seconds`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      pollInterval = Math.min(pollInterval * 1.5, maxPollInterval);
     }
   }
 

@@ -47,7 +47,15 @@ export async function migrateAll(options) {
         preExistingCsvs = null;
       }
     } catch (e) {
-      logger.warn(`Failed to read existing CSVs: ${e.message}. Proceeding without overrides.`);
+      if (e.code === 'ENOENT') {
+        // No CSV files present — safe to proceed without overrides
+        preExistingCsvs = null;
+      } else {
+        // CSV files exist but could not be parsed — fail loudly to avoid silently ignoring user edits
+        logger.error(`Failed to read existing CSV mappings: ${e.message}`);
+        logger.error(`Fix or remove the CSV files in '${mappingsDir}' before continuing, or use --force-restart to discard them.`);
+        throw e;
+      }
     }
   }
 
