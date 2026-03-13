@@ -164,7 +164,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
       const sqMainBranchName = sqMainBranch?.name || 'main';
       if (!includeBranches.has(sqMainBranchName)) {
         logger.warn(`Main branch '${sqMainBranchName}' is excluded by CSV for project ${projectKey} — skipping entire project`);
-        const zeroStats = { issuesTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0, branchesTransferred: [] };
+        const zeroStats = { issuesTransferred: 0, hotspotsTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0, branchesTransferred: [] };
         if (isIncremental) {
           await stateTracker.recordTransfer(zeroStats);
         }
