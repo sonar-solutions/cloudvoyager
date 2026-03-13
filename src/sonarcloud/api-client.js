@@ -113,7 +113,7 @@ export class SonarCloudClient {
       const response = await this.client.get('/api/components/show', { params: { component: projectKey } });
       return { taken: true, owner: response.data.component?.organization || 'unknown' };
     } catch (error) {
-      if (error.status === 404 || error.message?.includes('not found')) return { taken: false, owner: null };
+      if (error.statusCode === 404 || error.message?.includes('not found')) return { taken: false, owner: null };
       logger.debug(`Could not check global key availability for ${projectKey}: ${error.message}`);
       return { taken: true, owner: 'unknown' };
     }

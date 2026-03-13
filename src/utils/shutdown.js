@@ -69,7 +69,7 @@ export class ShutdownCoordinator {
         try {
           await handler();
         } catch (error) {
-          logger.debug(`Cleanup handler error: ${error.message}`);
+          logger.error(`Cleanup handler error: ${error.message}`);
         }
       }
 

@@ -216,7 +216,7 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
     results.issueSyncStats.assigned += issueStats.assigned;
     results.issueSyncStats.assignmentFailed += issueStats.assignmentFailed;
     results.issueSyncStats.failedAssignments.push(...issueStats.failedAssignments);
-    const assignDetail = issueStats.assignmentFailed > 0 ? `, ${issueStats.assigned} assigned, ${issueStats.assignmentFailed} assignment-failed` : '';
+    const assignDetail = issueStats.assigned > 0 ? `, ${issueStats.assigned} assigned` + (issueStats.assignmentFailed > 0 ? `, ${issueStats.assignmentFailed} assignment-failed` : '') : '';
     projectResult.steps.push({ step: 'Sync issues', status: 'success', detail: `${issueStats.matched} matched, ${issueStats.transitioned} transitioned${assignDetail}`, durationMs: Date.now() - start });
   } catch (error) {
     projectResult.steps.push({ step: 'Sync issues', status: 'failed', error: error.message, durationMs: Date.now() - start });
@@ -320,7 +320,7 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
       }
       return `${assigned} profiles assigned`;
     });
-  } else if (onlyComponents && !onlyComponents.includes('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
+  } else if (onlyComponents && builtInProfileMapping && builtInProfileMapping.size > 0) {
     projectResult.steps.push({ step: 'Assign quality profiles', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
   }
 

@@ -37,7 +37,7 @@ function detectUsedLanguages(components) {
 }
 
 function isProfileLanguageUsed(profile, usedLanguages) {
-  return usedLanguages.size === 0 || usedLanguages.has(profile.language.toLowerCase());
+  return usedLanguages.size === 0 || (profile.language && usedLanguages.has(profile.language.toLowerCase()));
 }
 
 function addNewRules(rules, profile, ruleMap, allActiveRules) {

@@ -57,6 +57,12 @@ export function enableFileLogging(commandName) {
     fs.mkdirSync(logsDir, { recursive: true });
   }
 
+  // Remove existing file transports to prevent duplicates on repeated calls
+  const existingFileTransports = logger.transports.filter(t => t instanceof winston.transports.File);
+  for (const t of existingFileTransports) {
+    logger.remove(t);
+  }
+
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const logFileName = `cloudvoyager-${commandName}-${ts}.log`;
   const logFilePath = path.join(logsDir, logFileName);

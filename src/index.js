@@ -119,7 +119,7 @@ program
       }
 
       // Clear extraction cache directory
-      const cacheDir = join(dirname(stateFile), 'cache');
+      const cacheDir = join(dirname(stateFile), '.cache');
       if (existsSync(cacheDir)) {
         await rm(cacheDir, { recursive: true, force: true });
         logger.info(`Removed extraction cache: ${cacheDir}`);

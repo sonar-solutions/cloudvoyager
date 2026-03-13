@@ -25,7 +25,12 @@ export async function extractHotspotsAsIssues(client, branch = null) {
 
   if (hotspots.length === 0) return [];
 
-  return hotspots.map(hotspot => ({
+  const validHotspots = hotspots.filter(h => h.key && h.ruleKey && h.component);
+  if (validHotspots.length < hotspots.length) {
+    logger.warn(`Filtered out ${hotspots.length - validHotspots.length} hotspots missing required fields (key, ruleKey, or component)`);
+  }
+
+  return validHotspots.map(hotspot => ({
     key: hotspot.key,
     rule: hotspot.ruleKey,
     severity: mapVulnerabilityProbability(hotspot.vulnerabilityProbability),

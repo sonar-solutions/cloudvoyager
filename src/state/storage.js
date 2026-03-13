@@ -78,10 +78,10 @@ export class StateStorage {
       // Check disk space
       this._checkDiskSpace();
 
-      // Backup current file before overwriting
+      // Atomic backup: rename current file to .backup before overwriting
       if (existsSync(this.filePath)) {
         try {
-          await copyFile(this.filePath, `${this.filePath}.backup`);
+          await rename(this.filePath, `${this.filePath}.backup`);
         } catch (err) {
           logger.debug(`Could not create backup: ${err.message}`);
         }

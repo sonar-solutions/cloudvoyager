@@ -57,7 +57,7 @@ while true; do
     });
   ")
 
-  SQ_FETCHED=$(( (SQ_PAGE - 1) * SQ_PAGE_SIZE + ${#SQ_KEYS[@]} ))
+  SQ_FETCHED=${#SQ_KEYS[@]}
   if [ "$SQ_FETCHED" -ge "$SQ_TOTAL" ]; then
     break
   fi
@@ -110,7 +110,7 @@ while true; do
     });
   ")
 
-  SC_FETCHED=$(( (SC_PAGE - 1) * SC_PAGE_SIZE + ${#SC_KEYS[@]} ))
+  SC_FETCHED=${#SC_KEYS[@]}
   if [ "$SC_FETCHED" -ge "$SC_TOTAL" ]; then
     break
   fi
