@@ -18,6 +18,7 @@ export async function extractChangesets(client, sourceFiles, components) {
 
   // Create minimal changeset data for each source file
   for (const file of sourceFiles) {
+    if (!file || !file.key) { logger.warn('Skipping file without key in changesets extraction'); continue; }
     try {
       // Use actual source file line count
       const lineCount = file.lines ? file.lines.length : 1;

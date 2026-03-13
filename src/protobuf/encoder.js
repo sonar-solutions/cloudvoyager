@@ -74,8 +74,8 @@ export class ProtobufEncoder {
         changesets: new Map(),
       };
 
-      logger.debug(`Encoding ${messages.components.length} components...`);
-      messages.components.forEach(component => {
+      logger.debug(`Encoding ${(messages.components || []).length} components...`);
+      (messages.components || []).forEach(component => {
         encoded.components.push(this.encodeComponent(component));
       });
 
@@ -91,15 +91,15 @@ export class ProtobufEncoder {
         encoded.measures.set(componentRef, Buffer.concat(buffers));
       });
 
-      logger.debug(`Preparing ${messages.sourceFiles.length} source files as plain text...`);
+      logger.debug(`Preparing ${(messages.sourceFiles || []).length} source files as plain text...`);
       encoded.sourceFilesText = [];
-      messages.sourceFiles.forEach(sourceFile => {
+      (messages.sourceFiles || []).forEach(sourceFile => {
         const textContent = sourceFile.lines.map(line => line.source).join('\n');
         encoded.sourceFilesText.push({ componentRef: sourceFile.componentRef, text: textContent });
       });
 
-      logger.debug(`Encoding ${messages.activeRules.length} active rules...`);
-      const activeRuleBuffers = messages.activeRules.map(activeRule =>
+      logger.debug(`Encoding ${(messages.activeRules || []).length} active rules...`);
+      const activeRuleBuffers = (messages.activeRules || []).map(activeRule =>
         this.encodeActiveRuleDelimited(activeRule)
       );
       encoded.activeRules = Buffer.concat(activeRuleBuffers);

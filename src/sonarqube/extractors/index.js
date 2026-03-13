@@ -90,7 +90,7 @@ export class DataExtractor {
       logger.info('Step 5b: Extracting security hotspots for scanner report...');
       const hotspotIssues = await extractHotspotsAsIssues(this.client);
       if (hotspotIssues.length > 0) {
-        extractedData.issues = extractedData.issues.concat(hotspotIssues);
+        extractedData.issues.push(...hotspotIssues);
         logger.info(`Added ${hotspotIssues.length} hotspots to issue list (total: ${extractedData.issues.length})`);
       }
 

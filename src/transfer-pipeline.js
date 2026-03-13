@@ -33,7 +33,7 @@ import logger from './utils/logger.js';
  * @param {string} [options.projectName=null] - Human-readable project name from SonarQube
  * @returns {Promise<object>} Transfer result with stats
  */
-export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null, ruleEnrichmentMap: prebuiltEnrichmentMap = null, shutdownCoordinator = null, forceRestart = false, forceFreshExtract = false }) {
+export async function transferProject({ sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig = {}, wait = false, skipConnectionTest = false, projectName = null, ruleEnrichmentMap: prebuiltEnrichmentMap = null, shutdownCoordinator = null, forceRestart = false, forceFreshExtract = false, forceUnlock = false }) {
   const projectKey = sonarqubeConfig.projectKey;
   logger.info(`Starting transfer for project: ${projectKey}`);
 
@@ -49,11 +49,17 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
   // --- Lock file (prevent concurrent runs) ---
   const lockPath = `${transferConfig.stateFile}.lock`;
   const lockFile = new LockFile(lockPath);
-  await lockFile.acquire();
+  await lockFile.acquire(forceUnlock);
 
   // --- Initialize state tracker ---
-  const stateTracker = new StateTracker(transferConfig.stateFile);
-  await stateTracker.initialize();
+  let stateTracker;
+  try {
+    stateTracker = new StateTracker(transferConfig.stateFile);
+    await stateTracker.initialize();
+  } catch (error) {
+    await lockFile.release();
+    throw error;
+  }
 
   const stateSummary = stateTracker.getSummary();
   if (stateSummary.lastSync) {
@@ -129,7 +135,7 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
         logger.info('=== RESUMING FROM CHECKPOINT ===');
 
         // Validate SonarCloud project still exists on resume
-        const exists = await sonarCloudClient.projectExists?.() || true;
+        const exists = await sonarCloudClient.projectExists?.() ?? true;
         if (!exists) {
           throw new Error(`SonarCloud project ${sonarcloudConfig.projectKey} no longer exists. Cannot resume.`);
         }
@@ -158,6 +164,10 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
       const sqMainBranchName = sqMainBranch?.name || 'main';
       if (!includeBranches.has(sqMainBranchName)) {
         logger.warn(`Main branch '${sqMainBranchName}' is excluded by CSV for project ${projectKey} — skipping entire project`);
+        const zeroStats = { issuesTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0, branchesTransferred: [] };
+        if (isIncremental) {
+          await stateTracker.recordTransfer(zeroStats);
+        }
         if (journal) await journal.markCompleted();
         await lockFile.release();
         return {
@@ -257,7 +267,14 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
     }
 
     // Track aggregated stats across all branches
-    const aggregatedStats = { ...mainBranchResult.stats, branchesTransferred: [sonarCloudMainBranch] };
+    const aggregatedStats = {
+      issuesTransferred: mainBranchResult.stats.issuesTransferred || 0,
+      hotspotsTransferred: mainBranchResult.stats.hotspotsTransferred || 0,
+      componentsTransferred: mainBranchResult.stats.componentsTransferred || 0,
+      sourcesTransferred: mainBranchResult.stats.sourcesTransferred || 0,
+      linesOfCode: mainBranchResult.stats.linesOfCode || 0,
+      branchesTransferred: [sonarCloudMainBranch],
+    };
 
     if (isIncremental) {
       stateTracker.markBranchCompleted(sonarCloudMainBranch);
@@ -336,11 +353,11 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
             });
 
             // Accumulate stats
-            aggregatedStats.issuesTransferred += branchResult.stats.issuesTransferred;
-            aggregatedStats.hotspotsTransferred = (aggregatedStats.hotspotsTransferred || 0) + (branchResult.stats.hotspotsTransferred || 0);
-            aggregatedStats.componentsTransferred += branchResult.stats.componentsTransferred;
-            aggregatedStats.sourcesTransferred += branchResult.stats.sourcesTransferred;
-            aggregatedStats.linesOfCode += branchResult.stats.linesOfCode;
+            aggregatedStats.issuesTransferred += branchResult.stats.issuesTransferred || 0;
+            aggregatedStats.hotspotsTransferred += branchResult.stats.hotspotsTransferred || 0;
+            aggregatedStats.componentsTransferred += branchResult.stats.componentsTransferred || 0;
+            aggregatedStats.sourcesTransferred += branchResult.stats.sourcesTransferred || 0;
+            aggregatedStats.linesOfCode += branchResult.stats.linesOfCode || 0;
             aggregatedStats.branchesTransferred.push(branchName);
 
             if (journal) {

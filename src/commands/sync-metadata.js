@@ -13,7 +13,11 @@ export function registerSyncMetadataCommand(program) {
     .option('--skip-issue-metadata-sync', 'Skip syncing issue metadata (statuses, assignments, comments, tags)')
     .option('--skip-hotspot-metadata-sync', 'Skip syncing hotspot metadata (statuses, comments)')
     .option('--skip-quality-profile-sync', 'Skip syncing quality profiles (projects use default SonarCloud profiles)')
-    .option('--concurrency <n>', 'Override max concurrency for I/O operations', Number.parseInt)
+    .option('--concurrency <n>', 'Override max concurrency for I/O operations', (val) => {
+      const n = Number.parseInt(val, 10);
+      if (Number.isNaN(n) || n < 1) throw new Error(`--concurrency must be a positive integer, got: "${val}"`);
+      return n;
+    })
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
     .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
