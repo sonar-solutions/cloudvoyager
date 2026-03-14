@@ -15,17 +15,20 @@ linux:
     - target: AppImage
   category: Utility
   icon: assets/icon.png
+  artifactName: CloudVoyager.Desktop-${version}-linux-${arch}.${ext}
 
 mac:
   target:
     - target: dmg
   identity: null
   icon: assets/icon.icns
+  artifactName: CloudVoyager.Desktop-${version}-macos-${arch}.${ext}
 
 win:
   target:
     - target: nsis
   icon: assets/icon.ico
+  artifactName: CloudVoyager.Desktop-${version}-win-${arch}.${ext}
 
 nsis:
   oneClick: false
