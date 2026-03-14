@@ -6,10 +6,10 @@ window.MigrateConfigScreen = {
   step: 0,
 
   STEPS: [
-    'SonarQube Connection',
-    'SonarCloud Organizations',
-    'Migration Settings',
-    'Review & Start'
+    '🔌 SonarQube Connection',
+    '☁️ SonarCloud Organizations',
+    '⚙️ Migration Settings',
+    '🚀 Review & Start'
   ],
 
   async init() {
@@ -45,7 +45,7 @@ window.MigrateConfigScreen = {
     const sq = this.config.sonarqube;
     container.innerHTML = `
       <div class="page-header">
-        <h2>SonarQube Connection</h2>
+        <h2>🔌 SonarQube Connection</h2>
         <p>Connect to your SonarQube server to migrate from</p>
       </div>
       <div class="card">
@@ -76,11 +76,11 @@ window.MigrateConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>SonarCloud Organizations</h2>
+        <h2>☁️ SonarCloud Organizations</h2>
         <p>Add the SonarCloud organizations you want to migrate your data into</p>
       </div>
       <div id="org-list">${orgsHtml}</div>
-      <button class="add-org-btn" id="add-org">+ Add Organization</button>
+      <button class="add-org-btn" id="add-org">➕ Add Organization</button>
       <div class="button-row right" style="margin-top:24px">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <button class="btn btn-primary" id="btn-next">Next</button>
@@ -104,7 +104,7 @@ window.MigrateConfigScreen = {
     return `
       <div class="org-entry" data-org-index="${index}">
         <div class="org-entry-header">
-          <span class="org-entry-title">Organization ${index + 1}</span>
+          <span class="org-entry-title">🏢 Organization ${index + 1}</span>
           <button class="org-remove-btn" data-remove-org="${index}" title="Remove">&times;</button>
         </div>
         <div class="form-grid">
@@ -160,7 +160,7 @@ window.MigrateConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>Migration Settings</h2>
+        <h2>⚙️ Migration Settings</h2>
         <p>Choose what to migrate and how</p>
       </div>
       <div class="card">
@@ -180,7 +180,7 @@ window.MigrateConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">Choose What to Migrate (optional)</div>
+        <div class="card-header">🎯 Choose What to Migrate (optional)</div>
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to move, or leave all unchecked to move everything.</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}
       </div>
@@ -228,12 +228,12 @@ window.MigrateConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>Review Your Settings</h2>
+        <h2>📋 Review Your Settings</h2>
         <p>Check everything looks correct before starting</p>
       </div>
 
       <div class="card">
-        <div class="card-header">SonarQube (Source)</div>
+        <div class="card-header">🔌 SonarQube (Source)</div>
         ${ConfigForm.summaryTable([
           ['Server Address', sq.url],
           ['Token', sq.token ? '********' : '']
@@ -241,12 +241,12 @@ window.MigrateConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">SonarCloud Organizations (${orgs.length})</div>
+        <div class="card-header">☁️ SonarCloud Organizations (${orgs.length})</div>
         ${ConfigForm.summaryTable(orgRows)}
       </div>
 
       <div class="card">
-        <div class="card-header">Migration Settings</div>
+        <div class="card-header">⚙️ Migration Settings</div>
         ${ConfigForm.summaryTable([
           ['What to transfer', modeLabel],
           ['Preview only', m.dryRun ? 'Yes' : 'No'],
@@ -259,8 +259,8 @@ window.MigrateConfigScreen = {
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
-          <button class="btn btn-secondary" id="btn-test">Test Connections</button>
-          <button class="btn btn-primary" id="btn-start">Start Migration</button>
+          <button class="btn btn-secondary" id="btn-test">🔍 Test Connections</button>
+          <button class="btn btn-primary" id="btn-start">🚀 Start Migration</button>
         </div>
       </div>
     `;

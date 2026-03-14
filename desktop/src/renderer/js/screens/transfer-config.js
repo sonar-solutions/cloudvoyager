@@ -6,10 +6,10 @@ window.TransferConfigScreen = {
   step: 0,
 
   STEPS: [
-    'SonarQube Connection',
-    'SonarCloud Connection',
-    'Transfer Settings',
-    'Review & Start'
+    '🔌 SonarQube Connection',
+    '☁️ SonarCloud Connection',
+    '⚙️ Transfer Settings',
+    '🚀 Review & Start'
   ],
 
   async init() {
@@ -44,7 +44,7 @@ window.TransferConfigScreen = {
     const sq = this.config.sonarqube;
     container.innerHTML = `
       <div class="page-header">
-        <h2>SonarQube Connection</h2>
+        <h2>🔌 SonarQube Connection</h2>
         <p>Connect to your SonarQube server</p>
       </div>
       <div class="card">
@@ -71,7 +71,7 @@ window.TransferConfigScreen = {
     const sc = this.config.sonarcloud;
     container.innerHTML = `
       <div class="page-header">
-        <h2>SonarCloud Connection</h2>
+        <h2>☁️ SonarCloud Connection</h2>
         <p>Connect to your SonarCloud organization</p>
       </div>
       <div class="card">
@@ -100,7 +100,7 @@ window.TransferConfigScreen = {
     const t = this.config.transfer;
     container.innerHTML = `
       <div class="page-header">
-        <h2>Transfer Settings</h2>
+        <h2>⚙️ Transfer Settings</h2>
         <p>Choose how the transfer should run</p>
       </div>
       <div class="card">
@@ -140,7 +140,7 @@ window.TransferConfigScreen = {
     const cp = this.config.transfer.checkpoint;
     return `
       <div class="card">
-        <div class="card-header">Request Throttling</div>
+        <div class="card-header">🚦 Request Throttling</div>
         <div class="form-grid">
           ${ConfigForm.numberField('rl-retries', 'Retry attempts', rl.maxRetries, { min: 0, max: 20, hint: 'How many times to retry a failed request' })}
           ${ConfigForm.numberField('rl-delay', 'Wait between retries (ms)', rl.baseDelay, { min: 0, max: 60000, hint: 'Milliseconds to wait before retrying' })}
@@ -148,7 +148,7 @@ window.TransferConfigScreen = {
         </div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="card-header">Speed & Resources</div>
+        <div class="card-header">⚡ Speed & Resources</div>
         ${ConfigForm.checkbox('perf-autotune', 'Auto-optimize for this computer', perf.autoTune, { hint: 'Automatically adjust settings based on your hardware' })}
         <div class="form-grid">
           ${ConfigForm.numberField('perf-concurrency', 'Parallel tasks', perf.maxConcurrency, { min: 1, max: 64, hint: 'How many operations to run at the same time' })}
@@ -156,7 +156,7 @@ window.TransferConfigScreen = {
         </div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="card-header">Progress Recovery</div>
+        <div class="card-header">💾 Progress Recovery</div>
         ${ConfigForm.checkbox('cp-enabled', 'Save progress checkpoints', cp.enabled, { hint: 'If interrupted, resume from where it stopped instead of starting over' })}
         ${ConfigForm.checkbox('cp-cache', 'Keep downloaded data temporarily', cp.cacheExtractions, { hint: "Saves extracted data so it doesn't need to be re-downloaded on retry" })}
         <div class="form-grid">
@@ -194,12 +194,12 @@ window.TransferConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>Review Your Settings</h2>
+        <h2>📋 Review Your Settings</h2>
         <p>Check everything looks correct before starting</p>
       </div>
 
       <div class="card">
-        <div class="card-header">SonarQube (Source)</div>
+        <div class="card-header">🔌 SonarQube (Source)</div>
         ${ConfigForm.summaryTable([
           ['Server Address', sq.url],
           ['Token', sq.token ? '********' : ''],
@@ -208,7 +208,7 @@ window.TransferConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">SonarCloud (Destination)</div>
+        <div class="card-header">☁️ SonarCloud (Destination)</div>
         ${ConfigForm.summaryTable([
           ['Address', sc.url],
           ['Token', sc.token ? '********' : ''],
@@ -218,7 +218,7 @@ window.TransferConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">Transfer Settings</div>
+        <div class="card-header">⚙️ Transfer Settings</div>
         ${ConfigForm.summaryTable([
           ['What to transfer', modeLabel],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
@@ -229,8 +229,8 @@ window.TransferConfigScreen = {
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
-          <button class="btn btn-secondary" id="btn-test">Test Connections</button>
-          <button class="btn btn-primary" id="btn-start">Start Transfer</button>
+          <button class="btn btn-secondary" id="btn-test">🔍 Test Connections</button>
+          <button class="btn btn-primary" id="btn-start">🚀 Start Transfer</button>
         </div>
       </div>
     `;

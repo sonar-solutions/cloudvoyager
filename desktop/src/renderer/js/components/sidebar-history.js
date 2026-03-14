@@ -18,14 +18,14 @@ window.SidebarHistory = {
     // Show most recent first
     const sorted = [...history].reverse();
 
-    let html = '<div class="sidebar-history-header">Run History</div>';
+    let html = '<div class="sidebar-history-header">📜 Run History</div>';
     html += '<div class="sidebar-history-list">';
 
     for (const entry of sorted) {
       const date = new Date(entry.timestamp);
       const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      const label = entry.command === 'migrate' ? 'Migration' : 'Transfer';
+      const label = entry.command === 'migrate' ? '🌐 Migration' : '📦 Transfer';
       const duration = entry.durationMs ? this.formatDuration(entry.durationMs) : '';
 
       html += `

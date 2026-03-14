@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Command } from 'commander';
@@ -54,8 +54,9 @@ program
   .requiredOption('-c, --config <path>', 'Path to configuration file')
   .action(async (options) => {
     try {
-      const config = await loadConfig(options.config);
-      const stateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
+      // Read config without full validation — status only needs the stateFile path
+      const raw = JSON.parse(readFileSync(options.config, 'utf8'));
+      const stateFile = raw.transfer?.stateFile || './.cloudvoyager-state.json';
       const stateTracker = new StateTracker(stateFile);
       await stateTracker.initialize();
       const summary = stateTracker.getSummary();
@@ -89,14 +90,15 @@ program
   .option('-y, --yes', 'Skip confirmation prompt')
   .action(async (options) => {
     try {
-      const config = await loadConfig(options.config);
+      // Read config without full validation — reset only needs the stateFile path
+      const raw = JSON.parse(readFileSync(options.config, 'utf8'));
       if (!options.yes) {
         logger.warn('This will clear all sync state, checkpoint journals, and extraction caches.');
         logger.warn('The next transfer will be a full sync from scratch.');
         logger.warn('Re-run with --yes to proceed with the reset.');
         process.exit(0);
       }
-      const stateFile = config.transfer?.stateFile || './.cloudvoyager-state.json';
+      const stateFile = raw.transfer?.stateFile || './.cloudvoyager-state.json';
       const stateTracker = new StateTracker(stateFile);
       await stateTracker.reset();
       logger.info('State file reset successfully');

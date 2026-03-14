@@ -20,7 +20,7 @@ window.VerifyConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>Verify Migration Results</h2>
+        <h2>✅ Verify Migration Results</h2>
         <p>Compare data between SonarQube and SonarCloud to check if the migration was successful</p>
       </div>
       <div class="card">
@@ -32,14 +32,14 @@ window.VerifyConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">Choose What to Verify (optional)</div>
+        <div class="card-header">🎯 Choose What to Verify (optional)</div>
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific checks to run, or leave all unchecked to verify everything.</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`vonly-${c.id}`, c.label, false)).join('')}
       </div>
 
       <div class="button-row spread">
-        <button class="btn btn-secondary" id="btn-back">Back</button>
-        <button class="btn btn-primary" id="btn-start">Start Verification</button>
+        <button class="btn btn-secondary" id="btn-back">⬅️ Back</button>
+        <button class="btn btn-primary" id="btn-start">🚀 Start Verification</button>
       </div>
     `;
 
@@ -78,7 +78,7 @@ window.SyncMetadataConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>Sync Settings & Policies</h2>
+        <h2>🔄 Sync Settings & Policies</h2>
         <p>Update coding rules, quality policies, permissions, and settings without moving code analysis data</p>
       </div>
       <div class="card">
@@ -90,14 +90,14 @@ window.SyncMetadataConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">Choose What to Sync (optional)</div>
+        <div class="card-header">🎯 Choose What to Sync (optional)</div>
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to sync, or leave all unchecked to sync everything.</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`smonly-${c.id}`, c.label, false)).join('')}
       </div>
 
       <div class="button-row spread">
-        <button class="btn btn-secondary" id="btn-back">Back</button>
-        <button class="btn btn-primary" id="btn-start">Start Sync</button>
+        <button class="btn btn-secondary" id="btn-back">⬅️ Back</button>
+        <button class="btn btn-primary" id="btn-start">🚀 Start Sync</button>
       </div>
     `;
 
