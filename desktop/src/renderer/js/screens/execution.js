@@ -29,7 +29,7 @@ window.ExecutionScreen = {
       <div class="execution-header">
         <div class="execution-info">
           <h2 style="font-size:18px">${ConfigForm.escapeHtml(commandLabel)}</h2>
-          <span id="exec-status" class="badge badge-running">Running</span>
+          <span id="exec-status" class="badge badge-running">⏳ Running</span>
           <span id="exec-timer" class="execution-timer">00:00</span>
         </div>
         <div class="whale-progress" id="whale-progress">
@@ -41,13 +41,13 @@ window.ExecutionScreen = {
           <div class="whale-percent" id="whale-percent">0%</div>
         </div>
         <div class="execution-controls">
-          <button class="btn btn-danger btn-sm" id="btn-cancel">Cancel</button>
+          <button class="btn btn-danger btn-sm" id="btn-cancel">❌ Cancel</button>
         </div>
       </div>
       <div id="exec-log"></div>
       <div class="button-row right" style="margin-top:16px">
-        <button class="btn btn-secondary" id="btn-home" disabled>Back to Home</button>
-        <button class="btn btn-primary" id="btn-results" style="display:none">View Reports</button>
+        <button class="btn btn-secondary" id="btn-home" disabled>🏠 Back to Home</button>
+        <button class="btn btn-primary" id="btn-results" style="display:none">📄 View Reports</button>
       </div>
     `;
 
@@ -85,21 +85,21 @@ window.ExecutionScreen = {
 
       if (data.code === 0) {
         statusEl.className = 'badge badge-completed';
-        statusEl.textContent = 'Completed';
+        statusEl.textContent = '✅ Completed';
         resultsBtn.style.display = '';
         this.updateWhale(100);
-        App.showToast(`${commandLabel} completed successfully`, 'success');
+        App.showToast(`✅ ${commandLabel} completed successfully`, 'success');
 
         // Record successful run in history
         this.recordHistory(commandLabel);
       } else if (data.signal) {
         statusEl.className = 'badge badge-cancelled';
-        statusEl.textContent = 'Cancelled';
-        App.showToast(`${commandLabel} was cancelled`, 'warning');
+        statusEl.textContent = '⚠️ Cancelled';
+        App.showToast(`⚠️ ${commandLabel} was cancelled`, 'warning');
       } else {
         statusEl.className = 'badge badge-failed';
-        statusEl.textContent = `Failed (exit ${data.code})`;
-        App.showToast(`${commandLabel} failed with exit code ${data.code}`, 'error');
+        statusEl.textContent = `❌ Failed (exit ${data.code})`;
+        App.showToast(`❌ ${commandLabel} failed with exit code ${data.code}`, 'error');
       }
     });
 
@@ -131,7 +131,7 @@ window.ExecutionScreen = {
       this.isRunning = false;
       clearInterval(this.timerInterval);
       container.querySelector('#exec-status').className = 'badge badge-failed';
-      container.querySelector('#exec-status').textContent = 'Error';
+      container.querySelector('#exec-status').textContent = '💥 Error';
       container.querySelector('#btn-cancel').disabled = true;
       container.querySelector('#btn-home').disabled = false;
       LogViewer.addLine({ stream: 'stderr', line: `Failed to start: ${err.message}`, timestamp: Date.now() });
