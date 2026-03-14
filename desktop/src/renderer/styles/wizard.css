@@ -175,12 +175,14 @@
 
 .whale-track {
   flex: 1;
-  height: 28px;
-  background: #141922;
-  border-radius: 14px;
+  height: 64px;
+  background-color: #38bdf8;
+  border-radius: 6px;
   position: relative;
-  overflow: visible;
-  border: 1px solid var(--border-color);
+  overflow: hidden;
+  border: 3px solid rgba(248, 250, 252, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.1);
+  image-rendering: pixelated;
 }
 
 .whale-trail {
@@ -189,123 +191,62 @@
   top: 0;
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #1a2744 0%, #1e3a5f 100%);
-  border-radius: 14px 0 0 14px;
+  background-color: #0284c7;
+  border-right: 2px solid rgba(255, 255, 255, 0.3);
   transition: width 0.6s ease-out;
+  z-index: 1;
 }
 
 .whale-trail-complete {
-  background: linear-gradient(90deg, #1a3a2a 0%, #1e5f3a 100%);
+  background-color: #059669;
+  border-right-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Pixel clouds floating in the track */
-.whale-cloud {
+/* Pixel art cloud layer — tiled canvas with CSS scroll animation */
+.whale-clouds {
   position: absolute;
-  width: 12px;
-  height: 6px;
-  background: #1e2636;
-  border-radius: 3px;
-  opacity: 0.5;
-}
-
-.whale-cloud::before {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 4px;
-  background: inherit;
-  border-radius: 2px;
-  top: -2px;
-  left: 3px;
-}
-
-.whale-cloud-1 { top: 6px; left: 15%; animation: cloud-drift 8s linear infinite; }
-.whale-cloud-2 { top: 16px; left: 35%; animation: cloud-drift 12s linear infinite; animation-delay: -3s; }
-.whale-cloud-3 { top: 8px; left: 55%; animation: cloud-drift 10s linear infinite; animation-delay: -6s; }
-.whale-cloud-4 { top: 18px; left: 75%; animation: cloud-drift 9s linear infinite; animation-delay: -1s; }
-.whale-cloud-5 { top: 10px; left: 90%; animation: cloud-drift 11s linear infinite; animation-delay: -5s; }
-
-@keyframes cloud-drift {
-  0% { transform: translateX(0); opacity: 0.5; }
-  50% { opacity: 0.3; }
-  100% { transform: translateX(-30px); opacity: 0.5; }
-}
-
-/* Pixel whale sprite */
-.whale-sprite {
-  position: absolute;
-  top: 50%;
-  left: -24px;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 24px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 0.9;
   z-index: 2;
-  transition: left 0.6s ease-out;
-  animation: whale-bob 2s ease-in-out infinite;
 }
 
-/* Canvas-based pixel art whale */
-#whale-canvas {
+.whale-clouds canvas {
   display: block;
-  width: 48px;
-  height: 24px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  animation: cloud-scroll 20s linear infinite;
 }
 
-/* Water spout — three animated droplets above the whale */
-.whale-spout {
+@keyframes cloud-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-128px); }
+}
+
+/* 16-bit pixel whale sprite — canvas child */
+.whale-sprite {
   position: absolute;
-  top: -8px;
-  left: 18px;
-  width: 14px;
-  height: 10px;
-  animation: spout-pulse 3s ease-in-out infinite;
+  bottom: 0;
+  left: -160px;
+  width: 160px;
+  height: 64px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  z-index: 3;
+  transition: left 0.6s ease-out;
 }
 
-.spout-drop {
-  position: absolute;
-  background: #58a6ff;
-  border-radius: 50%;
-}
-
-.spout-drop-1 {
-  width: 3px;
-  height: 3px;
-  left: 5px;
-  top: 4px;
-}
-
-.spout-drop-2 {
-  width: 2px;
-  height: 2px;
-  left: 1px;
-  top: 0;
-}
-
-.spout-drop-3 {
-  width: 2px;
-  height: 2px;
-  left: 10px;
-  top: 0;
-}
-
-@keyframes spout-pulse {
-  0%, 100% { opacity: 0; transform: translateY(0); }
-  40%, 60% { opacity: 1; transform: translateY(-3px); }
-}
-
-@keyframes whale-bob {
-  0%, 100% { transform: translateY(-50%); }
-  50% { transform: translateY(calc(-50% - 2px)); }
-}
-
-.whale-arrived {
-  animation: whale-bob 1s ease-in-out infinite;
-}
-
-.whale-arrived .whale-spout {
-  animation: spout-pulse 1.5s ease-in-out infinite;
+.whale-sprite canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .whale-percent {

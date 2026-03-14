@@ -11,6 +11,9 @@ window.ExecutionScreen = {
   currentProgress: 0,
   pipelineState: null,
   runReportsDir: null,
+  whaleAnimInterval: null,
+  whaleSpriteF1: null,
+  whaleSpriteF2: null,
 
   async render(container, params) {
     this.params = params || {};
@@ -31,20 +34,9 @@ window.ExecutionScreen = {
         </div>
         <div class="whale-progress" id="whale-progress">
           <div class="whale-track">
-            <div class="whale-cloud whale-cloud-1"></div>
-            <div class="whale-cloud whale-cloud-2"></div>
-            <div class="whale-cloud whale-cloud-3"></div>
-            <div class="whale-cloud whale-cloud-4"></div>
-            <div class="whale-cloud whale-cloud-5"></div>
-            <div class="whale-sprite" id="whale-sprite">
-              <div class="whale-spout" id="whale-spout">
-                <div class="spout-drop spout-drop-1"></div>
-                <div class="spout-drop spout-drop-2"></div>
-                <div class="spout-drop spout-drop-3"></div>
-              </div>
-              <canvas id="whale-canvas" width="24" height="12"></canvas>
-            </div>
             <div class="whale-trail" id="whale-trail"></div>
+            <div class="whale-clouds" id="whale-clouds"></div>
+            <div class="whale-sprite" id="whale-sprite"></div>
           </div>
           <div class="whale-percent" id="whale-percent">0%</div>
         </div>
@@ -150,6 +142,7 @@ window.ExecutionScreen = {
     if (this.unsubLog) { this.unsubLog(); this.unsubLog = null; }
     if (this.unsubExit) { this.unsubExit(); this.unsubExit = null; }
     if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
+    if (this.whaleAnimInterval) { clearInterval(this.whaleAnimInterval); this.whaleAnimInterval = null; }
   },
 
   async recordHistory(commandLabel) {
@@ -172,46 +165,180 @@ window.ExecutionScreen = {
     }
   },
 
-  drawWhale() {
-    const canvas = document.getElementById('whale-canvas');
-    if (!canvas) return;
+  /** Render a sprite array onto an offscreen canvas. */
+  renderSprite(spriteArray, palette, scale, expectedWidth) {
+    const canvas = document.createElement('canvas');
+    canvas.width = expectedWidth * scale;
+    canvas.height = spriteArray.length * scale;
     const ctx = canvas.getContext('2d');
-    // Color palette
-    const C = {
-      D: '#2a4a7f', // dark outline
-      B: '#4a7dca', // body dark (back)
-      M: '#6ba3f7', // body medium (sides)
-      L: '#8ec2ff', // body highlight
-      W: '#d0e4ff', // belly (light)
-      E: '#ffffff', // eye highlight
-      T: '#4a7dca', // tail dark
-      t: '#5b8dd9', // tail light
-    };
-    // 24×12 pixel grid — side-view whale facing right
-    // V-shaped forked tail, rounded body, white belly, white eye
-    const grid = [
-      '.........DDDDD..........',
-      'tTD....DDBBBBBDDD.......',
-      '.DtD..DBBMLMLMBBBD......',
-      '..Dt.DBMMMMLMMMMMMD.....',
-      '...DtBMMMMMMMEMMMMMD....',
-      '...DtBMMMMMMMMMMMMMD....',
-      '..Dt.DMMMMMMMMMMMMMD....',
-      '.DtD..DMMWWWWMMMMD......',
-      'DtD....DMWWWMMMMD.......',
-      'DD......DMMMMMMD........',
-      '.........DDDDDD.........',
-      '...........DD...........',
-    ];
-    grid.forEach((row, y) => {
-      for (let x = 0; x < row.length; x++) {
+    for (let y = 0; y < spriteArray.length; y++) {
+      const row = spriteArray[y].padEnd(expectedWidth, ' ');
+      for (let x = 0; x < expectedWidth; x++) {
         const ch = row[x];
-        if (ch !== '.' && C[ch]) {
-          ctx.fillStyle = C[ch];
-          ctx.fillRect(x, y, 1, 1);
+        if (palette[ch]) {
+          ctx.fillStyle = palette[ch];
+          ctx.fillRect(x * scale, y * scale, scale, scale);
         }
       }
-    });
+    }
+    return canvas;
+  },
+
+  drawWhale() {
+    const palette = {
+      'D': '#1e293b', 'M': '#334155', 'L': '#94a3b8',
+      'W': '#f8fafc', 'B': '#0f172a', 'C': '#bae6fd',
+      'S': '#7dd3fc', 'P': '#e0f2fe'
+    };
+
+    // Frame 1: Tail up, spout visible
+    const whaleF1 = [
+      '                                                                                ',
+      '                                                                                ',
+      '                                          P   P                                 ',
+      '                                         P  P  P                                ',
+      '                                        PPPPPPPPP                               ',
+      '                                          PPPPP                                 ',
+      '                                            P                                   ',
+      '                                                                                ',
+      '                                  DDDDDDDDDDDD                                  ',
+      '                              DDDDMMMMMMMMMMMMDDDD                              ',
+      '                           DDDMMMMMMMMMMMMMMMMMMMMDD                            ',
+      '                         DDMMMMMMMMMMMMMMMMMMMMMMMMMDD                          ',
+      '                       DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMD                        ',
+      '  DD                 DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMD                       ',
+      ' DMMD               DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMBMD                      ',
+      ' DMMMD            DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMDDD                      ',
+      ' DMMMMD         DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWWWWW                    ',
+      '  DMMMMD      DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWWWWWWW                   ',
+      '   DMMMMDDDDDDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWW                    ',
+      '    DMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWWW                    ',
+      '     DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWWWW                    ',
+      '       DDDWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWLLWWWWWWW                     ',
+      '          WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWLLWWWWWW                      ',
+      '                            DDDDDDDDD                                           ',
+      '                            DMMMMMMMMDD                                         ',
+      '                             DMMMMMMMMMDD                                       ',
+      '                              WWWWWWWWWWW                                       ',
+      '                               WWWWWWWWWW                                       ',
+      '                                WWWWWWWW                                        ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                '
+    ];
+
+    // Frame 2: Tail down, no spout
+    const whaleF2 = [
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                  DDDDDDDDDDDD                                  ',
+      '                              DDDDMMMMMMMMMMMMDDDD                              ',
+      '                           DDDMMMMMMMMMMMMMMMMMMMMDD                            ',
+      '                         DDMMMMMMMMMMMMMMMMMMMMMMMMMDD                          ',
+      '                       DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMD                        ',
+      '                     DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMD                       ',
+      '                   DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMBMD                       ',
+      '  DD             DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMDDD                       ',
+      ' DMMD          DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWWWWW                     ',
+      ' DMMMD       DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWWWWWWW                    ',
+      ' DMMMMD   DDDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWW                     ',
+      '  DMMMMDDDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWWW                     ',
+      '   DDMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMWWLLWWWWWW                     ',
+      '     DDDWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWLLWWWWWWW                      ',
+      '        WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWLLWWWWWW                       ',
+      '                             DDDDDDD                                            ',
+      '                              DMMMMMMDD                                         ',
+      '                               DMMMMMMMDD                                       ',
+      '                                WWWWWWWWWW                                      ',
+      '                                 WWWWWWWWW                                      ',
+      '                                  WWWWWWWW                                      ',
+      '                                                                                ',
+      '                                                                                ',
+      '                                                                                '
+    ];
+
+    // Multi-shaded pixel clouds
+    const cloudSprite = [
+      '',
+      '          WWWW',
+      '        WWWWWWWW                              WWW',
+      '       WWWWWWWWWW                           WWWWWWW',
+      '      WWWWWWWWWWWC                         WWWWWWWWC',
+      '     WWWWWWWWWWWWCC                       WWWWWWWWWCC',
+      '    WWWWWWWWWWWWWWCC                     WWWWWWWWWWWCC',
+      '    CCCCCCCCCCCCCCCC                     CCCCCCCCCCCCC',
+      '     SSSSSSSSSSSSSS                       SSSSSSSSSSS',
+      '',
+      '',
+      '                                    WWWWW',
+      '                                  WWWWWWWWW',
+      '                                 WWWWWWWWWWC',
+      '                                WWWWWWWWWWWWCC',
+      '                                CCCCCCCCCCCCCC',
+      '                                 SSSSSSSSSSSS',
+      '',
+      '  WWW',
+      ' WWWWWWW                                                 WWWW',
+      'WWWWWWWWC                                              WWWWWWWW',
+      'CCCCCCCCCC                                            WWWWWWWWWC',
+      'SSSSSSSSSS                                            CCCCCCCCCC',
+      '                                                       SSSSSSSS',
+      '',
+      '                         WWWWWWW',
+      '                       WWWWWWWWWWW',
+      '                      WWWWWWWWWWWWC',
+      '                      CCCCCCCCCCCCC',
+      '                       SSSSSSSSSSS',
+      '',
+      ''
+    ];
+
+    // --- WHALE: render both frames as offscreen canvases ---
+    this.whaleSpriteF1 = this.renderSprite(whaleF1, palette, 2, 80);
+    this.whaleSpriteF2 = this.renderSprite(whaleF2, palette, 2, 80);
+
+    // Create display canvas and append to DOM
+    const whaleEl = document.getElementById('whale-sprite');
+    if (whaleEl) {
+      const display = document.createElement('canvas');
+      display.width = 160;  // 80 * 2
+      display.height = 64;  // 32 * 2
+      display.id = 'whale-display';
+      whaleEl.appendChild(display);
+      display.getContext('2d').drawImage(this.whaleSpriteF1, 0, 0);
+    }
+
+    // --- CLOUDS: render tile then repeat across a wide canvas ---
+    const cloudTile = this.renderSprite(cloudSprite, palette, 2, 64);
+    const tileW = cloudTile.width;  // 128
+    const numTiles = 8;
+    const cloudsCanvas = document.createElement('canvas');
+    cloudsCanvas.width = tileW * numTiles;
+    cloudsCanvas.height = cloudTile.height;
+    const cloudCtx = cloudsCanvas.getContext('2d');
+    for (let i = 0; i < numTiles; i++) {
+      cloudCtx.drawImage(cloudTile, i * tileW, 0);
+    }
+    const cloudsEl = document.getElementById('whale-clouds');
+    if (cloudsEl) cloudsEl.appendChild(cloudsCanvas);
+
+    // --- FRAME ANIMATION: alternate whale sprites every 450ms ---
+    let frame = 0;
+    this.whaleAnimInterval = setInterval(() => {
+      frame = (frame + 1) % 2;
+      const canvas = document.getElementById('whale-display');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 160, 64);
+        ctx.drawImage(frame === 0 ? this.whaleSpriteF1 : this.whaleSpriteF2, 0, 0);
+      }
+    }, 450);
   },
 
   parseProgress(line) {
@@ -473,14 +600,23 @@ window.ExecutionScreen = {
 
     const clamped = Math.min(100, Math.max(0, percent));
     // Whale moves from left (0%) to right (100%) of the track
-    sprite.style.left = `calc(${clamped}% - 24px)`;
+    sprite.style.left = `calc(${clamped}% - 100px)`;
     trail.style.width = `${clamped}%`;
     percentEl.textContent = `${clamped}%`;
 
-    // Add/remove completed class for trail glow effect
+    // On completion: green trail, stop animation on spout frame
     if (clamped >= 100) {
       trail.classList.add('whale-trail-complete');
-      sprite.classList.add('whale-arrived');
+      if (this.whaleAnimInterval) {
+        clearInterval(this.whaleAnimInterval);
+        this.whaleAnimInterval = null;
+      }
+      const display = document.getElementById('whale-display');
+      if (display && this.whaleSpriteF1) {
+        const ctx = display.getContext('2d');
+        ctx.clearRect(0, 0, 160, 64);
+        ctx.drawImage(this.whaleSpriteF1, 0, 0);
+      }
     }
   },
 
