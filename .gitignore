@@ -59,3 +59,8 @@ proto/
 compliance/sonar_scan_local.sh
 migrate-config.json
 .claude/
+
+# Desktop app
+desktop/node_modules/
+desktop/resources/cli/
+dist/desktop/

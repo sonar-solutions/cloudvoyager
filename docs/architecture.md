@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📁 Project Structure
@@ -306,6 +306,50 @@ scanner-report.zip:
 
 Measures are only generated for file components (no project-level `measures-1.pb`). Components use a flat structure where all files are direct children of the project (no directory components).
 
+<!-- Updated: Mar 13, 2026 at 12:00:00 PM -->
+## 🖥️ Desktop App Architecture
+
+CloudVoyager Desktop is an Electron application in the `desktop/` directory that wraps the CLI binary with a guided wizard UI.
+
+### Directory Structure
+
+```
+desktop/
+├── package.json              # Electron app config and build scripts
+├── electron-builder.yml      # Cross-platform packaging config
+├── scripts/
+│   └── prepare-cli.js        # Copies CLI binary for local development
+├── src/
+│   ├── main/
+│   │   ├── main.js           # Electron main process, window creation
+│   │   ├── cli-runner.js     # Spawns CLI binary, pipes stdout/stderr via IPC
+│   │   ├── ipc-handlers.js   # All IPC channel registrations
+│   │   └── config-store.js   # electron-store wrapper (encrypted token storage)
+│   ├── preload/
+│   │   └── preload.js        # contextBridge API exposed to renderer
+│   └── renderer/
+│       ├── index.html        # Single HTML entry point
+│       ├── styles/           # CSS (dark theme)
+│       └── js/
+│           ├── app.js        # Hash-based screen router
+│           ├── screens/      # Wizard screens (welcome, transfer, migrate, etc.)
+│           └── components/   # Reusable UI (log viewer, form builder, wizard nav, sidebar history)
+├── resources/
+│   └── cli/                  # CLI binary placed here at build time
+└── assets/                   # App icons (PNG, ICNS, ICO)
+```
+
+### How It Works
+
+1. **Config Wizard** — User fills out forms in the renderer process
+2. **Config Persistence** — Settings saved to `electron-store` (encrypted tokens at rest)
+3. **CLI Execution** — Main process writes a temp config JSON, spawns the CLI binary with appropriate flags
+4. **Log Streaming** — CLI stdout/stderr piped line-by-line via IPC to the renderer's log viewer
+5. **Cancellation** — SIGTERM on Unix, `taskkill` on Windows
+6. **Run History** — Successful runs are recorded in `electron-store` and displayed in a sidebar list for quick access to past reports
+
+The renderer uses vanilla HTML/CSS/JS with no build step. Security follows Electron best practices: `contextIsolation: true`, `nodeIntegration: false`, all Node.js access via `contextBridge`.
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -313,6 +357,7 @@ Measures are only generated for file components (no project-level `measures-1.pb
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
 - [Pseudocode Explanation](pseudocode-explanation.md) — every feature documented in pseudocode
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
+- [Desktop App Guide](desktop-app.md) — installation, wizard walkthrough, and building from source
 - [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--

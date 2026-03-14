@@ -1,0 +1,503 @@
+/* Wizard navigation steps */
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background var(--transition);
+  border-left: 3px solid transparent;
+}
+
+.wizard-step:hover {
+  background: var(--bg-tertiary);
+}
+
+.wizard-step.active {
+  background: var(--accent-bg);
+  border-left-color: var(--accent);
+}
+
+.wizard-step.completed {
+  border-left-color: var(--success);
+}
+
+.wizard-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.wizard-step.active .wizard-step-number {
+  background: var(--accent);
+  color: #fff;
+}
+
+.wizard-step.completed .wizard-step-number {
+  background: var(--success);
+  color: #fff;
+}
+
+.wizard-step-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.wizard-step.active .wizard-step-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Welcome screen */
+.welcome-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.welcome-hero {
+  text-align: center;
+  padding: 20px 0 40px;
+}
+
+.welcome-hero h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.welcome-hero p {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.command-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.command-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.command-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.command-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.command-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.secondary-action {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: all var(--transition);
+}
+
+.secondary-action:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+/* Execution screen */
+.execution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.execution-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.execution-timer {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.execution-controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* Whale progress bar */
+.whale-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 20px;
+  min-width: 0;
+}
+
+.whale-track {
+  flex: 1;
+  height: 64px;
+  background-color: #38bdf8;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  border: 3px solid rgba(248, 250, 252, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.1);
+  image-rendering: pixelated;
+}
+
+.whale-trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background-color: #0284c7;
+  border-right: 2px solid rgba(255, 255, 255, 0.3);
+  transition: width 0.6s ease-out;
+  z-index: 1;
+}
+
+.whale-trail-complete {
+  background-color: #059669;
+  border-right-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Pixel art cloud layer — tiled canvas with CSS scroll animation */
+.whale-clouds {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 0.9;
+  z-index: 2;
+}
+
+.whale-clouds canvas {
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation: cloud-scroll 20s linear infinite;
+}
+
+@keyframes cloud-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-128px); }
+}
+
+/* 16-bit pixel whale sprite — canvas child */
+.whale-sprite {
+  position: absolute;
+  bottom: 0;
+  left: -160px;
+  width: 160px;
+  height: 64px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  z-index: 3;
+  transition: left 0.6s ease-out;
+}
+
+.whale-sprite canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.whale-percent {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* Log viewer */
+.log-container {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  height: calc(100vh - 280px);
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.log-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.log-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.log-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-line {
+  padding: 1px 0;
+}
+
+.log-line.stderr {
+  color: var(--warning);
+}
+
+.log-line .timestamp {
+  color: var(--text-muted);
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+/* ANSI color classes */
+.ansi-red { color: #f85149; }
+.ansi-green { color: #3fb950; }
+.ansi-yellow { color: #d29922; }
+.ansi-blue { color: #58a6ff; }
+.ansi-magenta { color: #bc8cff; }
+.ansi-cyan { color: #39d2f5; }
+.ansi-white { color: #e6edf3; }
+.ansi-gray { color: #8b949e; }
+.ansi-bold { font-weight: 700; }
+
+/* Results screen */
+.results-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-card .stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.report-list {
+  list-style: none;
+}
+
+.report-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.report-item:last-child {
+  border-bottom: none;
+}
+
+.report-item .report-name {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.report-item .report-ext {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+/* Status screen */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.status-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.status-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Dynamic org list for migrate */
+.org-entry {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.org-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.org-entry-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.org-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  line-height: 1;
+}
+
+.org-remove-btn:hover {
+  color: var(--danger);
+}
+
+.add-org-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--transition);
+}
+
+.add-org-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Confirm dialog overlay */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.dialog-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 420px;
+  width: 90%;
+}
+
+.dialog-box h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.dialog-box p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}

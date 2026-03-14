@@ -15,8 +15,12 @@ jobs:
     needs: install
     uses: ./.github/workflows/build.yml
 
-  release:
+  build-desktop:
     needs: build
+    uses: ./.github/workflows/build-desktop.yml
+
+  release:
+    needs: [build, build-desktop]
     uses: ./.github/workflows/gh-release.yml
     permissions:
       contents: write

@@ -1,0 +1,121 @@
+name: Build Desktop Apps
+
+on:
+  workflow_call:
+
+jobs:
+  build-desktop-linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-linux-x64
+          path: desktop/resources/cli/
+      - name: Make binary executable
+        run: chmod +x desktop/resources/cli/cloudvoyager-linux-x64
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (linux-x64)
+        run: cd desktop && npm run build:linux-x64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-linux-x64
+          path: dist/desktop/*.AppImage
+
+  build-desktop-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-linux-arm64
+          path: desktop/resources/cli/
+      - name: Make binary executable
+        run: chmod +x desktop/resources/cli/cloudvoyager-linux-arm64
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (linux-arm64)
+        run: cd desktop && npm run build:linux-arm64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-linux-arm64
+          path: dist/desktop/*.AppImage
+
+  build-desktop-macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-macos-arm64
+          path: desktop/resources/cli/
+      - name: Make binary executable
+        run: chmod +x desktop/resources/cli/cloudvoyager-macos-arm64
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (macos-arm64)
+        run: cd desktop && npm run build:mac-arm64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-macos-arm64
+          path: dist/desktop/*.dmg
+
+  build-desktop-win-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-win-x64
+          path: desktop/resources/cli/
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (win-x64)
+        run: cd desktop && npm run build:win-x64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-win-x64
+          path: dist/desktop/*.exe
+
+  build-desktop-win-arm64:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-win-arm64
+          path: desktop/resources/cli/
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (win-arm64)
+        run: cd desktop && npm run build:win-arm64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-win-arm64
+          path: dist/desktop/*.exe

@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -75,6 +75,60 @@ npm run build
 ```
 
 This creates `dist/cli.cjs`, which can be run with `node dist/cli.cjs <command> [options]`.
+
+---
+
+<!-- Updated: Mar 13, 2026 at 12:00:00 PM -->
+## 🖥️ Desktop App
+
+CloudVoyager Desktop is an Electron-based GUI that wraps the CLI binary. It provides a wizard interface for configuring and running migrations without using the terminal. Past successful runs are saved in a sidebar history for quick access to reports.
+
+### Prerequisites
+
+- Node.js v20+ and npm
+- The CLI binary built and available in `dist/bin/` (run `npm run package` first)
+
+### Running in Development
+
+```bash
+cd desktop
+npm install
+
+# Copy the CLI binary into desktop/resources/cli/
+node scripts/prepare-cli.js
+
+# Launch the app
+npm start
+```
+
+In development mode, if no CLI binary is found in `resources/cli/`, the app falls back to running `node src/index.js` directly.
+
+### Building for Distribution
+
+Each command builds a platform-specific installer:
+
+```bash
+cd desktop
+npm run build:linux-x64     # Linux x64 .AppImage
+npm run build:linux-arm64    # Linux ARM64 .AppImage
+npm run build:mac-arm64      # macOS ARM64 .dmg
+npm run build:win-x64        # Windows x64 .exe (NSIS)
+npm run build:win-arm64      # Windows ARM64 .exe (NSIS)
+```
+
+> **Note:** You must place the correct CLI binary in `desktop/resources/cli/` before building. The `prepare-cli.js` script copies the binary for your current platform from `dist/bin/`.
+
+### Output
+
+| Platform | Output |
+|----------|--------|
+| Linux (x64) | `dist/desktop/CloudVoyager Desktop-*.AppImage` |
+| Linux (ARM64) | `dist/desktop/CloudVoyager Desktop-*.AppImage` |
+| macOS (Apple Silicon) | `dist/desktop/CloudVoyager Desktop-*.dmg` |
+| Windows (x64) | `dist/desktop/CloudVoyager Desktop Setup *.exe` |
+| Windows (ARM64) | `dist/desktop/CloudVoyager Desktop Setup *.exe` |
+
+See the [Desktop App Guide](desktop-app.md) for the full user guide.
 
 ---
 
@@ -773,6 +827,7 @@ The following npm scripts are available for building, testing, and linting:
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, active rules
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
+- [Desktop App Guide](desktop-app.md) — installation, wizard walkthrough, building from source
 - [Changelog](CHANGELOG.md) — release history and notable changes
 
 <!--
