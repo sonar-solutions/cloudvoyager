@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -32,6 +32,7 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 21. [Error Handling Architecture](#21-error-handling-architecture)
 22. [Migration Verification Pipeline](#22-migration-verification-pipeline)
 23. [Engineering Summary](#23-engineering-summary)
+24. [Desktop Application (Electron GUI)](#24-desktop-application-electron-gui)
 
 ---
 
@@ -988,6 +989,21 @@ This ensures the verification is comparing exactly the same pairs that were sync
 4. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
 5. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
 6. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
+
+<!-- Updated: Mar 13, 2026 at 12:00:00 PM -->
+## 24. Desktop Application (Electron GUI)
+
+CloudVoyager Desktop provides a guided wizard interface for users who prefer a visual tool over the command line. Built with Electron, it wraps the same CLI binary used in terminal workflows.
+
+**Key features:**
+- **Wizard-based configuration** — step-by-step forms replace manual JSON editing
+- **Live log streaming** — real-time migration output with ANSI color support
+- **Encrypted config storage** — tokens encrypted at rest via electron-store
+- **Cross-platform** — builds for Linux (x64/ARM64), macOS (ARM64), Windows (x64/ARM64)
+- **No CLI knowledge needed** — all options available through the UI with plain-language descriptions
+- **Run History sidebar** — lists past successful migration/transfer runs in a sidebar; clicking an entry navigates to the results/reports screen for that run. History persists across app restarts (up to 50 entries stored in electron-store). Each entry displays the command type (Migration/Transfer), date/time, and duration
+
+The desktop app does not embed or import CLI source code. It spawns the platform-specific binary as a child process and communicates via stdout/stderr piping through Electron's IPC layer. This architecture means the CLI and desktop app always have identical migration behavior.
 
 ## 📚 Further Reading
 

@@ -1,10 +1,10 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-03-12 -->
+<!-- Last updated: 2026-03-14 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
-CloudVoyager copies everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud.
+CloudVoyager copies everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud. It is available as both a CLI tool and a Desktop app with a guided wizard interface.
 
 <!-- Updated: 2026-02-19 -->
 ## ✅ Quick Start (Recommended)
@@ -16,6 +16,22 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 | Migrate **one project** from SonarQube to SonarCloud | [Single Project Migration](docs/scenario-single-project.md) |
 | Migrate **everything** from SonarQube to **one** SonarCloud org | [Full Migration — Single Org](docs/scenario-single-org.md) |
 | Migrate **everything** from SonarQube to **multiple** SonarCloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
+
+## 🖥️ Desktop App (New!)
+
+Prefer a visual interface? **CloudVoyager Desktop** provides a guided wizard UI — no terminal or config files needed. Includes a **Run History** sidebar for quick access to past migration results.
+
+| Platform | Download |
+|----------|----------|
+| Linux (x64) | `.AppImage` |
+| Linux (ARM64) | `.AppImage` |
+| macOS (Apple Silicon) | `.dmg` |
+| Windows (x64) | `.exe` installer |
+| Windows (ARM64) | `.exe` installer |
+
+Download the latest version from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
+
+See the [Desktop App Guide](docs/desktop-app.md) for setup instructions and a walkthrough of the wizard.
 
 <!-- Updated: 2026-02-18 -->
 ## 🔥 Single Command Full Migration (Slightly Dangerous)
@@ -90,6 +106,7 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 | [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
 | [Dry-Run CSV Reference](docs/dry-run-csv-reference.md) | CSV schema documentation for the dry-run workflow (including user mapping) |
 | [Backward Compatibility](docs/backward-compatibility.md) | SonarQube version support (9.9 LTS through 2025.1+) |
+| [Desktop App Guide](docs/desktop-app.md) | Installation, wizard walkthrough, and building from source |
 | [Contributing](CONTRIBUTING.md) | Architectural patterns, conventions, and contribution guidelines |
 | [Changelog](docs/CHANGELOG.md) | Release history and notable changes |
 

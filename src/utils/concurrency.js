@@ -51,7 +51,8 @@ export async function mapConcurrent(items, fn, { concurrency = 8, settled = fals
 }
 
 export function createProgressLogger(label, total) {
-  const interval = Math.max(10, Math.floor(total / 10));
+  // Log every ~2% or every 25 items, whichever is smaller (minimum every 10)
+  const interval = Math.max(10, Math.min(25, Math.floor(total / 50)));
   return (completed, _total) => {
     if (completed % interval === 0 || completed === total) {
       logger.info(`${label}: ${completed}/${total} (${Math.round(completed / total * 100)}%)`);

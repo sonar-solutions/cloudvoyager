@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>CloudVoyager Desktop</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/wizard.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <h1 class="app-title">CloudVoyager</h1>
+        <span class="app-subtitle">Desktop</span>
+      </div>
+      <nav id="wizard-nav"></nav>
+      <div id="sidebar-history"></div>
+      <div id="sidebar-footer">
+        <button id="btn-home" class="sidebar-btn" title="Home">Home</button>
+        <span id="app-version" class="version-text"></span>
+      </div>
+    </aside>
+    <main id="content"></main>
+  </div>
+  <div id="toast-container"></div>
+
+  <!-- Components -->
+  <script src="js/components/config-form.js"></script>
+  <script src="js/components/log-viewer.js"></script>
+  <script src="js/components/wizard-nav.js"></script>
+  <script src="js/components/sidebar-history.js"></script>
+
+  <!-- Screens -->
+  <script src="js/screens/welcome.js"></script>
+  <script src="js/screens/transfer-config.js"></script>
+  <script src="js/screens/migrate-config.js"></script>
+  <script src="js/screens/advanced-options.js"></script>
+  <script src="js/screens/connection-test.js"></script>
+  <script src="js/screens/execution.js"></script>
+  <script src="js/screens/results.js"></script>
+  <script src="js/screens/status.js"></script>
+
+  <!-- App init (must be last) -->
+  <script src="js/app.js"></script>
+</body>
+</html>

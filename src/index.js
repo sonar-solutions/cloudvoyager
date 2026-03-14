@@ -19,7 +19,7 @@ const program = new Command();
 
 program
   .name('cloudvoyager')
-  .description('Migrate data from SonarQube to SonarCloud')
+  .description('CloudVoyager CLI — Migrate data from SonarQube to SonarCloud')
   .version('1.0.0');
 
 registerTransferCommand(program);

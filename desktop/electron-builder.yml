@@ -1,0 +1,32 @@
+appId: com.cloudvoyager.desktop
+productName: CloudVoyager Desktop
+
+directories:
+  output: ../dist/desktop
+
+extraResources:
+  - from: resources/cli/
+    to: cli/
+    filter:
+      - "**/*"
+
+linux:
+  target:
+    - target: AppImage
+  category: Utility
+  icon: assets/icon.png
+
+mac:
+  target:
+    - target: dmg
+  identity: null
+  icon: assets/icon.icns
+
+win:
+  target:
+    - target: nsis
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
