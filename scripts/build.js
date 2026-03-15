@@ -14,6 +14,8 @@ const args = process.argv.slice(2);
 const shouldPackage = args.includes('--package');
 const useBun = args.includes('--bun');
 const crossCompile = args.includes('--cross');
+const targetArg = args.find(a => a.startsWith('--target='));
+const targetPlatform = targetArg ? targetArg.split('=')[1] : null;
 
 // Node.js SEA packaging requires v20. v22+ embeds the sentinel twice, causing postject to fail.
 if (shouldPackage && !useBun) {
@@ -87,11 +89,37 @@ async function esbuildBundle(entryPoint, distDir) {
 }
 
 /**
- * Build a Node.js SEA binary for the current platform.
- * Requires: dist/cli.cjs to already exist.
+ * Download a Node.js binary for a different architecture (cross-compile SEA).
+ * Returns the path to the downloaded node executable.
  */
-function seaPackage(distDir, binDir) {
-  const platformId = detectPlatform();
+function downloadNodeBinary(targetPlatformId, distDir) {
+  const nodeVersion = process.versions.node;
+  const nodeArchMap = { 'macos-x64': 'darwin-x64', 'macos-arm64': 'darwin-arm64', 'linux-x64': 'linux-x64', 'linux-arm64': 'linux-arm64' };
+  const nodeTarget = nodeArchMap[targetPlatformId];
+  if (!nodeTarget) {
+    console.error(`Cross-compile SEA not supported for target: ${targetPlatformId}`);
+    process.exit(1);
+  }
+
+  const tarball = `node-v${nodeVersion}-${nodeTarget}.tar.gz`;
+  const url = `https://nodejs.org/dist/v${nodeVersion}/${tarball}`;
+  const downloadDir = join(distDir, 'node-cross');
+  mkdirSync(downloadDir, { recursive: true });
+
+  console.log(`Downloading Node.js v${nodeVersion} for ${nodeTarget}...`);
+  execSync(`curl -fsSL "${url}" | tar xz -C "${downloadDir}" --strip-components=1`, { stdio: 'inherit' });
+
+  return join(downloadDir, 'bin', 'node');
+}
+
+/**
+ * Build a Node.js SEA binary for the current (or target) platform.
+ * Requires: dist/cli.cjs to already exist.
+ * Pass overridePlatform (e.g. "macos-x64") to cross-compile.
+ */
+function seaPackage(distDir, binDir, overridePlatform) {
+  const platformId = overridePlatform || detectPlatform();
+  const isCross = overridePlatform && overridePlatform !== detectPlatform();
   mkdirSync(binDir, { recursive: true });
 
   const seaConfig = {
@@ -110,18 +138,27 @@ function seaPackage(distDir, binDir) {
     stdio: 'inherit',
   });
 
-  const ext = process.platform === 'win32' ? '.exe' : '';
+  const targetIsWin = platformId.startsWith('win');
+  const targetIsMac = platformId.startsWith('macos');
+  const ext = targetIsWin ? '.exe' : '';
   const binaryPath = join(binDir, `${BINARY_NAME}-${platformId}${ext}`);
-  console.log(`Copying node binary to ${BINARY_NAME}-${platformId}${ext}...`);
-  copyFileSync(process.execPath, binaryPath);
 
-  if (process.platform === 'darwin') {
+  if (isCross) {
+    const nodeBin = downloadNodeBinary(platformId, distDir);
+    console.log(`Copying cross-platform node binary to ${BINARY_NAME}-${platformId}${ext}...`);
+    copyFileSync(nodeBin, binaryPath);
+  } else {
+    console.log(`Copying node binary to ${BINARY_NAME}-${platformId}${ext}...`);
+    copyFileSync(process.execPath, binaryPath);
+  }
+
+  if (targetIsMac || process.platform === 'darwin') {
     console.log('Removing macOS code signature...');
     execSync(`codesign --remove-signature "${binaryPath}"`, { stdio: 'inherit' });
   }
 
   console.log('Injecting SEA blob...');
-  const sentinelFlag = process.platform === 'darwin'
+  const sentinelFlag = targetIsMac
     ? '--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA'
     : '--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
   execSync(
@@ -129,7 +166,7 @@ function seaPackage(distDir, binDir) {
     { cwd: rootDir, stdio: 'inherit' }
   );
 
-  if (process.platform === 'darwin') {
+  if (targetIsMac || process.platform === 'darwin') {
     console.log('Re-signing macOS binary...');
     execSync(`codesign --sign - "${binaryPath}"`, { stdio: 'inherit' });
   }
@@ -193,7 +230,7 @@ async function build() {
     await esbuildBundle(entryPoint, distDir);
     console.log('Bundle created: dist/cli.cjs');
 
-    const name = seaPackage(distDir, binDir);
+    const name = seaPackage(distDir, binDir, targetPlatform);
     console.log(`Binary created: dist/bin/${name}`);
     return;
   }
