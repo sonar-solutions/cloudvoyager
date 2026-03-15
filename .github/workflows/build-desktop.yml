@@ -76,6 +76,30 @@ jobs:
           name: cloudvoyager-desktop-macos-arm64
           path: dist/desktop/*.dmg
 
+  build-desktop-macos-x64:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudvoyager-macos-x64
+          path: desktop/resources/cli/
+      - name: Make binary executable
+        run: chmod +x desktop/resources/cli/cloudvoyager-macos-x64
+      - name: Install desktop dependencies
+        run: cd desktop && npm ci
+      - name: Build desktop app (macos-x64)
+        run: cd desktop && npm run build:mac-x64
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudvoyager-desktop-macos-x64
+          path: dist/desktop/*.dmg
+
   build-desktop-win-x64:
     runs-on: windows-latest
     steps:
