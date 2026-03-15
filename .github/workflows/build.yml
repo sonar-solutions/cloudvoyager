@@ -73,7 +73,7 @@ jobs:
           path: dist/bin/cloudvoyager-macos-arm64
 
   build-sea-macos-x64:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,8 +85,8 @@ jobs:
           path: node_modules
           key: node-modules-macos-x64-${{ hashFiles('package-lock.json') }}
       - run: npm ci
-      - name: Build macos-x64 binary via Node.js SEA
-        run: npm run package
+      - name: Build macos-x64 binary via Node.js SEA (cross-compile)
+        run: node scripts/build.js --package --target=macos-x64
       - name: Upload macos-x64
         uses: actions/upload-artifact@v4
         with:

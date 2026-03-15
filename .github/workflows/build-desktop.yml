@@ -77,7 +77,7 @@ jobs:
           path: dist/desktop/*.dmg
 
   build-desktop-macos-x64:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
