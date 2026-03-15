@@ -38,6 +38,7 @@ CloudVoyager can be compiled into a standalone binary using two packaging backen
 
 ```bash
 npm run package           # Build for current platform
+node scripts/build.js --package --target=macos-x64  # Cross-compile for a different platform
 ```
 
 Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
@@ -66,7 +67,7 @@ Uses Bun's single-step compile — source goes directly to a native binary with 
 | Windows (x64) | `dist/bin/cloudvoyager-win-x64.exe` | Node.js SEA |
 | Windows (ARM64) | `dist/bin/cloudvoyager-win-arm64.exe` | Node.js SEA |
 
-> **Note:** `npm run package` builds for your current platform only using Node.js SEA. In CI, 6 parallel runners each build a native binary for their platform.
+> **Note:** `npm run package` builds for your current platform only using Node.js SEA. Use `--target=<platform>` to cross-compile for a different platform (e.g., `--target=macos-x64` builds an x64 binary on an ARM64 Mac). In CI, 6 parallel jobs build binaries for each platform.
 
 If you only need the bundled JavaScript file (without the standalone binary), you can run:
 
@@ -112,6 +113,7 @@ cd desktop
 npm run build:linux-x64     # Linux x64 .AppImage
 npm run build:linux-arm64    # Linux ARM64 .AppImage
 npm run build:mac-arm64      # macOS ARM64 .dmg
+npm run build:mac-x64        # macOS x64 .dmg
 npm run build:win-x64        # Windows x64 .exe (NSIS)
 npm run build:win-arm64      # Windows ARM64 .exe (NSIS)
 ```
@@ -125,6 +127,7 @@ npm run build:win-arm64      # Windows ARM64 .exe (NSIS)
 | Linux (x64) | `dist/desktop/CloudVoyager Desktop-*.AppImage` |
 | Linux (ARM64) | `dist/desktop/CloudVoyager Desktop-*.AppImage` |
 | macOS (Apple Silicon) | `dist/desktop/CloudVoyager Desktop-*.dmg` |
+| macOS (Intel) | `dist/desktop/CloudVoyager Desktop-*.dmg` |
 | Windows (x64) | `dist/desktop/CloudVoyager Desktop Setup *.exe` |
 | Windows (ARM64) | `dist/desktop/CloudVoyager Desktop Setup *.exe` |
 

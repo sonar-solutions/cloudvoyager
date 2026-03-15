@@ -281,11 +281,12 @@ dist/
 ```bash
 npm run build            # Bundle only via esbuild (dist/cli.cjs)
 npm run package          # Node.js SEA binary for current platform (default)
+node scripts/build.js --package --target=macos-x64  # Cross-compile for a different platform
 npm run package:bun      # Bun compile for current platform (experimental)
 npm run package:bun:cross # Bun cross-compile 5 platforms (experimental)
 ```
 
-CI uses 6 parallel jobs — one per platform — each building a Node.js SEA binary natively on its target runner.
+CI uses 6 parallel jobs — one per platform. Most build natively on their target runner; macOS x64 cross-compiles from an ARM64 runner by downloading the target Node.js binary.
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 

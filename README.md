@@ -21,11 +21,14 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 
 Prefer a visual interface? **CloudVoyager Desktop** provides a guided wizard UI — no terminal or config files needed. Includes a **Run History** sidebar for quick access to past migration results.
 
+![CloudVoyager Desktop — Welcome Screen](docs/screenshots/start_page.png)
+
 | Platform | Download |
 |----------|----------|
 | Linux (x64) | `.AppImage` |
 | Linux (ARM64) | `.AppImage` |
 | macOS (Apple Silicon) | `.dmg` |
+| macOS (Intel) | `.dmg` |
 | Windows (x64) | `.exe` installer |
 | Windows (ARM64) | `.exe` installer |
 
