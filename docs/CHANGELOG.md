@@ -4,6 +4,32 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [1.1.2] - 2026-03-15
+
+### Cross-Compile Support and macOS x64 Desktop App
+
+#### Cross-Platform SEA Binary Building
+- Added `--target=<platform>` flag to `scripts/build.js` for cross-compiling Node.js SEA binaries (e.g., building a macOS x64 binary from an ARM64 Mac)
+- When cross-compiling, the build script downloads the correct Node.js binary for the target architecture from nodejs.org and injects the SEA blob into it
+- Supported targets: `macos-x64`, `macos-arm64`, `linux-x64`, `linux-arm64`
+
+#### CI/CD Fix: macOS x64 Binary
+- Fixed `build-sea-macos-x64` GitHub Actions job — previously used `macos-13` (unavailable) then `macos-15` (ARM64, producing wrong architecture binary)
+- Now runs on `macos-latest` (ARM64) with `--target=macos-x64` for cross-compilation
+
+#### macOS x64 Desktop App
+- Added `build:mac-x64` npm script to the desktop app for building macOS Intel `.dmg` installers
+- Added `build-desktop-macos-x64` job to GitHub Actions workflow
+- Platform count increases from 5 to 6 for the desktop app
+
+#### Files Modified
+- **Modified:** `scripts/build.js` — added `--target` flag, `downloadNodeBinary()` function, cross-compile logic in `seaPackage()`
+- **Modified:** `.github/workflows/build.yml` — `build-sea-macos-x64` uses `macos-latest` with cross-compile
+- **Modified:** `.github/workflows/build-desktop.yml` — added `build-desktop-macos-x64` job
+- **Modified:** `desktop/package.json` — added `build:mac-x64` script
+
+---
+
 ## [1.1.1] - 2026-03-12
 
 ### Bug Fix: SonarCloud Issue Sync Failure (FALSE_POSITIVE Status Parameter)

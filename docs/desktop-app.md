@@ -4,7 +4,9 @@
 
 CloudVoyager Desktop wraps the CLI binary in a guided wizard UI built with Electron. No terminal needed — fill in forms, click Start, and watch live logs stream in real-time. All configuration persists between app restarts with encrypted token storage.
 
-Available for: **Linux x64**, **Linux ARM64**, **macOS ARM64**, **Windows x64**, **Windows ARM64**.
+![CloudVoyager Desktop — Welcome Screen](screenshots/start_page.png)
+
+Available for: **Linux x64**, **Linux ARM64**, **macOS ARM64**, **macOS x64**, **Windows x64**, **Windows ARM64**.
 
 ## 📦 Installation
 
@@ -15,6 +17,7 @@ Download the latest release from the [GitHub Releases](https://github.com/your-o
 | Linux x64 | AppImage | `CloudVoyager-x.x.x-linux-x86_64.AppImage` |
 | Linux ARM64 | AppImage | `CloudVoyager-x.x.x-linux-arm64.AppImage` |
 | macOS ARM64 | DMG | `CloudVoyager-x.x.x-mac-arm64.dmg` |
+| macOS x64 | DMG | `CloudVoyager-x.x.x-mac-x64.dmg` |
 | Windows x64 | NSIS Installer | `CloudVoyager-x.x.x-win-x64-setup.exe` |
 | Windows ARM64 | NSIS Installer | `CloudVoyager-x.x.x-win-arm64-setup.exe` |
 
@@ -66,13 +69,20 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | 3. Migration Settings | Configure output directory, dry run, included/excluded projects |
 | 4. Review & Start | Review all settings and begin the full migration |
 
+![Migration Settings Wizard](screenshots/full_migration.png)
+
 ### Other Screens
 
 - **Verify** — Compares data between source SonarQube and destination SonarCloud to confirm migration completeness
 - **Sync Metadata** — Updates coding rules, policies, and permissions without re-migrating code data
 - **Connection Test** — Runs the `test` command to verify connectivity to both SonarQube and SonarCloud
 - **Execution** — Live log viewer with elapsed timer, cancel button, and status badge (running/success/failed)
+
+![Live Migration Progress](screenshots/migrate_progress.png)
+
 - **Results** — Browse and open generated report files from the migration output directory
+
+![Migration Results — Report Files](screenshots/migrate_results.png)
 - **Run History** (sidebar) — Lists past successful migration and transfer runs in the sidebar. Click any entry to view its reports. History persists across app restarts (max 50 entries).
 - **Status** — View migration progress, sync history, and reset state
 
@@ -112,6 +122,7 @@ npm start          # Run in dev mode (uses src/index.js as CLI fallback)
 npm run build:linux-x64
 npm run build:linux-arm64
 npm run build:mac-arm64
+npm run build:mac-x64
 npm run build:win-x64
 npm run build:win-arm64
 ```
@@ -172,4 +183,4 @@ Both the CLI and Desktop app provide the same migration capabilities. The Deskto
 | Config format | JSON file | Guided wizard |
 | Encrypted token storage | No | Yes (electron-store) |
 | Run history sidebar | No | Yes (last 50 runs) |
-| Platform support | 5 platforms | 5 platforms |
+| Platform support | 6 platforms | 6 platforms |

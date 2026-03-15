@@ -562,13 +562,13 @@ An experimental Bun compile pipeline is also available. Bun bundles and compiles
 
 ```bash
 npm run package:bun          # Build for current platform (experimental)
-npm run package:bun:cross    # Cross-compile 5 platforms (experimental)
+npm run package:bun:cross    # Cross-compile 6 platforms (experimental)
 ```
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### CI/CD Build
 
-The GitHub Actions workflow uses **6 parallel jobs** — one per target platform — each building a Node.js SEA binary natively on its respective runner (ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest, windows-11-arm).
+The GitHub Actions workflow uses **6 parallel jobs** — one per target platform — each building a Node.js SEA binary on its respective runner (ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm). The macOS x64 binary is cross-compiled from the ARM64 runner (macos-latest) using `npm run package -- --target x64`, since GitHub no longer offers native Intel macOS runners.
 
 ---
 
@@ -999,7 +999,7 @@ CloudVoyager Desktop provides a guided wizard interface for users who prefer a v
 - **Wizard-based configuration** — step-by-step forms replace manual JSON editing
 - **Live log streaming** — real-time migration output with ANSI color support
 - **Encrypted config storage** — tokens encrypted at rest via electron-store
-- **Cross-platform** — builds for Linux (x64/ARM64), macOS (ARM64), Windows (x64/ARM64)
+- **Cross-platform** — builds for Linux (x64/ARM64), macOS (x64/ARM64), Windows (x64/ARM64)
 - **No CLI knowledge needed** — all options available through the UI with plain-language descriptions
 - **Run History sidebar** — lists past successful migration/transfer runs in a sidebar; clicking an entry navigates to the results/reports screen for that run. History persists across app restarts (up to 50 entries stored in electron-store). Each entry displays the command type (Migration/Transfer), date/time, and duration
 
