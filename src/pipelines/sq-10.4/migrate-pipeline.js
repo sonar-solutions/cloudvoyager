@@ -12,6 +12,7 @@ import { loadMappingCsvs } from '../../shared/mapping/csv-reader.js';
 import { applyCsvOverrides } from '../../shared/mapping/csv-applier.js';
 import { extractUniqueAssignees, enrichAssigneeDetails } from './sonarqube/extractors/users.js';
 import { MigrationJournal } from '../../shared/state/migration-journal.js';
+import { promptMigrationResume } from '../../shared/utils/prompt.js';
 
 export async function migrateAll(options) {
   const {
@@ -80,9 +81,21 @@ export async function migrateAll(options) {
 
   let isResume = false;
   if (!dryRun && !forceRestart && existsSync(migrationJournalPath)) {
-    isResume = true;
-    logger.info('=== RESUME MODE: Detected previous migration journal ===');
-    logger.info('Will skip completed organizations and projects. Use --force-restart to start fresh.');
+    // Existing journal found — prompt the user for resume / restart / abort
+    const existingData = await migrationJournal.peek();
+    if (existingData && existingData.status !== 'completed') {
+      const choice = await promptMigrationResume(existingData, sonarqubeConfig.url);
+      if (choice === 'abort') {
+        logger.info('Migration aborted by user.');
+        process.exit(0);
+      } else if (choice === 'restart') {
+        logger.info('User chose to start fresh — discarding previous migration state.');
+        // fall through to fresh-start path (isResume stays false)
+      } else {
+        isResume = true;
+        logger.info('=== RESUME MODE: Continuing from previous migration journal ===');
+      }
+    }
   }
 
   if (isResume) {
@@ -102,7 +115,7 @@ export async function migrateAll(options) {
 
   // Initialize migration journal (creates or loads)
   if (!dryRun) {
-    await migrationJournal.initialize();
+    await migrationJournal.initialize({ sonarqubeUrl: sonarqubeConfig.url });
   }
 
   const results = createEmptyResults();

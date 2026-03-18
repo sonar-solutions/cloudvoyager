@@ -18,9 +18,11 @@ export class MigrationJournal {
 
   /**
    * Initialize or load an existing migration journal.
+   * @param {object} [meta] - Optional metadata to store in the journal
+   * @param {string} [meta.sonarqubeUrl] - SonarQube server URL
    * @returns {Promise<boolean>} true if resuming from existing journal
    */
-  async initialize() {
+  async initialize(meta = {}) {
     const existing = await this.storage.load();
 
     if (existing && existing.status !== 'completed') {
@@ -40,6 +42,7 @@ export class MigrationJournal {
       version: MIGRATION_JOURNAL_VERSION,
       status: 'in_progress',
       startedAt: new Date().toISOString(),
+      sonarqubeUrl: meta.sonarqubeUrl || null,
       organizations: {},
     };
     await this.save();
@@ -238,6 +241,15 @@ export class MigrationJournal {
    */
   exists() {
     return this.storage.exists();
+  }
+
+  /**
+   * Load and return the raw journal data without initializing.
+   * Useful for inspecting journal metadata before deciding to resume.
+   * @returns {Promise<object|null>}
+   */
+  async peek() {
+    return this.storage.load();
   }
 
   /**

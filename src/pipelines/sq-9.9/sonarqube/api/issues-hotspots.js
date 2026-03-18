@@ -1,8 +1,8 @@
 import logger from '../../../../shared/utils/logger.js';
 
-// All issue statuses — pre-10.4 lifecycle + 10.4+ lifecycle.
-// The SonarQube API ignores unknown values, so including both sets is safe.
-const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED';
+// SonarQube 9.9 only supports the classic issue lifecycle statuses.
+// FALSE_POSITIVE, ACCEPTED, FIXED are NOT valid in 9.9 (causes 400 error).
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED';
 
 export async function getIssues(getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);

@@ -100,6 +100,20 @@ export class SonarQubeClient {
 
   async getMeasures(branch = null, metricKeys = []) {
     logger.info(`Fetching measures for project: ${this.projectKey}`);
+    // SonarQube 10.4 still limits metricKeys to 15 per request
+    const MAX_METRIC_KEYS = 15;
+    if (metricKeys.length > MAX_METRIC_KEYS) {
+      let allMeasures = [];
+      for (let i = 0; i < metricKeys.length; i += MAX_METRIC_KEYS) {
+        const chunk = metricKeys.slice(i, i + MAX_METRIC_KEYS);
+        const params = { component: this.projectKey, metricKeys: chunk.join(',') };
+        if (branch) params.branch = branch;
+        const response = await this.client.get('/api/measures/component', { params });
+        const comp = response.data.component || {};
+        allMeasures = allMeasures.concat(comp.measures || []);
+      }
+      return { key: this.projectKey, measures: allMeasures };
+    }
     const params = { component: this.projectKey, metricKeys: metricKeys.join(',') };
     if (branch) params.branch = branch;
     const response = await this.client.get('/api/measures/component', { params });
@@ -108,6 +122,26 @@ export class SonarQubeClient {
 
   async getComponentTree(branch = null, metricKeys = []) {
     logger.info(`Fetching component tree for project: ${this.projectKey}`);
+    // SonarQube 10.4 still limits metricKeys to 15 per request — batch and merge
+    const MAX_METRIC_KEYS = 15;
+    if (metricKeys.length > MAX_METRIC_KEYS) {
+      const componentMap = new Map();
+      for (let i = 0; i < metricKeys.length; i += MAX_METRIC_KEYS) {
+        const chunk = metricKeys.slice(i, i + MAX_METRIC_KEYS);
+        const params = { component: this.projectKey, metricKeys: chunk.join(','), qualifiers: 'DIR,FIL', strategy: 'all' };
+        if (branch) params.branch = branch;
+        const components = await this.getPaginated('/api/measures/component_tree', params, 'components');
+        for (const comp of components) {
+          if (componentMap.has(comp.key)) {
+            const existing = componentMap.get(comp.key);
+            existing.measures = (existing.measures || []).concat(comp.measures || []);
+          } else {
+            componentMap.set(comp.key, { ...comp });
+          }
+        }
+      }
+      return Array.from(componentMap.values());
+    }
     const params = { component: this.projectKey, metricKeys: metricKeys.join(','), qualifiers: 'DIR,FIL', strategy: 'all' };
     if (branch) params.branch = branch;
     return await this.getPaginated('/api/measures/component_tree', params, 'components');
