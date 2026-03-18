@@ -1,155 +1,164 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 19, 2026 -->
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ## 📁 Project Structure
+
+CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
 
 ```
 src/
-├── index.js                  # CLI entry point (Commander-based)
-├── transfer-pipeline.js      # Single-project transfer (extract → build → encode → upload)
-├── migrate-pipeline.js       # Full multi-org migration orchestrator
-├── commands/                 # CLI command handlers
-│   ├── transfer.js            # Single-project transfer command
-│   ├── migrate.js             # Full migration command
-│   ├── sync-metadata.js       # Standalone metadata sync command
-│   └── verify.js              # Migration verification command
-├── config/
-│   ├── loader.js             # Config loading and validation (Ajv + ajv-formats) for transfer commands
-│   ├── loader-migrate.js     # Config loading for migrate/sync-metadata commands
-│   ├── schema.js             # JSON schema for transfer config
-│   ├── schema-migrate.js     # JSON schema for migration config
-│   └── schema-shared.js      # Shared schema definitions (performance, rateLimit)
-├── sonarqube/
-│   ├── api-client.js         # HTTP client with pagination, auth, SCM revision
-│   ├── models.js             # Data models (with language support)
-│   ├── api/                  # API method modules (extracted from api-client)
-│   │   ├── issues-hotspots.js # Issue and hotspot API methods
-│   │   ├── permissions.js     # Permission API methods
-│   │   ├── quality.js         # Quality gate and profile API methods
-│   │   └── server-config.js   # Server info, settings, webhooks API methods
-│   └── extractors/           # Specialized data extractors
-│       ├── index.js           # DataExtractor orchestrator
-│       ├── projects.js        # Project metadata, branches, quality gates
-│       ├── issues.js          # Issues with pagination
-│       ├── hotspots.js        # Security hotspots with status and comments
-│       ├── metrics.js         # Metric definitions
-│       ├── measures.js        # Project and component measures
-│       ├── sources.js         # Source code files (with language info)
-│       ├── rules.js           # Active rules extraction
-│       ├── rule-helpers.js    # Shared rule extraction helpers
-│       ├── changesets.js      # SCM changeset data per file
-│       ├── symbols.js         # Symbol references
-│       ├── syntax-highlighting.js  # Syntax highlighting data
-│       ├── quality-gates.js   # Quality gate definitions, conditions, permissions
-│       ├── quality-profiles.js # Quality profile definitions, backup XML, permissions
-│       ├── groups.js          # User group definitions
-│       ├── permissions.js     # Global, project, and template permissions
-│       ├── portfolios.js      # Portfolio definitions and membership
-│       ├── project-settings.js # Non-inherited project-level settings
-│       ├── project-tags.js    # Custom project tags
-│       ├── project-links.js   # External project links
-│       ├── new-code-periods.js # New code period definitions (per project/branch)
-│       ├── devops-bindings.js # ALM/DevOps settings and project bindings
-│       ├── server-info.js     # Server version, plugins, settings
-│       └── webhooks.js        # Server and project-level webhooks
-├── protobuf/
-│   ├── builder.js            # Orchestrates protobuf message building
-│   ├── build-components.js   # Builds component protobuf messages
-│   ├── build-issues.js       # Builds issue protobuf messages
-│   ├── build-measures.js     # Builds measure protobuf messages
-│   ├── encoder.js            # Encodes messages using protobufjs
-│   ├── encode-types.js       # Typed encoding helpers (int, double, string measures)
-│   └── schema/               # Protocol buffer definitions (.proto files)
-│       ├── scanner-report.proto
-│       └── constants.proto
-├── sonarcloud/
-│   ├── api-client.js         # SonarCloud HTTP client (retry, throttle, quality profiles)
-│   ├── uploader.js           # Report packaging (adm-zip, form-data) and CE submission
-│   ├── api/                  # API method modules (extracted from api-client)
-│   │   ├── hotspots.js        # Hotspot API methods
-│   │   ├── issues.js          # Issue API methods
-│   │   ├── permissions.js     # Permission API methods
-│   │   ├── project-config.js  # Project config API methods
-│   │   ├── quality-gates.js   # Quality gate API methods
-│   │   └── quality-profiles.js # Quality profile API methods
-│   └── migrators/            # SonarCloud migration modules
-│       ├── quality-gates.js   # Create gates, assign to projects
-│       ├── quality-profiles.js # Restore profiles via backup XML (including built-in as custom)
-│       ├── quality-profile-diff.js # Compare SQ vs SC active rules per language
-│       ├── groups.js          # Create user groups
-│       ├── permissions.js     # Global, project, and template permissions
-│       ├── portfolios.js      # Create portfolios, assign projects
-│       ├── project-config.js  # Settings, tags, links, new code periods, DevOps bindings
-│       ├── issue-sync.js      # Sync issue statuses, assignments, comments, tags
-│       └── hotspot-sync.js    # Sync hotspot statuses and comments
-├── pipeline/                 # Migration pipeline stages (used by migrate-pipeline.js)
-│   ├── extraction.js          # Server-wide data extraction orchestration
-│   ├── org-migration.js       # Per-organization migration logic
-│   ├── project-migration.js   # Per-project migration logic
-│   └── results.js             # Migration result tracking and aggregation
-├── mapping/
-│   ├── org-mapper.js         # Map projects to target orgs (by DevOps binding)
-│   ├── csv-generator.js      # Generate mapping CSVs for review
-│   ├── csv-tables.js         # CSV table formatting helpers
-│   ├── csv-reader.js         # Parse CSV files from dry-run output
-│   └── csv-applier.js        # Apply CSV overrides to filter/modify extracted data
-├── reports/                  # Migration report generation
-│   ├── index.js               # Report generation orchestrator
-│   ├── shared.js              # Shared report utilities
-│   ├── format-text.js         # Plain text report formatter
-│   ├── format-markdown.js     # Markdown report formatter
-│   ├── format-markdown-executive.js # Executive summary markdown formatter
-│   ├── format-performance.js  # Performance report formatter
-│   ├── format-pdf.js          # PDF report formatter
-│   ├── format-pdf-executive.js # Executive summary PDF formatter
-│   ├── format-pdf-performance.js # Performance report PDF formatter
-│   ├── pdf-helpers.js         # Shared PDF generation helpers
-│   ├── pdf-sections.js        # PDF report section builders
-│   ├── pdf-exec-sections.js   # Executive summary PDF section builders
-│   ├── pdf-perf-sections.js   # Performance report PDF section builders
-│   └── perf-tables.js         # Performance data table formatters
-├── verification/
-│   ├── verify-pipeline.js   # Verification orchestrator (read-only comparison)
-│   ├── checkers/            # Per-check verification modules
-│   │   ├── issues.js         # Issue matching and status/status history/assignment/comment/tag verification
-│   │   ├── hotspots.js       # Hotspot matching and status/comment verification
-│   │   ├── branches.js       # Branch parity verification
-│   │   ├── measures.js       # Metrics comparison
-│   │   ├── quality-gates.js  # Quality gate existence, conditions, and assignment
-│   │   ├── quality-profiles.js # Quality profile existence, rules, and assignment
-│   │   ├── groups.js         # User group existence
-│   │   ├── permissions.js    # Global, project, and template permissions
-│   │   ├── project-config.js # Settings, tags, links, new code periods, DevOps bindings
-│   │   └── portfolios.js     # Portfolio verification (reference)
-│   └── reports/             # Verification report generation
-│       ├── index.js          # Report orchestrator (JSON + MD + PDF + console)
-│       ├── format-markdown.js # Markdown verification report
-│       └── format-pdf.js     # PDF verification report
-├── state/
-│   ├── storage.js            # File-based state persistence (atomic write, backup rotation)
-│   ├── tracker.js            # Incremental transfer state tracking (with lock integration)
-│   ├── lock.js               # Advisory lock files for concurrent run prevention
-│   ├── checkpoint.js          # Phase-level checkpoint journal for pause/resume
-│   ├── extraction-cache.js    # Disk-cached extraction results (gzipped JSON)
-│   └── migration-journal.js   # Multi-project migration progress tracking
-└── utils/
-    ├── logger.js             # Winston-based logging
-    ├── errors.js             # Custom error classes (including LockError, StaleResumeError, GracefulShutdownError)
-    ├── concurrency.js        # Concurrency primitives (limiter, mapConcurrent, progress)
-    ├── system-info.js        # System info detection (CPU, memory) and auto-tune
-    ├── shutdown.js           # Graceful SIGINT/SIGTERM shutdown coordinator
-    └── progress.js           # Checkpoint progress display and ETA
+├── index.js                          # CLI entry point (Commander-based)
+├── version-router.js                 # Detects SQ version, loads correct pipeline
+├── commands/                         # CLI command handlers
+│   ├── transfer.js                    # Single-project transfer command
+│   ├── migrate.js                     # Full migration command
+│   ├── sync-metadata.js               # Standalone metadata sync command
+│   └── verify.js                      # Migration verification command
+├── pipelines/                        # Version-specific pipeline implementations
+│   ├── sq-9.9/                        # SonarQube 9.9 LTS
+│   ├── sq-10.0/                       # SonarQube 10.0–10.3
+│   ├── sq-10.4/                       # SonarQube 10.4–10.8
+│   └── sq-2025/                       # SonarQube 2025.1+
+└── shared/                           # Version-independent shared code
+    ├── config/                        # Configuration loading and validation
+    │   ├── loader.js                   # Config loading (Ajv + ajv-formats) for transfer commands
+    │   ├── loader-migrate.js           # Config loading for migrate/sync-metadata commands
+    │   ├── schema.js                   # JSON schema for transfer config
+    │   ├── schema-migrate.js           # JSON schema for migration config
+    │   └── schema-shared.js            # Shared schema definitions (performance, rateLimit)
+    ├── mapping/                       # Organization mapping and CSV tools
+    │   ├── org-mapper.js               # Map projects to target orgs (by DevOps binding)
+    │   ├── csv-generator.js            # Generate mapping CSVs for review
+    │   ├── csv-tables.js               # CSV table formatting helpers
+    │   ├── csv-reader.js               # Parse CSV files from dry-run output
+    │   └── csv-applier.js              # Apply CSV overrides to filter/modify extracted data
+    ├── reports/                       # Migration report generation
+    │   ├── index.js                    # Report generation orchestrator
+    │   ├── shared.js                   # Shared report utilities
+    │   ├── format-text.js              # Plain text report formatter
+    │   ├── format-markdown.js          # Markdown report formatter
+    │   ├── format-markdown-executive.js # Executive summary markdown formatter
+    │   ├── format-performance.js       # Performance report formatter
+    │   ├── format-pdf.js               # PDF report formatter
+    │   ├── format-pdf-executive.js     # Executive summary PDF formatter
+    │   ├── format-pdf-performance.js   # Performance report PDF formatter
+    │   ├── pdf-helpers.js              # Shared PDF generation helpers
+    │   ├── pdf-sections.js             # PDF report section builders
+    │   ├── pdf-exec-sections.js        # Executive summary PDF section builders
+    │   ├── pdf-perf-sections.js        # Performance report PDF section builders
+    │   └── perf-tables.js              # Performance data table formatters
+    ├── state/                         # State management and persistence
+    │   ├── storage.js                  # File-based state persistence (atomic write, backup rotation)
+    │   ├── tracker.js                  # Incremental transfer state tracking (with lock integration)
+    │   ├── lock.js                     # Advisory lock files for concurrent run prevention
+    │   ├── checkpoint.js               # Phase-level checkpoint journal for pause/resume
+    │   ├── extraction-cache.js         # Disk-cached extraction results (gzipped JSON)
+    │   └── migration-journal.js        # Multi-project migration progress tracking
+    ├── utils/                         # Utility modules
+    │   ├── logger.js                   # Winston-based logging
+    │   ├── errors.js                   # Custom error classes (LockError, StaleResumeError, etc.)
+    │   ├── concurrency.js              # Concurrency primitives (limiter, mapConcurrent, progress)
+    │   ├── system-info.js              # System info detection (CPU, memory) and auto-tune
+    │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
+    │   ├── progress.js                 # Checkpoint progress display and ETA
+    │   └── version.js                  # SonarQube version parsing and comparison
+    └── verification/                  # Migration verification
+        ├── verify-pipeline.js          # Verification orchestrator (read-only comparison)
+        ├── checkers/                   # Per-check verification modules
+        │   ├── issues.js               # Issue matching and verification
+        │   ├── hotspots.js             # Hotspot matching and verification
+        │   ├── branches.js             # Branch parity verification
+        │   ├── measures.js             # Metrics comparison
+        │   ├── quality-gates.js        # Quality gate verification
+        │   ├── quality-profiles.js     # Quality profile verification
+        │   ├── groups.js               # User group verification
+        │   ├── permissions.js          # Permission verification
+        │   ├── project-config.js       # Project config verification
+        │   └── portfolios.js           # Portfolio verification (reference)
+        └── reports/                    # Verification report generation
+            ├── index.js                # Report orchestrator (JSON + MD + PDF + console)
+            ├── format-markdown.js      # Markdown verification report
+            └── format-pdf.js           # PDF verification report
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+### Version-Specific Pipeline Structure
+
+Each pipeline under `src/pipelines/sq-{version}/` has an identical directory layout:
+
+```
+sq-{version}/
+├── transfer-pipeline.js           # Single-project transfer orchestrator
+├── migrate-pipeline.js            # Full multi-org migration orchestrator
+├── sonarqube/                     # SonarQube integration (version-specific behavior hardcoded)
+│   ├── api-client.js               # HTTP client with pagination, auth, SCM revision
+│   ├── models.js                   # Data models (with language support)
+│   ├── api/                        # API method modules
+│   │   ├── issues-hotspots.js       # Issue and hotspot API methods
+│   │   ├── permissions.js           # Permission API methods
+│   │   ├── quality.js               # Quality gate and profile API methods
+│   │   └── server-config.js         # Server info, settings, webhooks API methods
+│   └── extractors/                 # Specialized data extractors
+│       ├── index.js                 # DataExtractor orchestrator
+│       ├── projects.js, issues.js, hotspots.js, measures.js, sources.js, ...
+│       └── (25+ extractor modules)
+├── protobuf/                      # Protobuf encoding (version-specific schema/builder)
+│   ├── builder.js                   # Orchestrates protobuf message building
+│   ├── build-components.js          # Component protobuf messages
+│   ├── build-issues.js              # Issue protobuf messages
+│   ├── build-external-issues.js     # External issue protobuf messages
+│   ├── build-duplications.js        # Duplication protobuf messages
+│   ├── build-measures.js            # Measure protobuf messages
+│   ├── encoder.js                   # Encodes messages using protobufjs
+│   ├── encode-types.js              # Typed encoding helpers
+│   └── schema/                      # .proto definitions
+│       ├── scanner-report.proto
+│       └── constants.proto
+├── sonarcloud/                    # SonarCloud integration (version-specific migrators)
+│   ├── api-client.js               # SonarCloud HTTP client (retry, throttle)
+│   ├── uploader.js                 # Report packaging and CE submission
+│   ├── enterprise-client.js        # Enterprise edition API client
+│   ├── rule-enrichment.js          # Rule enrichment from SonarCloud (sq-9.9 uses this)
+│   ├── api/                        # API method modules
+│   │   ├── hotspots.js, issues.js, permissions.js, project-config.js, ...
+│   └── migrators/                  # SonarCloud migration modules
+│       ├── quality-gates.js, quality-profiles.js, groups.js, permissions.js, ...
+│       ├── issue-sync.js            # Sync issue statuses, assignments, comments, tags
+│       └── hotspot-sync.js          # Sync hotspot statuses and comments
+└── pipeline/                      # Migration pipeline stages
+    ├── extraction.js                # Server-wide data extraction orchestration
+    ├── org-migration.js             # Per-organization migration logic
+    ├── project-migration.js         # Per-project migration logic
+    └── results.js                   # Migration result tracking and aggregation
+```
+
+<!-- Updated: Mar 19, 2026 -->
+## 🔄 Version Routing
+
+`version-router.js` detects the SonarQube server version and dynamically imports the correct pipeline:
+
+1. Makes a lightweight `GET /api/system/status` call to get the server version
+2. Maps the version to a pipeline: `sq-9.9`, `sq-10.0`, `sq-10.4`, or `sq-2025`
+3. Dynamically imports `transfer-pipeline.js` and `migrate-pipeline.js` from the selected pipeline
+4. Returns the pipeline functions to the calling command
+
+No runtime version checks exist within any pipeline — each pipeline has its behavior hardcoded for its target SonarQube version range.
+
+| SQ Version | Pipeline | Key Differences |
+|------------|----------|-----------------|
+| 9.9 LTS | sq-9.9 | Legacy `statuses` param, Clean Code enriched from SonarCloud |
+| 10.0–10.3 | sq-10.0 | Legacy `statuses` param, native Clean Code |
+| 10.4–10.8 | sq-10.4 | Modern `issueStatuses` param |
+| 2025.1+ | sq-2025 | Modern `issueStatuses` param, Web API V2 with fallbacks |
+
+<!-- Updated: Mar 19, 2026 -->
 ## 🔄 Commands and Pipelines
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ### `transfer` — Single Project
 
-Uses `transfer-pipeline.js`:
+Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 
 1. **Load config** — validate and apply env var overrides
 2. **Initialize state** — load previous state for incremental transfers
@@ -165,10 +174,10 @@ Uses `transfer-pipeline.js`:
 
 Interrupted transfers resume from the last completed checkpoint phase, skipping already-finished steps.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ### `migrate` — Full Multi-Org Migration
 
-Uses `migrate-pipeline.js`:
+Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
 
 1. **Extract server-wide data** — projects, quality gates, quality profiles, groups, permissions, templates, portfolios, DevOps bindings, server info, webhooks
 2. **Generate organization mappings** — map projects to target orgs by DevOps binding, generate CSV files for review
@@ -198,7 +207,7 @@ On resume, completed organizations and projects are skipped based on the migrati
 <!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
 ### `verify` — Migration Verification
 
-Uses `verify-pipeline.js`:
+Uses `shared/verification/verify-pipeline.js`:
 
 1. **Connect to SonarQube** — verify connectivity
 2. **Fetch project list** — get all projects from SonarQube
@@ -221,7 +230,7 @@ Uses `verify-pipeline.js`:
 5. **Portfolio check** — reference verification (SQ only)
 6. **Generate reports** — JSON, Markdown, PDF, and console summary
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ## 🧩 Key Design Patterns
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
@@ -234,31 +243,31 @@ Uses `verify-pipeline.js`:
 - **Error Hierarchy** — custom error classes provide specific error handling
 - **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ## ⚡ Concurrency and Performance
 
-CloudVoyager uses a zero-dependency concurrency layer (`src/utils/concurrency.js`) for parallel I/O:
+CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurrency.js`) for parallel I/O:
 
 - **`createLimiter(concurrency)`** — p-limit equivalent for bounding concurrent async operations
 - **`mapConcurrent(items, fn, opts)`** — parallel map with concurrency limit, `settled` mode (continue on errors), and progress callbacks
 - **`resolvePerformanceConfig(rawConfig)`** — merges user config with CPU-aware defaults
 - **`createProgressLogger(label, total)`** — progress logging callback for long-running concurrent ops
 
-Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). The `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
+Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). Each version-specific `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ## 📦 Build and Packaging
 
 CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as the default, stable packaging pipeline. An experimental **Bun compile** pipeline is also available but may silently crash at runtime in some environments.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ### Build Process (`scripts/build.js`)
 
 **Default (Node.js SEA):** Two-step — esbuild bundles `src/index.js` into `dist/cli.cjs` (with `.proto` schemas inlined as text), then Node.js SEA packages it into a standalone binary with V8 code cache via postject.
 
 **Experimental (Bun):** Single-step compile — Bun bundles all source files (including `.proto` schemas as text via `--loader .proto:text`) and compiles to a native binary in one command. No intermediate bundle file. Faster builds but less stable at runtime.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ### Output Structure
 
 ```
@@ -275,7 +284,7 @@ dist/
     └── cloudvoyager-win-arm64.exe    # Node.js SEA
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ### Build Commands
 
 ```bash
@@ -290,7 +299,7 @@ CI uses 6 parallel jobs — one per platform. Most build natively on their targe
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 19, 2026 -->
 ## 📄 Generated Report Structure
 
 ```

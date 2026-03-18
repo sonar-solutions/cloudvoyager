@@ -7,7 +7,7 @@ import {
   ensureHeapSize,
   getMemoryInfo,
   logSystemInfo
-} from '../../src/utils/concurrency.js';
+} from '../../src/shared/utils/concurrency.js';
 
 // createLimiter
 test('createLimiter respects concurrency limit', async t => {

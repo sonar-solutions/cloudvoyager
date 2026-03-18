@@ -5,17 +5,17 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { rm, access, mkdir, writeFile } from 'node:fs/promises';
-import { SonarQubeClient } from '../src/sonarqube/api-client.js';
-import { SonarCloudClient } from '../src/sonarcloud/api-client.js';
-import { DataExtractor } from '../src/sonarqube/extractors/index.js';
-import { ProtobufBuilder } from '../src/protobuf/builder.js';
-import { ProtobufEncoder } from '../src/protobuf/encoder.js';
-import { ReportUploader } from '../src/sonarcloud/uploader.js';
-import { StateTracker } from '../src/state/tracker.js';
-import { EnterpriseClient } from '../src/sonarcloud/enterprise-client.js';
-import { migrateAll } from '../src/migrate-pipeline.js';
-import { runOrgStep, migrateEnterprisePortfolios } from '../src/pipeline/org-migration.js';
-import { migrateOrgProjects } from '../src/pipeline/project-migration.js';
+import { SonarQubeClient } from '../src/pipelines/sq-10.4/sonarqube/api-client.js';
+import { SonarCloudClient } from '../src/pipelines/sq-10.4/sonarcloud/api-client.js';
+import { DataExtractor } from '../src/pipelines/sq-10.4/sonarqube/extractors/index.js';
+import { ProtobufBuilder } from '../src/pipelines/sq-10.4/protobuf/builder.js';
+import { ProtobufEncoder } from '../src/pipelines/sq-10.4/protobuf/encoder.js';
+import { ReportUploader } from '../src/pipelines/sq-10.4/sonarcloud/uploader.js';
+import { StateTracker } from '../src/shared/state/tracker.js';
+import { EnterpriseClient } from '../src/pipelines/sq-10.4/sonarcloud/enterprise-client.js';
+import { migrateAll } from '../src/pipelines/sq-10.4/migrate-pipeline.js';
+import { runOrgStep, migrateEnterprisePortfolios } from '../src/pipelines/sq-10.4/pipeline/org-migration.js';
+import { migrateOrgProjects } from '../src/pipelines/sq-10.4/pipeline/project-migration.js';
 
 function setupAllStubs() {
   const sq = {};
@@ -805,8 +805,8 @@ test.serial('migrateAll catches loadMappingCsvs failure and proceeds without ove
   await mkdir(mappingsDir, { recursive: true });
 
   // Use esmock to replace loadMappingCsvs with a function that throws
-  const { migrateAll: migrateAllMocked } = await esmock('../src/migrate-pipeline.js', {
-    '../src/mapping/csv-reader.js': {
+  const { migrateAll: migrateAllMocked } = await esmock('../src/pipelines/sq-10.4/migrate-pipeline.js', {
+    '../src/shared/mapping/csv-reader.js': {
       loadMappingCsvs: async () => { throw new Error('CSV parse explosion'); }
     }
   });
@@ -853,8 +853,8 @@ test.serial('migrateAll catches writeAllReports failure in finally block', async
   const { outputDir } = t.context;
 
   // Use esmock to replace writeAllReports with a function that throws
-  const { migrateAll: migrateAllMocked } = await esmock('../src/migrate-pipeline.js', {
-    '../src/reports/index.js': {
+  const { migrateAll: migrateAllMocked } = await esmock('../src/pipelines/sq-10.4/migrate-pipeline.js', {
+    '../src/shared/reports/index.js': {
       writeAllReports: async () => { throw new Error('Report disk write failed'); }
     }
   });
@@ -1189,8 +1189,8 @@ test.serial('migrateAll records skipped step with empty detail when migrateNewCo
   // which triggers the { skipped: true, detail: reason } path.
   // But we need { skipped: true } without detail.
   // Use esmock to replace migrateNewCodePeriods to return { skipped: true } without detail.
-  const { migrateOrgProjects: mockedMigrateOrgProjects } = await esmock('../src/pipeline/project-migration.js', {
-    '../src/sonarcloud/migrators/project-config.js': {
+  const { migrateOrgProjects: mockedMigrateOrgProjects } = await esmock('../src/pipelines/sq-10.4/pipeline/project-migration.js', {
+    '../src/pipelines/sq-10.4/sonarcloud/migrators/project-config.js': {
       migrateProjectSettings: async () => {},
       migrateProjectTags: async () => {},
       migrateProjectLinks: async () => {},
@@ -1294,7 +1294,7 @@ test.serial('migrateAll handles cache write failure gracefully', async t => {
   const { outputDir } = t.context;
 
   // Use esmock to replace writeFile with one that fails for cache writes
-  const { migrateAll: migrateAllMocked } = await esmock('../src/migrate-pipeline.js', {
+  const { migrateAll: migrateAllMocked } = await esmock('../src/pipelines/sq-10.4/migrate-pipeline.js', {
     'node:fs/promises': {
       mkdir: (await import('node:fs/promises')).mkdir,
       rm: (await import('node:fs/promises')).rm,

@@ -1,7 +1,7 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { ReportUploader } from '../../src/sonarcloud/uploader.js';
-import { SonarCloudAPIError } from '../../src/utils/errors.js';
+import { ReportUploader } from '../../src/pipelines/sq-10.4/sonarcloud/uploader.js';
+import { SonarCloudAPIError } from '../../src/shared/utils/errors.js';
 
 function mockClient() {
   return {

@@ -11,7 +11,7 @@ test.serial.afterEach(() => sinon.restore());
 
 test('resolvePerformanceConfig falls back to cpus().length when availableParallelism is not a function', async t => {
   // Mock node:os to export availableParallelism as undefined (not a function)
-  const { resolvePerformanceConfig } = await esmock('../../src/utils/system-info.js', {
+  const { resolvePerformanceConfig } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: 'not-a-function', // typeof will be 'string', not 'function'
       cpus: () => [{ model: 'Mock CPU' }, { model: 'Mock CPU' }],
@@ -33,7 +33,7 @@ test('resolvePerformanceConfig falls back to cpus().length when availableParalle
 test.serial('ensureHeapSize returns early when running as Bun compiled binary', async t => {
   const spawnSyncStub = sinon.stub().returns({ status: 0 });
 
-  const { ensureHeapSize } = await esmock('../../src/utils/system-info.js', {
+  const { ensureHeapSize } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -72,7 +72,7 @@ test.serial('ensureHeapSize respawns when heap is insufficient', async t => {
   const spawnSyncStub = sinon.stub().returns({ status: 0 });
   const exitStub = sinon.stub(process, 'exit');
 
-  const { ensureHeapSize } = await esmock('../../src/utils/system-info.js', {
+  const { ensureHeapSize } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -118,7 +118,7 @@ test.serial('ensureHeapSize uses result.status ?? 1 when status is null', async 
   const spawnSyncStub = sinon.stub().returns({ status: null });
   const exitStub = sinon.stub(process, 'exit');
 
-  const { ensureHeapSize } = await esmock('../../src/utils/system-info.js', {
+  const { ensureHeapSize } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -158,7 +158,7 @@ test.serial('ensureHeapSize handles SEA binary (argv[0] === argv[1])', async t =
   const spawnSyncStub = sinon.stub().returns({ status: 0 });
   const exitStub = sinon.stub(process, 'exit');
 
-  const { ensureHeapSize } = await esmock('../../src/utils/system-info.js', {
+  const { ensureHeapSize } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -200,7 +200,7 @@ test.serial('ensureHeapSize appends to existing NODE_OPTIONS', async t => {
   const spawnSyncStub = sinon.stub().returns({ status: 0 });
   const exitStub = sinon.stub(process, 'exit');
 
-  const { ensureHeapSize } = await esmock('../../src/utils/system-info.js', {
+  const { ensureHeapSize } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -247,7 +247,7 @@ test.serial('ensureHeapSize appends to existing NODE_OPTIONS', async t => {
 // ---------------------------------------------------------------------------
 
 test('collectEnvironmentInfo returns Unknown cpu when cpus() returns empty array', async t => {
-  const { collectEnvironmentInfo } = await esmock('../../src/utils/system-info.js', {
+  const { collectEnvironmentInfo } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [],
@@ -266,7 +266,7 @@ test('collectEnvironmentInfo returns Unknown cpu when cpus() returns empty array
 // ---------------------------------------------------------------------------
 
 test('logSystemInfo with autoTune logs all individual overrides', async t => {
-  const { resolvePerformanceConfig, logSystemInfo } = await esmock('../../src/utils/system-info.js', {
+  const { resolvePerformanceConfig, logSystemInfo } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],
@@ -294,7 +294,7 @@ test('logSystemInfo with autoTune logs all individual overrides', async t => {
 });
 
 test('logSystemInfo with autoTune and no overrides exercises "no overrides" path', async t => {
-  const { resolvePerformanceConfig, logSystemInfo } = await esmock('../../src/utils/system-info.js', {
+  const { resolvePerformanceConfig, logSystemInfo } = await esmock('../../src/shared/utils/system-info.js', {
     'node:os': {
       availableParallelism: () => 4,
       cpus: () => [{ model: 'Mock CPU' }],

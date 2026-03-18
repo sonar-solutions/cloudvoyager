@@ -1,5 +1,5 @@
 import test from 'ava';
-import { configSchema, migrateConfigSchema } from '../../src/config/schema.js';
+import { configSchema, migrateConfigSchema } from '../../src/shared/config/schema.js';
 
 test('configSchema is a valid JSON schema object', t => {
   t.is(configSchema.type, 'object');

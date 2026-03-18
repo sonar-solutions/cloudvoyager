@@ -1,10 +1,10 @@
-import { loadConfig, requireProjectKeys } from '../config/loader.js';
-import { transferProject } from '../transfer-pipeline.js';
-import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger, { enableFileLogging } from '../utils/logger.js';
-import { CloudVoyagerError, GracefulShutdownError } from '../utils/errors.js';
-import { ShutdownCoordinator } from '../utils/shutdown.js';
-import { ProgressTracker } from '../utils/progress.js';
+import { loadConfig, requireProjectKeys } from '../shared/config/loader.js';
+import { detectAndRoute } from '../version-router.js';
+import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../shared/utils/concurrency.js';
+import logger, { enableFileLogging } from '../shared/utils/logger.js';
+import { CloudVoyagerError, GracefulShutdownError } from '../shared/utils/errors.js';
+import { ShutdownCoordinator } from '../shared/utils/shutdown.js';
+import { ProgressTracker } from '../shared/utils/progress.js';
 
 export function registerTransferCommand(program) {
   program
@@ -59,6 +59,9 @@ export function registerTransferCommand(program) {
         });
         ensureHeapSize(perfConfig.maxMemoryMB);
         logSystemInfo(perfConfig);
+
+        const { transferProject, pipelineId } = await detectAndRoute(config.sonarqube);
+        logger.info(`Using pipeline: ${pipelineId}`);
 
         await transferProject({
           sonarqubeConfig: config.sonarqube,

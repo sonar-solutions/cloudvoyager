@@ -1,8 +1,8 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { EnterpriseClient } from '../../src/sonarcloud/enterprise-client.js';
-import { migratePortfolios } from '../../src/sonarcloud/migrators/portfolios.js';
-import { SonarCloudAPIError } from '../../src/utils/errors.js';
+import { EnterpriseClient } from '../../src/pipelines/sq-10.4/sonarcloud/enterprise-client.js';
+import { migratePortfolios } from '../../src/pipelines/sq-10.4/sonarcloud/migrators/portfolios.js';
+import { SonarCloudAPIError } from '../../src/shared/utils/errors.js';
 
 // ============================================================================
 // Helpers

@@ -4,16 +4,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Command } from 'commander';
-import { loadConfig, requireProjectKeys } from './config/loader.js';
-import { VersionAwareSonarQubeClient as SonarQubeClient } from './sonarqube/version-aware-client.js';
-import { SonarCloudClient } from './sonarcloud/api-client.js';
-import { StateTracker } from './state/tracker.js';
-import logger from './utils/logger.js';
+import { loadConfig, requireProjectKeys } from './shared/config/loader.js';
+import { detectAndRoute, resolvePipelineId } from './version-router.js';
+import { parseSonarQubeVersion } from './shared/utils/version.js';
+import { StateTracker } from './shared/state/tracker.js';
+import logger from './shared/utils/logger.js';
 import { registerTransferCommand } from './commands/transfer.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerSyncMetadataCommand } from './commands/sync-metadata.js';
 import { registerVerifyCommand } from './commands/verify.js';
-import { ProgressTracker } from './utils/progress.js';
+import { ProgressTracker } from './shared/utils/progress.js';
 
 const program = new Command();
 
@@ -144,6 +144,15 @@ program
       if (options.verbose) logger.level = 'debug';
       logger.info('Testing connections...');
       const config = await loadConfig(options.config);
+
+      // Detect version and log pipeline selection
+      const { pipelineId, parsedVersion } = await detectAndRoute(config.sonarqube);
+      logger.info(`SonarQube version: ${parsedVersion.raw} → pipeline: ${pipelineId}`);
+
+      // Dynamically load the version-specific SonarQube client for connection test
+      const { SonarQubeClient } = await import(`./pipelines/${pipelineId}/sonarqube/api-client.js`);
+      const { SonarCloudClient } = await import(`./pipelines/${pipelineId}/sonarcloud/api-client.js`);
+
       logger.info('Testing SonarQube connection...');
       const sonarQubeClient = new SonarQubeClient(config.sonarqube);
       await sonarQubeClient.testConnection();

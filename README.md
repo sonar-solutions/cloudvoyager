@@ -78,17 +78,19 @@ A **lock file** prevents concurrent runs against the same project, so you cannot
 
 See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for checkpoint options (`transfer.checkpoint`).
 
-<!-- Updated: 2026-03-09 -->
+<!-- Updated: 2026-03-19 -->
 ## 🔄 SonarQube Version Compatibility
 
-CloudVoyager automatically detects the SonarQube server version and adapts its API calls accordingly. No special configuration is needed.
+CloudVoyager ships **four fully independent pipelines** — one per SonarQube version range. At runtime, `version-router.js` calls `/api/system/status`, detects the server version, and dynamically loads the matching pipeline. No special configuration is needed.
 
-| SonarQube Version | Support Level | Notes |
-|-------------------|--------------|-------|
-| **9.9 LTS** | Full | Clean Code taxonomy enriched from SonarCloud |
-| **10.0 – 10.3** | Full | Native Clean Code taxonomy |
-| **10.4 – 10.8** | Full | Modern issue status API |
-| **2025.1+** | Full | Modern issue status API, V2 API fallbacks |
+| SonarQube Version | Pipeline | Issue Search Param | MetricKeys | Clean Code Source | Groups API |
+|-------------------|----------|-------------------|------------|-------------------|------------|
+| **9.9 LTS** | `sq-9.9` | `statuses` | Batched (15) | SC enrichment map | Standard |
+| **10.0 – 10.3** | `sq-10.0` | `statuses` | Batched (15) | Native from SQ | Standard |
+| **10.4 – 10.8** | `sq-10.4` | `issueStatuses` | No batching | Native from SQ | Standard |
+| **2025.1+** | `sq-2025` | `issueStatuses` | No batching | Native from SQ | Web API V2 fallback |
+
+Each pipeline folder (`src/pipelines/sq-*`) contains its own SonarQube client, SonarCloud client, protobuf builder, and transfer/migrate logic — no runtime version checks or `if/else` branches.
 
 See [Backward Compatibility](docs/backward-compatibility.md) for technical details on how version differences are handled.
 

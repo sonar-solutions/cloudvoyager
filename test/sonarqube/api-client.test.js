@@ -1,7 +1,7 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { SonarQubeClient } from '../../src/sonarqube/api-client.js';
-import { SonarQubeAPIError, AuthenticationError } from '../../src/utils/errors.js';
+import { SonarQubeClient } from '../../src/pipelines/sq-10.4/sonarqube/api-client.js';
+import { SonarQubeAPIError, AuthenticationError } from '../../src/shared/utils/errors.js';
 
 function createClient(overrides = {}) {
   return new SonarQubeClient({

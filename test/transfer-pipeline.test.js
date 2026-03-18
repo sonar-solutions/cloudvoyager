@@ -1,13 +1,13 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { SonarQubeClient } from '../src/sonarqube/api-client.js';
-import { SonarCloudClient } from '../src/sonarcloud/api-client.js';
-import { DataExtractor } from '../src/sonarqube/extractors/index.js';
-import { ProtobufBuilder } from '../src/protobuf/builder.js';
-import { ProtobufEncoder } from '../src/protobuf/encoder.js';
-import { ReportUploader } from '../src/sonarcloud/uploader.js';
-import { StateTracker } from '../src/state/tracker.js';
-import { transferProject } from '../src/transfer-pipeline.js';
+import { SonarQubeClient } from '../src/pipelines/sq-10.4/sonarqube/api-client.js';
+import { SonarCloudClient } from '../src/pipelines/sq-10.4/sonarcloud/api-client.js';
+import { DataExtractor } from '../src/pipelines/sq-10.4/sonarqube/extractors/index.js';
+import { ProtobufBuilder } from '../src/pipelines/sq-10.4/protobuf/builder.js';
+import { ProtobufEncoder } from '../src/pipelines/sq-10.4/protobuf/encoder.js';
+import { ReportUploader } from '../src/pipelines/sq-10.4/sonarcloud/uploader.js';
+import { StateTracker } from '../src/shared/state/tracker.js';
+import { transferProject } from '../src/pipelines/sq-10.4/transfer-pipeline.js';
 
 function setupStubs() {
   const stubs = {};

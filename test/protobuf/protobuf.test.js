@@ -1,7 +1,7 @@
 import test from 'ava';
-import { ProtobufBuilder } from '../../src/protobuf/builder.js';
-import { ProtobufEncoder } from '../../src/protobuf/encoder.js';
-import { ProtobufEncodingError } from '../../src/utils/errors.js';
+import { ProtobufBuilder } from '../../src/pipelines/sq-10.4/protobuf/builder.js';
+import { ProtobufEncoder } from '../../src/pipelines/sq-10.4/protobuf/encoder.js';
+import { ProtobufEncodingError } from '../../src/shared/utils/errors.js';
 
 // ---------------------------------------------------------------------------
 // Mock data factories
@@ -2236,7 +2236,7 @@ test.serial('ProtobufEncoder.loadSchemas succeeds via dynamic import path (line 
   // We must create a fresh ProtobufEncoder from a fresh module load so the
   // dynamic imports inside loadProtoSchemas actually run through our hook.
   // esmock ensures we get a fresh module instance.
-  const { ProtobufEncoder: FreshEncoder } = await esmock('../../src/protobuf/encoder.js', {});
+  const { ProtobufEncoder: FreshEncoder } = await esmock('../../src/pipelines/sq-10.4/protobuf/encoder.js', {});
 
   const encoder = new FreshEncoder();
   await encoder.loadSchemas();

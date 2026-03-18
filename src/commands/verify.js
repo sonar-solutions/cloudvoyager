@@ -1,8 +1,8 @@
-import { loadMigrateConfig } from '../config/loader.js';
-import { verifyAll } from '../verification/verify-pipeline.js';
-import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger, { enableFileLogging } from '../utils/logger.js';
-import { CloudVoyagerError } from '../utils/errors.js';
+import { loadMigrateConfig } from '../shared/config/loader.js';
+import { verifyAll } from '../shared/verification/verify-pipeline.js';
+import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../shared/utils/concurrency.js';
+import logger, { enableFileLogging } from '../shared/utils/logger.js';
+import { CloudVoyagerError } from '../shared/utils/errors.js';
 
 const VALID_ONLY_COMPONENTS = [
   'scan-data', 'scan-data-all-branches', 'portfolios', 'quality-gates',

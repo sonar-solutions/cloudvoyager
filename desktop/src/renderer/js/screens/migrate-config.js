@@ -272,7 +272,7 @@ window.MigrateConfigScreen = {
     });
     container.querySelector('#btn-start').addEventListener('click', async () => {
       await this.saveConfig();
-      const args = [];
+      const args = ['--force-restart'];
       if (this.config._verbose) args.push('--verbose');
       if (this.config._waitAnalysis) args.push('--wait');
       if (this.config._onlyComponents && this.config._onlyComponents.length > 0) {

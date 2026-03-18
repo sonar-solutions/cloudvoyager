@@ -12,7 +12,7 @@ const logFile = join(tmpdir(), `cv-log-${randomUUID()}.log`);
 process.env.LOG_FILE = logFile;
 
 // Dynamic import so LOG_FILE is set when module loads
-const { default: logger } = await import('../../src/utils/logger.js');
+const { default: logger } = await import('../../src/shared/utils/logger.js');
 
 // Now import ava
 const { default: test } = await import('ava');

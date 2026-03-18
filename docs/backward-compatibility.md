@@ -25,73 +25,115 @@ Different SonarQube versions introduced significant API and taxonomy changes:
 
 SonarCloud (always the latest version) uses the new Clean Code taxonomy. CloudVoyager bridges these gaps automatically.
 
-## How It Works
+## Architecture: Pipeline-Per-Version
 
-### Version-Aware Client
-
-CloudVoyager uses a `VersionAwareSonarQubeClient` (defined in `src/sonarqube/version-aware-client.js`) that extends the base `SonarQubeClient` without modifying it. All backward-compatibility logic is isolated in this subclass.
-
-### Automatic Version Detection
-
-When a connection test or transfer starts, CloudVoyager detects the SonarQube server version via `/api/system/status` and logs which compatibility mode is active:
+Instead of a single codebase with runtime version checks, CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline under `src/pipelines/`:
 
 ```
-SonarQube server version: 9.9.0.65466 (legacy 9.x — pre-Clean Code taxonomy)
-SonarQube server version: 10.4.1.88267 (modern 10.4+ issue statuses)
-SonarQube server version: 2025.1.0.12345 (modern 10.4+ issue statuses)
+src/
+├── version-router.js              # Detects SQ version, loads correct pipeline
+├── pipelines/
+│   ├── sq-9.9/                    # SonarQube 9.9 LTS
+│   ├── sq-10.0/                   # SonarQube 10.0–10.3
+│   ├── sq-10.4/                   # SonarQube 10.4–10.8
+│   └── sq-2025/                   # SonarQube 2025.1+
+└── shared/                        # Version-independent code (utils, state, config, etc.)
 ```
 
-The version is detected once and cached for the lifetime of the client — no redundant API calls.
+Each pipeline directory contains a complete set of modules:
 
-The detected version is also stored in the checkpoint journal's session fingerprint. On resume, the journal validates that the SonarQube version hasn't changed — a mismatch triggers a warning (or blocks the resume if `transfer.checkpoint.strictResume` is enabled).
+```
+sq-{version}/
+├── transfer-pipeline.js           # Single-project transfer orchestrator
+├── migrate-pipeline.js            # Full multi-org migration orchestrator
+├── sonarqube/                     # SonarQube API client, models, extractors
+│   ├── api-client.js
+│   ├── models.js
+│   ├── api/                       # API method modules
+│   └── extractors/                # Specialized data extractors
+├── protobuf/                      # Protobuf builder, encoder, schema
+│   ├── builder.js
+│   ├── encoder.js
+│   ├── build-*.js
+│   └── schema/                    # .proto definitions
+├── sonarcloud/                    # SonarCloud API client, uploader, migrators
+│   ├── api-client.js
+│   ├── uploader.js
+│   ├── rule-enrichment.js
+│   ├── api/
+│   └── migrators/
+└── pipeline/                      # Migration pipeline stages
+    ├── extraction.js
+    ├── org-migration.js
+    ├── project-migration.js
+    └── results.js
+```
 
-### Version-Aware Issue Fetching
+**No runtime version checks exist within any pipeline.** Each pipeline has its behavior hardcoded for its target SonarQube version range. This eliminates branching logic and makes each pipeline easier to understand and maintain.
+
+## How Version Routing Works
+
+1. `version-router.js` makes a lightweight `GET /api/system/status` call to detect the SonarQube server version
+2. `resolvePipelineId()` maps the parsed version to a pipeline folder:
+   - `major >= 2025` → `sq-2025`
+   - `major >= 10 && minor >= 4` → `sq-10.4`
+   - `major >= 10` → `sq-10.0`
+   - Otherwise → `sq-9.9`
+3. `detectAndRoute()` dynamically imports `transfer-pipeline.js` and `migrate-pipeline.js` from the selected pipeline
+4. Commands (`transfer`, `migrate`, `sync-metadata`) call `detectAndRoute()` to get the correct `transferProject()` or `migrateAll()` function
+
+If version detection fails (e.g., network error), the router falls back to the `sq-9.9` pipeline.
+
+## Version-Specific Differences
+
+| Behavior | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
+|----------|--------|---------|---------|---------|
+| Issue search param | `statuses` (legacy) | `statuses` (legacy) | `issueStatuses` (modern) | `issueStatuses` (modern) |
+| metricKeys limit | Batch at 15 | Batch at 15 | No batching | No batching |
+| Clean Code source | SonarCloud enrichment map | Native from SQ | Native from SQ | Native from SQ |
+| Rule enrichment | Always called | Not needed | Not needed | Not needed |
+| Groups API | `/api/user_groups/search` | Same | Same | Web API V2 with fallback |
+
+### Issue Search Parameters
 
 The issue search API changed in SonarQube 10.4:
 
-| SQ Version | API Parameter | Status Values |
-|------------|--------------|---------------|
-| < 10.4 | `statuses` | `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED` |
-| >= 10.4 | `issueStatuses` | `OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED` |
+| Pipeline | API Parameter | Status Values |
+|----------|--------------|---------------|
+| sq-9.9, sq-10.0 | `statuses` | `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED` |
+| sq-10.4, sq-2025 | `issueStatuses` | `OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED` |
 
-CloudVoyager automatically uses the correct parameter based on the detected version. This avoids deprecation warnings on newer SonarQube versions and prevents future breakage when the old `statuses` parameter is removed.
-
-If the version has not been detected (e.g., connection test was skipped), the client defaults to the legacy `statuses` parameter — so existing behavior is preserved.
-
-### Defensive API Wrappers
-
-Some SonarQube API endpoints are being migrated to the Web API V2 in newer versions (2025.x+). CloudVoyager wraps these calls with try/catch guards so the migration continues even if an endpoint is unavailable:
-
-- `/api/user_groups/search` — wrapped with fallback to empty array
+Each pipeline uses the correct parameter directly — no conditional logic required.
 
 ### Clean Code Taxonomy Enrichment
 
-For SonarQube < 10.0, CloudVoyager fetches the Clean Code taxonomy directly from SonarCloud:
+The `sq-9.9` pipeline fetches the Clean Code taxonomy from SonarCloud because SonarQube 9.9 does not provide it:
 
 ```
 SonarQube 9.9.0.65466 does not support Clean Code taxonomy (requires 10.0+). Fetching enrichment from SonarCloud...
 Rule enrichment map built: 1,247 rules with Clean Code data
 ```
 
-### Rule Enrichment from SonarCloud
+The `sq-10.0`, `sq-10.4`, and `sq-2025` pipelines read Clean Code data natively from SonarQube — no enrichment fetch needed.
 
-For SonarQube < 10.0, CloudVoyager fetches the Clean Code taxonomy directly from SonarCloud's rule database:
+### Rule Enrichment from SonarCloud (sq-9.9 only)
 
-1. For each SonarCloud quality profile, it queries `/api/rules/search` with `f=cleanCodeAttribute,impacts`
-2. This builds a **rule enrichment map** — a lookup table mapping rule keys (e.g., `javascript:S1234`) to their Clean Code attributes and impacts
+For SonarQube 9.9, the `rule-enrichment.js` module in the `sq-9.9` pipeline:
+
+1. For each SonarCloud quality profile, queries `/api/rules/search` with `f=cleanCodeAttribute,impacts`
+2. Builds a **rule enrichment map** — a lookup table mapping rule keys (e.g., `javascript:S1234`) to their Clean Code attributes and impacts
 3. When building the scanner report, rules and issues are enriched with the correct Clean Code data from SonarCloud
 
 This means the migrated data in SonarCloud will have the **exact same** Clean Code classification as if it had been scanned natively.
 
-### Fallback Chain
+### Fallback Chain (sq-9.9 only)
 
 The enrichment follows a three-level fallback:
 
 | Priority | Source | When Used |
 |----------|--------|-----------|
-| 1 | SonarQube issue/rule data | SQ 10.x+ (has native Clean Code fields) |
-| 2 | SonarCloud rule enrichment | SQ 9.9 + rule exists in SC |
-| 3 | Type-based inference | SQ 9.9 + rule not in SC (external rules) |
+| 1 | SonarCloud rule enrichment | Rule exists in SC quality profiles |
+| 2 | Type-based inference | Rule not in SC (external rules) |
 
 **Type-based inference** (last resort) maps the old taxonomy as follows:
 
@@ -112,14 +154,16 @@ The enrichment follows a three-level fallback:
 
 ### Performance Optimization
 
-- **Transfer pipeline** (`transfer` command): Enrichment map is built once per project transfer
-- **Migrate pipeline** (`migrate` command): Enrichment map is built **once per SonarCloud organization** and reused across all projects in that org
-- **SQ 10.x+**: Enrichment fetch is skipped entirely (no extra API calls)
+- **Transfer pipeline** (`transfer` command): Enrichment map is built once per project transfer (sq-9.9 only)
+- **Migrate pipeline** (`migrate` command): Enrichment map is built **once per SonarCloud organization** and reused across all projects in that org (sq-9.9 only)
+- **sq-10.0, sq-10.4, sq-2025**: Enrichment fetch is skipped entirely (no extra API calls)
 
-## What Works Identically Across Versions
+## What Works Identically Across Pipelines
 
-These components work the same regardless of SonarQube version:
+These components are shared across all version-specific pipelines (via `src/shared/`):
 
+- Configuration loading and validation
+- State management (checkpoint, lock, tracker, migration journal)
 - Source code extraction
 - Component/file tree structure
 - Measures and metrics (filter-to-available approach)
@@ -128,12 +172,15 @@ These components work the same regardless of SonarQube version:
 - Security hotspot conversion
 - Issue metadata sync (statuses, comments, transitions)
 - Multi-branch support
-- Pagination (handles both `paging.total` and legacy `total` response formats)
-- Checkpoint journal and pause/resume (version-independent state tracking)
+- Pagination
+- Report generation (markdown, PDF, text)
+- Verification pipeline
+- Concurrency and performance tuning
+- Graceful shutdown handling
 
 ## Usage
 
-No special configuration is needed. CloudVoyager detects the SonarQube version automatically and handles the differences transparently:
+No special configuration is needed. CloudVoyager detects the SonarQube version automatically and loads the correct pipeline:
 
 ```bash
 # Works with SQ 9.9, 10.x, 2025.1, or any supported version
@@ -141,49 +188,41 @@ node src/index.js transfer -c config.json --verbose
 node src/index.js migrate -c config.json
 ```
 
-Use `--verbose` to see detailed logs about version detection and rule enrichment.
+Use `--verbose` to see detailed logs about version detection and pipeline selection:
 
-Use the `test` command to verify connectivity and see which compatibility mode is detected:
+```
+SonarQube server version: 9.9.0.65466 → using pipeline: sq-9.9
+```
+
+Use the `test` command to verify connectivity and see which pipeline is selected:
 
 ```bash
 node src/index.js test -c config.json
-# Output includes: SonarQube server version: 9.9.0.65466 (legacy 9.x — pre-Clean Code taxonomy)
 ```
 
 ## Supported SonarQube Versions
 
-| Version | Support Level | Notes |
-|---------|--------------|-------|
-| 9.9 LTS | Full | Clean Code enriched from SonarCloud; legacy `statuses` param |
-| 10.0 - 10.3 | Full | Native Clean Code taxonomy; legacy `statuses` param |
-| 10.4 - 10.8 | Full | Modern `issueStatuses` param |
-| 2025.1+ | Full | Modern `issueStatuses` param; V2 API fallbacks |
-| < 9.9 | Best effort | APIs may differ; not actively tested |
-
-## Architecture: Isolation
-
-All version-specific logic is isolated in `src/sonarqube/version-aware-client.js`, a subclass of the base `SonarQubeClient`. The original client and all API modules remain untouched.
-
-```
-SonarQubeClient (src/sonarqube/api-client.js)        — base client, unmodified
-  └─ VersionAwareSonarQubeClient (version-aware-client.js) — overrides version-sensitive methods
-       ├─ detectVersion()          — detect + cache server version
-       ├─ getIssues()              — version-aware status param
-       ├─ getIssuesWithComments()  — version-aware status param
-       ├─ getGroups()              — defensive try/catch wrapper
-       └─ testConnection()         — auto-detect version on connect
-```
-
-Version utilities live in `src/utils/version.js`:
-- `parseSonarQubeVersion(str)` — parse version string to `{ major, minor, patch, raw }`
-- `hasCleanCodeTaxonomy(version)` — true for SQ >= 10.0
-- `isAtLeast(version, major, minor)` — generic version comparison
+| Version | Pipeline | Support Level | Notes |
+|---------|----------|--------------|-------|
+| 9.9 LTS | sq-9.9 | Full | Clean Code enriched from SonarCloud; legacy `statuses` param |
+| 10.0 - 10.3 | sq-10.0 | Full | Native Clean Code taxonomy; legacy `statuses` param |
+| 10.4 - 10.8 | sq-10.4 | Full | Modern `issueStatuses` param |
+| 2025.1+ | sq-2025 | Full | Modern `issueStatuses` param; V2 API fallbacks |
+| < 9.9 | sq-9.9 (fallback) | Best effort | APIs may differ; not actively tested |
 
 ## Troubleshooting
 
+### "Failed to detect SonarQube version"
+
+If version detection fails, CloudVoyager falls back to the `sq-9.9` pipeline. This is non-fatal — the migration will proceed. Check:
+
+- SonarQube URL is correct and reachable
+- SonarQube token has sufficient permissions
+- Network connectivity to the SonarQube server
+
 ### "Failed to build rule enrichment map"
 
-If the enrichment fetch fails, CloudVoyager falls back to type-based inference. This is non-fatal — the migration will proceed, but Clean Code attributes may be less precise for active rules. Check:
+If the enrichment fetch fails (sq-9.9 pipeline), CloudVoyager falls back to type-based inference. This is non-fatal — the migration will proceed, but Clean Code attributes may be less precise for active rules. Check:
 
 - SonarCloud token has sufficient permissions
 - Network connectivity to SonarCloud

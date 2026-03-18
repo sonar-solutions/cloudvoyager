@@ -11,15 +11,15 @@ import { registerTransferCommand } from '../../src/commands/transfer.js';
 import { registerMigrateCommand, VALID_ONLY_COMPONENTS } from '../../src/commands/migrate.js';
 import { registerSyncMetadataCommand } from '../../src/commands/sync-metadata.js';
 
-import { SonarQubeClient } from '../../src/sonarqube/api-client.js';
-import { SonarCloudClient } from '../../src/sonarcloud/api-client.js';
-import { DataExtractor } from '../../src/sonarqube/extractors/index.js';
-import { ProtobufBuilder } from '../../src/protobuf/builder.js';
-import { ProtobufEncoder } from '../../src/protobuf/encoder.js';
-import { ReportUploader } from '../../src/sonarcloud/uploader.js';
-import { StateTracker } from '../../src/state/tracker.js';
-import { CloudVoyagerError } from '../../src/utils/errors.js';
-import logger from '../../src/utils/logger.js';
+import { SonarQubeClient } from '../../src/pipelines/sq-10.4/sonarqube/api-client.js';
+import { SonarCloudClient } from '../../src/pipelines/sq-10.4/sonarcloud/api-client.js';
+import { DataExtractor } from '../../src/pipelines/sq-10.4/sonarqube/extractors/index.js';
+import { ProtobufBuilder } from '../../src/pipelines/sq-10.4/protobuf/builder.js';
+import { ProtobufEncoder } from '../../src/pipelines/sq-10.4/protobuf/encoder.js';
+import { ReportUploader } from '../../src/pipelines/sq-10.4/sonarcloud/uploader.js';
+import { StateTracker } from '../../src/shared/state/tracker.js';
+import { CloudVoyagerError } from '../../src/shared/utils/errors.js';
+import logger from '../../src/shared/utils/logger.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1029,7 +1029,7 @@ test.serial('transfer (esmock): config.transfer falsy exercises || {} fallback (
   const { registerTransferCommand: mockedRegisterTransfer } = await esmock(
     '../../src/commands/transfer.js',
     {
-      '../../src/config/loader.js': {
+      '../../src/shared/config/loader.js': {
         loadConfig: async () => ({
           sonarqube: { url: 'http://localhost:9000', token: 'sq-token', projectKey: 'sq-proj' },
           sonarcloud: { url: 'https://sonarcloud.io', token: 'sc-token', organization: 'test-org', projectKey: 'sc-proj' }
@@ -1052,7 +1052,7 @@ test.serial('migrate (esmock): config without migrate key exercises || {} fallba
   const { registerMigrateCommand: mockedRegisterMigrate } = await esmock(
     '../../src/commands/migrate.js',
     {
-      '../../src/config/loader.js': {
+      '../../src/shared/config/loader.js': {
         loadMigrateConfig: async () => ({
           sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
           sonarcloud: { organizations: [{ key: 'org1', token: 'sc-token', url: 'https://sonarcloud.io' }] }
@@ -1074,7 +1074,7 @@ test.serial('migrate (esmock): config with transfer key exercises truthy left si
   const { registerMigrateCommand: mockedRegisterMigrate } = await esmock(
     '../../src/commands/migrate.js',
     {
-      '../../src/config/loader.js': {
+      '../../src/shared/config/loader.js': {
         loadMigrateConfig: async () => ({
           sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
           sonarcloud: { organizations: [{ key: 'org1', token: 'sc-token', url: 'https://sonarcloud.io' }] },
@@ -1097,7 +1097,7 @@ test.serial('sync-metadata (esmock): config without migrate exercises || {} fall
   const { registerSyncMetadataCommand: mockedRegisterSyncMetadata } = await esmock(
     '../../src/commands/sync-metadata.js',
     {
-      '../../src/config/loader.js': {
+      '../../src/shared/config/loader.js': {
         loadMigrateConfig: async () => ({
           sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
           sonarcloud: { organizations: [{ key: 'org1', token: 'sc-token', url: 'https://sonarcloud.io' }] }
@@ -1119,7 +1119,7 @@ test.serial('sync-metadata (esmock): config with transfer exercises truthy left 
   const { registerSyncMetadataCommand: mockedRegisterSyncMetadata } = await esmock(
     '../../src/commands/sync-metadata.js',
     {
-      '../../src/config/loader.js': {
+      '../../src/shared/config/loader.js': {
         loadMigrateConfig: async () => ({
           sonarqube: { url: 'http://localhost:9000', token: 'sq-token' },
           sonarcloud: { organizations: [{ key: 'org1', token: 'sc-token', url: 'https://sonarcloud.io' }] },

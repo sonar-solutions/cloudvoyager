@@ -1,9 +1,9 @@
-import { loadMigrateConfig } from '../config/loader.js';
-import { migrateAll } from '../migrate-pipeline.js';
-import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger, { enableFileLogging } from '../utils/logger.js';
-import { CloudVoyagerError, GracefulShutdownError } from '../utils/errors.js';
-import { ShutdownCoordinator } from '../utils/shutdown.js';
+import { loadMigrateConfig } from '../shared/config/loader.js';
+import { detectAndRoute } from '../version-router.js';
+import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../shared/utils/concurrency.js';
+import logger, { enableFileLogging } from '../shared/utils/logger.js';
+import { CloudVoyagerError, GracefulShutdownError } from '../shared/utils/errors.js';
+import { ShutdownCoordinator } from '../shared/utils/shutdown.js';
 
 export const VALID_ONLY_COMPONENTS = [
   'scan-data', 'scan-data-all-branches', 'portfolios', 'quality-gates',
@@ -79,6 +79,9 @@ export function registerMigrateCommand(program) {
         });
         ensureHeapSize(perfConfig.maxMemoryMB);
         logSystemInfo(perfConfig);
+
+        const { migrateAll, pipelineId } = await detectAndRoute(config.sonarqube);
+        logger.info(`Using pipeline: ${pipelineId}`);
 
         const results = await migrateAll({
           sonarqubeConfig: config.sonarqube,

@@ -16,28 +16,28 @@ import {
   getProblemProjects,
   computeTotalDurationMs,
   computeLocThroughput,
-} from '../../src/reports/shared.js';
+} from '../../src/shared/reports/shared.js';
 
 // --- format-text.js ---
-import { formatTextReport } from '../../src/reports/format-text.js';
+import { formatTextReport } from '../../src/shared/reports/format-text.js';
 
 // --- format-markdown.js ---
-import { formatMarkdownReport } from '../../src/reports/format-markdown.js';
+import { formatMarkdownReport } from '../../src/shared/reports/format-markdown.js';
 
 // --- format-markdown-executive.js ---
-import { formatExecutiveSummaryMarkdown } from '../../src/reports/format-markdown-executive.js';
+import { formatExecutiveSummaryMarkdown } from '../../src/shared/reports/format-markdown-executive.js';
 
 // --- format-performance.js ---
-import { formatPerformanceReport } from '../../src/reports/format-performance.js';
+import { formatPerformanceReport } from '../../src/shared/reports/format-performance.js';
 
 // --- format-pdf.js ---
-import { generatePdfReport } from '../../src/reports/format-pdf.js';
+import { generatePdfReport } from '../../src/shared/reports/format-pdf.js';
 
 // --- format-pdf-executive.js ---
-import { generateExecutiveSummaryPdf } from '../../src/reports/format-pdf-executive.js';
+import { generateExecutiveSummaryPdf } from '../../src/shared/reports/format-pdf-executive.js';
 
 // --- format-pdf-performance.js ---
-import { generatePerformanceReportPdf } from '../../src/reports/format-pdf-performance.js';
+import { generatePerformanceReportPdf } from '../../src/shared/reports/format-pdf-performance.js';
 
 // --- pdf-helpers.js ---
 import {
@@ -46,7 +46,7 @@ import {
   pdfStyles,
   statusStyle,
   statusText,
-} from '../../src/reports/pdf-helpers.js';
+} from '../../src/shared/reports/pdf-helpers.js';
 
 // --- perf-tables.js ---
 import {
@@ -55,20 +55,20 @@ import {
   getConfigDuration,
   formatSlowestSteps,
   formatBottleneckAnalysis,
-} from '../../src/reports/perf-tables.js';
+} from '../../src/shared/reports/perf-tables.js';
 
 // --- pdf-exec-sections.js ---
 import {
   buildWarnings,
   buildActionItems,
   buildFailedProjects,
-} from '../../src/reports/pdf-exec-sections.js';
+} from '../../src/shared/reports/pdf-exec-sections.js';
 
 // --- pdf-perf-sections.js ---
 import {
   buildSlowestSteps,
   buildBottleneckAnalysis as buildBottleneckAnalysisPdf,
-} from '../../src/reports/pdf-perf-sections.js';
+} from '../../src/shared/reports/pdf-perf-sections.js';
 
 // --- pdf-sections.js ---
 import {
@@ -76,10 +76,10 @@ import {
   buildOrgResults as buildOrgResultsPdf,
   buildProblemProjects as buildProblemProjectsPdf,
   buildAllProjects as buildAllProjectsPdf,
-} from '../../src/reports/pdf-sections.js';
+} from '../../src/shared/reports/pdf-sections.js';
 
 // --- index.js ---
-import { writeAllReports } from '../../src/reports/index.js';
+import { writeAllReports } from '../../src/shared/reports/index.js';
 
 // ---------------------------------------------------------------------------
 // Restore sinon after each test
@@ -1719,8 +1719,8 @@ import esmock from 'esmock';
 
 test('writeAllReports handles PDF report generation failure gracefully', async t => {
   const tmpDir = getTmpDir();
-  const writeAllReportsMocked = (await esmock('../../src/reports/index.js', {
-    '../../src/reports/format-pdf.js': {
+  const writeAllReportsMocked = (await esmock('../../src/shared/reports/index.js', {
+    '../../src/shared/reports/format-pdf.js': {
       generatePdfReport: async () => { throw new Error('PDF generation failed'); }
     }
   })).writeAllReports;
@@ -1747,8 +1747,8 @@ test('writeAllReports handles PDF report generation failure gracefully', async t
 
 test('writeAllReports handles executive summary PDF failure gracefully', async t => {
   const tmpDir = getTmpDir();
-  const writeAllReportsMocked = (await esmock('../../src/reports/index.js', {
-    '../../src/reports/format-pdf-executive.js': {
+  const writeAllReportsMocked = (await esmock('../../src/shared/reports/index.js', {
+    '../../src/shared/reports/format-pdf-executive.js': {
       generateExecutiveSummaryPdf: async () => { throw new Error('Executive PDF failed'); }
     }
   })).writeAllReports;
@@ -1774,8 +1774,8 @@ test('writeAllReports handles executive summary PDF failure gracefully', async t
 
 test('writeAllReports handles performance PDF failure gracefully', async t => {
   const tmpDir = getTmpDir();
-  const writeAllReportsMocked = (await esmock('../../src/reports/index.js', {
-    '../../src/reports/format-pdf-performance.js': {
+  const writeAllReportsMocked = (await esmock('../../src/shared/reports/index.js', {
+    '../../src/shared/reports/format-pdf-performance.js': {
       generatePerformanceReportPdf: async () => { throw new Error('Perf PDF failed'); }
     }
   })).writeAllReports;
