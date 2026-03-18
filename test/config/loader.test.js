@@ -8,8 +8,8 @@ import {
   loadMigrateConfig,
   requireProjectKeys,
   validateConfig
-} from '../../src/config/loader.js';
-import { ConfigurationError, ValidationError } from '../../src/utils/errors.js';
+} from '../../src/shared/config/loader.js';
+import { ConfigurationError, ValidationError } from '../../src/shared/utils/errors.js';
 
 function getTmpDir() {
   return join(tmpdir(), `cloudvoyager-test-${randomUUID()}`);

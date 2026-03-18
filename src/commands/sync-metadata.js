@@ -1,8 +1,8 @@
-import { loadMigrateConfig } from '../config/loader.js';
-import { migrateAll } from '../migrate-pipeline.js';
-import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../utils/concurrency.js';
-import logger, { enableFileLogging } from '../utils/logger.js';
-import { CloudVoyagerError } from '../utils/errors.js';
+import { loadMigrateConfig } from '../shared/config/loader.js';
+import { detectAndRoute } from '../version-router.js';
+import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../shared/utils/concurrency.js';
+import logger, { enableFileLogging } from '../shared/utils/logger.js';
+import { CloudVoyagerError } from '../shared/utils/errors.js';
 
 export function registerSyncMetadataCommand(program) {
   program
@@ -47,6 +47,9 @@ export function registerSyncMetadataCommand(program) {
 
         migrateConfig.dryRun = false;
         migrateConfig.skipProjectConfig = true;
+        const { migrateAll, pipelineId } = await detectAndRoute(config.sonarqube);
+        logger.info(`Using pipeline: ${pipelineId}`);
+
         const results = await migrateAll({
           sonarqubeConfig: config.sonarqube,
           sonarcloudOrgs: config.sonarcloud.organizations,

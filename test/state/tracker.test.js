@@ -3,7 +3,7 @@ import { writeFile, mkdir, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { StateTracker } from '../../src/state/tracker.js';
+import { StateTracker } from '../../src/shared/state/tracker.js';
 
 function getTmpDir() {
   return join(tmpdir(), `cloudvoyager-test-${randomUUID()}`);

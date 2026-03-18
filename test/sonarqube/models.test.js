@@ -6,7 +6,7 @@ import {
   createMeasureData,
   createComponentData,
   SourceFileData
-} from '../../src/sonarqube/models.js';
+} from '../../src/pipelines/sq-10.4/sonarqube/models.js';
 
 // ProjectData
 test('ProjectData has default properties', t => {

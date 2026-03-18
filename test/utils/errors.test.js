@@ -8,7 +8,7 @@ import {
   ProtobufEncodingError,
   StateError,
   ValidationError
-} from '../../src/utils/errors.js';
+} from '../../src/shared/utils/errors.js';
 
 // CloudVoyagerError
 test('CloudVoyagerError sets message and default statusCode', t => {

@@ -2,31 +2,31 @@ import test from 'ava';
 import sinon from 'sinon';
 
 // Quality Gates
-import { migrateQualityGates, assignQualityGatesToProjects } from '../../../src/sonarcloud/migrators/quality-gates.js';
+import { migrateQualityGates, assignQualityGatesToProjects } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/quality-gates.js';
 
 // Quality Profiles
-import { migrateQualityProfiles } from '../../../src/sonarcloud/migrators/quality-profiles.js';
+import { migrateQualityProfiles } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/quality-profiles.js';
 
 // Quality Profile Diff
-import { generateQualityProfileDiff } from '../../../src/sonarcloud/migrators/quality-profile-diff.js';
+import { generateQualityProfileDiff } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/quality-profile-diff.js';
 
 // Groups
-import { migrateGroups } from '../../../src/sonarcloud/migrators/groups.js';
+import { migrateGroups } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/groups.js';
 
 // Permissions
-import { migrateGlobalPermissions, migrateProjectPermissions, migratePermissionTemplates } from '../../../src/sonarcloud/migrators/permissions.js';
+import { migrateGlobalPermissions, migrateProjectPermissions, migratePermissionTemplates } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/permissions.js';
 
 // Project Config
-import { migrateProjectSettings, migrateProjectTags, migrateProjectLinks, migrateNewCodePeriods, migrateDevOpsBinding } from '../../../src/sonarcloud/migrators/project-config.js';
+import { migrateProjectSettings, migrateProjectTags, migrateProjectLinks, migrateNewCodePeriods, migrateDevOpsBinding } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/project-config.js';
 
 // Portfolios
-import { migratePortfolios } from '../../../src/sonarcloud/migrators/portfolios.js';
+import { migratePortfolios } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/portfolios.js';
 
 // Issue Sync
-import { syncIssues, mapChangelogDiffToTransition, extractTransitionsFromChangelog } from '../../../src/sonarcloud/migrators/issue-sync.js';
+import { syncIssues, mapChangelogDiffToTransition, extractTransitionsFromChangelog } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/issue-sync.js';
 
 // Hotspot Sync
-import { syncHotspots, mapHotspotChangelogDiffToAction, extractHotspotTransitionsFromChangelog } from '../../../src/sonarcloud/migrators/hotspot-sync.js';
+import { syncHotspots, mapHotspotChangelogDiffToAction, extractHotspotTransitionsFromChangelog } from '../../../src/pipelines/sq-10.4/sonarcloud/migrators/hotspot-sync.js';
 
 test.afterEach(() => sinon.restore());
 

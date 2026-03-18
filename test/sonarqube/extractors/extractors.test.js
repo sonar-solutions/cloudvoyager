@@ -1,33 +1,33 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { extractProjectData } from '../../../src/sonarqube/extractors/projects.js';
-import { extractIssues } from '../../../src/sonarqube/extractors/issues.js';
-import { extractMetrics, getCommonMetricKeys, COMMON_METRICS } from '../../../src/sonarqube/extractors/metrics.js';
-import { extractMeasures, extractComponentMeasures } from '../../../src/sonarqube/extractors/measures.js';
-import { extractSources } from '../../../src/sonarqube/extractors/sources.js';
-import { extractQualityGates, extractProjectQualityGate } from '../../../src/sonarqube/extractors/quality-gates.js';
-import { extractQualityProfiles, buildInheritanceChains } from '../../../src/sonarqube/extractors/quality-profiles.js';
-import { extractActiveRules } from '../../../src/sonarqube/extractors/rules.js';
-import { extractGroups } from '../../../src/sonarqube/extractors/groups.js';
-import { extractGlobalPermissions, extractProjectPermissions, extractPermissionTemplates } from '../../../src/sonarqube/extractors/permissions.js';
-import { extractPortfolios } from '../../../src/sonarqube/extractors/portfolios.js';
-import { extractHotspots } from '../../../src/sonarqube/extractors/hotspots.js';
-import { extractChangesets } from '../../../src/sonarqube/extractors/changesets.js';
-import { extractSymbols } from '../../../src/sonarqube/extractors/symbols.js';
-import { extractSyntaxHighlighting } from '../../../src/sonarqube/extractors/syntax-highlighting.js';
-import { extractProjectSettings } from '../../../src/sonarqube/extractors/project-settings.js';
-import { extractProjectTags } from '../../../src/sonarqube/extractors/project-tags.js';
-import { extractProjectLinks } from '../../../src/sonarqube/extractors/project-links.js';
-import { extractNewCodePeriods } from '../../../src/sonarqube/extractors/new-code-periods.js';
-import { extractWebhooks } from '../../../src/sonarqube/extractors/webhooks.js';
-import { extractAlmSettings, extractProjectBinding, extractAllProjectBindings } from '../../../src/sonarqube/extractors/devops-bindings.js';
-import { extractServerInfo } from '../../../src/sonarqube/extractors/server-info.js';
-import { DataExtractor } from '../../../src/sonarqube/extractors/index.js';
-import { mapSeverity, extractImpacts } from '../../../src/sonarqube/extractors/rule-helpers.js';
-import { SonarQubeClient } from '../../../src/sonarqube/api-client.js';
-import * as quality from '../../../src/sonarqube/api/quality.js';
-import * as serverConfig from '../../../src/sonarqube/api/server-config.js';
-import * as permissions from '../../../src/sonarqube/api/permissions.js';
+import { extractProjectData } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/projects.js';
+import { extractIssues } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/issues.js';
+import { extractMetrics, getCommonMetricKeys, COMMON_METRICS } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/metrics.js';
+import { extractMeasures, extractComponentMeasures } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/measures.js';
+import { extractSources } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/sources.js';
+import { extractQualityGates, extractProjectQualityGate } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/quality-gates.js';
+import { extractQualityProfiles, buildInheritanceChains } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/quality-profiles.js';
+import { extractActiveRules } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/rules.js';
+import { extractGroups } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/groups.js';
+import { extractGlobalPermissions, extractProjectPermissions, extractPermissionTemplates } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/permissions.js';
+import { extractPortfolios } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/portfolios.js';
+import { extractHotspots } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/hotspots.js';
+import { extractChangesets } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/changesets.js';
+import { extractSymbols } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/symbols.js';
+import { extractSyntaxHighlighting } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/syntax-highlighting.js';
+import { extractProjectSettings } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/project-settings.js';
+import { extractProjectTags } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/project-tags.js';
+import { extractProjectLinks } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/project-links.js';
+import { extractNewCodePeriods } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/new-code-periods.js';
+import { extractWebhooks } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/webhooks.js';
+import { extractAlmSettings, extractProjectBinding, extractAllProjectBindings } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/devops-bindings.js';
+import { extractServerInfo } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/server-info.js';
+import { DataExtractor } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/index.js';
+import { mapSeverity, extractImpacts } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/rule-helpers.js';
+import { SonarQubeClient } from '../../../src/pipelines/sq-10.4/sonarqube/api-client.js';
+import * as quality from '../../../src/pipelines/sq-10.4/sonarqube/api/quality.js';
+import * as serverConfig from '../../../src/pipelines/sq-10.4/sonarqube/api/server-config.js';
+import * as permissions from '../../../src/pipelines/sq-10.4/sonarqube/api/permissions.js';
 
 test.afterEach(() => sinon.restore());
 
@@ -578,7 +578,7 @@ test('extractHotspots with branch', async t => {
 });
 
 // === hotspots-to-issues.js ===
-import { extractHotspotsAsIssues } from '../../../src/sonarqube/extractors/hotspots-to-issues.js';
+import { extractHotspotsAsIssues } from '../../../src/pipelines/sq-10.4/sonarqube/extractors/hotspots-to-issues.js';
 
 test('extractHotspotsAsIssues returns empty array when no hotspots', async t => {
   const client = mockClient();

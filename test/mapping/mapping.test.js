@@ -1,7 +1,7 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { mapProjectsToOrganizations, mapResourcesToOrganizations } from '../../src/mapping/org-mapper.js';
-import { generateMappingCsvs } from '../../src/mapping/csv-generator.js';
+import { mapProjectsToOrganizations, mapResourcesToOrganizations } from '../../src/shared/mapping/org-mapper.js';
+import { generateMappingCsvs } from '../../src/shared/mapping/csv-generator.js';
 import { writeFile, mkdir } from 'node:fs/promises';
 
 // ---------------------------------------------------------------------------
@@ -787,8 +787,8 @@ function buildFullMappingData() {
 // csv-reader: parseCsv tests
 // ---------------------------------------------------------------------------
 
-import { parseCsv, parseCsvFile, loadMappingCsvs, isIncluded } from '../../src/mapping/csv-reader.js';
-import { applyCsvOverrides } from '../../src/mapping/csv-applier.js';
+import { parseCsv, parseCsvFile, loadMappingCsvs, isIncluded } from '../../src/shared/mapping/csv-reader.js';
+import { applyCsvOverrides } from '../../src/shared/mapping/csv-applier.js';
 import { writeFile as fsWriteFile, rm, mkdir as fsMkdir, readdir as fsReaddir } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -1863,7 +1863,7 @@ test('applyCsvOverrides: template-mappings.csv with multiple groups per permissi
 import {
   generateTemplateMappingsCsv,
   generateGlobalPermissionsCsv
-} from '../../src/mapping/csv-tables.js';
+} from '../../src/shared/mapping/csv-tables.js';
 
 test('generateTemplateMappingsCsv: includes permission group rows (lines 93-100)', t => {
   const data = {
@@ -2031,7 +2031,7 @@ import {
   generateProfileMappingsCsv,
   generateGateMappingsCsv,
   generatePortfolioMappingsCsv
-} from '../../src/mapping/csv-tables.js';
+} from '../../src/shared/mapping/csv-tables.js';
 
 // Line 20: group.description, group.membersCount, group.default — truthy values
 test('generateGroupMappingsCsv: uses truthy description, membersCount, default without fallback', t => {

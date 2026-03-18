@@ -3,8 +3,8 @@ import { writeFile, mkdir, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { StateStorage } from '../../src/state/storage.js';
-import { StateError } from '../../src/utils/errors.js';
+import { StateStorage } from '../../src/shared/state/storage.js';
+import { StateError } from '../../src/shared/utils/errors.js';
 
 function getTmpDir() {
   return join(tmpdir(), `cloudvoyager-test-${randomUUID()}`);
@@ -113,7 +113,7 @@ test('StateStorage.load throws StateError for non-SyntaxError read failures', as
 
 // --- StateTracker tests for uncovered branches ---
 
-import { StateTracker } from '../../src/state/tracker.js';
+import { StateTracker } from '../../src/shared/state/tracker.js';
 
 // Line 32: `this.state.lastSync || 'never'` — the 'never' fallback when lastSync is null
 test('StateTracker.initialize logs "never" when lastSync is null in saved state', async t => {

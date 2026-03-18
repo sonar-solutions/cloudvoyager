@@ -1,5 +1,5 @@
 import test from 'ava';
-import logger from '../../src/utils/logger.js';
+import logger from '../../src/shared/utils/logger.js';
 
 test('logger is a winston logger instance', t => {
   t.truthy(logger);
@@ -29,7 +29,7 @@ test('logger formats error with stack trace', t => {
 });
 
 // --- enableFileLogging tests ---
-import { enableFileLogging } from '../../src/utils/logger.js';
+import { enableFileLogging } from '../../src/shared/utils/logger.js';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 

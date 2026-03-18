@@ -1,7 +1,7 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { SonarCloudClient } from '../../src/sonarcloud/api-client.js';
-import { SonarCloudAPIError, AuthenticationError } from '../../src/utils/errors.js';
+import { SonarCloudClient } from '../../src/pipelines/sq-10.4/sonarcloud/api-client.js';
+import { SonarCloudAPIError, AuthenticationError } from '../../src/shared/utils/errors.js';
 
 function createClient(overrides = {}) {
   return new SonarCloudClient({

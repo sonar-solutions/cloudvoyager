@@ -1,0 +1,270 @@
+import { existsSync } from 'node:fs';
+import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { SonarQubeClient } from './sonarqube/api-client.js';
+import { resolvePerformanceConfig, collectEnvironmentInfo } from '../../shared/utils/concurrency.js';
+import logger from '../../shared/utils/logger.js';
+import { writeAllReports } from '../../shared/reports/index.js';
+import { createEmptyResults, runFatalStep, logMigrationSummary } from './pipeline/results.js';
+import { extractAllProjects, extractServerWideData } from './pipeline/extraction.js';
+import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
+import { loadMappingCsvs } from '../../shared/mapping/csv-reader.js';
+import { applyCsvOverrides } from '../../shared/mapping/csv-applier.js';
+import { extractUniqueAssignees, enrichAssigneeDetails } from './sonarqube/extractors/users.js';
+import { MigrationJournal } from '../../shared/state/migration-journal.js';
+
+export async function migrateAll(options) {
+  const {
+    sonarqubeConfig,
+    sonarcloudOrgs,
+    enterpriseConfig,
+    migrateConfig = {},
+    transferConfig = { mode: 'full', batchSize: 100 },
+    rateLimitConfig,
+    performanceConfig: rawPerfConfig = {},
+    wait = false
+  } = options;
+
+  const perfConfig = resolvePerformanceConfig(rawPerfConfig);
+  const outputDir = migrateConfig.outputDir || './migration-output';
+  const dryRun = migrateConfig.dryRun || false;
+  const skipIssueSync = migrateConfig.skipIssueMetadataSync || migrateConfig.skipIssueSync || false;
+  const skipHotspotSync = migrateConfig.skipHotspotMetadataSync || migrateConfig.skipHotspotSync || false;
+  const skipQualityProfileSync = migrateConfig.skipQualityProfileSync || false;
+  const skipProjectConfig = migrateConfig.skipProjectConfig || false;
+  const onlyComponents = migrateConfig.onlyComponents || null;
+
+  // Read existing CSVs and cached server-wide data BEFORE wiping output dir
+  const mappingsDir = join(outputDir, 'mappings');
+  let preExistingCsvs = null;
+  if (!dryRun && existsSync(mappingsDir)) {
+    try {
+      preExistingCsvs = await loadMappingCsvs(mappingsDir);
+      if (preExistingCsvs.size > 0) {
+        logger.info(`Found ${preExistingCsvs.size} existing mapping CSV(s) from a previous dry-run`);
+        logger.info('These will be used as the source of truth for filtering/overrides');
+      } else {
+        preExistingCsvs = null;
+      }
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        // No CSV files present — safe to proceed without overrides
+        preExistingCsvs = null;
+      } else {
+        // CSV files exist but could not be parsed — fail loudly to avoid silently ignoring user edits
+        logger.error(`Failed to read existing CSV mappings: ${e.message}`);
+        logger.error(`Fix or remove the CSV files in '${mappingsDir}' before continuing, or use --force-restart to discard them.`);
+        throw e;
+      }
+    }
+  }
+
+  const cacheFile = join(outputDir, 'cache', 'server-wide-data.json');
+  let cachedServerData = null;
+  if (!dryRun && existsSync(cacheFile)) {
+    try {
+      const raw = JSON.parse(await readFile(cacheFile, 'utf-8'));
+      raw.extractedData.projectBindings = new Map(raw.extractedData.projectBindings);
+      raw.extractedData.projectBranches = new Map(raw.extractedData.projectBranches || []);
+      cachedServerData = raw;
+      logger.info('Found cached server-wide data from a previous run — will reuse instead of re-extracting');
+    } catch (e) {
+      logger.warn(`Failed to read server-wide data cache: ${e.message}. Will re-extract.`);
+    }
+  }
+
+  // Check for existing migration journal (resume scenario)
+  const migrationJournalPath = join(outputDir, 'state', 'migration.journal');
+  const migrationJournal = new MigrationJournal(migrationJournalPath);
+  const forceRestart = migrateConfig.forceRestart || false;
+
+  let isResume = false;
+  if (!dryRun && !forceRestart && existsSync(migrationJournalPath)) {
+    isResume = true;
+    logger.info('=== RESUME MODE: Detected previous migration journal ===');
+    logger.info('Will skip completed organizations and projects. Use --force-restart to start fresh.');
+  }
+
+  if (isResume) {
+    // Do NOT wipe outputDir on resume — preserve existing state files and cache
+    await mkdir(outputDir, { recursive: true });
+    await mkdir(join(outputDir, 'state'), { recursive: true });
+    await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
+    await mkdir(join(outputDir, 'logs'), { recursive: true });
+  } else {
+    logger.info(`Cleaning output directory: ${outputDir}`);
+    await rm(outputDir, { recursive: true, force: true });
+    await mkdir(outputDir, { recursive: true });
+    await mkdir(join(outputDir, 'state'), { recursive: true });
+    await mkdir(join(outputDir, 'quality-profiles'), { recursive: true });
+    await mkdir(join(outputDir, 'logs'), { recursive: true });
+  }
+
+  // Initialize migration journal (creates or loads)
+  if (!dryRun) {
+    await migrationJournal.initialize();
+  }
+
+  const results = createEmptyResults();
+  results.environment = collectEnvironmentInfo();
+  results.configuration = {
+    transferMode: transferConfig.mode || 'full',
+    batchSize: transferConfig.batchSize || 100,
+    autoTune: perfConfig.autoTune || false,
+    performance: {
+      maxConcurrency: perfConfig.maxConcurrency,
+      sourceExtraction: { concurrency: perfConfig.sourceExtraction.concurrency },
+      hotspotExtraction: { concurrency: perfConfig.hotspotExtraction.concurrency },
+      issueSync: { concurrency: perfConfig.issueSync.concurrency },
+      hotspotSync: { concurrency: perfConfig.hotspotSync.concurrency },
+      projectMigration: { concurrency: perfConfig.projectMigration.concurrency }
+    },
+    rateLimit: rateLimitConfig ? {
+      maxRetries: rateLimitConfig.maxRetries ?? 3,
+      baseDelay: rateLimitConfig.baseDelay ?? 1000,
+      minRequestInterval: rateLimitConfig.minRequestInterval ?? 0
+    } : { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 }
+  };
+  const ctx = {
+    sonarqubeConfig, sonarcloudOrgs, enterpriseConfig, transferConfig, rateLimitConfig,
+    perfConfig, outputDir, dryRun, skipIssueSync, skipHotspotSync, skipQualityProfileSync, skipProjectConfig, wait,
+    onlyComponents, projectBranchIncludes: new Map(), migrationJournal: dryRun ? null : migrationJournal
+  };
+
+  try {
+    logger.info('=== Step 1: Connecting to SonarQube ===');
+    const sqClient = new SonarQubeClient({ url: sonarqubeConfig.url, token: sonarqubeConfig.token });
+    await runFatalStep(results, 'Connect to SonarQube', () => sqClient.testConnection());
+
+    logger.info('=== Step 2: Extracting server-wide data from SonarQube ===');
+    let allProjects;
+    let extractedData;
+    if (cachedServerData) {
+      logger.info('Using cached server-wide data (skipping re-extraction)');
+      allProjects = cachedServerData.allProjects;
+      extractedData = cachedServerData.extractedData;
+      results.serverSteps.push({ step: 'Server-wide data', status: 'cached', detail: 'Loaded from previous run' });
+    } else {
+      allProjects = await extractAllProjects(sqClient, results);
+      extractedData = await extractServerWideData(sqClient, allProjects, results, perfConfig);
+
+      // Save cache for subsequent runs (migrate, sync-metadata)
+      try {
+        const cacheDir = join(outputDir, 'cache');
+        await mkdir(cacheDir, { recursive: true });
+        const serializable = {
+          allProjects,
+          extractedData: {
+            ...extractedData,
+            projectBindings: [...extractedData.projectBindings.entries()],
+            projectBranches: [...(extractedData.projectBranches || new Map()).entries()]
+          }
+        };
+        await writeFile(join(cacheDir, 'server-wide-data.json'), JSON.stringify(serializable));
+        logger.info('Server-wide data cached for subsequent runs');
+      } catch (e) {
+        logger.warn(`Failed to write server-wide data cache: ${e.message}`);
+      }
+    }
+
+    logger.info('=== Step 3: Generating organization mappings ===');
+
+    // Collect unique assignees for user-mappings.csv (lightweight facet query)
+    let extraMappingData = {};
+    if (dryRun) {
+      logger.info('Collecting unique issue assignees across all projects...');
+      const projectKeys = allProjects.map(p => p.key);
+      const assigneeCounts = await extractUniqueAssignees(sqClient, projectKeys);
+      let assigneeDetails = new Map();
+      if (assigneeCounts.size > 0) {
+        logger.info('Enriching assignee details (display names, emails)...');
+        assigneeDetails = await enrichAssigneeDetails(sqClient, [...assigneeCounts.keys()]);
+      }
+      extraMappingData = { assigneeCounts, assigneeDetails };
+    }
+
+    const { orgMapping, resourceMappings } = await generateOrgMappings(
+      allProjects, extractedData, sonarcloudOrgs, outputDir, extraMappingData
+    );
+
+    if (dryRun) {
+      logger.info('');
+      logger.info('=== Dry run complete ===');
+      logger.info(`Mapping CSVs generated in: ${mappingsDir}`);
+      logger.info('');
+      logger.info('Review and edit the CSV files to customize your migration:');
+      logger.info('  - Set Include=no on any row to exclude it from migration');
+      logger.info('  - Edit quality gate condition thresholds (Condition Threshold column)');
+      logger.info('  - Remove specific permission assignments');
+      logger.info('  - Exclude specific portfolio project memberships');
+      logger.info('  - Fill in SonarCloud Login in user-mappings.csv to map SQ users to SC users');
+      logger.info('  - Set Include=no in user-mappings.csv to skip assignment for specific users');
+      logger.info('');
+      logger.info('When ready, re-run without --dry-run:');
+      logger.info('  cloudvoyager migrate -c config.json');
+      logger.info('');
+      logger.info('The tool will automatically detect and apply your CSV edits.');
+      results.dryRun = true;
+      return results;
+    }
+
+    // Apply CSV overrides from previous dry-run if available
+    let effectiveExtractedData = extractedData;
+    let effectiveResourceMappings = resourceMappings;
+    let effectiveOrgAssignments = orgMapping.orgAssignments;
+
+    if (preExistingCsvs) {
+      logger.info('=== Applying CSV overrides from previous dry-run ===');
+      const overrideResult = applyCsvOverrides(
+        preExistingCsvs, extractedData, resourceMappings, orgMapping.orgAssignments
+      );
+      effectiveExtractedData = overrideResult.filteredExtractedData;
+      effectiveResourceMappings = overrideResult.filteredResourceMappings;
+      effectiveOrgAssignments = overrideResult.filteredOrgAssignments;
+      ctx.projectBranchIncludes = overrideResult.projectBranchIncludes || new Map();
+      ctx.userMappings = overrideResult.userMappings || null;
+
+      const origProjectCount = orgMapping.orgAssignments.reduce((n, a) => n + a.projects.length, 0);
+      const filteredProjectCount = effectiveOrgAssignments.reduce((n, a) => n + a.projects.length, 0);
+      if (filteredProjectCount < origProjectCount) {
+        logger.info(`Projects: ${filteredProjectCount}/${origProjectCount} included after CSV filtering`);
+      }
+      if (ctx.projectBranchIncludes.size > 0) {
+        logger.info(`Branch-level filtering active for ${ctx.projectBranchIncludes.size} project(s)`);
+      }
+      logger.info('CSV overrides applied successfully');
+    }
+
+    await saveServerInfo(outputDir, extractedData);
+
+    const mergedProjectKeyMap = new Map();
+    for (const assignment of effectiveOrgAssignments) {
+      const projectKeyMap = await migrateOneOrganization(assignment, effectiveExtractedData, effectiveResourceMappings, results, ctx);
+      for (const [sqKey, scKey] of projectKeyMap) {
+        mergedProjectKeyMap.set(sqKey, scKey);
+      }
+    }
+
+    if (!onlyComponents || onlyComponents.includes('portfolios')) {
+      await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
+    } else {
+      logger.info('Skipping enterprise portfolio migration (not included in --only)');
+    }
+
+    // Mark migration as completed in journal
+    if (!dryRun && migrationJournal) {
+      await migrationJournal.markCompleted();
+    }
+
+    logMigrationSummary(results, outputDir);
+  } finally {
+    results.endTime = new Date().toISOString();
+    try {
+      await writeAllReports(results, join(outputDir, 'reports'));
+    } catch (reportError) {
+      logger.error(`Failed to write migration report: ${reportError.message}`);
+    }
+  }
+
+  return results;
+}
