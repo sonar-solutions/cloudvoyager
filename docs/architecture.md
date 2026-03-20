@@ -63,6 +63,7 @@ src/
     │   ├── system-info.js              # System info detection (CPU, memory) and auto-tune
     │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
     │   ├── progress.js                 # Checkpoint progress display and ETA
+    │   ├── prompt.js                   # Interactive user prompts (confirmation dialogs)
     │   └── version.js                  # SonarQube version parsing and comparison
     └── verification/                  # Migration verification
         ├── verify-pipeline.js          # Verification orchestrator (read-only comparison)

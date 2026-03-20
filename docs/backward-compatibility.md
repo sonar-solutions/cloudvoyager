@@ -89,7 +89,7 @@ If version detection fails (e.g., network error), the router falls back to the `
 | Behavior | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
 |----------|--------|---------|---------|---------|
 | Issue search param | `statuses` (legacy) | `statuses` (legacy) | `issueStatuses` (modern) | `issueStatuses` (modern) |
-| metricKeys limit | Batch at 15 | Batch at 15 | No batching | No batching |
+| metricKeys limit | Batch at 15 | Batch at 15 | Batch at 15 | No batching |
 | Clean Code source | SonarCloud enrichment map | Native from SQ | Native from SQ | Native from SQ |
 | Rule enrichment | Always called | Not needed | Not needed | Not needed |
 | Groups API | `/api/user_groups/search` | Same | Same | Web API V2 with fallback |
