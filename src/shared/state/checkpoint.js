@@ -15,6 +15,20 @@ export class CheckpointJournal {
     this.journalPath = journalPath;
     this.storage = new StateStorage(journalPath);
     this.journal = null;
+    this._writeLock = Promise.resolve();
+  }
+
+  /**
+   * Serialize write operations to prevent concurrent read-modify-write races.
+   * Needed when multiple branches are transferred in parallel.
+   */
+  async _withLock(fn) {
+    let release;
+    const acquired = new Promise(resolve => { release = resolve; });
+    const prev = this._writeLock;
+    this._writeLock = acquired;
+    await prev;
+    try { return await fn(); } finally { release(); }
   }
 
   /**
@@ -135,11 +149,13 @@ export class CheckpointJournal {
    * @param {string} phaseName
    */
   async startPhase(phaseName) {
-    this.journal.phases[phaseName] = {
-      status: 'in_progress',
-      startedAt: new Date().toISOString(),
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.phases[phaseName] = {
+        status: 'in_progress',
+        startedAt: new Date().toISOString(),
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -148,15 +164,17 @@ export class CheckpointJournal {
    * @param {object} [meta] - Additional metadata (e.g., cacheFile)
    */
   async completePhase(phaseName, meta = {}) {
-    this.journal.phases[phaseName] = {
-      status: 'completed',
-      completedAt: new Date().toISOString(),
-      ...(this.journal.phases[phaseName]?.startedAt
-        ? { startedAt: this.journal.phases[phaseName].startedAt }
-        : {}),
-      ...meta,
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.phases[phaseName] = {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        ...(this.journal.phases[phaseName]?.startedAt
+          ? { startedAt: this.journal.phases[phaseName].startedAt }
+          : {}),
+        ...meta,
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -165,13 +183,15 @@ export class CheckpointJournal {
    * @param {string} error - Error message
    */
   async failPhase(phaseName, error) {
-    this.journal.phases[phaseName] = {
-      ...this.journal.phases[phaseName],
-      status: 'failed',
-      failedAt: new Date().toISOString(),
-      error,
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.phases[phaseName] = {
+        ...this.journal.phases[phaseName],
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        error,
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -201,12 +221,14 @@ export class CheckpointJournal {
    * @param {string} branchName
    */
   async startBranch(branchName) {
-    this.journal.branches[branchName] = {
-      status: 'in_progress',
-      startedAt: new Date().toISOString(),
-      phases: {},
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.branches[branchName] = {
+        status: 'in_progress',
+        startedAt: new Date().toISOString(),
+        phases: {},
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -215,13 +237,15 @@ export class CheckpointJournal {
    * @param {string} [ceTaskId] - CE task ID from upload
    */
   async markBranchCompleted(branchName, ceTaskId = null) {
-    this.journal.branches[branchName] = {
-      ...this.journal.branches[branchName],
-      status: 'completed',
-      completedAt: new Date().toISOString(),
-      ceTaskId,
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.branches[branchName] = {
+        ...this.journal.branches[branchName],
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        ceTaskId,
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -230,13 +254,15 @@ export class CheckpointJournal {
    * @param {string} error
    */
   async markBranchFailed(branchName, error) {
-    this.journal.branches[branchName] = {
-      ...this.journal.branches[branchName],
-      status: 'failed',
-      failedAt: new Date().toISOString(),
-      error,
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.branches[branchName] = {
+        ...this.journal.branches[branchName],
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        error,
+      };
+      await this.save();
+    });
   }
 
   // --- Branch phase tracking (per-branch extraction phases) ---
@@ -257,17 +283,23 @@ export class CheckpointJournal {
    * @param {string} phaseName
    */
   async startBranchPhase(branchName, phaseName) {
-    if (!this.journal.branches[branchName]) {
-      await this.startBranch(branchName);
-    }
-    if (!this.journal.branches[branchName].phases) {
-      this.journal.branches[branchName].phases = {};
-    }
-    this.journal.branches[branchName].phases[phaseName] = {
-      status: 'in_progress',
-      startedAt: new Date().toISOString(),
-    };
-    await this.save();
+    return this._withLock(async () => {
+      if (!this.journal.branches[branchName]) {
+        this.journal.branches[branchName] = {
+          status: 'in_progress',
+          startedAt: new Date().toISOString(),
+          phases: {},
+        };
+      }
+      if (!this.journal.branches[branchName].phases) {
+        this.journal.branches[branchName].phases = {};
+      }
+      this.journal.branches[branchName].phases[phaseName] = {
+        status: 'in_progress',
+        startedAt: new Date().toISOString(),
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -277,15 +309,17 @@ export class CheckpointJournal {
    * @param {string} error - Error message
    */
   async failBranchPhase(branchName, phaseName, error) {
-    if (this.journal.branches[branchName]?.phases) {
-      this.journal.branches[branchName].phases[phaseName] = {
-        ...this.journal.branches[branchName].phases[phaseName],
-        status: 'failed',
-        failedAt: new Date().toISOString(),
-        error,
-      };
-      await this.save();
-    }
+    return this._withLock(async () => {
+      if (this.journal.branches[branchName]?.phases) {
+        this.journal.branches[branchName].phases[phaseName] = {
+          ...this.journal.branches[branchName].phases[phaseName],
+          status: 'failed',
+          failedAt: new Date().toISOString(),
+          error,
+        };
+        await this.save();
+      }
+    });
   }
 
   /**
@@ -294,13 +328,15 @@ export class CheckpointJournal {
    * @param {string} phaseName
    */
   async completeBranchPhase(branchName, phaseName) {
-    if (this.journal.branches[branchName]?.phases) {
-      this.journal.branches[branchName].phases[phaseName] = {
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-      };
-      await this.save();
-    }
+    return this._withLock(async () => {
+      if (this.journal.branches[branchName]?.phases) {
+        this.journal.branches[branchName].phases[phaseName] = {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        };
+        await this.save();
+      }
+    });
   }
 
   // --- Private resume helpers ---
@@ -333,11 +369,13 @@ export class CheckpointJournal {
    * @param {string} taskId - CE task ID
    */
   async recordUpload(branchName, taskId) {
-    this.journal.uploadedCeTasks[branchName] = {
-      taskId,
-      submittedAt: new Date().toISOString(),
-    };
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.uploadedCeTasks[branchName] = {
+        taskId,
+        submittedAt: new Date().toISOString(),
+      };
+      await this.save();
+    });
   }
 
   /**
@@ -363,19 +401,23 @@ export class CheckpointJournal {
    * Mark the session as interrupted (called by shutdown handler).
    */
   async markInterrupted() {
-    if (this.journal) {
-      this.journal.status = 'interrupted';
-      await this.save();
-    }
+    return this._withLock(async () => {
+      if (this.journal) {
+        this.journal.status = 'interrupted';
+        await this.save();
+      }
+    });
   }
 
   /**
    * Mark the session as completed.
    */
   async markCompleted() {
-    this.journal.status = 'completed';
-    this.journal.completedAt = new Date().toISOString();
-    await this.save();
+    return this._withLock(async () => {
+      this.journal.status = 'completed';
+      this.journal.completedAt = new Date().toISOString();
+      await this.save();
+    });
   }
 
   /**
