@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Mar 4, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 20, 2026 -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📡 Protobuf Encoding
@@ -140,7 +140,7 @@ Quality gates are created with their full condition definitions (metric, operato
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ Concurrency Model
 
-CloudVoyager uses a custom concurrency layer (`src/utils/concurrency.js`) with zero external dependencies. Key primitives:
+CloudVoyager uses a custom concurrency layer (`src/shared/utils/concurrency.js`) with zero external dependencies. Key primitives:
 
 - **`createLimiter(n)`** — bounds concurrent async operations to `n` at a time (p-limit equivalent)
 - **`mapConcurrent(items, fn, { concurrency, settled, onProgress })`** — parallel map over items with bounded concurrency. In `settled` mode, errors are collected rather than aborting, allowing operations to continue despite individual failures

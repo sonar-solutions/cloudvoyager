@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 20, 2026 -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 

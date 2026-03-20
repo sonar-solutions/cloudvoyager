@@ -4,6 +4,57 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [1.1.3] - 2026-03-20
+
+### Pipeline-Per-Version Architecture Refactor
+
+Refactored the entire codebase from a flat structure with a single `VersionAwareSonarQubeClient` to a **pipeline-per-version** architecture. Each supported SonarQube version range now has its own fully independent pipeline directory containing all version-specific code.
+
+#### Architecture Change
+- Moved all version-specific code from flat `src/` directories into `src/pipelines/sq-{version}/` directories (sq-9.9, sq-10.0, sq-10.4, sq-2025)
+- Moved all version-independent shared code into `src/shared/` (config, mapping, reports, state, utils, verification)
+- Added `src/version-router.js` to detect SonarQube version and dynamically load the correct pipeline
+- Removed `VersionAwareSonarQubeClient` — each pipeline now has its own `SonarQubeClient` with version-specific behavior hardcoded
+- No runtime version checks exist within any pipeline — all version differences are resolved by the pipeline selection
+
+#### Benefits
+- **Zero cross-version regressions** — changes to one pipeline cannot affect another
+- **Easier maintenance** — each pipeline is self-contained and independently testable
+- **Clear version boundaries** — no hidden runtime branching or fallback chains
+- **Simpler debugging** — all version-specific behavior is in one directory
+
+#### Pipeline Differences
+| Behavior | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
+|----------|--------|---------|---------|---------|
+| Issue search param | `statuses` | `statuses` | `issueStatuses` | `issueStatuses` |
+| MetricKeys limit | Batched (15) | Batched (15) | Batched (15) | No batching |
+| Clean Code source | SC enrichment map | Native from SQ | Native from SQ | Native from SQ |
+| Groups API | Standard | Standard | Standard | Web API V2 fallback |
+
+#### Files Restructured
+- **Moved:** `src/sonarqube/` → `src/pipelines/sq-{version}/sonarqube/` (per-version)
+- **Moved:** `src/sonarcloud/` → `src/pipelines/sq-{version}/sonarcloud/` (per-version)
+- **Moved:** `src/protobuf/` → `src/pipelines/sq-{version}/protobuf/` (per-version)
+- **Moved:** `src/pipeline/` → `src/pipelines/sq-{version}/pipeline/` (per-version)
+- **Moved:** `src/transfer-pipeline.js` → `src/pipelines/sq-{version}/transfer-pipeline.js` (per-version)
+- **Moved:** `src/migrate-pipeline.js` → `src/pipelines/sq-{version}/migrate-pipeline.js` (per-version)
+- **Moved:** `src/config/` → `src/shared/config/`
+- **Moved:** `src/mapping/` → `src/shared/mapping/`
+- **Moved:** `src/reports/` → `src/shared/reports/`
+- **Moved:** `src/state/` → `src/shared/state/`
+- **Moved:** `src/utils/` → `src/shared/utils/`
+- **Moved:** `src/verification/` → `src/shared/verification/`
+- **Added:** `src/version-router.js`
+- **Removed:** `src/sonarqube/version-aware-client.js`
+
+#### Documentation
+- Updated CONTRIBUTING.md with new architecture patterns and directory structure
+- Updated docs/key-capabilities.md with correct file paths
+- Updated docs/technical-details.md with correct file paths
+- Updated all documentation timestamps
+
+---
+
 ## [1.1.2] - 2026-03-15
 
 ### Cross-Compile Support and macOS x64 Desktop App

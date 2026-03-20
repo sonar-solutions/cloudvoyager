@@ -134,6 +134,7 @@ export class LockFile {
 
     // Check age
     const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
+    if (Number.isNaN(lockAge)) return true; // Treat unparseable timestamp as stale
     const maxAge = STALE_LOCK_HOURS * 60 * 60 * 1000;
     return lockAge > maxAge;
   }

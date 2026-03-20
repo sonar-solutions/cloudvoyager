@@ -1,6 +1,6 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 20, 2026 -->
 
 CloudVoyager supports two configuration formats depending on the command you're using.
 

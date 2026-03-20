@@ -24,15 +24,14 @@ function getAutoTuneDefaults() {
 }
 
 export function resolvePerformanceConfig(perfConfig = {}) {
-  const cpuCount = availableParallelism();
   const defaults = perfConfig.autoTune ? getAutoTuneDefaults() : {
-    maxConcurrency: Math.min(cpuCount, 8),
-    maxMemoryMB: 0,
-    sourceExtraction: { concurrency: 10 },
-    hotspotExtraction: { concurrency: 10 },
-    issueSync: { concurrency: 5 },
-    hotspotSync: { concurrency: 3 },
-    projectMigration: { concurrency: 1 }
+    maxConcurrency: 64,
+    maxMemoryMB: 8192,
+    sourceExtraction: { concurrency: 50 },
+    hotspotExtraction: { concurrency: 50 },
+    issueSync: { concurrency: 20 },
+    hotspotSync: { concurrency: 20 },
+    projectMigration: { concurrency: 8 }
   };
   return {
     autoTune: perfConfig.autoTune || false,

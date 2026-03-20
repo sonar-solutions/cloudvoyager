@@ -1,16 +1,24 @@
 // Ensure we're running as Electron, not as Node
 delete process.env.ELECTRON_RUN_AS_NODE;
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, globalShortcut } = require('electron');
+const fs = require('node:fs');
 const path = require('path');
 const { loadConfig, saveConfig } = require('./config-store');
 const { registerIpcHandlers } = require('./ipc-handlers');
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
 
 let mainWindow = null;
 
 function createWindow() {
   const uiState = loadConfig('ui') || {};
-  const bounds = uiState.windowBounds || { width: 1400, height: 850 };
+  const bounds = uiState.windowBounds || { width: 1600, height: 1050 };
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -44,6 +52,17 @@ function createWindow() {
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
+
+  // F6: capture screenshot to /tmp for debugging
+  mainWindow.webContents.on('before-input-event', async (_event, input) => {
+    if (input.key === 'F6' && input.type === 'keyDown') {
+      const image = await mainWindow.webContents.capturePage();
+      const ts = Date.now();
+      const filePath = `/tmp/cloudvoyager-screenshot-${ts}.png`;
+      fs.writeFileSync(filePath, image.toPNG());
+      console.log(`[devtools] Screenshot saved: ${filePath}`);
+    }
+  });
 }
 
 function getMainWindow() {
@@ -63,6 +82,14 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     registerIpcHandlers(getMainWindow);
+
+    ipcMain.handle('theme:get-system', () => nativeTheme.shouldUseDarkColors);
+    nativeTheme.on('updated', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('theme:system-changed', nativeTheme.shouldUseDarkColors);
+      }
+    });
+
     createWindow();
 
     app.on('activate', () => {

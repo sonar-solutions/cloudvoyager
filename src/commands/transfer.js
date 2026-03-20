@@ -55,7 +55,6 @@ export function registerTransferCommand(program) {
           ...(options.autoTune && { autoTune: true }),
           ...(options.concurrency && { maxConcurrency: options.concurrency, sourceExtraction: { concurrency: options.concurrency }, hotspotExtraction: { concurrency: options.concurrency } }),
           ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
-          ...(options.workers && { workerThreads: options.workers })
         });
         ensureHeapSize(perfConfig.maxMemoryMB);
         logSystemInfo(perfConfig);
@@ -76,6 +75,7 @@ export function registerTransferCommand(program) {
         });
 
         logger.info('=== Transfer completed successfully ===');
+        process.exit(0);
       } catch (error) {
         if (error instanceof GracefulShutdownError) {
           logger.info('Transfer interrupted gracefully. Resume by running the same command again.');

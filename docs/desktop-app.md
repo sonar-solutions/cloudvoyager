@@ -1,6 +1,6 @@
 # 🖥️ Desktop App
 
-<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 20, 2026 -->
 
 CloudVoyager Desktop wraps the CLI binary in a guided wizard UI built with Electron. No terminal needed — fill in forms, click Start, and watch live logs stream in real-time. All configuration persists between app restarts with encrypted token storage.
 

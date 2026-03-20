@@ -1,36 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>CloudVoyager Desktop</title>
   <link rel="stylesheet" href="styles/main.css">
   <link rel="stylesheet" href="styles/wizard.css">
 </head>
 <body>
+  <a href="#content" class="sr-only">Skip to content</a>
   <div id="app">
     <aside id="sidebar">
       <div id="sidebar-header">
         <h1 class="app-title">🐳 CloudVoyager</h1>
         <span class="app-subtitle">✨ Desktop</span>
       </div>
-      <nav id="wizard-nav"></nav>
+      <nav id="wizard-nav" aria-label="Wizard steps"></nav>
       <div id="sidebar-history"></div>
       <div id="sidebar-footer">
         <button id="btn-home" class="sidebar-btn" title="Home">🏠 Home</button>
+        <button id="btn-theme" class="sidebar-btn" title="System theme" aria-label="System theme"></button>
         <span id="app-version" class="version-text"></span>
       </div>
     </aside>
-    <main id="content"></main>
+    <main id="content" role="main"></main>
   </div>
-  <div id="toast-container"></div>
+  <div id="toast-container" role="status" aria-live="polite"></div>
 
   <!-- Components -->
   <script src="js/components/config-form.js"></script>
   <script src="js/components/log-viewer.js"></script>
   <script src="js/components/wizard-nav.js"></script>
   <script src="js/components/sidebar-history.js"></script>
+  <script src="js/components/migration-graph.js"></script>
 
   <!-- Screens -->
   <script src="js/screens/welcome.js"></script>
@@ -38,7 +42,6 @@
   <script src="js/screens/migrate-config.js"></script>
   <script src="js/screens/verify-config.js"></script>
   <script src="js/screens/sync-metadata-config.js"></script>
-  <script src="js/screens/advanced-options.js"></script>
   <script src="js/screens/connection-test.js"></script>
   <script src="js/screens/execution.js"></script>
   <script src="js/screens/results.js"></script>

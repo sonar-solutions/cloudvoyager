@@ -80,8 +80,9 @@ export class EnterpriseClient {
         params: { enterpriseId, pageSize, pageIndex }
       });
       const page = response.data;
-      portfolios.push(...(page.portfolios || []));
-      if (portfolios.length >= (page.page?.total || 0)) break;
+      const items = page.portfolios || [];
+      portfolios.push(...items);
+      if (items.length < pageSize) break;
       pageIndex++;
     }
     return portfolios;
@@ -117,8 +118,9 @@ export class EnterpriseClient {
         params: { portfolioId, pageSize, pageIndex }
       });
       const page = response.data;
-      orgs.push(...(page.organizations || []));
-      if (orgs.length >= (page.page?.total || 0)) break;
+      const items = page.organizations || [];
+      orgs.push(...items);
+      if (items.length < pageSize) break;
       pageIndex++;
     }
     return orgs;
@@ -133,8 +135,9 @@ export class EnterpriseClient {
         params: { portfolioId, organizationId, pageSize, pageIndex }
       });
       const page = response.data;
-      projects.push(...(page.projects || []));
-      if (projects.length >= (page.page?.total || 0)) break;
+      const items = page.projects || [];
+      projects.push(...items);
+      if (items.length < pageSize) break;
       pageIndex++;
     }
     return projects;

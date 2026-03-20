@@ -1,6 +1,6 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-03-14 -->
+<!-- Last updated: 2026-03-20 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
@@ -87,7 +87,7 @@ CloudVoyager ships **four fully independent pipelines** — one per SonarQube ve
 |-------------------|----------|-------------------|------------|-------------------|------------|
 | **9.9 LTS** | `sq-9.9` | `statuses` | Batched (15) | SC enrichment map | Standard |
 | **10.0 – 10.3** | `sq-10.0` | `statuses` | Batched (15) | Native from SQ | Standard |
-| **10.4 – 10.8** | `sq-10.4` | `issueStatuses` | No batching | Native from SQ | Standard |
+| **10.4 – 10.8** | `sq-10.4` | `issueStatuses` | Batched (15) | Native from SQ | Standard |
 | **2025.1+** | `sq-2025` | `issueStatuses` | No batching | Native from SQ | Web API V2 fallback |
 
 Each pipeline folder (`src/pipelines/sq-*`) contains its own SonarQube client, SonarCloud client, protobuf builder, and transfer/migrate logic — no runtime version checks or `if/else` branches.
@@ -112,6 +112,8 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 | [Dry-Run CSV Reference](docs/dry-run-csv-reference.md) | CSV schema documentation for the dry-run workflow (including user mapping) |
 | [Backward Compatibility](docs/backward-compatibility.md) | SonarQube version support (9.9 LTS through 2025.1+) |
 | [Desktop App Guide](docs/desktop-app.md) | Installation, wizard walkthrough, and building from source |
+| [Verification](docs/verification.md) | Migration verification checks, pass/fail criteria, and report formats |
+| [Pseudocode Explanation](docs/pseudocode-explanation.md) | Every feature documented in pseudocode for technical review |
 | [Contributing](CONTRIBUTING.md) | Architectural patterns, conventions, and contribution guidelines |
 | [Changelog](docs/CHANGELOG.md) | Release history and notable changes |
 

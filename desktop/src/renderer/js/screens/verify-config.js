@@ -7,9 +7,9 @@ window.VerifyConfigScreen = {
   step: 0,
 
   STEPS: [
-    '🔌 SonarQube Connection',
-    '☁️ SonarCloud Organizations',
-    '🚀 Review & Start'
+    'SonarQube Connection',
+    'SonarCloud Organizations',
+    'Review & Start'
   ],
 
   async init() {
@@ -48,7 +48,7 @@ window.VerifyConfigScreen = {
     const sq = this.config.sonarqube;
     container.innerHTML = `
       <div class="page-header">
-        <h2>🔌 SonarQube Connection</h2>
+        <h2>${ConfigForm.icon('plug')} SonarQube Connection</h2>
         <p>Connect to the SonarQube server you migrated from</p>
       </div>
       <div class="card">
@@ -63,6 +63,8 @@ window.VerifyConfigScreen = {
     ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => App.navigate('welcome'));
     container.querySelector('#btn-next').addEventListener('click', () => {
+      const result = ConfigForm.validate(container);
+      if (!result.valid) return;
       this.config.sonarqube.url = container.querySelector('#sq-url').value.trim();
       this.config.sonarqube.token = container.querySelector('#sq-token').value.trim();
       this.saveAndNext(container);
@@ -79,11 +81,11 @@ window.VerifyConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>☁️ SonarCloud Organizations</h2>
+        <h2>${ConfigForm.icon('cloud')} SonarCloud Organizations</h2>
         <p>Add the SonarCloud organizations to verify against</p>
       </div>
       <div id="org-list">${orgsHtml}</div>
-      <button class="add-org-btn" id="add-org">➕ Add Organization</button>
+      <button class="add-org-btn" id="add-org">+ Add Organization</button>
       <div class="button-row right" style="margin-top:24px">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <button class="btn btn-primary" id="btn-next">Next</button>
@@ -136,12 +138,12 @@ window.VerifyConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>📋 Review & Start Verification</h2>
+        <h2>${ConfigForm.icon('clipboard')} Review & Start Verification</h2>
         <p>Check the settings and choose what to verify</p>
       </div>
 
       <div class="card">
-        <div class="card-header">🔌 SonarQube (Source)</div>
+        <div class="card-header">${ConfigForm.icon('plug')} SonarQube (Source)</div>
         ${ConfigForm.summaryTable([
           ['Server Address', sq.url],
           ['Token', sq.token ? '********' : '']
@@ -149,12 +151,12 @@ window.VerifyConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">☁️ SonarCloud Organizations (${orgs.length})</div>
+        <div class="card-header">${ConfigForm.icon('cloud')} SonarCloud Organizations (${orgs.length})</div>
         ${ConfigForm.summaryTable(orgRows)}
       </div>
 
       <div class="card">
-        <div class="card-header">🎯 Choose What to Verify (optional)</div>
+        <div class="card-header">${ConfigForm.icon('shield')} Choose What to Verify (optional)</div>
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to verify, or leave all unchecked to verify everything.</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}
       </div>
@@ -166,8 +168,8 @@ window.VerifyConfigScreen = {
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
-          <button class="btn btn-secondary" id="btn-test">🔍 Test Connections</button>
-          <button class="btn btn-primary" id="btn-start">✅ Start Verification</button>
+          <button class="btn btn-secondary" id="btn-test">${ConfigForm.icon('search')} Test Connections</button>
+          <button class="btn btn-primary" id="btn-start">${ConfigForm.icon('check-circle')} Start Verification</button>
         </div>
       </div>
     `;

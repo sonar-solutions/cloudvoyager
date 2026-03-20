@@ -6,10 +6,10 @@ window.TransferConfigScreen = {
   step: 0,
 
   STEPS: [
-    '🔌 SonarQube Connection',
-    '☁️ SonarCloud Connection',
-    '⚙️ Transfer Settings',
-    '🚀 Review & Start'
+    'SonarQube Connection',
+    'SonarCloud Connection',
+    'Transfer Settings',
+    'Review & Start'
   ],
 
   async init() {
@@ -19,7 +19,7 @@ window.TransferConfigScreen = {
       sonarcloud: { url: 'https://sonarcloud.io', token: '', organization: '', projectKey: '' },
       transfer: { mode: 'incremental', stateFile: './.cloudvoyager-state.json', batchSize: 100, syncAllBranches: true, excludeBranches: [], checkpoint: { enabled: true, cacheExtractions: true, cacheMaxAgeDays: 7, strictResume: false } },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
-      performance: { autoTune: false, maxConcurrency: 8, maxMemoryMB: 0 }
+      performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     };
   },
 
@@ -44,7 +44,7 @@ window.TransferConfigScreen = {
     const sq = this.config.sonarqube;
     container.innerHTML = `
       <div class="page-header">
-        <h2>🔌 SonarQube Connection</h2>
+        <h2>${ConfigForm.icon('plug')} SonarQube Connection</h2>
         <p>Connect to your SonarQube server</p>
       </div>
       <div class="card">
@@ -60,6 +60,8 @@ window.TransferConfigScreen = {
     ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => App.navigate('welcome'));
     container.querySelector('#btn-next').addEventListener('click', () => {
+      const result = ConfigForm.validate(container);
+      if (!result.valid) return;
       this.config.sonarqube.url = container.querySelector('#sq-url').value.trim();
       this.config.sonarqube.token = container.querySelector('#sq-token').value.trim();
       this.config.sonarqube.projectKey = container.querySelector('#sq-project').value.trim();
@@ -71,7 +73,7 @@ window.TransferConfigScreen = {
     const sc = this.config.sonarcloud;
     container.innerHTML = `
       <div class="page-header">
-        <h2>☁️ SonarCloud Connection</h2>
+        <h2>${ConfigForm.icon('cloud')} SonarCloud Connection</h2>
         <p>Connect to your SonarCloud organization</p>
       </div>
       <div class="card">
@@ -88,6 +90,8 @@ window.TransferConfigScreen = {
     ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 0));
     container.querySelector('#btn-next').addEventListener('click', () => {
+      const result = ConfigForm.validate(container);
+      if (!result.valid) return;
       this.config.sonarcloud.url = container.querySelector('#sc-url').value.trim();
       this.config.sonarcloud.token = container.querySelector('#sc-token').value.trim();
       this.config.sonarcloud.organization = container.querySelector('#sc-org').value.trim();
@@ -100,7 +104,7 @@ window.TransferConfigScreen = {
     const t = this.config.transfer;
     container.innerHTML = `
       <div class="page-header">
-        <h2>⚙️ Transfer Settings</h2>
+        <h2>${ConfigForm.icon('gear')} Transfer Settings</h2>
         <p>Choose how the transfer should run</p>
       </div>
       <div class="card">
@@ -140,7 +144,7 @@ window.TransferConfigScreen = {
     const cp = this.config.transfer.checkpoint;
     return `
       <div class="card">
-        <div class="card-header">🚦 Request Throttling</div>
+        <div class="card-header">Request Throttling</div>
         <div class="form-grid">
           ${ConfigForm.numberField('rl-retries', 'Retry attempts', rl.maxRetries, { min: 0, max: 20, hint: 'How many times to retry a failed request' })}
           ${ConfigForm.numberField('rl-delay', 'Wait between retries (ms)', rl.baseDelay, { min: 0, max: 60000, hint: 'Milliseconds to wait before retrying' })}
@@ -148,15 +152,20 @@ window.TransferConfigScreen = {
         </div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="card-header">⚡ Speed & Resources</div>
+        <div class="card-header">Speed & Resources</div>
         ${ConfigForm.checkbox('perf-autotune', 'Auto-optimize for this computer', perf.autoTune, { hint: 'Automatically adjust settings based on your hardware' })}
         <div class="form-grid">
-          ${ConfigForm.numberField('perf-concurrency', 'Parallel tasks', perf.maxConcurrency, { min: 1, max: 64, hint: 'How many operations to run at the same time' })}
+          ${ConfigForm.numberField('perf-concurrency', 'Parallel tasks', perf.maxConcurrency, { min: 1, max: 128, hint: 'How many operations to run at the same time' })}
           ${ConfigForm.numberField('perf-memory', 'Memory limit (MB)', perf.maxMemoryMB, { min: 0, max: 32768, hint: '0 = let the system decide' })}
+          ${ConfigForm.numberField('perf-source', 'Source file extraction concurrency', perf.sourceExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent source file fetches from SonarQube' })}
+          ${ConfigForm.numberField('perf-hotspot', 'Hotspot extraction concurrency', perf.hotspotExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot detail fetches from SonarQube' })}
+          ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-project', 'Project migration concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations' })}
         </div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="card-header">💾 Progress Recovery</div>
+        <div class="card-header">Progress Recovery</div>
         ${ConfigForm.checkbox('cp-enabled', 'Save progress checkpoints', cp.enabled, { hint: 'If interrupted, resume from where it stopped instead of starting over' })}
         ${ConfigForm.checkbox('cp-cache', 'Keep downloaded data temporarily', cp.cacheExtractions, { hint: "Saves extracted data so it doesn't need to be re-downloaded on retry" })}
         <div class="form-grid">
@@ -176,8 +185,13 @@ window.TransferConfigScreen = {
     this.config.rateLimit.minRequestInterval = parseInt(val('rl-interval'), 10) || 0;
 
     this.config.performance.autoTune = chk('perf-autotune') || false;
-    this.config.performance.maxConcurrency = parseInt(val('perf-concurrency'), 10) || 8;
-    this.config.performance.maxMemoryMB = parseInt(val('perf-memory'), 10) || 0;
+    this.config.performance.maxConcurrency = parseInt(val('perf-concurrency'), 10) || 64;
+    this.config.performance.maxMemoryMB = parseInt(val('perf-memory'), 10) || 8192;
+    this.config.performance.sourceExtraction = { concurrency: parseInt(val('perf-source'), 10) || 50 };
+    this.config.performance.hotspotExtraction = { concurrency: parseInt(val('perf-hotspot'), 10) || 50 };
+    this.config.performance.issueSync = { concurrency: parseInt(val('perf-issue-sync'), 10) || 20 };
+    this.config.performance.hotspotSync = { concurrency: parseInt(val('perf-hotspot-sync'), 10) || 20 };
+    this.config.performance.projectMigration = { concurrency: parseInt(val('perf-project'), 10) || 8 };
 
     this.config.transfer.checkpoint.enabled = chk('cp-enabled') !== false;
     this.config.transfer.checkpoint.cacheExtractions = chk('cp-cache') !== false;
@@ -194,12 +208,15 @@ window.TransferConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>📋 Review Your Settings</h2>
+        <h2>${ConfigForm.icon('clipboard')} Review Your Settings</h2>
         <p>Check everything looks correct before starting</p>
       </div>
 
       <div class="card">
-        <div class="card-header">🔌 SonarQube (Source)</div>
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${ConfigForm.icon('plug')} SonarQube (Source)</span>
+          <button class="btn btn-sm btn-secondary" data-edit-step="0">Edit</button>
+        </div>
         ${ConfigForm.summaryTable([
           ['Server Address', sq.url],
           ['Token', sq.token ? '********' : ''],
@@ -208,7 +225,10 @@ window.TransferConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">☁️ SonarCloud (Destination)</div>
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${ConfigForm.icon('cloud')} SonarCloud (Destination)</span>
+          <button class="btn btn-sm btn-secondary" data-edit-step="1">Edit</button>
+        </div>
         ${ConfigForm.summaryTable([
           ['Address', sc.url],
           ['Token', sc.token ? '********' : ''],
@@ -218,7 +238,10 @@ window.TransferConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">⚙️ Transfer Settings</div>
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${ConfigForm.icon('gear')} Transfer Settings</span>
+          <button class="btn btn-sm btn-secondary" data-edit-step="2">Edit</button>
+        </div>
         ${ConfigForm.summaryTable([
           ['What to transfer', modeLabel],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
@@ -229,8 +252,8 @@ window.TransferConfigScreen = {
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
-          <button class="btn btn-secondary" id="btn-test">🔍 Test Connections</button>
-          <button class="btn btn-primary" id="btn-start">🚀 Start Transfer</button>
+          <button class="btn btn-secondary" id="btn-test">${ConfigForm.icon('search')} Test Connections</button>
+          <button class="btn btn-primary" id="btn-start">${ConfigForm.icon('rocket')} Start Transfer</button>
         </div>
       </div>
     `;
@@ -246,6 +269,11 @@ window.TransferConfigScreen = {
       if (this.config._verbose) args.push('--verbose');
       if (this.config._waitAnalysis) args.push('--wait');
       App.navigate('execution', { command: 'transfer', args, configType: 'transfer' });
+    });
+    container.querySelectorAll('[data-edit-step]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.renderStep(container, parseInt(btn.dataset.editStep, 10));
+      });
     });
   },
 

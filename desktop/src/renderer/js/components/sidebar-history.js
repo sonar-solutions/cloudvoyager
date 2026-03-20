@@ -19,6 +19,7 @@ window.SidebarHistory = {
     const sorted = [...history].reverse();
 
     let html = '<div class="sidebar-history-header">📜 Run History</div>';
+    html += '<input type="text" class="sidebar-history-search" id="history-search" placeholder="Filter runs..." aria-label="Filter run history">';
     html += '<div class="sidebar-history-list">';
 
     for (const entry of sorted) {
@@ -49,6 +50,18 @@ window.SidebarHistory = {
         }
       });
     });
+
+    // Search/filter
+    const searchInput = container.querySelector('#history-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        container.querySelectorAll('.sidebar-history-item').forEach(item => {
+          const text = item.textContent.toLowerCase();
+          item.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
   },
 
   async addEntry(entry) {

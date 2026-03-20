@@ -6,45 +6,45 @@ export const performanceSchema = {
       description: 'Automatically detect CPU and RAM and set optimal performance values. Explicit settings override auto-tuned values.'
     },
     maxConcurrency: {
-      type: 'integer', minimum: 1, maximum: 64, default: 8,
+      type: 'integer', minimum: 1, maximum: 128, default: 64,
       description: 'General concurrency limit for parallel I/O operations'
     },
     maxMemoryMB: {
-      type: 'integer', minimum: 0, maximum: 32768, default: 0,
+      type: 'integer', minimum: 0, maximum: 32768, default: 8192,
       description: 'Max heap size in MB (0 = Node.js default). Auto-restarts the process with increased heap if needed.'
     },
     sourceExtraction: {
       type: 'object',
       properties: {
-        concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: 'Max concurrent source file fetches from SonarQube' }
+        concurrency: { type: 'integer', minimum: 1, maximum: 100, default: 50, description: 'Max concurrent source file fetches from SonarQube' }
       },
       additionalProperties: false
     },
     hotspotExtraction: {
       type: 'object',
       properties: {
-        concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: 'Max concurrent hotspot detail fetches from SonarQube' }
+        concurrency: { type: 'integer', minimum: 1, maximum: 100, default: 50, description: 'Max concurrent hotspot detail fetches from SonarQube' }
       },
       additionalProperties: false
     },
     issueSync: {
       type: 'object',
       properties: {
-        concurrency: { type: 'integer', minimum: 1, maximum: 20, default: 5, description: 'Max concurrent issue metadata sync operations to SonarCloud' }
+        concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'Max concurrent issue metadata sync operations to SonarCloud' }
       },
       additionalProperties: false
     },
     hotspotSync: {
       type: 'object',
       properties: {
-        concurrency: { type: 'integer', minimum: 1, maximum: 20, default: 3, description: 'Max concurrent hotspot sync operations to SonarCloud (lower default due to rate limiting)' }
+        concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'Max concurrent hotspot sync operations to SonarCloud' }
       },
       additionalProperties: false
     },
     projectMigration: {
       type: 'object',
       properties: {
-        concurrency: { type: 'integer', minimum: 1, maximum: 8, default: 1, description: 'Max concurrent project migrations (1 = sequential, backward-compatible)' }
+        concurrency: { type: 'integer', minimum: 1, maximum: 16, default: 8, description: 'Max concurrent project migrations' }
       },
       additionalProperties: false
     }
