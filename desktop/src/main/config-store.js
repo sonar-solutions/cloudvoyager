@@ -26,7 +26,7 @@ const schema = {
     type: 'object',
     default: {
       sonarqube: { url: '', token: '' },
-      sonarcloud: { organizations: [] },
+      sonarcloud: { enterprise: { key: '' }, organizations: [] },
       transfer: {
         mode: 'incremental',
         stateFile: './.cloudvoyager-state.json',

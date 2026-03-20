@@ -14,51 +14,99 @@ import { migrateProjectPermissions } from '../sonarcloud/migrators/permissions.j
 import { syncIssues } from '../sonarcloud/migrators/issue-sync.js';
 import { syncHotspots } from '../sonarcloud/migrators/hotspot-sync.js';
 import logger from '../../../shared/utils/logger.js';
+import { mapConcurrent, createProgressLogger } from '../../../shared/utils/concurrency.js';
 import { finalizeProjectResult, recordProjectOutcome } from './results.js';
 
+/**
+ * Full project migration (upload + config + metadata sync).
+ * Kept as convenience wrapper for backward compatibility.
+ */
 export async function migrateOrgProjects(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping) {
+  const coreResult = await migrateOrgProjectsCorePhase(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping);
+  await migrateOrgProjectsMetadataPhase(coreResult.projectPhase2Contexts, projects, results);
+  return { projectKeyMap: coreResult.projectKeyMap, projectKeyWarnings: coreResult.projectKeyWarnings };
+}
+
+/**
+ * Phase 1: Upload + config for all projects.
+ * Returns projectKeyMap and phase2 contexts needed for metadata sync.
+ */
+export async function migrateOrgProjectsCorePhase(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping) {
   const projectKeyMap = new Map();
   const projectKeyWarnings = [];
+  const projectPhase2Contexts = [];
   const migrationJournal = ctx.migrationJournal || null;
 
-  for (let i = 0; i < projects.length; i++) {
-    const project = projects[i];
-
-    // Check if project already completed in migration journal
-    if (migrationJournal && migrationJournal.getProjectStatus(org.key, project.key) === 'completed') {
-      logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} — already completed, skipping ---`);
-      const { scProjectKey } = await resolveProjectKey(project, org, scClient);
-      projectKeyMap.set(project.key, scProjectKey);
-      continue;
-    }
-
-    const { scProjectKey, warning } = await resolveProjectKey(project, org, scClient);
-    if (warning) projectKeyWarnings.push(warning);
-    projectKeyMap.set(project.key, scProjectKey);
-    logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} -> ${scProjectKey} ---`);
-
-    if (migrationJournal) {
-      await migrationJournal.startProject(org.key, project.key);
-    }
-
-    const projectResult = await migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping });
-    results.projects.push(projectResult);
-    if (projectResult.linesOfCode > 0) {
-      results.totalLinesOfCode += projectResult.linesOfCode;
-      results.projectLinesOfCode.push({ projectKey: project.key, linesOfCode: projectResult.linesOfCode });
-    }
-    recordProjectOutcome(project, projectResult, results);
-
-    // Update migration journal
-    if (migrationJournal) {
-      if (projectResult.status === 'success') {
-        await migrationJournal.markProjectCompleted(org.key, project.key);
-      } else {
-        await migrationJournal.markProjectFailed(org.key, project.key, projectResult.errors?.[0] || 'Unknown error');
+  const coreResults = await mapConcurrent(
+    projects,
+    async (project, i) => {
+      // Check if project already completed in migration journal
+      if (migrationJournal && migrationJournal.getProjectStatus(org.key, project.key) === 'completed') {
+        logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} — already completed, skipping ---`);
+        const { scProjectKey } = await resolveProjectKey(project, org, scClient);
+        projectKeyMap.set(project.key, scProjectKey);
+        return null; // skipped
       }
+
+      const { scProjectKey, warning } = await resolveProjectKey(project, org, scClient);
+      if (warning) projectKeyWarnings.push(warning);
+      projectKeyMap.set(project.key, scProjectKey);
+      logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} -> ${scProjectKey} ---`);
+
+      if (migrationJournal) {
+        await migrationJournal.startProject(org.key, project.key);
+      }
+
+      const phase2Ctx = await migrateOneProjectCore({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping });
+      projectPhase2Contexts.push(phase2Ctx);
+      return phase2Ctx.projectResult;
+    },
+    { concurrency: ctx.perfConfig?.projectMigration?.concurrency || 1, settled: true, onProgress: createProgressLogger('Projects (upload+config)', projects.length) }
+  );
+
+  // Aggregate core results
+  for (const r of coreResults) {
+    if (r.status === 'fulfilled' && r.value) {
+      if (r.value.linesOfCode > 0) {
+        results.totalLinesOfCode += r.value.linesOfCode;
+        results.projectLinesOfCode.push({ projectKey: r.value.projectKey, linesOfCode: r.value.linesOfCode });
+      }
+    } else if (r.status === 'rejected') {
+      logger.error(`Project core migration failed: ${r.reason?.message || r.reason}`);
     }
   }
-  return { projectKeyMap, projectKeyWarnings };
+
+  return { projectKeyMap, projectKeyWarnings, projectPhase2Contexts };
+}
+
+/**
+ * Phase 2: Issue + hotspot metadata sync for all projects.
+ * Runs after core phase; can execute in parallel with portfolio migration.
+ */
+export async function migrateOrgProjectsMetadataPhase(projectPhase2Contexts, projects, results) {
+  if (projectPhase2Contexts.length === 0) return;
+
+  const concurrency = projectPhase2Contexts[0]?.ctx?.perfConfig?.projectMigration?.concurrency || 1;
+
+  const metadataResults = await mapConcurrent(
+    projectPhase2Contexts,
+    async (phase2Ctx) => {
+      const projectResult = await migrateOneProjectMetadata(phase2Ctx);
+      return projectResult;
+    },
+    { concurrency, settled: true, onProgress: createProgressLogger('Projects (metadata sync)', projectPhase2Contexts.length) }
+  );
+
+  // Aggregate final results and record outcomes
+  for (const r of metadataResults) {
+    if (r.status === 'fulfilled' && r.value) {
+      results.projects.push(r.value);
+      const origProject = projects.find(p => p.key === r.value.projectKey);
+      if (origProject) recordProjectOutcome(origProject, r.value, results);
+    } else if (r.status === 'rejected') {
+      logger.error(`Project metadata sync failed: ${r.reason?.message || r.reason}`);
+    }
+  }
 }
 
 export async function resolveProjectKey(project, org, scClient) {
@@ -73,7 +121,11 @@ export async function resolveProjectKey(project, org, scClient) {
   return { scProjectKey, warning };
 }
 
-async function migrateOneProject({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping }) {
+/**
+ * Phase 1 of a single project: upload scanner report + project config.
+ * Returns context needed for Phase 2 (metadata sync).
+ */
+async function migrateOneProjectCore({ project, scProjectKey, org, gateMapping, extractedData, results, ctx, builtInProfileMapping }) {
   const only = ctx.onlyComponents;
   const shouldRun = (comp) => !only || only.includes(comp);
   const projectStart = Date.now();
@@ -81,15 +133,17 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
   const projectSqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key });
   const projectScClient = new SonarCloudClient({
     url: org.url || 'https://sonarcloud.io', token: org.token,
-    organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig
+    organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig,
+    sharedThrottler: ctx.sharedThrottler || null
   });
 
   // Migration journal for per-step checkpointing
   const migrationJournal = ctx.migrationJournal || null;
   const STEP_ORDER = [
-    'upload_scanner_report', 'sync_issues', 'sync_hotspots',
+    'upload_scanner_report',
     'project_settings', 'project_tags', 'project_links', 'new_code_definitions',
-    'devops_binding', 'assign_quality_gate', 'assign_quality_profiles', 'project_permissions'
+    'devops_binding', 'assign_quality_gate', 'assign_quality_profiles', 'project_permissions',
+    'sync_issues', 'sync_hotspots'
   ];
   const isStepDone = (step) =>
     migrationJournal && migrationJournal.isProjectStepCompleted(org?.key, project.key, step, STEP_ORDER);
@@ -112,12 +166,16 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
       }
     }
     if (isStepDone('upload_scanner_report')) {
-      logger.info(`Scanner report upload for ${project.key} — already completed, skipping`);
+      logger.info(`[${project.key}] Scanner report upload — already completed, skipping`);
       reportUploadOk = true;
       projectResult.steps.push({ step: 'Upload scanner report', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
     } else {
+      logger.info(`[${project.key}] Starting scanner report upload`);
       reportUploadOk = await uploadScannerReport(project, scProjectKey, org, projectResult, ctx, syncAllBranchesOverride);
-      if (reportUploadOk) await recordStep('upload_scanner_report');
+      if (reportUploadOk) {
+        logger.info(`[${project.key}] Scanner report upload complete`);
+        await recordStep('upload_scanner_report');
+      }
     }
   } else if (only) {
     projectResult.steps.push({ step: 'Upload scanner report', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
@@ -133,44 +191,80 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
     }
   }
 
-  // Issue metadata sync
-  if (shouldRun('issue-metadata')) {
-    if (isStepDone('sync_issues')) {
-      logger.info(`Issue sync for ${project.key} — already completed, skipping`);
-      projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
-    } else {
-      await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-      const lastIssueStep = projectResult.steps.at(-1);
-      if (lastIssueStep && lastIssueStep.status !== 'failed') await recordStep('sync_issues');
-    }
-  } else if (only) {
-    projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-  }
-
-  // Hotspot metadata sync
-  if (shouldRun('hotspot-metadata')) {
-    if (isStepDone('sync_hotspots')) {
-      logger.info(`Hotspot sync for ${project.key} — already completed, skipping`);
-      projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
-    } else {
-      await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-      const lastHotspotStep = projectResult.steps.at(-1);
-      if (lastHotspotStep && lastHotspotStep.status !== 'failed') await recordStep('sync_hotspots');
-    }
-  } else if (only) {
-    projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-  }
-
   // Project config (component-aware) — skip if project doesn't exist in SonarCloud
   // Also skip if ctx.skipProjectConfig is set (e.g. sync-metadata, since migrate already applied config)
   if (reportUploadOk && !ctx.skipProjectConfig) {
+    logger.info(`[${project.key}] Configuring project`);
     await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only, { isStepDone, recordStep });
+    logger.info(`[${project.key}] Project configuration complete`);
   } else if (ctx.skipProjectConfig) {
     logger.debug(`Skipping project config for ${scProjectKey} (already applied by migrate)`);
   }
 
+  // Return phase 2 context for metadata sync
+  return {
+    project, scProjectKey, org, ctx, results, projectResult, projectStart,
+    reportUploadOk, projectSqClient, projectScClient,
+    isStepDone, recordStep, shouldRun, only,
+  };
+}
+
+/**
+ * Phase 2 of a single project: issue + hotspot metadata sync.
+ * Takes the context returned by migrateOneProjectCore.
+ */
+async function migrateOneProjectMetadata(phase2Ctx) {
+  const { project, scProjectKey, org, ctx, results, projectResult, projectStart,
+    reportUploadOk, projectSqClient, projectScClient,
+    isStepDone, recordStep, shouldRun, only } = phase2Ctx;
+
+  const migrationJournal = ctx.migrationJournal || null;
+
+  // Issue + hotspot metadata sync (parallel)
+  await Promise.all([
+    (async () => {
+      if (shouldRun('issue-metadata')) {
+        if (isStepDone('sync_issues')) {
+          logger.info(`[${project.key}] Issue sync — already completed, skipping`);
+          projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+        } else {
+          await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient, project.key);
+          const lastIssueStep = projectResult.steps.at(-1);
+          if (lastIssueStep && lastIssueStep.status !== 'failed') await recordStep('sync_issues');
+        }
+      } else if (only) {
+        projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+      }
+    })(),
+    (async () => {
+      if (shouldRun('hotspot-metadata')) {
+        if (isStepDone('sync_hotspots')) {
+          logger.info(`[${project.key}] Hotspot sync — already completed, skipping`);
+          projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+        } else {
+          await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient, project.key);
+          const lastHotspotStep = projectResult.steps.at(-1);
+          if (lastHotspotStep && lastHotspotStep.status !== 'failed') await recordStep('sync_hotspots');
+        }
+      } else if (only) {
+        projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+      }
+    })(),
+  ]);
+
+  logger.info(`[${project.key}] Project migration complete`);
   finalizeProjectResult(projectResult);
   projectResult.durationMs = Date.now() - projectStart;
+
+  // Update migration journal
+  if (migrationJournal) {
+    if (projectResult.status === 'success') {
+      await migrationJournal.markProjectCompleted(org.key, project.key);
+    } else {
+      await migrationJournal.markProjectFailed(org.key, project.key, projectResult.errors?.[0] || 'Unknown error');
+    }
+  }
+
   return projectResult;
 }
 
@@ -199,7 +293,7 @@ async function uploadScannerReport(project, scProjectKey, org, projectResult, ct
   }
 }
 
-async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient) {
+async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient, projectKey) {
   if (ctx.skipIssueSync) {
     projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Disabled by config', durationMs: 0 });
     return;
@@ -210,9 +304,10 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
   }
   const start = Date.now();
   try {
-    logger.info('Syncing issue metadata...');
+    logger.info(`[${projectKey}] Syncing issue metadata...`);
     const sqIssues = await projectSqClient.getIssuesWithComments();
     const issueStats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient, userMappings: ctx.userMappings });
+    logger.info(`[${projectKey}] Issue sync: ${issueStats.matched} matched, ${issueStats.transitioned} transitioned`);
     results.issueSyncStats.matched += issueStats.matched;
     results.issueSyncStats.transitioned += issueStats.transitioned;
     results.issueSyncStats.assigned += issueStats.assigned;
@@ -226,7 +321,7 @@ async function syncProjectIssues(projectResult, results, reportUploadOk, ctx, sc
   }
 }
 
-async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient) {
+async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient, projectKey) {
   if (ctx.skipHotspotSync) {
     projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Disabled by config', durationMs: 0 });
     return;
@@ -237,9 +332,10 @@ async function syncProjectHotspots(projectResult, results, reportUploadOk, ctx, 
   }
   const start = Date.now();
   try {
-    logger.info('Syncing hotspot metadata...');
+    logger.info(`[${projectKey}] Syncing hotspot metadata...`);
     const sqHotspots = await extractHotspots(projectSqClient, null, { concurrency: ctx.perfConfig.hotspotExtraction.concurrency });
     const hotspotStats = await syncHotspots(scProjectKey, sqHotspots, projectScClient, { concurrency: ctx.perfConfig.hotspotSync.concurrency, sonarqubeUrl: projectSqClient.baseURL, sonarqubeProjectKey: projectSqClient.projectKey });
+    logger.info(`[${projectKey}] Hotspot sync: ${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed`);
     results.hotspotSyncStats.matched += hotspotStats.matched;
     results.hotspotSyncStats.statusChanged += hotspotStats.statusChanged;
     projectResult.steps.push({ step: 'Sync hotspots', status: 'success', detail: `${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed`, durationMs: Date.now() - start });
@@ -283,69 +379,75 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
 
   // Project settings, tags, links, new code definitions, devops binding → 'project-settings' component
   if (shouldRun('project-settings')) {
-    await runGuardedStep('Project settings', 'project_settings', async () => {
-      const projectSettings = await extractProjectSettings(projectSqClient, project.key);
-      await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
-    });
-    await runGuardedStep('Project tags', 'project_tags', async () => {
-      const projectTags = await extractProjectTags(projectSqClient);
-      await migrateProjectTags(scProjectKey, projectTags, projectScClient);
-    });
-    await runGuardedStep('Project links', 'project_links', async () => {
-      const projectLinks = await extractProjectLinks(projectSqClient, project.key);
-      await migrateProjectLinks(scProjectKey, projectLinks, projectScClient);
-    });
-    await runGuardedStep('New code definitions', 'new_code_definitions', async () => {
-      const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
-      return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
-    });
-    await runGuardedStep('DevOps binding', 'devops_binding', async () => {
-      const binding = extractedData.projectBindings.get(project.key);
-      await migrateDevOpsBinding(scProjectKey, binding, projectScClient);
-    });
+    await Promise.all([
+      runGuardedStep('Project settings', 'project_settings', async () => {
+        const projectSettings = await extractProjectSettings(projectSqClient, project.key);
+        await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
+      }),
+      runGuardedStep('Project tags', 'project_tags', async () => {
+        const projectTags = await extractProjectTags(projectSqClient);
+        await migrateProjectTags(scProjectKey, projectTags, projectScClient);
+      }),
+      runGuardedStep('Project links', 'project_links', async () => {
+        const projectLinks = await extractProjectLinks(projectSqClient, project.key);
+        await migrateProjectLinks(scProjectKey, projectLinks, projectScClient);
+      }),
+      runGuardedStep('New code definitions', 'new_code_definitions', async () => {
+        const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
+        return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
+      }),
+      runGuardedStep('DevOps binding', 'devops_binding', async () => {
+        const binding = extractedData.projectBindings.get(project.key);
+        await migrateDevOpsBinding(scProjectKey, binding, projectScClient);
+      }),
+    ]);
   } else if (onlyComponents) {
     for (const step of ['Project settings', 'Project tags', 'Project links', 'New code definitions', 'DevOps binding']) {
       projectResult.steps.push({ step, status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
     }
   }
 
-  // Quality gate assignment → 'quality-gates' component
-  if (shouldRun('quality-gates')) {
-    await runGuardedStep('Assign quality gate', 'assign_quality_gate', async () => {
-      const projectGate = await projectSqClient.getQualityGate();
-      if (projectGate && gateMapping.has(projectGate.name)) {
-        await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
+  // Quality gate, quality profiles, permissions (parallel)
+  await Promise.all([
+    (async () => {
+      if (shouldRun('quality-gates')) {
+        await runGuardedStep('Assign quality gate', 'assign_quality_gate', async () => {
+          const projectGate = await projectSqClient.getQualityGate();
+          if (projectGate && gateMapping.has(projectGate.name)) {
+            await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
+          }
+        });
+      } else if (onlyComponents) {
+        projectResult.steps.push({ step: 'Assign quality gate', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
       }
-    });
-  } else if (onlyComponents) {
-    projectResult.steps.push({ step: 'Assign quality gate', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-  }
-
-  // Quality profile assignment → 'quality-profiles' component
-  if (shouldRun('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
-    await runGuardedStep('Assign quality profiles', 'assign_quality_profiles', async () => {
-      let assigned = 0;
-      for (const [language, profileName] of builtInProfileMapping) {
-        try {
-          await projectScClient.addQualityProfileToProject(language, profileName, scProjectKey);
-          assigned++;
-        } catch (error) {
-          logger.debug(`Could not assign profile "${profileName}" (${language}) to ${scProjectKey}: ${error.message}`);
-        }
+    })(),
+    (async () => {
+      if (shouldRun('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
+        await runGuardedStep('Assign quality profiles', 'assign_quality_profiles', async () => {
+          let assigned = 0;
+          for (const [language, profileName] of builtInProfileMapping) {
+            try {
+              await projectScClient.addQualityProfileToProject(language, profileName, scProjectKey);
+              assigned++;
+            } catch (error) {
+              logger.debug(`Could not assign profile "${profileName}" (${language}) to ${scProjectKey}: ${error.message}`);
+            }
+          }
+          return `${assigned} profiles assigned`;
+        });
+      } else if (onlyComponents && builtInProfileMapping && builtInProfileMapping.size > 0) {
+        projectResult.steps.push({ step: 'Assign quality profiles', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
       }
-      return `${assigned} profiles assigned`;
-    });
-  } else if (onlyComponents && builtInProfileMapping && builtInProfileMapping.size > 0) {
-    projectResult.steps.push({ step: 'Assign quality profiles', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-  }
-
-  // Project permissions → 'permissions' component
-  if (shouldRun('permissions')) {
-    await runGuardedStep('Project permissions', 'project_permissions', async () => {
-      const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
-      await migrateProjectPermissions(scProjectKey, projectPerms, projectScClient);
-    });
-  } else if (onlyComponents) {
-    projectResult.steps.push({ step: 'Project permissions', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-  }
+    })(),
+    (async () => {
+      if (shouldRun('permissions')) {
+        await runGuardedStep('Project permissions', 'project_permissions', async () => {
+          const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
+          await migrateProjectPermissions(scProjectKey, projectPerms, projectScClient);
+        });
+      } else if (onlyComponents) {
+        projectResult.steps.push({ step: 'Project permissions', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+      }
+    })(),
+  ]);
 }

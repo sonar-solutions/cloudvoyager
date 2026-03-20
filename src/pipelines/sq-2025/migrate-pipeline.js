@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs';
 import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SonarQubeClient } from './sonarqube/api-client.js';
-import { resolvePerformanceConfig, collectEnvironmentInfo } from '../../shared/utils/concurrency.js';
+import { resolvePerformanceConfig, collectEnvironmentInfo, mapConcurrent } from '../../shared/utils/concurrency.js';
 import logger from '../../shared/utils/logger.js';
 import { writeAllReports } from '../../shared/reports/index.js';
 import { createEmptyResults, runFatalStep, logMigrationSummary } from './pipeline/results.js';
 import { extractAllProjects, extractServerWideData } from './pipeline/extraction.js';
-import { generateOrgMappings, saveServerInfo, migrateOneOrganization, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
+import { generateOrgMappings, saveServerInfo, migrateOneOrganizationCore, migrateOneOrganizationMetadata, migrateEnterprisePortfolios } from './pipeline/org-migration.js';
 import { loadMappingCsvs } from '../../shared/mapping/csv-reader.js';
 import { applyCsvOverrides } from '../../shared/mapping/csv-applier.js';
 import { extractUniqueAssignees, enrichAssigneeDetails } from './sonarqube/extractors/users.js';
@@ -249,19 +249,43 @@ export async function migrateAll(options) {
 
     await saveServerInfo(outputDir, extractedData);
 
+    // Seed journal with all orgs/projects so the resume dialog shows accurate totals
+    if (migrationJournal && !dryRun) {
+      await migrationJournal.seedOrganizations(effectiveOrgAssignments);
+    }
+
+    // Phase 1: All orgs — upload + config (org-wide resources + project upload/config)
+    const orgCoreResults = await mapConcurrent(
+      effectiveOrgAssignments,
+      async (assignment) => {
+        return await migrateOneOrganizationCore(assignment, effectiveExtractedData, effectiveResourceMappings, results, ctx);
+      },
+      { concurrency: effectiveOrgAssignments.length, settled: true }
+    );
+
+    // Merge project key maps + collect phase 2 contexts
     const mergedProjectKeyMap = new Map();
-    for (const assignment of effectiveOrgAssignments) {
-      const projectKeyMap = await migrateOneOrganization(assignment, effectiveExtractedData, effectiveResourceMappings, results, ctx);
-      for (const [sqKey, scKey] of projectKeyMap) {
-        mergedProjectKeyMap.set(sqKey, scKey);
+    const orgPhase2Contexts = [];
+    for (const r of orgCoreResults) {
+      if (r.status === 'fulfilled' && r.value) {
+        for (const [sqKey, scKey] of r.value.projectKeyMap) {
+          mergedProjectKeyMap.set(sqKey, scKey);
+        }
+        orgPhase2Contexts.push(r.value.orgPhase2Context);
+      } else if (r.status === 'rejected') {
+        logger.error(`Organization migration failed: ${r.reason?.message || r.reason}`);
       }
     }
 
-    if (!onlyComponents || onlyComponents.includes('portfolios')) {
-      await migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx);
-    } else {
-      logger.info('Skipping enterprise portfolio migration (not included in --only)');
-    }
+    // Phase 2: Portfolios + metadata sync IN PARALLEL
+    // Portfolios only need projectKeyMap (projects exist in SC after Phase 1).
+    // Issue/hotspot metadata sync is independent and can run concurrently.
+    await Promise.all([
+      (!onlyComponents || onlyComponents.includes('portfolios'))
+        ? migrateEnterprisePortfolios(effectiveExtractedData, mergedProjectKeyMap, results, ctx)
+        : Promise.resolve(),
+      ...orgPhase2Contexts.map(phase2Ctx => migrateOneOrganizationMetadata(phase2Ctx)),
+    ]);
 
     // Mark migration as completed in journal
     if (!dryRun && migrationJournal) {

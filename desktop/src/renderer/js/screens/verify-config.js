@@ -17,7 +17,7 @@ window.VerifyConfigScreen = {
     const stored = await window.cloudvoyager.config.loadKey('migrateConfig');
     this.config = stored || {
       sonarqube: { url: '', token: '' },
-      sonarcloud: { organizations: [] },
+      sonarcloud: { enterprise: { key: '' }, organizations: [] },
       transfer: { mode: 'full', batchSize: 100, syncAllBranches: true },
       migrate: { outputDir: './migration-output' },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
@@ -79,10 +79,16 @@ window.VerifyConfigScreen = {
       orgsHtml += MigrateConfigScreen.renderOrgEntry(org, i);
     });
 
+    const enterprise = this.config.sonarcloud.enterprise || { key: '' };
+
     container.innerHTML = `
       <div class="page-header">
         <h2>${ConfigForm.icon('cloud')} SonarCloud Organizations</h2>
         <p>Add the SonarCloud organizations to verify against</p>
+      </div>
+      <div class="card">
+        <div class="card-header">Enterprise (optional)</div>
+        ${ConfigForm.textField('enterprise-key', 'Enterprise Key', enterprise.key, { placeholder: 'my-enterprise', hint: 'Required for portfolio verification. Leave blank if not using enterprise features.' })}
       </div>
       <div id="org-list">${orgsHtml}</div>
       <button class="add-org-btn" id="add-org">+ Add Organization</button>
@@ -101,6 +107,8 @@ window.VerifyConfigScreen = {
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 0));
     container.querySelector('#btn-next').addEventListener('click', () => {
       this.readOrgs(container);
+      const ek = container.querySelector('#enterprise-key')?.value.trim() || '';
+      this.config.sonarcloud.enterprise = { key: ek };
       this.saveAndNext(container);
     });
   },

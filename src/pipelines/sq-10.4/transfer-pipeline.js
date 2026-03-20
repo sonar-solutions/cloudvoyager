@@ -8,6 +8,7 @@ import { StateTracker } from '../../shared/state/tracker.js';
 import { CheckpointJournal } from '../../shared/state/checkpoint.js';
 import { ExtractionCache } from '../../shared/state/extraction-cache.js';
 import { LockFile } from '../../shared/state/lock.js';
+import { mapConcurrent } from '../../shared/utils/concurrency.js';
 import { checkShutdown } from '../../shared/utils/shutdown.js';
 import { GracefulShutdownError } from '../../shared/utils/errors.js';
 import { dirname, join } from 'node:path';
@@ -295,72 +296,88 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
         logger.info(`Syncing ${nonMainBranches.length} additional branch(es): ${nonMainBranches.map(b => b.name).join(', ')}`);
 
-        for (const branch of nonMainBranches) {
-          const branchName = branch.name;
+        const branchResults = await mapConcurrent(
+          nonMainBranches,
+          async (branch) => {
+            const branchName = branch.name;
 
-          // Check shutdown between branches
-          if (shutdownCheck()) {
-            logger.warn('Shutdown requested — stopping branch transfers');
-            break;
-          }
+            // Check shutdown between branches
+            if (shutdownCheck()) {
+              return { skipped: true, branchName, reason: 'shutdown' };
+            }
 
-          // Skip if already completed (state tracker or journal)
-          if (isIncremental && stateTracker.isBranchCompleted(branchName)) {
-            logger.info(`Branch '${branchName}' already completed — skipping`);
+            // Skip if already completed (state tracker or journal)
+            if (isIncremental && stateTracker.isBranchCompleted(branchName)) {
+              logger.info(`Branch '${branchName}' already completed — skipping`);
+              return { skipped: true, branchName, reason: 'completed' };
+            }
+            if (journal?.getBranchStatus(branchName) === 'completed') {
+              logger.info(`Branch '${branchName}' already completed in journal — skipping`);
+              return { skipped: true, branchName, reason: 'completed', addToTransferred: true };
+            }
+
+            try {
+              if (journal) await journal.startBranch(branchName);
+
+              logger.info(`--- Extracting branch: ${branchName} ---`);
+              let branchData;
+              if (journal && cache) {
+                branchData = await extractor.extractBranchWithCheckpoints(branchName, extractedData, journal, cache, shutdownCheck);
+              } else {
+                branchData = await extractor.extractBranch(branchName, extractedData);
+              }
+
+              const branchResult = await transferBranch({
+                extractedData: branchData,
+                sonarcloudConfig,
+                sonarCloudProfiles,
+                branchName,
+                referenceBranchName: sonarCloudMainBranch,
+                wait,
+                sonarCloudClient,
+                label: branchName,
+                sonarCloudRepos,
+                ruleEnrichmentMap
+              });
+
+              if (journal) {
+                await journal.recordUpload(branchName, branchResult.ceTask?.id);
+                await journal.markBranchCompleted(branchName, branchResult.ceTask?.id);
+              }
+
+              if (isIncremental) {
+                stateTracker.markBranchCompleted(branchName);
+                await stateTracker.save();
+              }
+
+              return { branchName, branchResult };
+            } catch (error) {
+              if (error instanceof GracefulShutdownError) throw error;
+              if (journal) await journal.markBranchFailed(branchName, error.message);
+              logger.error(`Failed to transfer branch '${branchName}': ${error.message}`);
+              logger.warn('Continuing with remaining branches...');
+              return { branchName, error: error.message };
+            }
+          },
+          { concurrency: performanceConfig?.maxConcurrency || 4, settled: true }
+        );
+
+        // Aggregate stats from parallel results
+        for (const r of branchResults) {
+          if (r.status !== 'fulfilled') continue;
+          const val = r.value;
+          if (!val) continue;
+          if (val.skipped) {
+            if (val.addToTransferred) aggregatedStats.branchesTransferred.push(val.branchName);
             continue;
           }
-          if (journal?.getBranchStatus(branchName) === 'completed') {
-            logger.info(`Branch '${branchName}' already completed in journal — skipping`);
-            aggregatedStats.branchesTransferred.push(branchName);
-            continue;
-          }
-
-          try {
-            if (journal) await journal.startBranch(branchName);
-
-            logger.info(`--- Extracting branch: ${branchName} ---`);
-            let branchData;
-            if (journal && cache) {
-              branchData = await extractor.extractBranchWithCheckpoints(branchName, extractedData, journal, cache, shutdownCheck);
-            } else {
-              branchData = await extractor.extractBranch(branchName, extractedData);
-            }
-
-            const branchResult = await transferBranch({
-              extractedData: branchData,
-              sonarcloudConfig,
-              sonarCloudProfiles,
-              branchName,
-              referenceBranchName: sonarCloudMainBranch,
-              wait,
-              sonarCloudClient,
-              label: branchName,
-              sonarCloudRepos,
-              ruleEnrichmentMap
-            });
-
-            // Accumulate stats
-            aggregatedStats.issuesTransferred += branchResult.stats.issuesTransferred || 0;
-            aggregatedStats.hotspotsTransferred += branchResult.stats.hotspotsTransferred || 0;
-            aggregatedStats.componentsTransferred += branchResult.stats.componentsTransferred || 0;
-            aggregatedStats.sourcesTransferred += branchResult.stats.sourcesTransferred || 0;
-            aggregatedStats.linesOfCode += branchResult.stats.linesOfCode || 0;
-            aggregatedStats.branchesTransferred.push(branchName);
-
-            if (journal) {
-              await journal.recordUpload(branchName, branchResult.ceTask?.id);
-              await journal.markBranchCompleted(branchName, branchResult.ceTask?.id);
-            }
-
-            if (isIncremental) {
-              stateTracker.markBranchCompleted(branchName);
-              await stateTracker.save(); // Save after each branch
-            }
-          } catch (error) {
-            if (error instanceof GracefulShutdownError) throw error;
-            if (journal) await journal.markBranchFailed(branchName, error.message);
-            logger.error(`Failed to transfer branch '${branchName}': ${error.message}`);
-            logger.warn('Continuing with remaining branches...');
+          if (val.branchResult) {
+            aggregatedStats.issuesTransferred += val.branchResult.stats.issuesTransferred || 0;
+            aggregatedStats.hotspotsTransferred += val.branchResult.stats.hotspotsTransferred || 0;
+            aggregatedStats.componentsTransferred += val.branchResult.stats.componentsTransferred || 0;
+            aggregatedStats.sourcesTransferred += val.branchResult.stats.sourcesTransferred || 0;
+            aggregatedStats.linesOfCode += val.branchResult.stats.linesOfCode || 0;
+            aggregatedStats.branchesTransferred.push(val.branchName);
           }
         }
       } else {
