@@ -49,6 +49,14 @@ export async function promptMigrationResume(existingJournal, currentSonarQubeUrl
     console.error('     Resuming with a different server may cause errors.');
   }
 
+  // Non-interactive mode (e.g. spawned from desktop app with stdin closed):
+  // auto-resume without prompting since the desktop UI already handled the choice.
+  if (!process.stdin.isTTY) {
+    console.error('');
+    console.error('  Non-interactive mode detected — auto-resuming.');
+    return 'resume';
+  }
+
   console.error('');
   console.error('  [r] Resume  — continue from where the previous migration left off');
   console.error('  [f] Fresh   — discard previous state and start from scratch');

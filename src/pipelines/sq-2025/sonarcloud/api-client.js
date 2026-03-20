@@ -19,6 +19,7 @@ export class SonarCloudClient {
     this._baseDelay = rateLimit.baseDelay ?? 1000;
     this._minRequestInterval = rateLimit.minRequestInterval ?? 0;
     this._lastPostTime = 0;
+    this._sharedThrottler = config.sharedThrottler || null;
     this.client = axios.create({
       baseURL: this.baseURL,
       auth: { username: this.token, password: '' },
@@ -27,12 +28,14 @@ export class SonarCloudClient {
     });
     this.client.interceptors.request.use(async (reqConfig) => {
       if (reqConfig.method === 'post') {
+        const throttler = this._sharedThrottler || this;
         const now = Date.now();
-        const elapsed = now - this._lastPostTime;
+        const elapsed = now - throttler._lastPostTime;
+        // Reserve the slot before sleeping to prevent concurrent requests from bypassing throttle
+        throttler._lastPostTime = now + Math.max(0, this._minRequestInterval - elapsed);
         if (elapsed < this._minRequestInterval) {
           await new Promise(resolve => setTimeout(resolve, this._minRequestInterval - elapsed));
         }
-        this._lastPostTime = Date.now();
       }
       return reqConfig;
     });

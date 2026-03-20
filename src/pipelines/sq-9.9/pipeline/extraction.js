@@ -37,31 +37,43 @@ export async function runNonFatalExtraction(results, stepName, fn, detailFn) {
 }
 
 export async function extractServerWideData(sqClient, allProjects, results, perfConfig) {
-  const qualityGates = await runNonFatalExtraction(results, 'quality gates',
-    () => extractQualityGates(sqClient), d => `${d.length} found`) || [];
-
-  const qualityProfiles = await runNonFatalExtraction(results, 'quality profiles',
-    () => extractQualityProfiles(sqClient), d => `${d.length} found`) || [];
-
-  const groups = await runNonFatalExtraction(results, 'groups',
-    () => extractGroups(sqClient), d => `${d.length} found`) || [];
-
-  const globalPermissions = await runNonFatalExtraction(results, 'global permissions',
-    () => extractGlobalPermissions(sqClient)) || [];
-
-  const permissionTemplates = await runNonFatalExtraction(results, 'permission templates',
-    () => extractPermissionTemplates(sqClient)) || { templates: [], defaultTemplates: [] };
-
-  const portfolios = await runNonFatalExtraction(results, 'portfolios',
-    () => extractPortfolios(sqClient), d => `${d.length} found`) || [];
+  const [
+    qualityGates,
+    qualityProfiles,
+    groups,
+    globalPermissions,
+    permissionTemplates,
+    portfolios,
+    serverInfo,
+    serverWebhooks
+  ] = await Promise.all([
+    runNonFatalExtraction(results, 'quality gates',
+      () => extractQualityGates(sqClient), d => `${d.length} found`).then(d => d || []),
+    runNonFatalExtraction(results, 'quality profiles',
+      () => extractQualityProfiles(sqClient), d => `${d.length} found`).then(d => d || []),
+    runNonFatalExtraction(results, 'groups',
+      () => extractGroups(sqClient), d => `${d.length} found`).then(d => d || []),
+    runNonFatalExtraction(results, 'global permissions',
+      () => extractGlobalPermissions(sqClient)).then(d => d || []),
+    runNonFatalExtraction(results, 'permission templates',
+      () => extractPermissionTemplates(sqClient)).then(d => d || { templates: [], defaultTemplates: [] }),
+    runNonFatalExtraction(results, 'portfolios',
+      () => extractPortfolios(sqClient), d => `${d.length} found`).then(d => d || []),
+    runNonFatalExtraction(results, 'server info',
+      () => extractServerInfo(sqClient)).then(d => d || { system: {}, plugins: [], settings: [] }),
+    runNonFatalExtraction(results, 'webhooks',
+      () => extractWebhooks(sqClient)).then(d => d || [])
+  ]);
 
   let almSettings = [];
   let projectBindings = new Map();
   const bindingsResult = await runNonFatalExtraction(results, 'DevOps bindings', async () => {
-    const alm = await extractAlmSettings(sqClient);
-    const bindings = await extractAllProjectBindings(sqClient, allProjects, {
-      concurrency: perfConfig.maxConcurrency
-    });
+    const [alm, bindings] = await Promise.all([
+      extractAlmSettings(sqClient),
+      extractAllProjectBindings(sqClient, allProjects, {
+        concurrency: perfConfig.maxConcurrency
+      })
+    ]);
     return { alm, bindings };
   });
   if (bindingsResult) {
@@ -72,12 +84,6 @@ export async function extractServerWideData(sqClient, allProjects, results, perf
   const projectBranches = await runNonFatalExtraction(results, 'project branches',
     () => extractAllProjectBranches(sqClient, allProjects, perfConfig),
     d => `branches for ${d.size} projects`) || new Map();
-
-  const serverInfo = await runNonFatalExtraction(results, 'server info',
-    () => extractServerInfo(sqClient)) || { system: {}, plugins: [], settings: [] };
-
-  const serverWebhooks = await runNonFatalExtraction(results, 'webhooks',
-    () => extractWebhooks(sqClient)) || [];
 
   return {
     projects: allProjects, qualityGates, qualityProfiles, groups,

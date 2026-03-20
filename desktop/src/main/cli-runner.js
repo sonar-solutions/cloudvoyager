@@ -7,6 +7,48 @@ const os = require('os');
 
 let currentProcess = null;
 
+// PID file path — persists across app restarts so we can kill orphan CLI processes
+const PID_FILE = path.join(app.getPath('userData'), 'cli.pid');
+
+function savePid(pid) {
+  try { fs.writeFileSync(PID_FILE, String(pid)); } catch { /* ignore */ }
+}
+
+function clearPid() {
+  try { if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
+}
+
+/**
+ * Kill any orphan CLI process left behind from a previous app session.
+ * Called on app startup before any new commands are spawned.
+ */
+function killOrphan() {
+  let pid;
+  try {
+    pid = Number.parseInt(fs.readFileSync(PID_FILE, 'utf-8').trim(), 10);
+  } catch {
+    return; // No PID file
+  }
+  if (!pid || Number.isNaN(pid)) { clearPid(); return; }
+
+  try {
+    // Check if process is still alive (signal 0 = existence check)
+    process.kill(pid, 0);
+    // Still alive — kill it
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(pid), '/T', '/F']).on('error', () => {});
+    } else {
+      try { process.kill(-pid, 'SIGTERM'); } catch { process.kill(pid, 'SIGTERM'); }
+      setTimeout(() => {
+        try { process.kill(pid, 0); process.kill(pid, 'SIGKILL'); } catch { /* dead */ }
+      }, 3000);
+    }
+  } catch {
+    // Process already dead — just clean up
+  }
+  clearPid();
+}
+
 function getCliBinaryName() {
   const platform = process.platform;
   const arch = process.arch;
@@ -116,6 +158,7 @@ function runCommand(command, args, config, envVars, reportsDir, getMainWindow) {
   });
 
   currentProcess = child;
+  savePid(child.pid);
 
   const sendLog = (stream, line) => {
     const win = getMainWindow();
@@ -190,6 +233,7 @@ function cancelCommand() {
 
 function cleanup(configPath) {
   currentProcess = null;
+  clearPid();
   try {
     if (configPath && fs.existsSync(configPath)) {
       fs.unlinkSync(configPath);
@@ -203,4 +247,4 @@ function isRunning() {
   return currentProcess !== null;
 }
 
-module.exports = { runCommand, cancelCommand, isRunning, getCliBinaryPath };
+module.exports = { runCommand, cancelCommand, killOrphan, isRunning, getCliBinaryPath };

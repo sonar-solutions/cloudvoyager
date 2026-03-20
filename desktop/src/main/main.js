@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('path');
 const { loadConfig, saveConfig } = require('./config-store');
 const { registerIpcHandlers } = require('./ipc-handlers');
+const { cancelCommand, killOrphan } = require('./cli-runner');
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
@@ -80,7 +81,9 @@ if (!gotTheLock) {
     }
   });
 
+  // Kill any orphan CLI process from a previous app session
   app.whenReady().then(() => {
+    killOrphan();
     registerIpcHandlers(getMainWindow);
 
     ipcMain.handle('theme:get-system', () => nativeTheme.shouldUseDarkColors);
@@ -97,6 +100,11 @@ if (!gotTheLock) {
         createWindow();
       }
     });
+  });
+
+  // Kill CLI process when the app is quitting so it doesn't become an orphan
+  app.on('before-quit', () => {
+    cancelCommand();
   });
 
   app.on('window-all-closed', () => {
