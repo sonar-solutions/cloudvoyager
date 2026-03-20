@@ -849,11 +849,12 @@ window.MigrationGraph = {
   },
 
   render(timestamp) {
+    this.animFrame = null; // mark frame as consumed
     if (!this.ctx || !this.canvas) return;
 
     // Throttle to ~30fps
     if (timestamp - this.lastFrameTime < 33) {
-      if (!this.allDone) this._scheduleFrame();
+      this._scheduleFrame();
       return;
     }
     this.lastFrameTime = timestamp;
@@ -883,9 +884,8 @@ window.MigrationGraph = {
     // Advance dash offset for active edge animation
     this.dashOffset -= 0.6;
 
-    if (!this.allDone || !this._forceSettled) {
-      this._scheduleFrame();
-    }
+    // Always keep animating — particles and dash offsets should continue even after completion
+    this._scheduleFrame();
   },
 
   // ── Grid ────────────────────────────────────────────────────────
@@ -1034,13 +1034,14 @@ window.MigrationGraph = {
       ctx.save();
       ctx.lineWidth = 2;
       ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;
 
       if (src.state === 'active') {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;
         ctx.setLineDash([8, 4]);
         ctx.lineDashOffset = this.dashOffset;
       } else {
+        ctx.shadowBlur = 0;
         ctx.setLineDash([]);
       }
 
@@ -1557,14 +1558,9 @@ window.MigrationGraph = {
       return;
     }
 
-    // Overall completion
-    if (/Verification complete|=== Verification Summary ===/.test(line)) {
-      this.setNodeState('vProjects', 'done');
-      this.setNodeState('vBranches', 'done');
-      this.setNodeState('vIssues', 'done');
-      this.setNodeState('vHotspots', 'done');
-      this.setNodeState('vMeasures', 'done');
-      this.setNodeState('vPortfolios', 'done');
+    // Overall completion — mark ALL nodes done
+    if (/Verification complete|Verification Summary|all checks passed/.test(line)) {
+      this.nodes.forEach(n => this.setNodeState(n.id, 'done'));
       return;
     }
   },
