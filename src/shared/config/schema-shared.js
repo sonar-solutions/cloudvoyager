@@ -47,6 +47,13 @@ export const performanceSchema = {
         concurrency: { type: 'integer', minimum: 1, maximum: 16, default: 8, description: 'Max concurrent project migrations' }
       },
       additionalProperties: false
+    },
+    projectVerification: {
+      type: 'object',
+      properties: {
+        concurrency: { type: 'integer', minimum: 1, maximum: 16, default: 3, description: 'Max concurrent project verifications' }
+      },
+      additionalProperties: false
     }
   },
   additionalProperties: false

@@ -40,12 +40,12 @@ window.MigrationGraph = {
         { id: 'qualityGates',   label: 'Quality Gates',    col: 1, row: 1, yPct: 0.50 },
         { id: 'qualityProfiles', label: 'Quality Profiles', col: 1, row: 2, yPct: 0.78 },
         { id: 'permissions',     label: 'Permissions',      col: 2, row: 0, yPct: 0.15 },
-        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1, xPct: 0.50, yPct: 0.65 },
-        { id: 'projects',        label: 'Projects',         col: 3, row: 0, yPct: 0.10 },
-        { id: 'scannerUpload',   label: 'Scanner Upload',   col: 3, row: 1, yPct: 0.30 },
-        { id: 'issueSync',       label: 'Issue Sync',       col: 3, row: 2, yPct: 0.50 },
-        { id: 'hotspotSync',     label: 'Hotspot Sync',     col: 3, row: 3, yPct: 0.70 },
-        { id: 'projectConfig',   label: 'Project Config',   col: 3, row: 4, yPct: 0.90 },
+        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1, xPct: 0.50, yPct: 0.78 },
+        { id: 'projects',        label: 'Projects',         col: 3, row: 0, xPct: 0.68, yPct: 0.08 },
+        { id: 'scannerUpload',   label: 'Scanner Upload',   col: 3, row: 1, xPct: 0.68, yPct: 0.28 },
+        { id: 'issueSync',       label: 'Issue Sync',       col: 3, row: 2, xPct: 0.60, yPct: 0.52 },
+        { id: 'hotspotSync',     label: 'Hotspot Sync',     col: 3, row: 3, xPct: 0.78, yPct: 0.52 },
+        { id: 'projectConfig',   label: 'Project Config',   col: 3, row: 4, xPct: 0.68, yPct: 0.76 },
         { id: 'portfolios',      label: 'Portfolios',       col: 4, row: 0, yPct: 0.45 },
       ],
       edges: [
@@ -53,8 +53,9 @@ window.MigrationGraph = {
         ['groups', 'permissions'], ['groups', 'permTemplates'],
         ['qualityGates', 'projects'], ['qualityProfiles', 'projects'],
         ['permissions', 'projects'], ['permTemplates', 'projects'],
-        ['projects', 'scannerUpload'], ['scannerUpload', 'issueSync'],
-        ['issueSync', 'hotspotSync'], ['hotspotSync', 'projectConfig'],
+        ['projects', 'scannerUpload'],
+        ['scannerUpload', 'issueSync'], ['scannerUpload', 'hotspotSync'],
+        ['issueSync', 'projectConfig'], ['hotspotSync', 'projectConfig'],
         ['projects', 'portfolios'],
       ],
       colPositions: [0.06, 0.22, 0.40, 0.62, 0.90],
@@ -74,12 +75,12 @@ window.MigrationGraph = {
     },
     'sync-metadata': {
       nodes: [
-        { id: 'projects',    label: 'Projects',      col: 0, row: 0 },
-        { id: 'issueSync',   label: 'Issue Sync',    col: 1, row: 0 },
-        { id: 'hotspotSync', label: 'Hotspot Sync',  col: 2, row: 0 },
+        { id: 'projects',    label: 'Projects',      col: 0, row: 0, yPct: 0.50 },
+        { id: 'issueSync',   label: 'Issue Sync',    col: 1, row: 0, yPct: 0.30 },
+        { id: 'hotspotSync', label: 'Hotspot Sync',  col: 1, row: 1, yPct: 0.70 },
       ],
       edges: [
-        ['projects', 'issueSync'], ['issueSync', 'hotspotSync'],
+        ['projects', 'issueSync'], ['projects', 'hotspotSync'],
       ],
     },
     verify: {
@@ -652,6 +653,12 @@ window.MigrationGraph = {
     this.canvas.style.height = ch + 'px';
 
     this._computePositions(cw, ch);
+
+    // Setting canvas.width/height clears the buffer — schedule a redraw
+    if (!this.animFrame) {
+      this.lastFrameTime = 0;
+      this._scheduleFrame();
+    }
   },
 
   _computePositions(cw, ch) {
@@ -660,7 +667,7 @@ window.MigrationGraph = {
 
     const firstLayout = this.nodes.every(n => n.targetX === 0 && n.targetY === 0);
 
-    if (this.mode === 'migrate') {
+    if (def.colPositions) {
       const colX = def.colPositions;
       const nodeDefs = def.nodes;
 
@@ -843,11 +850,12 @@ window.MigrationGraph = {
   },
 
   render(timestamp) {
+    this.animFrame = null; // mark frame as consumed
     if (!this.ctx || !this.canvas) return;
 
     // Throttle to ~30fps
     if (timestamp - this.lastFrameTime < 33) {
-      if (!this.allDone) this._scheduleFrame();
+      this._scheduleFrame();
       return;
     }
     this.lastFrameTime = timestamp;
@@ -877,9 +885,8 @@ window.MigrationGraph = {
     // Advance dash offset for active edge animation
     this.dashOffset -= 0.6;
 
-    if (!this.allDone || !this._forceSettled) {
-      this._scheduleFrame();
-    }
+    // Always keep animating — particles and dash offsets should continue even after completion
+    this._scheduleFrame();
   },
 
   // ── Grid ────────────────────────────────────────────────────────
@@ -1028,13 +1035,14 @@ window.MigrationGraph = {
       ctx.save();
       ctx.lineWidth = 2;
       ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;
 
       if (src.state === 'active') {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;
         ctx.setLineDash([8, 4]);
         ctx.lineDashOffset = this.dashOffset;
       } else {
+        ctx.shadowBlur = 0;
         ctx.setLineDash([]);
       }
 
@@ -1267,6 +1275,8 @@ window.MigrationGraph = {
       if (node && node.state === 'active') {
         node.count = m[1] + '/' + m[2];
       }
+      // Mark previous project's remaining sub-nodes as done before reset
+      this.setNodeState('projectConfig', 'done');
       // Reset sub-nodes for each new project (back to pending visually via progress)
       this._resetSubNodes();
       return;
@@ -1277,36 +1287,33 @@ window.MigrationGraph = {
       this.setNodeState('scannerUpload', 'active');
       return;
     }
-    if (/Transfer completed for project|Scanner report upload for/.test(line)) {
+    if (/Transfer completed for project|Scanner report upload for|Report uploaded successfully|Report submitted to Compute Engine/.test(line)) {
       this.setNodeState('scannerUpload', 'done');
       return;
     }
 
     // Per-project sub-phases: Issue Sync
     if (/Syncing issue metadata/.test(line)) {
-      this.setNodeState('scannerUpload', 'done');
       this.setNodeState('issueSync', 'active');
       return;
     }
-    if (/Issue sync.*completed|Issue metadata sync complete/.test(line)) {
+    if (/Issue sync:.*matched.*transitioned|Issue sync.*completed|Issue metadata sync complete/.test(line)) {
       this.setNodeState('issueSync', 'done');
       return;
     }
 
     // Per-project sub-phases: Hotspot Sync
     if (/Syncing hotspot metadata/.test(line)) {
-      this.setNodeState('issueSync', 'done');
       this.setNodeState('hotspotSync', 'active');
       return;
     }
-    if (/Hotspot sync.*completed|Hotspot metadata sync complete/.test(line)) {
+    if (/Hotspot sync:.*matched.*status changed|Hotspot sync.*completed|Hotspot metadata sync complete/.test(line)) {
       this.setNodeState('hotspotSync', 'done');
       return;
     }
 
     // Per-project sub-phases: Project Config
-    if (/Migrating.*project settings|Setting quality gate|Setting quality profiles|Setting permissions for/.test(line)) {
-      this.setNodeState('hotspotSync', 'done');
+    if (!/^Extracting /.test(line) && /Migrating.*project settings|Setting quality gate|Setting quality profiles|Setting permissions for|Project settings|Project tags|Project links|New code definitions|DevOps binding|Assign quality gate|Assign quality profiles|Project permissions/.test(line)) {
       this.setNodeState('projectConfig', 'active');
       return;
     }
@@ -1384,12 +1391,21 @@ window.MigrationGraph = {
       this.setNodeState('issueSync', 'active');
       return;
     }
-    if (/Syncing hotspot metadata/.test(line)) {
+    if (/Issue sync:.*matched.*transitioned|Issue sync.*completed|Issue metadata sync complete/.test(line)) {
       this.setNodeState('issueSync', 'done');
+      return;
+    }
+    if (/Syncing hotspot metadata/.test(line)) {
       this.setNodeState('hotspotSync', 'active');
       return;
     }
-    if (/completed|complete/i.test(line)) {
+    if (/Hotspot sync:.*matched.*status changed|Hotspot sync.*completed|Hotspot metadata sync complete/.test(line)) {
+      this.setNodeState('hotspotSync', 'done');
+      return;
+    }
+    if (/Migration complete|=== Migration completed|Metadata sync complete/.test(line)) {
+      this.setNodeState('projects', 'done');
+      this.setNodeState('issueSync', 'done');
       this.setNodeState('hotspotSync', 'done');
       return;
     }
@@ -1551,14 +1567,9 @@ window.MigrationGraph = {
       return;
     }
 
-    // Overall completion
-    if (/Verification complete|=== Verification Summary ===/.test(line)) {
-      this.setNodeState('vProjects', 'done');
-      this.setNodeState('vBranches', 'done');
-      this.setNodeState('vIssues', 'done');
-      this.setNodeState('vHotspots', 'done');
-      this.setNodeState('vMeasures', 'done');
-      this.setNodeState('vPortfolios', 'done');
+    // Overall completion — mark ALL nodes done
+    if (/Verification complete|Verification Summary|all checks passed/.test(line)) {
+      this.nodes.forEach(n => this.setNodeState(n.id, 'done'));
       return;
     }
   },
@@ -1606,7 +1617,8 @@ window.MigrationGraph = {
     this.allDone = this.nodes.length > 0 && this.nodes.every(n => n.state === 'done');
 
     if (!wasDone && this.allDone) {
-      // Final render then stop
+      // Force final render by resetting throttle so the frame is guaranteed to draw
+      this.lastFrameTime = 0;
       requestAnimationFrame(t => {
         this.render(t);
       });

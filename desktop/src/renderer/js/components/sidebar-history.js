@@ -26,7 +26,8 @@ window.SidebarHistory = {
       const date = new Date(entry.timestamp);
       const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      const label = entry.command === 'migrate' ? '🌐 Migration' : '📦 Transfer';
+      const labelMap = { migrate: '🌐 Migration', transfer: '📦 Transfer', verify: '✅ Verify', 'sync-metadata': '🔄 Sync Metadata' };
+      const label = labelMap[entry.command] || `📦 ${entry.command?.charAt(0).toUpperCase()}${entry.command?.slice(1) || 'Transfer'}`;
       const duration = entry.durationMs ? this.formatDuration(entry.durationMs) : '';
 
       html += `

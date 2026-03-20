@@ -255,6 +255,13 @@ Uses `shared/verification/verify-pipeline.js`:
 - **Lock Pattern** — advisory lock files prevent concurrent runs with stale detection
 - **Error Hierarchy** — custom error classes provide specific error handling
 - **Concurrency Pattern** — `mapConcurrent` replaces sequential loops with bounded parallel execution
+- **Parallel Pipeline Execution** — multiple levels of parallelism throughout the migration pipeline:
+  - Branch transfers run concurrently via `mapConcurrent` (bounded by `maxConcurrency`)
+  - Organization migrations run concurrently (one task per org)
+  - Server-wide extraction steps run via `Promise.all` (quality gates, profiles, groups, permissions, templates, portfolios, server info, webhooks)
+  - Org-wide resource migration uses two-batch parallelism: batch 1 (independent: groups, gates, profiles, templates) then batch 2 (dependent: global permissions, profile comparison)
+  - Project-level steps run in parallel where possible (issue + hotspot sync concurrent, config steps concurrent, gate/profile/permission assignment concurrent)
+- **Shared Throttler Pattern** — SonarCloud API clients within an org share a single POST throttler (`sharedThrottler`) to enforce `minRequestInterval` across all concurrent project migrations, preventing rate limit violations
 
 <!-- Updated: Mar 20, 2026 -->
 ## ⚡ Concurrency and Performance

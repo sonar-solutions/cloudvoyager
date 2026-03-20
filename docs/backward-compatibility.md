@@ -76,8 +76,8 @@ sq-{version}/
 1. `version-router.js` makes a lightweight `GET /api/system/status` call to detect the SonarQube server version
 2. `resolvePipelineId()` maps the parsed version to a pipeline folder:
    - `major >= 2025` → `sq-2025`
-   - `major >= 10 && minor >= 4` → `sq-10.4`
-   - `major >= 10` → `sq-10.0`
+   - `(major === 10 && minor >= 4) || (major > 10 && major < 2025)` → `sq-10.4` (covers 10.4–10.8 and any hypothetical 11.x–2024.x versions)
+   - `major >= 10` → `sq-10.0` (covers 10.0–10.3)
    - Otherwise → `sq-9.9`
 3. `detectAndRoute()` dynamically imports `transfer-pipeline.js` and `migrate-pipeline.js` from the selected pipeline
 4. Commands (`transfer`, `migrate`, `sync-metadata`) call `detectAndRoute()` to get the correct `transferProject()` or `migrateAll()` function

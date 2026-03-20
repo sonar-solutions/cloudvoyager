@@ -52,23 +52,15 @@ export async function verifyQualityGates(sqClient, scClient) {
       continue;
     }
 
-    // Compare conditions for custom gates
-    let sqConditions, scConditions;
-    try {
-      const sqDetails = await sqClient.getQualityGateDetails(sqGate.name);
-      sqConditions = sqDetails.conditions || [];
-    } catch (error) {
-      logger.debug(`Failed to get SQ gate details for ${sqGate.name}: ${error.message}`);
-      sqConditions = [];
-    }
-
-    try {
-      const scDetails = await scClient.getQualityGateDetails(scGate.id);
-      scConditions = scDetails.conditions || [];
-    } catch (error) {
-      logger.debug(`Failed to get SC gate details for ${scGate.name}: ${error.message}`);
-      scConditions = [];
-    }
+    // Compare conditions for custom gates (fetch SQ and SC details in parallel)
+    const [sqConditions, scConditions] = await Promise.all([
+      sqClient.getQualityGateDetails(sqGate.name)
+        .then(d => d.conditions || [])
+        .catch(error => { logger.debug(`Failed to get SQ gate details for ${sqGate.name}: ${error.message}`); return []; }),
+      scClient.getQualityGateDetails(scGate.id)
+        .then(d => d.conditions || [])
+        .catch(error => { logger.debug(`Failed to get SC gate details for ${scGate.name}: ${error.message}`); return []; })
+    ]);
 
     const conditionMismatches = compareConditions(sqConditions, scConditions);
     if (conditionMismatches.length > 0) {
