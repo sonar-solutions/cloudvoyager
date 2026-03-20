@@ -184,6 +184,7 @@ window.MigrateConfigScreen = {
         ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip updating security hotspot details', m.skipHotspotMetadataSync, { hint: "Don't update security hotspot statuses and comments" })}
         ${ConfigForm.checkbox('skip-qp-sync', 'Skip updating coding rules', m.skipQualityProfileSync, { hint: "Don't transfer quality profile configurations" })}
         ${ConfigForm.checkbox('sync-branches', 'Include all code branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred' })}
+        ${ConfigForm.textField('exclude-branches', 'Exclude branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
         ${ConfigForm.numberField('batch-size', 'Items per group', t.batchSize, { min: 1, max: 500, hint: 'How many items to process at once (1\u2013500)' })}
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log' })}
         ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis' })}
@@ -212,6 +213,7 @@ window.MigrateConfigScreen = {
       this.config.migrate.skipHotspotMetadataSync = container.querySelector('#skip-hotspot-meta').checked;
       this.config.migrate.skipQualityProfileSync = container.querySelector('#skip-qp-sync').checked;
       this.config.transfer.syncAllBranches = container.querySelector('#sync-branches').checked;
+      this.config.transfer.excludeBranches = container.querySelector('#exclude-branches').value.split(',').map(s => s.trim()).filter(Boolean);
       this.config.transfer.batchSize = parseInt(container.querySelector('#batch-size').value, 10) || 100;
       this.config._verbose = container.querySelector('#verbose').checked;
       this.config._waitAnalysis = container.querySelector('#wait-analysis')?.checked;
@@ -273,6 +275,7 @@ window.MigrateConfigScreen = {
           ['Preview only', m.dryRun ? 'Yes' : 'No'],
           ['Reports output folder', m.outputDir],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
+          ['Excluded branches', (t.excludeBranches || []).join(', ') || 'None'],
           ['Items per group', t.batchSize]
         ])}
       </div>

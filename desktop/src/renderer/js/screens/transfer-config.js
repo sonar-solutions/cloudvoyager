@@ -113,6 +113,7 @@ window.TransferConfigScreen = {
           { value: 'incremental', label: 'Only new & changed data' }
         ], t.mode)}
         ${ConfigForm.checkbox('sync-branches', 'Include all code branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred' })}
+        ${ConfigForm.textField('exclude-branches', 'Exclude branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
         ${ConfigForm.numberField('batch-size', 'Items per group', t.batchSize, { min: 1, max: 500, hint: 'How many items to process at once (1\u2013500). Higher = faster but uses more memory' })}
         ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis of the uploaded data' })}
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log during transfer' })}
@@ -130,6 +131,7 @@ window.TransferConfigScreen = {
     container.querySelector('#btn-next').addEventListener('click', () => {
       this.config.transfer.mode = container.querySelector('input[name="transfer-mode"]:checked')?.value || 'incremental';
       this.config.transfer.syncAllBranches = container.querySelector('#sync-branches').checked;
+      this.config.transfer.excludeBranches = container.querySelector('#exclude-branches').value.split(',').map(s => s.trim()).filter(Boolean);
       this.config.transfer.batchSize = parseInt(container.querySelector('#batch-size').value, 10) || 100;
       this.config._waitAnalysis = container.querySelector('#wait-analysis').checked;
       this.config._verbose = container.querySelector('#verbose').checked;
@@ -162,10 +164,12 @@ window.TransferConfigScreen = {
           ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
           ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
           ${ConfigForm.numberField('perf-project', 'Project migration concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations' })}
+          ${ConfigForm.numberField('perf-verify', 'Project verification concurrency', perf.projectVerification?.concurrency ?? 3, { min: 1, max: 16, hint: 'Max concurrent project verifications' })}
         </div>
       </div>
       <div class="card" style="margin-top:12px">
         <div class="card-header">Progress Recovery</div>
+        ${ConfigForm.textField('cp-statefile', 'State file path', this.config.transfer.stateFile || './.cloudvoyager-state.json', { hint: 'Path to the file that tracks transfer progress between runs' })}
         ${ConfigForm.checkbox('cp-enabled', 'Save progress checkpoints', cp.enabled, { hint: 'If interrupted, resume from where it stopped instead of starting over' })}
         ${ConfigForm.checkbox('cp-cache', 'Keep downloaded data temporarily', cp.cacheExtractions, { hint: "Saves extracted data so it doesn't need to be re-downloaded on retry" })}
         <div class="form-grid">
@@ -194,7 +198,9 @@ window.TransferConfigScreen = {
     this.config.performance.issueSync = { concurrency: numVal('perf-issue-sync', 20) };
     this.config.performance.hotspotSync = { concurrency: numVal('perf-hotspot-sync', 20) };
     this.config.performance.projectMigration = { concurrency: numVal('perf-project', 8) };
+    this.config.performance.projectVerification = { concurrency: numVal('perf-verify', 3) };
 
+    this.config.transfer.stateFile = val('cp-statefile') || './.cloudvoyager-state.json';
     this.config.transfer.checkpoint.enabled = chk('cp-enabled') !== false;
     this.config.transfer.checkpoint.cacheExtractions = chk('cp-cache') !== false;
     this.config.transfer.checkpoint.cacheMaxAgeDays = numVal('cp-maxage', 7);
@@ -247,6 +253,7 @@ window.TransferConfigScreen = {
         ${ConfigForm.summaryTable([
           ['What to transfer', modeLabel],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
+          ['Excluded branches', (t.excludeBranches || []).join(', ') || 'None'],
           ['Items per group', t.batchSize]
         ])}
       </div>
