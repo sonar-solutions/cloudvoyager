@@ -220,6 +220,7 @@ window.ExecutionScreen = {
     if (this.whaleAnimInterval) { clearInterval(this.whaleAnimInterval); this.whaleAnimInterval = null; }
     if (this.typewriterInterval) { clearInterval(this.typewriterInterval); this.typewriterInterval = null; }
     if (this.starfieldTwinkleInterval) { clearInterval(this.starfieldTwinkleInterval); this.starfieldTwinkleInterval = null; }
+    if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); this._resizeHandler = null; }
     if (typeof MigrationGraph !== 'undefined' && MigrationGraph.destroy) { MigrationGraph.destroy(); }
   },
 
@@ -442,10 +443,13 @@ window.ExecutionScreen = {
       }, 2000);
     }
 
-    // --- CLOUDS: render tile then repeat across a wide canvas ---
+    // --- CLOUDS: render tile then repeat across a wide canvas (dynamic to track width) ---
     const cloudTile = this.renderSprite(cloudSprite, palette, 2, 64);
     const tileW = cloudTile.width;  // 128
-    const numTiles = 8;
+    const cloudTrackEl = document.querySelector('.whale-track');
+    const trackWidth = cloudTrackEl ? cloudTrackEl.getBoundingClientRect().width : 800;
+    // Need enough tiles to cover the full track width + one extra tile for seamless scroll
+    const numTiles = Math.ceil(trackWidth / tileW) + 2;
     const cloudsCanvas = document.createElement('canvas');
     cloudsCanvas.width = tileW * numTiles;
     cloudsCanvas.height = cloudTile.height;
@@ -455,6 +459,28 @@ window.ExecutionScreen = {
     }
     const cloudsEl = document.getElementById('whale-clouds');
     if (cloudsEl) cloudsEl.appendChild(cloudsCanvas);
+
+    // --- CLOUDS: rebuild on resize so they always cover the full track width ---
+    this._cloudTile = cloudTile;
+    this._cloudPalette = palette;
+    this._resizeHandler = () => {
+      const el = document.getElementById('whale-clouds');
+      const track = document.querySelector('.whale-track');
+      if (!el || !track || !this._cloudTile) return;
+      const newWidth = track.getBoundingClientRect().width;
+      const tw = this._cloudTile.width;
+      const count = Math.ceil(newWidth / tw) + 2;
+      const existing = el.querySelector('canvas');
+      if (existing && existing.width >= tw * count) return; // already wide enough
+      const c = document.createElement('canvas');
+      c.width = tw * count;
+      c.height = this._cloudTile.height;
+      const cx = c.getContext('2d');
+      for (let i = 0; i < count; i++) cx.drawImage(this._cloudTile, i * tw, 0);
+      if (existing) existing.remove();
+      el.appendChild(c);
+    };
+    window.addEventListener('resize', this._resizeHandler);
 
     // --- FRAME ANIMATION: alternate whale sprites every 450ms ---
     let frame = 0;
