@@ -652,6 +652,12 @@ window.MigrationGraph = {
     this.canvas.style.height = ch + 'px';
 
     this._computePositions(cw, ch);
+
+    // Setting canvas.width/height clears the buffer — schedule a redraw
+    if (!this.animFrame) {
+      this.lastFrameTime = 0;
+      this._scheduleFrame();
+    }
   },
 
   _computePositions(cw, ch) {
@@ -660,7 +666,7 @@ window.MigrationGraph = {
 
     const firstLayout = this.nodes.every(n => n.targetX === 0 && n.targetY === 0);
 
-    if (this.mode === 'migrate') {
+    if (def.colPositions) {
       const colX = def.colPositions;
       const nodeDefs = def.nodes;
 
@@ -1606,7 +1612,8 @@ window.MigrationGraph = {
     this.allDone = this.nodes.length > 0 && this.nodes.every(n => n.state === 'done');
 
     if (!wasDone && this.allDone) {
-      // Final render then stop
+      // Force final render by resetting throttle so the frame is guaranteed to draw
+      this.lastFrameTime = 0;
       requestAnimationFrame(t => {
         this.render(t);
       });
