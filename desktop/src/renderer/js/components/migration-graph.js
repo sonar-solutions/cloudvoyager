@@ -1114,18 +1114,26 @@ window.MigrationGraph = {
       return;
     }
 
-    // Portfolios
+    // Portfolios — finalize all per-project sub-nodes before moving on
     m = line.match(/Creating (\d+) portfolios/);
     if (m) {
       this._setNodeCount('portfolios', m[1]);
       this.setNodeState('projects', 'done');
+      this.setNodeState('scannerUpload', 'done');
+      this.setNodeState('issueSync', 'done');
+      this.setNodeState('hotspotSync', 'done');
       this.setNodeState('projectConfig', 'done');
       this.setNodeState('portfolios', 'active');
       return;
     }
 
-    // Complete
+    // Complete — finalize all nodes (sub-nodes may still be amber/red from last project reset)
     if (/Migration complete|=== Migration completed/.test(line)) {
+      this.setNodeState('projects', 'done');
+      this.setNodeState('scannerUpload', 'done');
+      this.setNodeState('issueSync', 'done');
+      this.setNodeState('hotspotSync', 'done');
+      this.setNodeState('projectConfig', 'done');
       this.setNodeState('portfolios', 'done');
       return;
     }
