@@ -84,7 +84,11 @@ function runCommand(command, args, config, envVars, reportsDir, getMainWindow) {
 
   // Ensure cwd exists
   if (!fs.existsSync(cwd)) {
-    fs.mkdirSync(cwd, { recursive: true });
+    try {
+      fs.mkdirSync(cwd, { recursive: true });
+    } catch (err) {
+      throw new Error(`Failed to create working directory ${cwd}: ${err.message}`);
+    }
   }
 
   // Merge environment variables
@@ -129,6 +133,8 @@ function runCommand(command, args, config, envVars, reportsDir, getMainWindow) {
 
   child.on('error', (err) => {
     sendLog('stderr', `Failed to start CLI: ${err.message}`);
+    stdoutRL.close();
+    stderrRL.close();
     cleanup(configPath);
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {

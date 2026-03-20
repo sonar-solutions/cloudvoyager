@@ -20,6 +20,8 @@ window.LogViewer = {
             <span class="log-count" id="log-count">0 lines</span>
           </div>
           <div class="log-toolbar-right">
+            <input type="text" class="log-search" id="log-search" placeholder="Search logs..." aria-label="Search logs">
+            <span class="log-search-count" id="log-search-count"></span>
             <label style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
               <input type="checkbox" id="log-autoscroll" checked style="width:14px;height:14px">
               Auto-scroll
@@ -28,7 +30,7 @@ window.LogViewer = {
             <button class="btn btn-secondary btn-sm" id="log-save">Save Logs</button>
           </div>
         </div>
-        <div class="log-output" id="log-output"></div>
+        <div class="log-output" id="log-output" role="log" aria-label="Command output"></div>
       </div>
     `;
 
@@ -59,6 +61,11 @@ window.LogViewer = {
     // Save
     parentEl.querySelector('#log-save').addEventListener('click', () => {
       this.saveToFile();
+    });
+
+    // Search
+    parentEl.querySelector('#log-search').addEventListener('input', (e) => {
+      this.searchLogs(e.target.value);
     });
 
     return this;
@@ -103,6 +110,32 @@ window.LogViewer = {
     a.download = `cloudvoyager-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.log`;
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  searchLogs(query) {
+    const countEl = document.getElementById('log-search-count');
+    const logLines = this.outputEl.querySelectorAll('.log-line');
+
+    // Clear previous highlights
+    logLines.forEach(el => el.classList.remove('log-line-highlight'));
+
+    if (!query) {
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+
+    const lower = query.toLowerCase();
+    let matches = 0;
+    logLines.forEach(el => {
+      if (el.textContent.toLowerCase().includes(lower)) {
+        el.classList.add('log-line-highlight');
+        matches++;
+      }
+    });
+
+    if (countEl) {
+      countEl.textContent = matches > 0 ? `${matches} match${matches === 1 ? '' : 'es'}` : 'No matches';
+    }
   },
 
   getRawText() {

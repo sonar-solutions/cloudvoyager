@@ -27,11 +27,18 @@ contextBridge.exposeInMainWorld('cloudvoyager', {
   },
   reports: {
     openFolder: (dirPath) => ipcRenderer.invoke('reports:open-folder', dirPath),
-    list: (dirPath) => ipcRenderer.invoke('reports:list', dirPath)
+    list: (dirPath) => ipcRenderer.invoke('reports:list', dirPath),
+    read: (filePath, maxLines) => ipcRenderer.invoke('reports:read', filePath, maxLines)
   },
   app: {
     getVersion: () => ipcRenderer.invoke('app:get-version'),
     getResourcesPath: () => ipcRenderer.invoke('app:get-resources-path'),
     getDefaultReportsDir: () => ipcRenderer.invoke('app:get-default-reports-dir')
+  },
+  theme: {
+    getSystem: () => ipcRenderer.invoke('theme:get-system'),
+    onSystemChange: (cb) => {
+      ipcRenderer.on('theme:system-changed', (_event, isDark) => cb(isDark));
+    }
   }
 });

@@ -60,10 +60,14 @@ const schema = {
   },
   ui: {
     type: 'object',
+    properties: {
+      theme: { type: 'string', enum: ['light', 'dark', 'system'], default: 'system' }
+    },
     default: {
       windowBounds: { width: 1400, height: 850 },
       currentScreen: 'welcome',
-      currentWizardStep: 0
+      currentWizardStep: 0,
+      theme: 'system'
     }
   }
 };

@@ -12,7 +12,7 @@ window.ConnectionTestScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>🔍 Testing Connections</h2>
+        <h2>${ConfigForm.icon('search')} Testing Connections</h2>
         <p>Verifying connectivity to SonarQube and SonarCloud</p>
       </div>
       <div id="test-status" style="margin-bottom:20px">
@@ -20,7 +20,7 @@ window.ConnectionTestScreen = {
       </div>
       <div id="test-log"></div>
       <div class="button-row right" style="margin-top:24px">
-        <button class="btn btn-secondary" id="btn-back" disabled>⬅️ Back</button>
+        <button class="btn btn-secondary" id="btn-back" disabled>Back</button>
       </div>
     `;
 
@@ -34,11 +34,11 @@ window.ConnectionTestScreen = {
     this.unsubExit = window.cloudvoyager.cli.onExit((data) => {
       const statusEl = container.querySelector('#test-status');
       if (data.code === 0) {
-        statusEl.innerHTML = '<span class="badge badge-completed">✅ Connection Successful</span>';
-        App.showToast('✅ Connection test passed', 'success');
+        statusEl.innerHTML = `<span class="badge badge-completed">${ConfigForm.icon('check-circle')} Connection Successful</span>`;
+        App.showToast('Connection test passed', 'success');
       } else {
-        statusEl.innerHTML = '<span class="badge badge-failed">❌ Connection Failed</span>';
-        App.showToast('❌ Connection test failed', 'error');
+        statusEl.innerHTML = `<span class="badge badge-failed">${ConfigForm.icon('warning')} Connection Failed</span>`;
+        App.showToast('Connection test failed', 'error');
       }
       container.querySelector('#btn-back').disabled = false;
     });
@@ -56,7 +56,7 @@ window.ConnectionTestScreen = {
     try {
       await window.cloudvoyager.cli.run('test', ['--verbose']);
     } catch (err) {
-      container.querySelector('#test-status').innerHTML = `<span class="badge badge-failed">💥 Error: ${err.message}</span>`;
+      container.querySelector('#test-status').innerHTML = `<span class="badge badge-failed">${ConfigForm.icon('warning')} Error: ${err.message}</span>`;
       container.querySelector('#btn-back').disabled = false;
     }
   },

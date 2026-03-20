@@ -43,9 +43,9 @@ COMMAND: test
   INPUT: --config <path>, [--verbose]
   STEPS:
     1. Load config
-    2. Create VersionAwareSonarQubeClient
-    3. Test SonarQube connection (GET /api/system/health)
-    4. Detect and cache SonarQube version
+    2. Detect SonarQube version via version-router (GET /api/system/status)
+    3. Load the correct pipeline for the detected version (sq-9.9, sq-10.0, sq-10.4, or sq-2025)
+    4. Create SonarQubeClient from the selected pipeline
     5. Create SonarCloud client
     6. Test SonarCloud connection (GET /api/organizations/search)
     7. Report success or failure for each
@@ -95,7 +95,7 @@ FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, perf
   // --- Setup ---
   state = new StateTracker(transferConfig.stateFile)
   state.initialize()
-  sqClient = new VersionAwareSonarQubeClient(sonarqubeConfig)
+  sqClient = new SonarQubeClient(sonarqubeConfig)  // version-specific client from selected pipeline
   scClient = new SonarCloudClient(sonarcloudConfig)
 
   // --- Checkpoint Setup ---
@@ -1021,50 +1021,37 @@ FUNCTION applyCsvOverrides(csvData, extractedData, resourceMappings, orgAssignme
 
 ---
 
-## 15. Version-Aware SonarQube Client
+## 15. Version Router and Pipeline Selection
 
-Automatically detects SonarQube version and adapts API calls.
+Detects SonarQube version at runtime and loads the correct version-specific pipeline.
 
 ```
-CLASS VersionAwareSonarQubeClient EXTENDS SonarQubeClient:
+FUNCTION detectAndRoute(sonarqubeConfig):
+  // Step 1: Detect server version
+  response = GET /api/system/status
+  version = response.version    // e.g., "9.9.1", "10.4.0", "2025.1"
 
-  FUNCTION detectVersion():
-    IF _parsedVersion cached: RETURN cached
+  // Step 2: Map version to pipeline
+  pipelineId = resolvePipelineId(version):
+    IF version >= 2025.1: RETURN "sq-2025"
+    IF version >= 10.4:   RETURN "sq-10.4"
+    IF version >= 10.0:   RETURN "sq-10.0"
+    IF version >= 9.9:    RETURN "sq-9.9"
 
-    versionString = GET /api/system/info -> version
-    _parsedVersion = parse(versionString)
-    // "9.9.1" -> { major: 9, minor: 9, patch: 1, raw: "9.9.1" }
+  // Step 3: Dynamically import the correct pipeline
+  transferModule = IMPORT(`src/pipelines/${pipelineId}/transfer-pipeline.js`)
+  migrateModule  = IMPORT(`src/pipelines/${pipelineId}/migrate-pipeline.js`)
 
-    LOG compatibility mode label
-    RETURN _parsedVersion
-
-
-  FUNCTION getIssues(filters):    // OVERRIDES base class
-    version = detectVersion()
-
-    // SonarQube changed issue status API in 10.4
-    IF version < 10.4:
-      // Legacy status values
-      params.statuses = "OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED"
-    ELSE:
-      // Modern status values
-      params.issueStatuses = "OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED"
-
-    RETURN super.getIssues(params + filters)
+  RETURN { pipelineId, transferProject, migrateAll }
 
 
-  FUNCTION getGroups():    // DEFENSIVE WRAPPER
-    TRY:
-      RETURN super.getGroups()
-    CATCH:
-      LOG "Groups endpoint may be migrated in this version"
-      RETURN []
-
-
-  FUNCTION testConnection():    // OVERRIDES base class
-    result = super.testConnection()
-    detectVersion()    // Cache version on first connection
-    RETURN result
+// Each pipeline has its own SonarQubeClient with version-specific behavior hardcoded:
+//   sq-9.9:  uses "statuses" param, batches metricKeys at 15, enriches Clean Code from SC
+//   sq-10.0: uses "statuses" param, batches metricKeys at 15, native Clean Code
+//   sq-10.4: uses "issueStatuses" param, batches metricKeys at 15, native Clean Code
+//   sq-2025: uses "issueStatuses" param, no metricKeys batching, Web API V2 fallbacks
+//
+// No runtime version checks within any pipeline — all differences resolved by pipeline selection.
 ```
 
 ---

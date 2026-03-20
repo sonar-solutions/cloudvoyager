@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 14, 2026 at 12:00:00 PM -->
+<!-- Last updated: Mar 20, 2026 -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -451,7 +451,7 @@ The mapping module generates structured CSV files for:
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Zero-Dependency Concurrency Layer
 
-CloudVoyager implements its own concurrency primitives (`src/utils/concurrency.js`) with **zero external dependencies**:
+CloudVoyager implements its own concurrency primitives (`src/shared/utils/concurrency.js`) with **zero external dependencies**:
 
 - **`createLimiter(n)`** — Bounds concurrent async operations to `n` at a time (functionally equivalent to `p-limit`, but without the dependency)
 - **`mapConcurrent(items, fn, options)`** — Parallel map over items with bounded concurrency, supporting:
@@ -689,12 +689,12 @@ The checkpoint system consists of five cooperating components:
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **Checkpoint Journal** | `src/state/checkpoint.js` | Write-ahead journal tracking phase completion, branch status, upload dedup |
-| **Extraction Cache** | `src/state/extraction-cache.js` | Disk-backed cache (gzipped JSON) of extraction results per phase |
-| **Lock File** | `src/state/lock.js` | Advisory lock preventing concurrent runs (PID + hostname + stale detection) |
-| **Shutdown Coordinator** | `src/utils/shutdown.js` | SIGINT/SIGTERM handler ensuring clean journal save before exit |
-| **Migration Journal** | `src/state/migration-journal.js` | Per-org, per-project completion tracking for the `migrate` command |
-| **Atomic Storage** | `src/state/storage.js` | Write-to-temp, fsync, rename pattern with backup rotation |
+| **Checkpoint Journal** | `src/shared/state/checkpoint.js` | Write-ahead journal tracking phase completion, branch status, upload dedup |
+| **Extraction Cache** | `src/shared/state/extraction-cache.js` | Disk-backed cache (gzipped JSON) of extraction results per phase |
+| **Lock File** | `src/shared/state/lock.js` | Advisory lock preventing concurrent runs (PID + hostname + stale detection) |
+| **Shutdown Coordinator** | `src/shared/utils/shutdown.js` | SIGINT/SIGTERM handler ensuring clean journal save before exit |
+| **Migration Journal** | `src/shared/state/migration-journal.js` | Per-org, per-project completion tracking for the `migrate` command |
+| **Atomic Storage** | `src/shared/state/storage.js` | Write-to-temp, fsync, rename pattern with backup rotation |
 
 ### Checkpoint Journal Structure
 

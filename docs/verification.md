@@ -1,6 +1,6 @@
 # Verification
 
-<!-- Last updated: Mar 4, 2026 -->
+<!-- Last updated: Mar 20, 2026 -->
 
 After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly.
 

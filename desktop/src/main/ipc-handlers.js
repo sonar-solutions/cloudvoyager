@@ -97,6 +97,17 @@ function registerIpcHandlers(getMainWindow) {
 
   ipcMain.handle('reports:list', (_event, dirPath) => {
     const target = dirPath || getDefaultReportsDir();
+    // Path traversal guard: resolved path must be within the default reports dir
+    // or be the exact dirPath passed from a trusted run result.
+    const resolved = path.resolve(target);
+    const defaultDir = path.resolve(getDefaultReportsDir());
+    if (!resolved.startsWith(defaultDir) && dirPath) {
+      // Allow paths under the user's Documents/CloudVoyager directory tree
+      const safeParent = path.resolve(path.join(app.getPath('documents'), 'CloudVoyager'));
+      if (!resolved.startsWith(safeParent)) {
+        return [];
+      }
+    }
     if (!fs.existsSync(target)) {
       return [];
     }
@@ -107,13 +118,46 @@ function registerIpcHandlers(getMainWindow) {
           const ext = path.extname(f).toLowerCase();
           return ['.json', '.txt', '.md', '.pdf', '.csv'].includes(ext);
         })
-        .map(f => ({
-          name: f,
-          path: path.join(target, f),
-          ext: path.extname(f).toLowerCase()
-        }));
+        .map(f => {
+          const fullPath = path.join(target, f);
+          let size = 0;
+          try { size = fs.statSync(fullPath).size; } catch {}
+          return {
+            name: f,
+            path: fullPath,
+            ext: path.extname(f).toLowerCase(),
+            size
+          };
+        });
     } catch {
       return [];
+    }
+  });
+
+  ipcMain.handle('reports:read', (_event, filePath, maxLines = 100) => {
+    try {
+      // Path traversal guard: file must be within known safe directories
+      const resolved = path.resolve(filePath);
+      const defaultDir = path.resolve(getDefaultReportsDir());
+      const safeParent = path.resolve(path.join(app.getPath('documents'), 'CloudVoyager'));
+      if (!resolved.startsWith(defaultDir) && !resolved.startsWith(safeParent)) {
+        return null;
+      }
+
+      if (!fs.existsSync(filePath)) return null;
+
+      // File size check: skip files larger than 5MB
+      const stat = fs.statSync(filePath);
+      if (stat.size > 5 * 1024 * 1024) return null;
+
+      // Bounds check maxLines to 1-1000
+      const clampedMaxLines = Math.max(1, Math.min(1000, maxLines));
+
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.split('\n').slice(0, clampedMaxLines);
+      return lines.join('\n');
+    } catch {
+      return null;
     }
   });
 

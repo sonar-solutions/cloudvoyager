@@ -1,10 +1,17 @@
 // Ensure we're running as Electron, not as Node
 delete process.env.ELECTRON_RUN_AS_NODE;
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
 const path = require('path');
 const { loadConfig, saveConfig } = require('./config-store');
 const { registerIpcHandlers } = require('./ipc-handlers');
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
 
 let mainWindow = null;
 
@@ -63,6 +70,14 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     registerIpcHandlers(getMainWindow);
+
+    ipcMain.handle('theme:get-system', () => nativeTheme.shouldUseDarkColors);
+    nativeTheme.on('updated', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('theme:system-changed', nativeTheme.shouldUseDarkColors);
+      }
+    });
+
     createWindow();
 
     app.on('activate', () => {

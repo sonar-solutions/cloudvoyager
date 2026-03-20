@@ -7,9 +7,9 @@ window.SyncMetadataConfigScreen = {
   step: 0,
 
   STEPS: [
-    '🔌 SonarQube Connection',
-    '☁️ SonarCloud Organizations',
-    '🚀 Review & Start'
+    'SonarQube Connection',
+    'SonarCloud Organizations',
+    'Review & Start'
   ],
 
   async init() {
@@ -50,7 +50,7 @@ window.SyncMetadataConfigScreen = {
     const sq = this.config.sonarqube;
     container.innerHTML = `
       <div class="page-header">
-        <h2>🔌 SonarQube Connection</h2>
+        <h2>${ConfigForm.icon('plug')} SonarQube Connection</h2>
         <p>Connect to the SonarQube server to sync metadata from</p>
       </div>
       <div class="card">
@@ -65,6 +65,8 @@ window.SyncMetadataConfigScreen = {
     ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => App.navigate('welcome'));
     container.querySelector('#btn-next').addEventListener('click', () => {
+      const result = ConfigForm.validate(container);
+      if (!result.valid) return;
       this.config.sonarqube.url = container.querySelector('#sq-url').value.trim();
       this.config.sonarqube.token = container.querySelector('#sq-token').value.trim();
       this.saveAndNext(container);
@@ -81,11 +83,11 @@ window.SyncMetadataConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>☁️ SonarCloud Organizations</h2>
+        <h2>${ConfigForm.icon('cloud')} SonarCloud Organizations</h2>
         <p>Add the SonarCloud organizations to sync metadata to</p>
       </div>
       <div id="org-list">${orgsHtml}</div>
-      <button class="add-org-btn" id="add-org">➕ Add Organization</button>
+      <button class="add-org-btn" id="add-org">+ Add Organization</button>
       <div class="button-row right" style="margin-top:24px">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <button class="btn btn-primary" id="btn-next">Next</button>
@@ -125,12 +127,12 @@ window.SyncMetadataConfigScreen = {
 
     container.innerHTML = `
       <div class="page-header">
-        <h2>📋 Review & Start Sync</h2>
+        <h2>${ConfigForm.icon('clipboard')} Review & Start Sync</h2>
         <p>Check the settings and choose what to sync</p>
       </div>
 
       <div class="card">
-        <div class="card-header">🔌 SonarQube (Source)</div>
+        <div class="card-header">${ConfigForm.icon('plug')} SonarQube (Source)</div>
         ${ConfigForm.summaryTable([
           ['Server Address', sq.url],
           ['Token', sq.token ? '********' : '']
@@ -138,12 +140,12 @@ window.SyncMetadataConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">☁️ SonarCloud Organizations (${orgs.length})</div>
+        <div class="card-header">${ConfigForm.icon('cloud')} SonarCloud Organizations (${orgs.length})</div>
         ${ConfigForm.summaryTable(orgRows)}
       </div>
 
       <div class="card">
-        <div class="card-header">⚙️ Sync Options</div>
+        <div class="card-header">${ConfigForm.icon('gear')} Sync Options</div>
         ${ConfigForm.checkbox('skip-issue-meta', 'Skip updating issue details', this.config._skipIssueSync, { hint: "Don't sync issue statuses, assignments, comments, and tags" })}
         ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip updating security hotspot details', this.config._skipHotspotSync, { hint: "Don't sync hotspot statuses and comments" })}
         ${ConfigForm.checkbox('skip-qp-sync', 'Skip updating coding rules', this.config._skipQPSync, { hint: "Don't sync quality profile configurations" })}
@@ -154,8 +156,8 @@ window.SyncMetadataConfigScreen = {
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
-          <button class="btn btn-secondary" id="btn-test">🔍 Test Connections</button>
-          <button class="btn btn-primary" id="btn-start">🔄 Start Sync</button>
+          <button class="btn btn-secondary" id="btn-test">${ConfigForm.icon('search')} Test Connections</button>
+          <button class="btn btn-primary" id="btn-start">${ConfigForm.icon('sync')} Start Sync</button>
         </div>
       </div>
     `;
