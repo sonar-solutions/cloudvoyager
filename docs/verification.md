@@ -2,7 +2,7 @@
 
 <!-- Last updated: Mar 20, 2026 -->
 
-After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly.
+After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube or SonarCloud.
 
 ```bash
 # Verify everything
@@ -15,7 +15,25 @@ cloudvoyager verify -c migrate-config.json --verbose
 cloudvoyager verify -c migrate-config.json --only scan-data
 cloudvoyager verify -c migrate-config.json --only issue-metadata
 cloudvoyager verify -c migrate-config.json --only quality-gates
+
+# Custom output directory (default: ./verification-output)
+cloudvoyager verify -c migrate-config.json --output-dir ./my-reports
+
+# Performance tuning
+cloudvoyager verify -c migrate-config.json --auto-tune
+cloudvoyager verify -c migrate-config.json --concurrency 20 --max-memory 4096
 ```
+
+### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--only <components>` | Comma-separated list of components to verify (see [component filters](#--only-component-filters) below) |
+| `--output-dir <path>` | Output directory for report files (default: `./verification-output`) |
+| `--verbose` / `-v` | Enable debug-level logging |
+| `--auto-tune` | Auto-detect CPU/RAM and set optimal concurrency |
+| `--concurrency <n>` | Override max I/O concurrency |
+| `--max-memory <mb>` | Set max heap size (auto-restarts with increased heap if needed) |
 
 > **Tip:** Verification is read-only and does not modify any data. If a verification run is interrupted, simply re-run it — there is no checkpoint state to manage for verification.
 

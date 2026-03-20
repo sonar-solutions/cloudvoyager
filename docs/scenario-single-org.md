@@ -170,6 +170,48 @@ This performs read-only checks comparing SonarQube and SonarCloud data and gener
 
 ---
 
+## 🔧 What happens per project (11 steps)
+
+For each project in the organization, the migration pipeline runs these steps in order. Each step is individually checkpointed — on resume, completed steps are skipped.
+
+| # | Step | `--only` component |
+|---|------|--------------------|
+| 1 | Upload scanner report (main branch + optional other branches) | `scan-data` / `scan-data-all-branches` |
+| 2 | Sync issue metadata (match, transition status, assign) | `issue-metadata` |
+| 3 | Sync hotspot metadata (match, transition status, comments) | `hotspot-metadata` |
+| 4 | Project settings (visibility, description) | `project-settings` |
+| 5 | Project tags | `project-settings` |
+| 6 | Project links | `project-settings` |
+| 7 | New code definitions (per-project and per-branch) | `project-settings` |
+| 8 | DevOps binding (GitHub, GitLab, Azure DevOps, Bitbucket) | `project-settings` |
+| 9 | Assign quality gate | `quality-gates` |
+| 10 | Assign quality profiles (per language) | `quality-profiles` |
+| 11 | Project permissions (users and groups) | `permissions` |
+
+Use `--only` to run a subset of these steps. For example, `--only scan-data,quality-gates` uploads reports and assigns quality gates but skips everything else.
+
+---
+
+## 📋 Dry-run CSV files (9 types)
+
+The `--dry-run` flag generates 9 CSV files in `{outputDir}/mappings/`. Each CSV has an **Include** column you can edit to exclude specific resources before the real migration.
+
+| CSV file | What it contains |
+|----------|-----------------|
+| `organizations.csv` | Projects grouped by target org and DevOps binding group |
+| `projects.csv` | One row per branch per project — exclude branches or entire projects |
+| `group-mappings.csv` | User groups with member counts |
+| `profile-mappings.csv` | Quality profiles per language |
+| `gate-mappings.csv` | Quality gates with condition counts |
+| `portfolio-mappings.csv` | Portfolios with member projects (parent/child rows) |
+| `template-mappings.csv` | Permission templates with per-permission rows (parent/child) |
+| `global-permissions.csv` | Group-to-permission assignments |
+| `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping for issue assignment |
+
+See the [Dry-Run CSV Reference](dry-run-csv-reference.md) for full column schemas and editing examples.
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ Performance tuning (optional)
 

@@ -36,7 +36,21 @@ Every CSV has an `Include` column as the first field. Values are case-insensitiv
 | `no`, `false`, `0` | Exclude this row |
 | *(empty)* | Include (treated as default) |
 
-## CSV Files
+## CSV Files Summary
+
+| # | File | Purpose | Editable columns |
+|---|------|---------|-----------------|
+| 1 | `organizations.csv` | Projects grouped by target org and DevOps binding | Include |
+| 2 | `projects.csv` | Per-branch rows for each project | Include |
+| 3 | `group-mappings.csv` | User groups to migrate | Include |
+| 4 | `profile-mappings.csv` | Quality profiles per language | Include |
+| 5 | `gate-mappings.csv` | Quality gates with conditions | Include |
+| 6 | `portfolio-mappings.csv` | Portfolios and member projects (parent/child) | Include |
+| 7 | `template-mappings.csv` | Permission templates and assignments (parent/child) | Include |
+| 8 | `global-permissions.csv` | Group-level permission assignments | Include |
+| 9 | `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping | Include, SonarCloud Login |
+
+---
 
 ### projects.csv
 

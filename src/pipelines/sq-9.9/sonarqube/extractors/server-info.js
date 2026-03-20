@@ -14,10 +14,10 @@ export async function extractServerInfo(client) {
     client.getWebhooks()
   ]);
 
-  // Get server-level settings
+  // Get server-level settings (no component param = server-level)
   let serverSettings = [];
   try {
-    const response = await client.getProjectSettings(null);
+    const response = await client.getServerSettings();
     serverSettings = response;
   } catch (error) {
     logger.warn(`Failed to get server settings: ${error.message}`);

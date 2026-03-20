@@ -142,7 +142,9 @@ export async function migrateDevOpsBinding(projectKey, binding, client) {
         await client.setGitlabBinding(projectKey, binding.key, binding.repository);
         break;
       case 'azure':
-        await client.setAzureBinding(projectKey, binding.key, binding.repository, binding.slug);
+        // Azure DevOps API expects (projectKey, almSetting, projectName, repositoryName).
+        // SQ binding stores: repository = Azure DevOps project name, slug = repo name.
+        await client.setAzureBinding(projectKey, binding.key, binding.slug, binding.repository);
         break;
       case 'bitbucket':
       case 'bitbucketcloud':

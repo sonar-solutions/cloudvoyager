@@ -26,7 +26,7 @@ export function mapSoftwareQuality(quality) {
 }
 
 export function mapImpactSeverity(severity) {
-  const severityMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'BLOCKER': 4 };
+  const severityMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'INFO': 4, 'BLOCKER': 5 };
   return severityMap[severity?.toUpperCase()] || 2;
 }
 

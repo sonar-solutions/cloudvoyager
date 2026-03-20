@@ -40,7 +40,7 @@ src/
 └── shared/                        # Version-independent code (utils, state, config, etc.)
 ```
 
-Each pipeline directory contains a complete set of modules:
+Each pipeline directory contains a complete set of modules (60–66 JS files each):
 
 ```
 sq-{version}/
@@ -86,24 +86,39 @@ If version detection fails (e.g., network error), the router falls back to the `
 
 ## Version-Specific Differences
 
+### Summary Table
+
 | Behavior | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
 |----------|--------|---------|---------|---------|
 | Issue search param | `statuses` (legacy) | `statuses` (legacy) | `issueStatuses` (modern) | `issueStatuses` (modern) |
 | metricKeys limit | Batch at 15 | Batch at 15 | Batch at 15 | No batching |
 | Clean Code source | SonarCloud enrichment map | Native from SQ | Native from SQ | Native from SQ |
 | Rule enrichment | Always called | Not needed | Not needed | Not needed |
-| Groups API | `/api/user_groups/search` | Same | Same | Web API V2 with fallback |
+| Groups API | `/api/user_groups/search` | Same | Same | Standard (with V2 API fallback) |
 
-### Issue Search Parameters
+### Issue Lifecycle Differences
 
-The issue search API changed in SonarQube 10.4:
+The issue search API changed significantly across SonarQube versions:
 
-| Pipeline | API Parameter | Status Values |
-|----------|--------------|---------------|
-| sq-9.9, sq-10.0 | `statuses` | `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED` |
-| sq-10.4, sq-2025 | `issueStatuses` | `OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED` |
+| Pipeline | API Parameter | Valid Status Values |
+|----------|--------------|---------------------|
+| sq-9.9 | `statuses` | `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED` |
+| sq-10.0 | `statuses` | `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`, `FALSE_POSITIVE`, `ACCEPTED`, `FIXED` |
+| sq-10.4 | `issueStatuses` | `OPEN`, `CONFIRMED`, `FALSE_POSITIVE`, `ACCEPTED`, `FIXED` |
+| sq-2025 | `issueStatuses` | `OPEN`, `CONFIRMED`, `FALSE_POSITIVE`, `ACCEPTED`, `FIXED` |
+
+Key changes:
+- **sq-9.9**: Uses the legacy `statuses` parameter with only 5 status values. Does not support `FALSE_POSITIVE`, `ACCEPTED`, or `FIXED` as search parameters.
+- **sq-10.0**: Still uses `statuses` but adds support for the new status values (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) alongside legacy ones.
+- **sq-10.4 and sq-2025**: Switch to the `issueStatuses` parameter. Remove legacy statuses (`REOPENED`, `RESOLVED`, `CLOSED`).
 
 Each pipeline uses the correct parameter directly — no conditional logic required.
+
+### Metric Keys Batching
+
+SonarQube 9.9 through 10.8 enforces a limit of **15 metric keys per request** to the measures API. Pipelines `sq-9.9`, `sq-10.0`, and `sq-10.4` batch metric key requests accordingly.
+
+SonarQube 2025.1+ removed this limit, so the `sq-2025` pipeline sends all metric keys in a single request.
 
 ### Clean Code Taxonomy Enrichment
 
@@ -128,7 +143,7 @@ This means the migrated data in SonarCloud will have the **exact same** Clean Co
 
 ### Fallback Chain (sq-9.9 only)
 
-The enrichment follows a three-level fallback:
+The enrichment follows a two-level fallback:
 
 | Priority | Source | When Used |
 |----------|--------|-----------|
@@ -152,11 +167,91 @@ The enrichment follows a three-level fallback:
 | `CRITICAL` | `HIGH` |
 | `BLOCKER` | `BLOCKER` |
 
+### Groups API
+
+| Pipeline | API Used |
+|----------|----------|
+| sq-9.9 | `/api/user_groups/search` (standard) |
+| sq-10.0 | `/api/user_groups/search` (standard) |
+| sq-10.4 | `/api/user_groups/search` (standard) |
+| sq-2025 | `/api/user_groups/search` (standard, with Web API V2 fallback) |
+
+SonarQube 2025.1+ began deprecating some legacy Web API endpoints. The `sq-2025` pipeline uses the standard groups API but includes fallback to the V2 API (`/api/v2/authorizations/groups`) if the legacy endpoint is unavailable.
+
 ### Performance Optimization
 
 - **Transfer pipeline** (`transfer` command): Enrichment map is built once per project transfer (sq-9.9 only)
 - **Migrate pipeline** (`migrate` command): Enrichment map is built **once per SonarCloud organization** and reused across all projects in that org (sq-9.9 only)
 - **sq-10.0, sq-10.4, sq-2025**: Enrichment fetch is skipped entirely (no extra API calls)
+
+## Common API Constraints (All Versions)
+
+These constraints apply across all four pipelines:
+
+| API | Constraint |
+|-----|-----------|
+| Quality gate list (`/api/qualitygates/list`) | Returns `name` only, no `id` field |
+| Quality gate show (`/api/qualitygates/show`) | Requires `name` param, not `id` |
+| Quality profile backup (`/api/qualityprofiles/backup`) | Requires `language` + `qualityProfile` (name), not `profileKey` |
+| Quality profile permissions (`/api/qualityprofiles/search_users`) | Requires `language` + `qualityProfile` (name) |
+| Permissions groups (`/api/permissions/groups`) | Max page size `ps=100` (not 500) |
+| Project tags (`/api/project_tags/search`) | Max page size `ps=100` |
+| Profile permissions | Max page size `ps=100` |
+| Gate permissions | Max page size `ps=100` |
+| Hotspot details | Returns `comment` (singular, a list), not `comments` |
+| Built-in quality gates/profiles | Permission APIs return HTTP 400 (expected, handled gracefully) |
+
+## External Issues (All Versions)
+
+All four pipelines support automatic detection and migration of external/plugin issues (e.g., MuleSoft, Checkstyle, PMD):
+
+1. **Auto-detection**: Compares SonarQube rule repositories (`getRuleRepositories()`) against SonarCloud available repositories
+2. **External encoding**: Rules not available in SonarCloud are encoded as `ExternalIssue` + `AdHocRule` protobuf messages in the scanner report
+3. **Display in SonarCloud**: External rules appear as `external_{engineId}:{ruleId}` (e.g., `external_mulesoft:MS058`). Ad-hoc rules do not appear in SC rules search (expected behavior per SC docs).
+
+**Critical implementation detail**: The `cleanCodeAttribute` field in `AdHocRule` must be encoded as a **protobuf enum (varint)**, NOT a string. Despite the GitHub proto definition showing `optional string`, the real SonarCloud scanner uses enum encoding. SonarCloud's Compute Engine silently ignores external issues if `cleanCodeAttribute` is string-encoded.
+
+Clean Code attribute enum values:
+
+| Attribute | Enum Value |
+|-----------|-----------|
+| `CONVENTIONAL` | 1 |
+| `FORMATTED` | 2 |
+| `IDENTIFIABLE` | 3 |
+| `CLEAR` | 4 |
+| `COMPLETE` | 5 |
+| `EFFICIENT` | 6 |
+| `LOGICAL` | 7 |
+| `DISTINCT` | 8 |
+| `FOCUSED` | 9 |
+| `MODULAR` | 10 |
+| `TESTED` | 11 |
+| `LAWFUL` | 12 |
+| `RESPECTFUL` | 13 |
+| `TRUSTWORTHY` | 14 |
+
+The `impacts` and `defaultImpacts` (Impact message) fields are also required for external issues to be accepted by SonarCloud.
+
+## Feature Support Matrix
+
+All features are supported across all four pipelines:
+
+| Feature | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
+|---------|--------|---------|---------|---------|
+| Single-project transfer | Yes | Yes | Yes | Yes |
+| Multi-org migration | Yes | Yes | Yes | Yes |
+| Checkpoint/resume | Yes | Yes | Yes | Yes |
+| External issues | Yes | Yes | Yes | Yes |
+| Issue metadata sync | Yes | Yes | Yes | Yes |
+| Hotspot metadata sync | Yes | Yes | Yes | Yes |
+| Quality gates/profiles | Yes | Yes | Yes | Yes |
+| Permissions/templates | Yes | Yes | Yes | Yes |
+| Portfolios (enterprise) | Yes | Yes | Yes | Yes |
+| DevOps bindings | Yes | Yes | Yes | Yes |
+| Dry-run + CSV mapping | Yes | Yes | Yes | Yes |
+| Verification | Yes | Yes | Yes | Yes |
+| Multi-branch support | Yes | Yes | Yes | Yes |
+| Report generation | Yes | Yes | Yes | Yes |
 
 ## What Works Identically Across Pipelines
 
@@ -205,9 +300,9 @@ node src/index.js test -c config.json
 | Version | Pipeline | Support Level | Notes |
 |---------|----------|--------------|-------|
 | 9.9 LTS | sq-9.9 | Full | Clean Code enriched from SonarCloud; legacy `statuses` param |
-| 10.0 - 10.3 | sq-10.0 | Full | Native Clean Code taxonomy; legacy `statuses` param |
-| 10.4 - 10.8 | sq-10.4 | Full | Modern `issueStatuses` param |
-| 2025.1+ | sq-2025 | Full | Modern `issueStatuses` param; V2 API fallbacks |
+| 10.0 - 10.3 | sq-10.0 | Full | Native Clean Code taxonomy; legacy `statuses` param with extended values |
+| 10.4 - 10.8 | sq-10.4 | Full | Modern `issueStatuses` param; metric batching at 15 |
+| 2025.1+ | sq-2025 | Full | Modern `issueStatuses` param; no metric batching; V2 API fallbacks |
 | < 9.9 | sq-9.9 (fallback) | Best effort | APIs may differ; not actively tested |
 
 ## Troubleshooting
@@ -236,3 +331,12 @@ If migrated issues show `CONVENTIONAL` instead of more specific attributes (like
 2. Type-based inference was used as fallback
 
 This is expected for external/plugin rules that don't exist in SonarCloud. For native rules, verify that SonarCloud quality profiles are properly configured for the relevant languages.
+
+### External issues not appearing in SonarCloud
+
+If external issues are missing after migration:
+
+1. Verify that `cleanCodeAttribute` is encoded as a protobuf enum (varint), not a string
+2. Verify that `impacts` and `defaultImpacts` fields are populated in `AdHocRule` messages
+3. Check SonarCloud CE task logs for silent rejection of malformed external issue messages
+4. Ad-hoc rules will not appear in the SonarCloud rules search — this is expected behavior

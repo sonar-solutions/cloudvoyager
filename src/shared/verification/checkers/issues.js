@@ -327,8 +327,11 @@ export async function verifyIssues(sqClient, scClient, scProjectKey, options = {
  * Normalize status + resolution into a single comparable string.
  */
 function normalizeStatus(status, resolution) {
-  if (resolution === 'FALSE-POSITIVE') return 'FALSE-POSITIVE';
-  if (resolution === 'WONTFIX') return 'WONTFIX';
-  if (resolution === 'FIXED') return 'FIXED';
+  // Normalize resolution format: SonarQube uses FALSE_POSITIVE (underscore),
+  // SonarCloud may use FALSE-POSITIVE (hyphen). Standardize to underscore.
+  const normalizedResolution = resolution ? resolution.replaceAll('-', '_') : resolution;
+  if (normalizedResolution === 'FALSE_POSITIVE') return 'FALSE_POSITIVE';
+  if (normalizedResolution === 'WONTFIX') return 'WONTFIX';
+  if (normalizedResolution === 'FIXED') return 'FIXED';
   return status || 'OPEN';
 }

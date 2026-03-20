@@ -8,6 +8,79 @@ function getDefaultReportsDir() {
   return path.join(app.getPath('documents'), 'CloudVoyager', 'reports');
 }
 
+/**
+ * Parse a transfer checkpoint journal and return progress info, or null if
+ * the journal doesn't exist or is already completed.
+ */
+function parseTransferJournal(runDir) {
+  const journalPath = path.join(runDir, '.cloudvoyager-state.json.journal');
+  if (!fs.existsSync(journalPath)) return null;
+  let journal;
+  try {
+    journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+  if (journal.status === 'completed') return null;
+
+  const phases = journal.phases || {};
+  const phaseNames = Object.keys(phases);
+  const branches = journal.branches || {};
+  const branchNames = Object.keys(branches);
+
+  return {
+    startedAt: journal.sessionFingerprint?.startedAt,
+    status: journal.status,
+    progress: {
+      completedPhases: phaseNames.filter(p => phases[p].status === 'completed').length,
+      totalPhases: phaseNames.length,
+      completedBranches: branchNames.filter(b => branches[b].status === 'completed').length,
+      totalBranches: branchNames.length,
+      projectKey: journal.sessionFingerprint?.projectKey
+    }
+  };
+}
+
+/**
+ * Parse a migration journal and return progress info, or null if the
+ * journal doesn't exist or is already completed.
+ */
+function parseMigrationJournal(runDir) {
+  const journalPath = path.join(runDir, 'state', 'migration.journal');
+  if (!fs.existsSync(journalPath)) return null;
+  let journal;
+  try {
+    journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+  if (journal.status === 'completed') return null;
+
+  const orgs = journal.organizations || {};
+  const orgKeys = Object.keys(orgs);
+  let totalProjects = 0, completedProjects = 0, failedProjects = 0;
+  for (const orgKey of orgKeys) {
+    const projects = orgs[orgKey].projects || {};
+    for (const status of Object.values(projects)) {
+      totalProjects++;
+      if (status.status === 'completed') completedProjects++;
+      if (status.status === 'failed') failedProjects++;
+    }
+  }
+
+  return {
+    startedAt: journal.startedAt,
+    status: journal.status,
+    progress: {
+      completedOrgs: orgKeys.filter(k => orgs[k].status === 'completed').length,
+      totalOrgs: orgKeys.length,
+      completedProjects,
+      totalProjects,
+      failedProjects
+    }
+  };
+}
+
 function registerIpcHandlers(getMainWindow) {
   // Config handlers
   ipcMain.handle('config:load', () => {
@@ -28,25 +101,70 @@ function registerIpcHandlers(getMainWindow) {
     return true;
   });
 
+  // Checkpoint/journal detection for resume prompts
+  ipcMain.handle('checkpoint:detect', (_event, configType) => {
+    try {
+      const allConfig = loadAll();
+      const baseReportsDir = allConfig.reportsDir || getDefaultReportsDir();
+      if (!fs.existsSync(baseReportsDir)) return { found: false };
+
+      const entries = fs.readdirSync(baseReportsDir, { withFileTypes: true })
+        .filter(e => e.isDirectory() && e.name.startsWith('run-'))
+        .sort((a, b) => b.name.localeCompare(a.name));
+
+      const parser = configType === 'transfer' ? parseTransferJournal : parseMigrationJournal;
+      for (const entry of entries) {
+        const runDir = path.join(baseReportsDir, entry.name);
+        try {
+          const result = parser(runDir);
+          if (!result) continue;
+          return {
+            found: true,
+            runDir,
+            startedAt: result.startedAt || (() => {
+              const raw = entry.name.replace('run-', '');
+              const d = new Date(raw);
+              return Number.isNaN(d.getTime()) ? entry.name : raw;
+            })(),
+            status: result.status,
+            progress: result.progress
+          };
+        } catch {
+          continue;
+        }
+      }
+      return { found: false };
+    } catch {
+      return { found: false };
+    }
+  });
+
   // CLI handlers
-  ipcMain.handle('cli:run', (_event, command, args, configType) => {
+  ipcMain.handle('cli:run', (_event, command, args, configType, resumeRunDir) => {
     const allConfig = loadAll();
     // Use explicit configType when provided (e.g. from connection-test screen),
     // otherwise infer from the command name for backward compatibility.
     const isTransfer = configType
       ? configType === 'transfer'
       : ['transfer', 'test', 'validate', 'status', 'reset'].includes(command);
-    const config = isTransfer ? allConfig.transferConfig : allConfig.migrateConfig;
+    const originalConfig = isTransfer ? allConfig.transferConfig : allConfig.migrateConfig;
+    // Deep clone to avoid mutating the original config object
+    const config = structuredClone(originalConfig);
     const envVars = allConfig.envVars || {};
 
-    // Determine base reports directory, then create a timestamped subdirectory
-    // so each run gets its own folder and old reports aren't overwritten.
-    const baseReportsDir = allConfig.reportsDir || getDefaultReportsDir();
-    const ts = new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19); // e.g. 2026-03-14T15-30-45
-    const runDir = path.join(baseReportsDir, `run-${ts}`);
-    fs.mkdirSync(runDir, { recursive: true });
+    let runDir;
+    if (resumeRunDir && fs.existsSync(resumeRunDir)) {
+      // Resume: reuse existing run directory
+      runDir = resumeRunDir;
+    } else {
+      // Fresh run: create a new timestamped subdirectory
+      const baseReportsDir = allConfig.reportsDir || getDefaultReportsDir();
+      const ts = new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19); // e.g. 2026-03-14T15-30-45
+      runDir = path.join(baseReportsDir, `run-${ts}`);
+      fs.mkdirSync(runDir, { recursive: true });
+    }
 
-    // For migrate/verify, set outputDir to the run-specific directory
+    // For migrate/verify, set outputDir to the run directory
     if (!isTransfer && config.migrate) {
       config.migrate.outputDir = runDir;
     }
@@ -104,11 +222,11 @@ function registerIpcHandlers(getMainWindow) {
     // Path traversal guard: resolved path must be within the default reports dir
     // or be the exact dirPath passed from a trusted run result.
     const resolved = path.resolve(target);
-    const defaultDir = path.resolve(getDefaultReportsDir());
-    if (!resolved.startsWith(defaultDir) && dirPath) {
+    const defaultDir = path.resolve(getDefaultReportsDir()) + path.sep;
+    if (!resolved.startsWith(defaultDir) && resolved !== path.resolve(getDefaultReportsDir()) && dirPath) {
       // Allow paths under the user's Documents/CloudVoyager directory tree
       const safeParent = path.resolve(path.join(app.getPath('documents'), 'CloudVoyager'));
-      if (!resolved.startsWith(safeParent)) {
+      if (!resolved.startsWith(safeParent + path.sep) && resolved !== safeParent) {
         return [];
       }
     }
@@ -144,7 +262,8 @@ function registerIpcHandlers(getMainWindow) {
       const resolved = path.resolve(filePath);
       const defaultDir = path.resolve(getDefaultReportsDir());
       const safeParent = path.resolve(path.join(app.getPath('documents'), 'CloudVoyager'));
-      if (!resolved.startsWith(defaultDir) && !resolved.startsWith(safeParent)) {
+      if (!resolved.startsWith(defaultDir + path.sep) && resolved !== defaultDir &&
+          !resolved.startsWith(safeParent + path.sep) && resolved !== safeParent) {
         return null;
       }
 

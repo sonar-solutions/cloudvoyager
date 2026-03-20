@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 20, 2026 — updated build pipeline, testing, CI/CD details -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -9,22 +9,36 @@ Use this guide to build and run CloudVoyager locally. All developers should **bu
 <!-- Updated: Mar 12, 2026 at 11:00:00 AM -->
 ## ✅ Prerequisites
 
-1. **Node.js** v20 LTS (required for `npm run package` — see note below)
+1. **Node.js** v20 LTS (required for `npm run package` — see warning below)
 2. **npm** (comes with Node.js)
+3. **Bun** (optional, only needed for experimental `npm run package:bun`)
 
-> **Note on Node.js version for building binaries:** `npm run package` uses Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) and the `postject` injection tool. Node.js v22+ embeds the SEA sentinel string twice in its binary, which causes `postject` to fail with *"Multiple occurrences of sentinel found in the binary"*. Use **Node.js v20 LTS** to build:
+> **WARNING — Node.js v22+ breaks SEA builds:** `npm run package` uses Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) and the `postject` injection tool (v1.0.0-alpha.6). Node.js v22+ embeds the SEA sentinel string twice in its binary, which causes `postject` to fail with *"Multiple occurrences of sentinel found in the binary"*. **You must use Node.js v20 LTS** to build binaries:
 > ```bash
 > nvm install 20
 > nvm use 20
 > npm run package
 > ```
-> This restriction only applies to building the binary. Running tests, linting, and `npm run build` work fine on any supported Node.js version.
+> This restriction only applies to building the binary (`npm run package`). Running tests, linting, and `npm run build` work fine on Node.js >=18.0.0.
+
+> **Node.js version summary:**
+> - **>=18.0.0** — minimum for running from source, tests, linting, bundling
+> - **v20 LTS** — **required** for `npm run package` (SEA binary builds)
+> - **v22+** — **DO NOT USE** for packaging (causes `postject` sentinel failure)
 
 Install dependencies:
 
 ```bash
 npm install
 ```
+
+### Key Dependencies
+
+**Production (25 total):** protobufjs 7.2.0, commander 12.0.0, axios 1.6.0, ajv 8.12.0, winston 3.11.0, pdfmake 0.3.4, form-data 4.0.0, adm-zip 0.5.16, and others.
+
+**Dev:** esbuild 0.27.3 (bundler), postject 1.0.0-alpha.6 (SEA injection), ava 6.4.1 (test runner), c8 10.1.3 (coverage), sinon 21.0.1 (mocking), esmock 2.7.3 (ESM module mocking), eslint 8.56.0.
+
+**Project metadata:** version 1.1.2, ES modules (`"type": "module"`), bin entry `cloudvoyager` → `src/index.js`.
 
 ---
 
@@ -43,7 +57,16 @@ node scripts/build.js --package --target=macos-x64  # Cross-compile for a differ
 
 Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https://nodejs.org/api/single-executable-applications.html) with V8 code cache. Builds for the current platform. This is the recommended method — it is stable and well-tested.
 
-> **Requires Node.js v20 LTS.** Node.js v22+ causes a `postject` injection failure ("Multiple occurrences of sentinel"). Run `nvm use 20` before packaging. See [Prerequisites](#-prerequisites) for details.
+> **WARNING: Requires Node.js v20 LTS.** Node.js v22+ causes a `postject` injection failure ("Multiple occurrences of sentinel"). Run `nvm use 20` before packaging. See [Prerequisites](#-prerequisites) for details.
+
+#### Build Pipeline Steps
+
+The Node.js SEA build runs three stages internally:
+
+1. **esbuild bundle** — bundles all source into `dist/cli.cjs` (CJS format, minified, tree-shaken, `.proto` files loaded as text)
+2. **SEA blob generation** — Node.js generates `dist/sea-prep.blob` from the bundle
+3. **postject injection** — injects the SEA blob into a copy of the Node.js binary → `dist/bin/cloudvoyager-{platform}-{arch}`
+4. **macOS only** — code signature removal and re-signing is required after injection
 
 <!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
 ### Bun Compile (Experimental)
@@ -714,6 +737,8 @@ npm run lint
 npm run lint:fix
 ```
 
+**ESLint configuration** (v8.56.0): ES2021, Node.js environment, 2-space indent, Unix linebreaks, single quotes, semicolons required. `console` is allowed (CLI tool).
+
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
@@ -726,6 +751,42 @@ npm test
 # Run tests without coverage (faster)
 npm run test:fast
 ```
+
+### Test Configuration
+
+- **Test runner:** [AVA](https://github.com/avajs/ava) v6.4.1
+- **Test glob:** `test/**/*.test.js` (50+ test files)
+- **Timeout:** 60 seconds per test
+- **Concurrency:** 4 parallel test workers
+- **ESM mocking:** Uses [esmock](https://github.com/iambumblehead/esmock) v2.7.3 loader for mocking ES modules
+- **Stub library:** [sinon](https://sinonjs.org/) v21.0.1
+- **Coverage:** [c8](https://github.com/bcoe/c8) v10.1.3, generates `lcov` + `text` reports to `coverage/`
+- **Coverage includes:** `src/**/*.js` (excludes `protobuf/schema/**`)
+
+---
+
+<!-- Updated: Mar 20, 2026 -->
+## 🏗️ CI/CD (GitHub Actions)
+
+The project uses a multi-stage GitHub Actions pipeline:
+
+| Workflow | Purpose | Details |
+|----------|---------|---------|
+| `install.yml` | Install dependencies | Node.js 18, `npm ci`, caches `node_modules` |
+| `build.yml` | Build CLI binaries | 6 platform builds in parallel using Node.js 20 |
+| `build-desktop.yml` | Build Electron desktop apps | 6 Electron builds (depends on CLI build artifacts) |
+| `release.yml` | Orchestrator | Chains: install → build → build-desktop → release |
+
+### Platform Build Matrix (6 targets)
+
+| Platform | Runner |
+|----------|--------|
+| linux-x64 | `ubuntu-latest` |
+| linux-arm64 | `ubuntu-24.04-arm` |
+| macos-arm64 | `macos-latest` (native) |
+| macos-x64 | `macos-latest` (cross-compile) |
+| win-x64 | `windows-latest` |
+| win-arm64 | `windows-11-arm` |
 
 ---
 
@@ -837,6 +898,7 @@ The following npm scripts are available for building, testing, and linting:
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-03-20 | Prerequisites, Dependencies, Build Pipeline, Testing, CI/CD, Linting | Added Node.js v22+ warning, key dependencies, build pipeline steps, test config details, CI/CD matrix, ESLint config |
 | 2026-03-10 | transfer, migrate, npm Scripts | Added checkpoint/resume CLI flags |
 | 2026-02-28 | verify command, npm Scripts | Added verify CLI reference and npm scripts |
 | 2026-02-21 | Bun Compile | Fixed dependency type: optionalDependency not devDependency |

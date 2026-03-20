@@ -200,7 +200,8 @@ window.ExecutionScreen = {
     try {
       const args = this.params.args || [];
       const configType = (this.params && this.params.configType) || undefined;
-      const result = await window.cloudvoyager.cli.run(this.params.command, args, configType);
+      const resumeRunDir = (this.params && this.params.resumeRunDir) || undefined;
+      const result = await window.cloudvoyager.cli.run(this.params.command, args, configType, resumeRunDir);
       this.runReportsDir = result?.reportsDir || null;
     } catch (err) {
       this.isRunning = false;

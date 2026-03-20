@@ -202,6 +202,9 @@ export class DataExtractor {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     logger.info(`  [${branch}] Branch extraction completed in ${duration}s — ${issues.length} issues, ${components.length} components, ${sources.length} sources`);
 
+    // Get SCM revision for this branch (needed for duplicate report detection)
+    const scmRevision = await this.client.getLatestAnalysisRevision(branch);
+
     // Return the same shape as extractAll() so ProtobufBuilder works unchanged
     return {
       project: mainData.project,
@@ -217,7 +220,8 @@ export class DataExtractor {
       syntaxHighlightings,
       metadata: {
         extractedAt: new Date().toISOString(),
-        mode: this.config.transfer.mode
+        mode: this.config.transfer.mode,
+        ...(scmRevision ? { scmRevisionId: scmRevision } : {}),
       }
     };
   }
@@ -491,9 +495,20 @@ export class DataExtractor {
       changesets: new Map(),
       symbols: new Map(),
       syntaxHighlightings: new Map(),
+      scmRevisionId: null,
     };
 
     const phases = [
+      {
+        name: 'extract:scm_revision',
+        label: `[${branch}] Fetching SCM revision`,
+        fn: async () => {
+          const scmRevision = await this.client.getLatestAnalysisRevision(branch);
+          if (scmRevision) ctx.scmRevisionId = scmRevision;
+          return ctx.scmRevisionId;
+        },
+        restore: (data) => { ctx.scmRevisionId = data; },
+      },
       {
         name: 'extract:components',
         label: `[${branch}] Extracting component measures`,
@@ -635,6 +650,7 @@ export class DataExtractor {
       metadata: {
         extractedAt: new Date().toISOString(),
         mode: this.config.transfer.mode,
+        ...(ctx.scmRevisionId ? { scmRevisionId: ctx.scmRevisionId } : {}),
       },
     };
   }

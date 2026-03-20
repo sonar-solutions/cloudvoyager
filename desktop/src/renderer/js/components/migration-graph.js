@@ -40,7 +40,7 @@ window.MigrationGraph = {
         { id: 'qualityGates',   label: 'Quality Gates',    col: 1, row: 1, yPct: 0.50 },
         { id: 'qualityProfiles', label: 'Quality Profiles', col: 1, row: 2, yPct: 0.78 },
         { id: 'permissions',     label: 'Permissions',      col: 2, row: 0, yPct: 0.15 },
-        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1, yPct: 0.60 },
+        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1, xPct: 0.50, yPct: 0.65 },
         { id: 'projects',        label: 'Projects',         col: 3, row: 0, yPct: 0.10 },
         { id: 'scannerUpload',   label: 'Scanner Upload',   col: 3, row: 1, yPct: 0.30 },
         { id: 'issueSync',       label: 'Issue Sync',       col: 3, row: 2, yPct: 0.50 },
@@ -464,9 +464,10 @@ window.MigrationGraph = {
       const nodeDefs = def.nodes;
 
       this.nodes.forEach(n => {
-        n.targetX = colX[n.col] * cw;
-        // Use explicit yPct if defined in the graph definition
         const nodeDef = nodeDefs.find(d => d.id === n.id);
+        // Use explicit xPct if defined, otherwise use column position
+        n.targetX = (nodeDef && nodeDef.xPct != null) ? nodeDef.xPct * cw : colX[n.col] * cw;
+        // Use explicit yPct if defined in the graph definition
         if (nodeDef && nodeDef.yPct != null) {
           n.targetY = nodeDef.yPct * ch;
         } else {
@@ -843,20 +844,20 @@ window.MigrationGraph = {
 
       // Spawn/maintain particles for done edges
       if (src.state === 'done') {
-        this._ensureEdgeParticles(edge, pts);
+        this._ensureEdgeParticles(edge);
       }
     });
   },
 
   // ── Edge Particles ──────────────────────────────────────────────
 
-  _ensureEdgeParticles(edge, pts) {
+  _ensureEdgeParticles(edge) {
     const key = edge.from + '->' + edge.to;
     const existing = this.particles.filter(p => p.key === key);
     if (existing.length >= 2) return;
 
     for (let i = existing.length; i < 2; i++) {
-      this.particles.push({ key, t: i * 0.5, pts });
+      this.particles.push({ key, from: edge.from, to: edge.to, t: i * 0.5 });
     }
   },
 
@@ -866,7 +867,13 @@ window.MigrationGraph = {
       p.t += 0.004;
       if (p.t >= 1.0) p.t -= 1.0;
 
-      const pt = this.cubicBezierPoint(p.t, p.pts);
+      // Recompute edge points from current node positions each frame
+      const src = this._nodeById(p.from);
+      const tgt = this._nodeById(p.to);
+      if (!src || !tgt) return;
+      const pts = this._edgePoints(src, tgt);
+
+      const pt = this.cubicBezierPoint(p.t, pts);
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(63, 185, 80, 0.6)';

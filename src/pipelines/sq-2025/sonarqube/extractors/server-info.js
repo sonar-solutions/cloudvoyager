@@ -14,10 +14,12 @@ export async function extractServerInfo(client) {
     client.getWebhooks()
   ]);
 
-  // Get server-level settings
+  // Get server-level settings (pass undefined to use the client's default projectKey fallback,
+  // which resolves to this.projectKey via the api-client wrapper; passing null explicitly
+  // would cause the API call to send component=null which may fail on some SQ versions)
   let serverSettings = [];
   try {
-    const response = await client.getProjectSettings(null);
+    const response = await client.getServerSettings();
     serverSettings = response;
   } catch (error) {
     logger.warn(`Failed to get server settings: ${error.message}`);

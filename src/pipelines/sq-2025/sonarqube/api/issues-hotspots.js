@@ -1,7 +1,8 @@
 import logger from '../../../../shared/utils/logger.js';
 
 // 2025.x uses the `issueStatuses` parameter with the modern lifecycle values.
-const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED';
+// Include CLOSED so that closed issues are also extracted for migration.
+const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED,CLOSED';
 
 export async function getIssues(getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);

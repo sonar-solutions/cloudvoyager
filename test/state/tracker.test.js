@@ -54,7 +54,8 @@ test('StateTracker.getLastSync returns lastSync', t => {
 
 test('StateTracker.isIssueProcessed checks issue list', t => {
   const tracker = new StateTracker('/tmp/test.json');
-  tracker.state.processedIssues = ['issue-1', 'issue-2'];
+  tracker.markIssueProcessed('issue-1');
+  tracker.markIssueProcessed('issue-2');
   t.true(tracker.isIssueProcessed('issue-1'));
   t.false(tracker.isIssueProcessed('issue-3'));
 });
@@ -80,7 +81,7 @@ test('StateTracker.markIssuesProcessed adds multiple', t => {
 
 test('StateTracker.isBranchCompleted checks branch list', t => {
   const tracker = new StateTracker('/tmp/test.json');
-  tracker.state.completedBranches = ['main'];
+  tracker.markBranchCompleted('main');
   t.true(tracker.isBranchCompleted('main'));
   t.false(tracker.isBranchCompleted('develop'));
 });

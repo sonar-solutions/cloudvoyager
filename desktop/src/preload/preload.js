@@ -7,8 +7,11 @@ contextBridge.exposeInMainWorld('cloudvoyager', {
     loadKey: (key) => ipcRenderer.invoke('config:load-key', key),
     saveKey: (key, value) => ipcRenderer.invoke('config:save-key', key, value)
   },
+  checkpoint: {
+    detect: (configType) => ipcRenderer.invoke('checkpoint:detect', configType)
+  },
   cli: {
-    run: (command, args, configType) => ipcRenderer.invoke('cli:run', command, args, configType),
+    run: (command, args, configType, resumeRunDir) => ipcRenderer.invoke('cli:run', command, args, configType, resumeRunDir),
     cancel: () => ipcRenderer.invoke('cli:cancel'),
     onLog: (callback) => {
       const handler = (_event, data) => callback(data);

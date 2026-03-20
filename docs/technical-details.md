@@ -1,13 +1,49 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 20, 2026 (protobuf details, external issues, enum values, error hierarchy, state management, API gotchas) -->
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 20, 2026 -->
 ## 📡 Protobuf Encoding
 
-The scanner report uses two encoding styles:
+The scanner report uses `scanner-report.proto` and `constants.proto` (in each pipeline's `protobuf/schema/` directory). Key protobuf messages: `Metadata`, `Component`, `Issue`, `ExternalIssue`, `AdHocRule`, `Measure`, `ActiveRule`, `Duplication`, `Changesets`, `Symbols`, `SyntaxHighlighting`, `LineCoverage`.
+
+### Encoding Styles
+
+The scanner report ZIP uses two encoding styles:
 - **Single message** (no length delimiter): `metadata.pb`, `component-{ref}.pb`, `changesets-{ref}.pb`
-- **Length-delimited** (multiple messages): `issues-{ref}.pb`, `measures-{ref}.pb`, `activerules.pb`
+- **Length-delimited** (multiple messages): `issues-{ref}.pb`, `measures-{ref}.pb`, `activerules.pb`, `external-issues-{ref}.pb`, `adhocrules.pb`, `duplications-{ref}.pb`
+- **Plain text**: `source-{ref}.txt` (source code)
+- **Empty sentinel**: `context-props.pb` (always empty, matches real scanner behavior)
+
+### Report ZIP Structure
+
+```
+metadata.pb                       # Single Metadata message (NOT length-delimited)
+component-{ref}.pb                # One per component (NOT length-delimited)
+issues-{ref}.pb                   # Length-delimited Issue messages per component
+measures-{ref}.pb                 # Length-delimited Measure messages per component
+source-{ref}.txt                  # Plain text source code
+activerules.pb                    # Length-delimited ActiveRule messages
+changesets-{ref}.pb               # Single Changesets message per component
+external-issues-{ref}.pb          # Length-delimited ExternalIssue per component
+adhocrules.pb                     # Length-delimited AdHocRule messages
+duplications-{ref}.pb             # Length-delimited Duplication messages per component
+context-props.pb                  # Empty (matches real scanner)
+```
+
+### Key Enum Values
+
+| Enum | Values |
+|------|--------|
+| **CleanCodeAttribute** | CONVENTIONAL=1, FORMATTED=2, IDENTIFIABLE=3, CLEAR=4, COMPLETE=5, EFFICIENT=6, LOGICAL=7, DISTINCT=8, FOCUSED=9, MODULAR=10, TESTED=11, LAWFUL=12, RESPECTFUL=13, TRUSTWORTHY=14 |
+| **SoftwareQuality** | MAINTAINABILITY=1, RELIABILITY=2, SECURITY=3 |
+| **ImpactSeverity** | LOW=1, MEDIUM=2, HIGH=3, INFO=4, BLOCKER=5 |
+| **Severity** | UNSET=0, INFO=1, MINOR=2, MAJOR=3, CRITICAL=4, BLOCKER=5 |
+| **IssueType** | CODE_SMELL=1, BUG=2, VULNERABILITY=3, SECURITY_HOTSPOT=4 |
+
+**CRITICAL**: `cleanCodeAttribute` in `ExternalIssue` and `AdHocRule` must be encoded as a protobuf enum (varint), NOT a string. Despite the `.proto` file showing `optional string`, the real scanner uses enum encoding. SonarCloud CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
+
+### Field Name Convention
 
 protobufjs automatically converts snake_case field names to camelCase in JavaScript:
 - `analysis_date` becomes `analysisDate`
@@ -52,12 +88,22 @@ By default, every branch discovered in SonarQube is transferred to SonarCloud (m
 
 **Configuration:** Set `transfer.syncAllBranches` to `false` to only sync the main branch. Use `transfer.excludeBranches` to skip specific branch names (e.g., `["feature/old", "release/v1"]`).
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 20, 2026 -->
 ## 📄 API Pagination
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
 
-Note: some SonarQube APIs enforce a lower maximum page size of 100 (e.g., permissions, tags, profile permissions, gate permissions). The extractors handle this automatically.
+**APIs with max `ps=100`** (not the default 500):
+- `/api/permissions/groups`
+- `/api/project_tags/search`
+- `/api/qualityprofiles/search_users`
+- `/api/qualityprofiles/search_groups`
+- `/api/qualitygates/search_users`
+- `/api/qualitygates/search_groups`
+
+The extractors handle these lower limits automatically.
+
+**metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚦 Rate Limit Handling
@@ -68,25 +114,52 @@ The SonarCloud API client supports a configurable two-layer strategy for rate li
 
 2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
-<!-- Updated: Mar 4, 2026 at 12:00:00 PM -->
+<!-- Updated: Mar 20, 2026 -->
+## 🔌 External Issues (Plugin Migration)
+
+Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSoft, ABAP) are automatically migrated as **external issues** using the `ExternalIssue` and `AdHocRule` protobuf messages.
+
+**Auto-detection**: The tool compares SonarQube rule repositories against SonarCloud's available repositories via `getRuleRepositories()`. If a rule's repository is not present in SonarCloud, the issue is routed through the external issue path instead of the regular `Issue` path.
+
+**How it works**:
+1. Issues with unsupported rule repos are built as `ExternalIssue` messages (not `Issue`)
+2. Each unique rule becomes an `AdHocRule` with name, description, severity, type, clean code attribute, and impacts
+3. External issues appear in SonarCloud as `external_{engineId}:{ruleId}` (e.g., `external_mulesoft:MS058`)
+4. Ad-hoc rules do not appear in SonarCloud's rules search (expected behavior per SC docs)
+
+**Requirements**: Each `ExternalIssue` and `AdHocRule` must include:
+- `cleanCodeAttribute` — encoded as protobuf enum (varint), not string (see Protobuf Encoding section)
+- `impacts` array — `Impact` messages with `softwareQuality` and `severity` fields
+- `defaultImpacts` — on `AdHocRule` messages
+
+<!-- Updated: Mar 20, 2026 -->
 ## 🔄 Issue Sync
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
-1. Searches for a matching issue in SonarCloud by rule, component, and text range
+1. Searches for a matching issue in SonarCloud by rule, component, and line number
 2. Fetches the SonarQube issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.)
-3. Sets the assignee
+3. Sets the assignee (supports user mapping from SQ login to SC login)
 4. Copies comments
 5. Sets tags
 
+**SonarQube version differences**:
+- SQ 9.9 statuses: `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
+- SQ 10.4+: `OPEN`, `CONFIRMED`, `FALSE_POSITIVE`, `ACCEPTED`, `FIXED`
+- Available transitions: `confirm`, `unconfirm`, `reopen`, `resolve`, `falsepositive`, `wontfix`, `accept`
+
 The `verify` command validates this by fetching changelogs from both sides (`/api/issues/changelog`) and comparing the transition sequences.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 20, 2026 -->
 ## 🔥 Hotspot Sync
 
 Similar to issue sync, hotspot metadata is matched and synced:
 1. Matches hotspots by rule, component, and text range
 2. Transitions status (To Review, Acknowledged, Safe, Fixed)
 3. Copies comments
+
+Hotspots are converted to `Issue` format for the scanner report (with `type=SECURITY_HOTSPOT`). They use a separate API from regular issues.
+
+**API gotcha**: The hotspot details API returns `comment` (singular, containing a list), not `comments`.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🔑 Project Key Resolution
@@ -128,14 +201,24 @@ Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "So
 
 To skip quality profile migration entirely and use each language's existing default SonarCloud profile, pass `--skip-quality-profile-sync`.
 
+**API gotchas**:
+- `/api/qualityprofiles/backup` requires `language` + `qualityProfile` (name), not `profileKey`
+- `/api/qualityprofiles/search_users` requires `language` + `qualityProfile` (name)
+- Built-in profiles: permission APIs return 400 (expected, handle gracefully)
+
 After profile migration, a **quality profile diff report** (`quality-profiles/quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
 - **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
 - **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 20, 2026 -->
 ## 🚧 Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.
+
+**API gotchas**:
+- `/api/qualitygates/list` returns no `id` field, only `name`
+- `/api/qualitygates/show` requires `name` param, not `id`
+- Built-in gates: permission APIs return 400 (expected, handle gracefully)
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## ⚡ Concurrency Model
@@ -147,7 +230,14 @@ CloudVoyager uses a custom concurrency layer (`src/shared/utils/concurrency.js`)
 
 All extractors and migrators use `mapConcurrent` instead of sequential `for...of` loops. Concurrency limits are configurable per operation type (source extraction, hotspot extraction, issue sync, hotspot sync, project migration).
 
-Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.availableParallelism()` (with `os.cpus().length` as a fallback on older Node.js versions). When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count (e.g., `sourceExtraction = cores * 2`, `issueSync = cores`, `hotspotSync = min(cores/2, 5)`). Explicit config values always override auto-tuned defaults.
+Performance config is resolved at startup by `resolvePerformanceConfig()`, which merges user config with defaults and detects available CPU cores via `os.availableParallelism()` (with `os.cpus().length` as a fallback on older Node.js versions). When `autoTune` is enabled, the function also reads total system RAM via `os.totalmem()` and computes optimal values: memory is set to 75% of total RAM (capped at 16GB), and concurrency settings are scaled from CPU core count. Explicit config values always override auto-tuned defaults.
+
+**Auto-tune defaults**:
+- `sourceExtraction` = CPU cores × 2
+- `hotspotExtraction` = CPU cores × 2
+- `issueSync` = CPU cores
+- `hotspotSync` = min(max(CPU cores / 2, 3), 5)
+- `projectMigration` = max(1, CPU cores / 3)
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 💾 Memory Management
@@ -166,6 +256,15 @@ Each transfer creates a checkpoint journal file alongside the state file:
 - **Phase tracking**: Each extraction phase (project metadata, metrics, components, rules, issues, hotspots, measures, sources, etc.) is tracked individually
 - **Branch tracking**: Per-branch completion status with CE task IDs for upload deduplication
 - **Session fingerprint**: SonarQube version, URL, and project key are recorded to detect environment changes between runs
+
+### State Management Components
+
+- **StateTracker**: Issue-level incremental sync tracking
+- **StateStorage**: Atomic write-to-temp + fsync + rename, backup rotation, 10MB disk space check
+- **CheckpointJournal**: Phase-level tracking (10+ phases per branch), session fingerprint validation
+- **LockFile**: PID-based with 6h stale auto-release, re-entrant for same PID
+- **ExtractionCache**: Gzipped JSON with metadata envelope, 7-day default TTL
+- **MigrationJournal**: Org/project/step-level tracking for multi-org resume
 
 ### Atomic State Persistence
 
@@ -188,6 +287,30 @@ Before re-uploading after a crash, the uploader queries `/api/ce/activity` for r
 ### Lock Files
 
 Advisory lock files (`<stateFile>.lock`) prevent concurrent runs. Lock metadata includes PID, hostname, and timestamp. Stale locks (dead PID or >6 hours old) are auto-released. Cross-machine locks (NFS) require manual `--force-unlock`.
+
+<!-- Updated: Mar 20, 2026 -->
+## ⚠️ Error Hierarchy
+
+All errors extend `CloudVoyagerError` base class (11 classes total):
+
+| Error Class | Status Code | Notes |
+|------------|-------------|-------|
+| `CloudVoyagerError` | 500 | Base class |
+| `ConfigurationError` | 400 | Invalid config |
+| `SonarQubeAPIError` | 500 | Includes endpoint |
+| `SonarCloudAPIError` | 500 | Includes endpoint |
+| `AuthenticationError` | 401 | Includes service name |
+| `ProtobufEncodingError` | 500 | Includes data context |
+| `StateError` | 500 | State file corruption |
+| `ValidationError` | 400 | Includes errors array |
+| `GracefulShutdownError` | 0 | Clean shutdown |
+| `LockError` | 423 | Lock contention |
+| `StaleResumeError` | 409 | Environment mismatch |
+
+<!-- Updated: Mar 20, 2026 -->
+## 🛑 Graceful Shutdown
+
+SIGINT/SIGTERM triggers registered cleanup handlers (journal save, lock release) then exits with code 0. A second signal forces immediate exit. The `shutdownCheck()` callback is passed through the pipeline for interrupt safety, allowing long-running operations to check for pending shutdown.
 
 ## 📚 Further Reading
 

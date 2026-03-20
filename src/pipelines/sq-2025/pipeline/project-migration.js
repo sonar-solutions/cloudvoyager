@@ -140,7 +140,8 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
       projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
     } else {
       await syncProjectIssues(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-      await recordStep('sync_issues');
+      const lastIssueStep = projectResult.steps.at(-1);
+      if (lastIssueStep && lastIssueStep.status !== 'failed') await recordStep('sync_issues');
     }
   } else if (only) {
     projectResult.steps.push({ step: 'Sync issues', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
@@ -153,7 +154,8 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
       projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
     } else {
       await syncProjectHotspots(projectResult, results, reportUploadOk, ctx, scProjectKey, projectSqClient, projectScClient);
-      await recordStep('sync_hotspots');
+      const lastHotspotStep = projectResult.steps.at(-1);
+      if (lastHotspotStep && lastHotspotStep.status !== 'failed') await recordStep('sync_hotspots');
     }
   } else if (only) {
     projectResult.steps.push({ step: 'Sync hotspots', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
@@ -162,7 +164,7 @@ async function migrateOneProject({ project, scProjectKey, org, gateMapping, extr
   // Project config (component-aware) — skip if project doesn't exist in SonarCloud
   // Also skip if ctx.skipProjectConfig is set (e.g. sync-metadata, since migrate already applied config)
   if (reportUploadOk && !ctx.skipProjectConfig) {
-    await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only);
+    await migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, only, { isStepDone, recordStep });
   } else if (ctx.skipProjectConfig) {
     logger.debug(`Skipping project config for ${scProjectKey} (already applied by migrate)`);
   }
@@ -263,28 +265,41 @@ async function runProjectStep(projectResult, stepName, fn) {
   }
 }
 
-async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, onlyComponents) {
+async function migrateProjectConfig(project, scProjectKey, projectSqClient, projectScClient, gateMapping, extractedData, projectResult, builtInProfileMapping, onlyComponents, journal = {}) {
   const shouldRun = (comp) => !onlyComponents || onlyComponents.includes(comp);
+  const { isStepDone: stepDone, recordStep: recStep } = journal;
+
+  // Journal-guarded project step: skip if already done, record on success
+  async function runGuardedStep(stepName, journalKey, fn) {
+    if (stepDone && stepDone(journalKey)) {
+      logger.info(`${stepName} — already completed, skipping`);
+      projectResult.steps.push({ step: stepName, status: 'skipped', detail: 'Completed in previous run', durationMs: 0 });
+      return;
+    }
+    await runProjectStep(projectResult, stepName, fn);
+    const lastStep = projectResult.steps.at(-1);
+    if (recStep && lastStep && lastStep.status !== 'failed') await recStep(journalKey);
+  }
 
   // Project settings, tags, links, new code definitions, devops binding → 'project-settings' component
   if (shouldRun('project-settings')) {
-    await runProjectStep(projectResult, 'Project settings', async () => {
+    await runGuardedStep('Project settings', 'project_settings', async () => {
       const projectSettings = await extractProjectSettings(projectSqClient, project.key);
       await migrateProjectSettings(scProjectKey, projectSettings, projectScClient);
     });
-    await runProjectStep(projectResult, 'Project tags', async () => {
+    await runGuardedStep('Project tags', 'project_tags', async () => {
       const projectTags = await extractProjectTags(projectSqClient);
       await migrateProjectTags(scProjectKey, projectTags, projectScClient);
     });
-    await runProjectStep(projectResult, 'Project links', async () => {
+    await runGuardedStep('Project links', 'project_links', async () => {
       const projectLinks = await extractProjectLinks(projectSqClient, project.key);
       await migrateProjectLinks(scProjectKey, projectLinks, projectScClient);
     });
-    await runProjectStep(projectResult, 'New code definitions', async () => {
+    await runGuardedStep('New code definitions', 'new_code_definitions', async () => {
       const newCodePeriods = await extractNewCodePeriods(projectSqClient, project.key);
       return await migrateNewCodePeriods(scProjectKey, newCodePeriods, projectScClient);
     });
-    await runProjectStep(projectResult, 'DevOps binding', async () => {
+    await runGuardedStep('DevOps binding', 'devops_binding', async () => {
       const binding = extractedData.projectBindings.get(project.key);
       await migrateDevOpsBinding(scProjectKey, binding, projectScClient);
     });
@@ -296,7 +311,7 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
 
   // Quality gate assignment → 'quality-gates' component
   if (shouldRun('quality-gates')) {
-    await runProjectStep(projectResult, 'Assign quality gate', async () => {
+    await runGuardedStep('Assign quality gate', 'assign_quality_gate', async () => {
       const projectGate = await projectSqClient.getQualityGate();
       if (projectGate && gateMapping.has(projectGate.name)) {
         await assignQualityGatesToProjects(gateMapping, [{ projectKey: scProjectKey, gateName: projectGate.name }], projectScClient);
@@ -308,7 +323,7 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
 
   // Quality profile assignment → 'quality-profiles' component
   if (shouldRun('quality-profiles') && builtInProfileMapping && builtInProfileMapping.size > 0) {
-    await runProjectStep(projectResult, 'Assign quality profiles', async () => {
+    await runGuardedStep('Assign quality profiles', 'assign_quality_profiles', async () => {
       let assigned = 0;
       for (const [language, profileName] of builtInProfileMapping) {
         try {
@@ -326,7 +341,7 @@ async function migrateProjectConfig(project, scProjectKey, projectSqClient, proj
 
   // Project permissions → 'permissions' component
   if (shouldRun('permissions')) {
-    await runProjectStep(projectResult, 'Project permissions', async () => {
+    await runGuardedStep('Project permissions', 'project_permissions', async () => {
       const projectPerms = await extractProjectPermissions(projectSqClient, project.key);
       await migrateProjectPermissions(scProjectKey, projectPerms, projectScClient);
     });

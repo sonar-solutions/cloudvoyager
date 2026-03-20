@@ -4,6 +4,29 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [Documentation] - 2026-03-20
+
+### Updated
+- **docs/architecture.md** — Updated folder structure, pipeline layout, version differences table, data flow diagrams, desktop app architecture, build system details
+- **docs/technical-details.md** — Updated protobuf encoding details, report ZIP structure, external issues documentation, state management, concurrency, error hierarchy
+- **docs/configuration.md** — Updated CLI flags, config schemas, auto-tune defaults, environment variables, npm scripts
+- **docs/desktop-app.md** — Updated Electron architecture, IPC channels, renderer components, security features, build targets
+- **docs/backward-compatibility.md** — Completed version differences documentation across all 4 pipelines (sq-9.9, sq-10.0, sq-10.4, sq-2025)
+- **docs/local-development.md** — Updated build pipeline, CI/CD details, platform targets, added Node.js v22+ SEA warning
+- **docs/troubleshooting.md** — Updated error classes, API gotchas, checkpoint/resume issues
+- **docs/verification.md** — Updated verification checks, output formats, CLI flags
+- **docs/scenario-single-project.md** — Updated transfer workflow, CLI flags, checkpoint/resume details
+- **docs/scenario-single-org.md** — Updated single-org migration workflow, dry-run, CSV mapping
+- **docs/scenario-multi-org.md** — Updated multi-org migration, enterprise portfolios, project key resolution
+- **docs/dry-run-csv-reference.md** — Updated 9 CSV types documentation
+- **docs/key-capabilities.md** — Updated capability descriptions with verified codebase details
+- **docs/pseudocode-explanation.md** — Updated pipeline pseudocode with verified extraction phases and migration steps
+
+### Context
+Full codebase review performed across all 322 source files (4 version-specific pipelines, shared modules, desktop app, build system, tests) to ensure documentation accuracy.
+
+---
+
 ## [1.1.3] - 2026-03-20
 
 ### Pipeline-Per-Version Architecture Refactor

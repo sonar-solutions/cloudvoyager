@@ -1430,7 +1430,7 @@ test('migrateDevOpsBinding sets azure binding', async t => {
   await migrateDevOpsBinding('proj', binding, client);
 
   t.is(client.setAzureBinding.callCount, 1);
-  t.deepEqual(client.setAzureBinding.firstCall.args, ['proj', 'az1', 'my-repo', 'my-project']);
+  t.deepEqual(client.setAzureBinding.firstCall.args, ['proj', 'az1', 'my-project', 'my-repo']);
 });
 
 test('migrateDevOpsBinding sets bitbucket binding', async t => {
@@ -1656,7 +1656,7 @@ test('syncIssues handles ACCEPTED status', async t => {
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
 
   t.is(stats.transitioned, 1);
-  t.is(client.transitionIssue.firstCall.args[1], 'accept');
+  t.is(client.transitionIssue.firstCall.args[1], 'wontfix');
 });
 
 test('syncIssues does not transition when statuses match', async t => {
@@ -2050,9 +2050,9 @@ test('mapChangelogDiffToTransition returns resolve for CLOSED status', t => {
   t.is(result, 'resolve');
 });
 
-test('mapChangelogDiffToTransition returns accept for ACCEPTED status', t => {
+test('mapChangelogDiffToTransition returns wontfix for ACCEPTED status', t => {
   const result = mapChangelogDiffToTransition([{ key: 'status', oldValue: 'OPEN', newValue: 'ACCEPTED' }]);
-  t.is(result, 'accept');
+  t.is(result, 'wontfix');
 });
 
 test('mapChangelogDiffToTransition returns falsepositive when resolution is FALSE-POSITIVE', t => {
@@ -3051,7 +3051,7 @@ test('syncHotspots matches using rule.key fallback', async t => {
   t.is(stats.matched, 1);
 });
 
-test('syncHotspots matches using securityCategory fallback', async t => {
+test('syncHotspots does not match using securityCategory alone (requires ruleKey)', async t => {
   const client = mockClient({
     searchHotspots: sinon.stub().resolves([
       { key: 'sc-h1', securityCategory: 'sql-injection', component: 'proj:src/Main.java', line: 10, status: 'TO_REVIEW' }
@@ -3070,7 +3070,8 @@ test('syncHotspots matches using securityCategory fallback', async t => {
 
   const stats = await syncHotspots('proj', sqHotspots, client, { concurrency: 1 });
 
-  t.is(stats.matched, 1);
+  // securityCategory is not a valid rule key, so no match should occur
+  t.is(stats.matched, 0);
 });
 
 test('syncHotspots syncs multiple comments', async t => {

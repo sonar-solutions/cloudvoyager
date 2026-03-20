@@ -101,14 +101,21 @@ See [`examples/config.example.json`](../examples/config.example.json) for a read
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Optional: Transfer settings
 
-Add a `transfer` section to control incremental mode and batch size:
+Add a `transfer` section to control incremental mode, batch size, and checkpoint behavior:
 
 ```json
 {
   "transfer": {
     "mode": "incremental",
     "stateFile": "./.cloudvoyager-state.json",
-    "batchSize": 100
+    "batchSize": 100,
+    "syncAllBranches": true,
+    "checkpoint": {
+      "enabled": true,
+      "cacheExtractions": true,
+      "cacheMaxAgeDays": 7,
+      "strictResume": false
+    }
   }
 }
 ```
@@ -120,6 +127,10 @@ Add a `transfer` section to control incremental mode and batch size:
 | `batchSize` | `100` | Items per batch (1–500) |
 | `syncAllBranches` | `true` | Sync all branches (set to `false` for main branch only) |
 | `excludeBranches` | `[]` | Branch names to skip |
+| `checkpoint.enabled` | `true` | Enable phase-level checkpointing for pause/resume |
+| `checkpoint.cacheExtractions` | `true` | Cache extracted data (gzipped JSON) to skip re-extraction on resume |
+| `checkpoint.cacheMaxAgeDays` | `7` | Discard extraction caches older than this many days |
+| `checkpoint.strictResume` | `false` | When `true`, abort if the session fingerprint (SQ version, URL, project key) has changed since the checkpoint was created |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🧪 Step 3: Test your connections
@@ -198,6 +209,14 @@ To discard progress and start fresh, use `--force-restart`:
 ```bash
 ./cloudvoyager transfer -c config.json --verbose --force-restart
 ```
+
+### Upload deduplication
+
+On resume after a crash, the tool checks whether a Compute Engine (CE) task already exists for the current session before uploading. This prevents duplicate scanner reports from being submitted to SonarCloud. The check uses the `scm_revision_id` (git commit hash) included in each report.
+
+### Lock file handling
+
+An advisory lock file prevents multiple CloudVoyager instances from running against the same project simultaneously. The lock includes the process ID, hostname, and start time. Stale locks from crashed processes are auto-released after 6 hours. If a lock is held by another host or a non-stale process, the tool exits with an error. Use `--force-unlock` to manually release a lock you know is stale.
 
 ---
 

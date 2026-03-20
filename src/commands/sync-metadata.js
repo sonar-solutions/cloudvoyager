@@ -64,7 +64,7 @@ export function registerSyncMetadataCommand(program) {
           performanceConfig: perfConfig
         });
 
-        const failed = results.projects.filter(p => !p.success).length;
+        const failed = results.projects.filter(p => p.status === 'failed').length;
         if (failed > 0) {
           logger.error(`${failed} project(s) failed metadata sync`);
           process.exit(1);

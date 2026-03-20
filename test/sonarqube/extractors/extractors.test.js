@@ -60,6 +60,7 @@ function mockClient(overrides = {}) {
     getQualityProfileBackup: sinon.stub().resolves('<xml/>'),
     getQualityProfilePermissions: sinon.stub().resolves({ users: [], groups: [] }),
     getProjectSettings: sinon.stub().resolves([]),
+    getServerSettings: sinon.stub().resolves([]),
     getProjectTags: sinon.stub().resolves([]),
     getProjectLinks: sinon.stub().resolves([]),
     getNewCodePeriods: sinon.stub().resolves({ projectLevel: null, branchOverrides: [] }),
@@ -726,7 +727,7 @@ test('extractProjectSettings filters non-inherited settings', async t => {
 // === project-tags.js ===
 test('extractProjectTags returns tags', async t => {
   const client = mockClient({
-    getProjectTags: sinon.stub().resolves(['tag1', 'tag2'])
+    getProject: sinon.stub().resolves({ key: 'my-project', tags: ['tag1', 'tag2'] })
   });
   const result = await extractProjectTags(client);
   t.deepEqual(result, ['tag1', 'tag2']);
@@ -892,7 +893,7 @@ test('extractServerInfo extracts all server info', async t => {
     getSystemInfo: sinon.stub().resolves({ System: { Version: '9.9', Edition: 'Enterprise', Status: 'UP', 'Server ID': 'abc', Database: 'PostgreSQL' } }),
     getInstalledPlugins: sinon.stub().resolves([{ key: 'javascript', name: 'JavaScript', version: '10.0' }]),
     getWebhooks: sinon.stub().resolves([{ key: 'wh1', name: 'Hook', url: 'http://test.com' }]),
-    getProjectSettings: sinon.stub().resolves([{ key: 'sonar.global', value: 'val' }])
+    getServerSettings: sinon.stub().resolves([{ key: 'sonar.global', value: 'val' }])
   });
   const result = await extractServerInfo(client);
   t.is(result.system.version, '9.9');
@@ -903,7 +904,7 @@ test('extractServerInfo extracts all server info', async t => {
 
 test('extractServerInfo handles settings failure', async t => {
   const client = mockClient({
-    getProjectSettings: sinon.stub().rejects(new Error('forbidden'))
+    getServerSettings: sinon.stub().rejects(new Error('forbidden'))
   });
   const result = await extractServerInfo(client);
   t.deepEqual(result.settings, []);
@@ -1068,8 +1069,20 @@ test('DataExtractor.logExtractionSummary does not throw', t => {
 // --- Extractor error paths (catch blocks) ---
 
 test('extractChangesets handles error in file processing', async t => {
-  // A file with lines.length = -1 causes new Array(-1).fill(0) to throw RangeError
-  const badFile = { key: 'bad-file', lines: { length: -1 } };
+  // Use a getter on 'key' that throws only on the second access (first access is the
+  // guard check `!file?.key`, second is inside the try block when setting the map entry).
+  // Third access (in catch block's logger.warn) returns a fallback string.
+  let csAccessCount = 0;
+  const badFile = {};
+  Object.defineProperty(badFile, 'key', {
+    get() {
+      csAccessCount++;
+      if (csAccessCount === 1) return 'bad-file'; // pass the guard
+      if (csAccessCount === 2) throw new Error('key access error'); // fail in try
+      return 'bad-file'; // succeed in catch for logging
+    },
+    enumerable: true
+  });
   const goodFile = { key: 'good-file', lines: ['line1'] };
   const result = await extractChangesets(null, [badFile, goodFile], []);
   // badFile should be skipped (caught), goodFile should succeed
@@ -1708,7 +1721,7 @@ test('extractServerInfo: no System at all, no version, no status => all unknown/
     getSystemInfo: sinon.stub().resolves({}),  // no System, no version, no status
     getInstalledPlugins: sinon.stub().resolves([{ key: 'p1', name: 'Plugin', version: '1.0' }]),
     getWebhooks: sinon.stub().resolves([]),
-    getProjectSettings: sinon.stub().resolves([])
+    getServerSettings: sinon.stub().resolves([])
   });
   const result = await extractServerInfo(client);
   t.is(result.system.version, 'unknown');
@@ -1723,7 +1736,7 @@ test('extractServerInfo: plugin with no description => empty string', async t =>
     getSystemInfo: sinon.stub().resolves({ System: { Version: '10.0' } }),
     getInstalledPlugins: sinon.stub().resolves([{ key: 'p1', name: 'Plugin', version: '1.0' }]),
     getWebhooks: sinon.stub().resolves([]),
-    getProjectSettings: sinon.stub().resolves([])
+    getServerSettings: sinon.stub().resolves([])
   });
   const result = await extractServerInfo(client);
   t.is(result.plugins[0].description, '');
@@ -1847,7 +1860,7 @@ test('extractServerInfo: webhook with no hasSecret => false', async t => {
     getSystemInfo: sinon.stub().resolves({ System: { Version: '10.0' } }),
     getInstalledPlugins: sinon.stub().resolves([]),
     getWebhooks: sinon.stub().resolves([{ key: 'w1', name: 'Hook', url: 'http://test.com' }]),
-    getProjectSettings: sinon.stub().resolves([])
+    getServerSettings: sinon.stub().resolves([])
   });
   const result = await extractServerInfo(client);
   t.is(result.webhooks[0].hasSecret, false);

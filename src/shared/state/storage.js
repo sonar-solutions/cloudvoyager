@@ -39,6 +39,21 @@ export class StateStorage {
       logger.warn('Backup state file is also corrupt');
     }
 
+    // Check for orphaned .tmp file from a crashed write
+    const tmpPath = `${this.filePath}.tmp`;
+    if (existsSync(tmpPath)) {
+      logger.warn(`Found orphaned temp file, attempting recovery: ${tmpPath}`);
+      const tmpState = await this._tryLoadFile(tmpPath);
+      if (tmpState !== null) {
+        try {
+          await copyFile(tmpPath, this.filePath);
+          logger.info('Recovered state from orphaned temp file');
+        } catch { /* best effort */ }
+        return tmpState;
+      }
+      logger.warn('Orphaned temp file is also corrupt');
+    }
+
     logger.debug('No valid state file found');
     return null;
   }

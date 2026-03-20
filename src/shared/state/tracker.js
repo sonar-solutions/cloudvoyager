@@ -16,6 +16,8 @@ export class StateTracker {
       completedBranches: [],
       syncHistory: []
     };
+    this._processedIssuesSet = new Set();
+    this._completedBranchesSet = new Set();
   }
 
   /**
@@ -39,6 +41,8 @@ export class StateTracker {
         ...savedState
       };
 
+      this._processedIssuesSet = new Set(this.state.processedIssues);
+      this._completedBranchesSet = new Set(this.state.completedBranches);
       logger.info(`Loaded existing state (last sync: ${this.state.lastSync || 'never'})`);
       logger.info(`Processed ${this.state.processedIssues.length} issues previously`);
     } else {
@@ -60,7 +64,7 @@ export class StateTracker {
    * @returns {boolean}
    */
   isIssueProcessed(issueKey) {
-    return this.state.processedIssues.includes(issueKey);
+    return this._processedIssuesSet.has(issueKey);
   }
 
   /**
@@ -68,7 +72,8 @@ export class StateTracker {
    * @param {string} issueKey - Issue key
    */
   markIssueProcessed(issueKey) {
-    if (!this.state.processedIssues.includes(issueKey)) {
+    if (!this._processedIssuesSet.has(issueKey)) {
+      this._processedIssuesSet.add(issueKey);
       this.state.processedIssues.push(issueKey);
     }
   }
@@ -87,7 +92,7 @@ export class StateTracker {
    * @returns {boolean}
    */
   isBranchCompleted(branchName) {
-    return this.state.completedBranches.includes(branchName);
+    return this._completedBranchesSet.has(branchName);
   }
 
   /**
@@ -95,7 +100,8 @@ export class StateTracker {
    * @param {string} branchName - Branch name
    */
   markBranchCompleted(branchName) {
-    if (!this.state.completedBranches.includes(branchName)) {
+    if (!this._completedBranchesSet.has(branchName)) {
+      this._completedBranchesSet.add(branchName);
       this.state.completedBranches.push(branchName);
       logger.info(`Branch marked as completed: ${branchName}`);
     }
@@ -161,6 +167,8 @@ export class StateTracker {
       completedBranches: [],
       syncHistory: []
     };
+    this._processedIssuesSet = new Set();
+    this._completedBranchesSet = new Set();
 
     await this.storage.clear();
     await this.lock.release();

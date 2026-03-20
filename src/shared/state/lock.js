@@ -1,5 +1,5 @@
-import { readFile, unlink, open, rename } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readFile, unlink } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs'; // writeFileSync with 'wx' flag for atomic lock creation
 import { hostname } from 'node:os';
 import logger from '../utils/logger.js';
 import { LockError } from '../utils/errors.js';
@@ -20,43 +20,6 @@ export class LockFile {
    * @param {boolean} forceUnlock - Force release of stale/foreign locks
    */
   async acquire(forceUnlock = false) {
-    if (existsSync(this.lockPath)) {
-      const existing = await this._readLock();
-
-      if (existing) {
-        if (existing.pid === process.pid) {
-          // Re-entrant: same process already holds lock
-          this.acquired = true;
-          return;
-        }
-
-        const stale = this._isStale(existing);
-        if (stale) {
-          logger.warn(
-            `Found stale lock from PID ${existing.pid} (started ${existing.startedAt}). Auto-releasing.`
-          );
-          await this.forceRelease();
-        } else if (forceUnlock) {
-          logger.warn(`Force-releasing lock held by PID ${existing.pid} on ${existing.hostname}`);
-          await this.forceRelease();
-        } else if (existing.hostname !== hostname()) {
-          throw new LockError(
-            `Lock held by another host (${existing.hostname}, PID ${existing.pid}). ` +
-            `Use --force-unlock to override, or manually delete: ${this.lockPath}`
-          );
-        } else {
-          throw new LockError(
-            `Another instance is running (PID ${existing.pid}, started ${existing.startedAt}). ` +
-            `If this is incorrect, delete ${this.lockPath} or use --force-unlock`
-          );
-        }
-      } else {
-        // Corrupt lock file — treat as stale
-        logger.warn('Found corrupt lock file, overwriting');
-      }
-    }
-
-    // Write lock file atomically
     const lockData = {
       pid: process.pid,
       hostname: hostname(),
@@ -64,15 +27,65 @@ export class LockFile {
       version: 1,
     };
 
-    const tmpPath = `${this.lockPath}.tmp`;
-    const fd = await open(tmpPath, 'w');
+    // Attempt atomic create-or-fail using O_CREAT|O_EXCL to eliminate TOCTOU race
     try {
-      await fd.writeFile(JSON.stringify(lockData, null, 2), 'utf-8');
-      await fd.sync();
-    } finally {
-      await fd.close();
+      writeFileSync(this.lockPath, JSON.stringify(lockData, null, 2), { flag: 'wx', encoding: 'utf-8' });
+      // Successfully created — we hold the lock
+      this.acquired = true;
+      logger.debug(`Lock acquired: ${this.lockPath}`);
+      return;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      // Lock file already exists — fall through to check staleness
     }
-    await rename(tmpPath, this.lockPath);
+
+    // Lock file exists — read and evaluate
+    const existing = await this._readLock();
+
+    if (existing) {
+      if (existing.pid === process.pid) {
+        // Re-entrant: same process already holds lock
+        this.acquired = true;
+        return;
+      }
+
+      const stale = this._isStale(existing);
+      if (stale) {
+        logger.warn(
+          `Found stale lock from PID ${existing.pid} (started ${existing.startedAt}). Auto-releasing.`
+        );
+        await this.forceRelease();
+      } else if (forceUnlock) {
+        logger.warn(`Force-releasing lock held by PID ${existing.pid} on ${existing.hostname}`);
+        await this.forceRelease();
+      } else if (existing.hostname !== hostname()) {
+        throw new LockError(
+          `Lock held by another host (${existing.hostname}, PID ${existing.pid}). ` +
+          `Use --force-unlock to override, or manually delete: ${this.lockPath}`
+        );
+      } else {
+        throw new LockError(
+          `Another instance is running (PID ${existing.pid}, started ${existing.startedAt}). ` +
+          `If this is incorrect, delete ${this.lockPath} or use --force-unlock`
+        );
+      }
+    } else {
+      // Corrupt lock file — treat as stale
+      logger.warn('Found corrupt lock file, overwriting');
+    }
+
+    // Write our lock data after releasing stale/corrupt lock
+    try {
+      writeFileSync(this.lockPath, JSON.stringify(lockData, null, 2), { flag: 'wx', encoding: 'utf-8' });
+    } catch (err) {
+      if (err.code === 'EEXIST') {
+        // Another process grabbed the lock between our forceRelease and write — fail
+        throw new LockError(
+          `Failed to acquire lock — another process grabbed it. Retry or use --force-unlock`
+        );
+      }
+      throw err;
+    }
 
     this.acquired = true;
     logger.debug(`Lock acquired: ${this.lockPath}`);
@@ -105,12 +118,12 @@ export class LockFile {
    */
   async forceRelease() {
     try {
-      if (existsSync(this.lockPath)) {
-        await unlink(this.lockPath);
-        logger.debug(`Lock force-released: ${this.lockPath}`);
-      }
+      await unlink(this.lockPath);
+      logger.debug(`Lock force-released: ${this.lockPath}`);
     } catch (error) {
-      logger.debug(`Could not force-release lock: ${error.message}`);
+      if (error.code !== 'ENOENT') {
+        logger.debug(`Could not force-release lock: ${error.message}`);
+      }
     }
     this.acquired = false;
   }

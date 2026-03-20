@@ -95,15 +95,15 @@ export async function transferProject({ sonarqubeConfig, sonarcloudConfig, trans
 
     // Purge stale cache files on startup
     await cache.purgeStale();
+  }
 
-    // Register shutdown cleanup
-    if (shutdownCoordinator) {
-      shutdownCoordinator.register(async () => {
-        if (journal) await journal.markInterrupted();
-        await stateTracker.save();
-        await lockFile.release();
-      });
-    }
+  // Register shutdown cleanup (outside checkpoint block — always needed for lock + state)
+  if (shutdownCoordinator) {
+    shutdownCoordinator.register(async () => {
+      if (journal) await journal.markInterrupted();
+      await stateTracker.save();
+      await lockFile.release();
+    });
   }
 
   try {

@@ -58,7 +58,7 @@ export class SonarQubeClient {
       const data = response.data;
       const results = data[dataKey] || [];
       allResults = allResults.concat(results);
-      const total = data.paging?.total || data.total || 0;
+      const total = data.paging?.total ?? data.total ?? 0;
       logger.debug(`Fetched ${allResults.length}/${total} items from ${endpoint}`);
       if (page * pageSize >= total || results.length < pageSize) break;
       page++;
@@ -221,7 +221,8 @@ export class SonarQubeClient {
   async getPortfolios() { return perm.getPortfolios(this.client); }
   async getPortfolioDetails(k) { return perm.getPortfolioDetails(this.client, k); }
   async getProjectSettings(pk = null) { return sc.getProjectSettings(this.client, pk || this.projectKey); }
-  async getProjectTags() { return sc.getProjectTags(this.client); }
+  async getServerSettings() { return sc.getServerSettings(this.client); }
+  async getProjectTags(pk = null) { return sc.getProjectTags(this.client, pk); }
   async getProjectLinks(pk = null) { return sc.getProjectLinks(this.client, pk || this.projectKey); }
   async getNewCodePeriods(pk = null) { return sc.getNewCodePeriods(this.client, pk || this.projectKey); }
   async getAlmSettings() { return sc.getAlmSettings(this.client); }

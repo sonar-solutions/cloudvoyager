@@ -29,7 +29,7 @@ export function registerMigrateCommand(program) {
       return n;
     })
     .option('--max-memory <mb>', 'Max heap size in MB (auto-restarts with increased heap if needed)', Number.parseInt)
-    .option('--project-concurrency <n>', 'Max concurrent project migrations', Number.parseInt)
+    .option('--project-concurrency <n>', 'Max concurrent project migrations', (val) => Math.max(1, Number.parseInt(val, 10) || 1))
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
     .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
     .option('--force-restart', 'Discard migration journal and start from scratch')
