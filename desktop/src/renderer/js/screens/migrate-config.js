@@ -20,7 +20,7 @@ window.MigrateConfigScreen = {
       transfer: { mode: 'incremental', batchSize: 100, syncAllBranches: true, excludeBranches: [] },
       migrate: { outputDir: './migration-output', skipIssueMetadataSync: false, skipHotspotMetadataSync: false, skipQualityProfileSync: false, dryRun: false },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
-      performance: { autoTune: false, maxConcurrency: 8, maxMemoryMB: 0 }
+      performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     };
   },
 

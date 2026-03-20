@@ -20,24 +20,33 @@ window.MigrationGraph = {
   resizeObserver: null,
   allDone: false,
   themeColors: {},
+  // Force simulation parameters
+  _forceGravity: 0.12,    // pull toward target position
+  _forceRepulsion: 1500,  // repulsion strength between nodes
+  _forceDamping: 0.7,     // velocity damping per frame
+  _forceSettled: false,    // true when simulation has settled
+  // Drag state
+  _dragNode: null,         // node currently being dragged
+  _dragOffsetX: 0,         // mouse offset from node center
+  _dragOffsetY: 0,
 
   // ── Graph Definitions ───────────────────────────────────────────
 
   _graphDefs: {
     migrate: {
       nodes: [
-        { id: 'setup',           label: 'Setup',            col: 0, row: 0 },
-        { id: 'groups',          label: 'Groups',           col: 1, row: 0 },
-        { id: 'qualityGates',   label: 'Quality Gates',    col: 1, row: 1 },
-        { id: 'qualityProfiles', label: 'Quality Profiles', col: 1, row: 2 },
-        { id: 'permissions',     label: 'Permissions',      col: 2, row: 0 },
-        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1 },
-        { id: 'projects',        label: 'Projects',         col: 3, row: 0 },
-        { id: 'scannerUpload',   label: 'Scanner Upload',   col: 3, row: 1 },
-        { id: 'issueSync',       label: 'Issue Sync',       col: 3, row: 2 },
-        { id: 'hotspotSync',     label: 'Hotspot Sync',     col: 3, row: 3 },
-        { id: 'projectConfig',   label: 'Project Config',   col: 3, row: 4 },
-        { id: 'portfolios',      label: 'Portfolios',       col: 4, row: 0 },
+        { id: 'setup',           label: 'Setup',            col: 0, row: 0, yPct: 0.50 },
+        { id: 'groups',          label: 'Groups',           col: 1, row: 0, yPct: 0.22 },
+        { id: 'qualityGates',   label: 'Quality Gates',    col: 1, row: 1, yPct: 0.50 },
+        { id: 'qualityProfiles', label: 'Quality Profiles', col: 1, row: 2, yPct: 0.78 },
+        { id: 'permissions',     label: 'Permissions',      col: 2, row: 0, yPct: 0.15 },
+        { id: 'permTemplates',   label: 'Perm Templates',   col: 2, row: 1, yPct: 0.60 },
+        { id: 'projects',        label: 'Projects',         col: 3, row: 0, yPct: 0.10 },
+        { id: 'scannerUpload',   label: 'Scanner Upload',   col: 3, row: 1, yPct: 0.30 },
+        { id: 'issueSync',       label: 'Issue Sync',       col: 3, row: 2, yPct: 0.50 },
+        { id: 'hotspotSync',     label: 'Hotspot Sync',     col: 3, row: 3, yPct: 0.70 },
+        { id: 'projectConfig',   label: 'Project Config',   col: 3, row: 4, yPct: 0.90 },
+        { id: 'portfolios',      label: 'Portfolios',       col: 4, row: 0, yPct: 0.45 },
       ],
       edges: [
         ['setup', 'groups'], ['setup', 'qualityGates'], ['setup', 'qualityProfiles'],
@@ -48,7 +57,7 @@ window.MigrationGraph = {
         ['issueSync', 'hotspotSync'], ['hotspotSync', 'projectConfig'],
         ['projects', 'portfolios'],
       ],
-      colPositions: [0.06, 0.21, 0.38, 0.62, 0.90],
+      colPositions: [0.06, 0.22, 0.40, 0.62, 0.90],
     },
     transfer: {
       nodes: [
@@ -359,6 +368,15 @@ window.MigrationGraph = {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.container);
 
+    // Drag interaction
+    this._onMouseDown = this._handleMouseDown.bind(this);
+    this._onMouseMove = this._handleMouseMove.bind(this);
+    this._onMouseUp = this._handleMouseUp.bind(this);
+    this.canvas.addEventListener('mousedown', this._onMouseDown);
+    window.addEventListener('mousemove', this._onMouseMove);
+    window.addEventListener('mouseup', this._onMouseUp);
+    this.canvas.style.cursor = 'default';
+
     // Start render loop
     this._scheduleFrame();
   },
@@ -372,9 +390,13 @@ window.MigrationGraph = {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
-    if (this.canvas && this.canvas.parentNode) {
-      this.canvas.parentNode.removeChild(this.canvas);
+    if (this.canvas) {
+      this.canvas.removeEventListener('mousedown', this._onMouseDown);
+      if (this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
     }
+    window.removeEventListener('mousemove', this._onMouseMove);
+    window.removeEventListener('mouseup', this._onMouseUp);
+    this._dragNode = null;
     this.canvas = null;
     this.ctx = null;
     this.container = null;
@@ -398,6 +420,10 @@ window.MigrationGraph = {
       count: '',
       x: 0,
       y: 0,
+      targetX: 0,
+      targetY: 0,
+      vx: 0,
+      vy: 0,
       width: 130,
       height: 32,
       state: 'pending',
@@ -431,37 +457,181 @@ window.MigrationGraph = {
     const def = this._graphDefs[this.mode];
     if (!def) return;
 
+    const firstLayout = this.nodes.every(n => n.targetX === 0 && n.targetY === 0);
+
     if (this.mode === 'migrate') {
       const colX = def.colPositions;
-      // Determine max rows per column
-      const colRows = {};
-      this.nodes.forEach(n => {
-        colRows[n.col] = Math.max(colRows[n.col] || 0, n.row + 1);
-      });
+      const nodeDefs = def.nodes;
 
       this.nodes.forEach(n => {
-        const numRows = colRows[n.col] || 1;
-        n.x = colX[n.col] * cw;
-        if (numRows === 1) {
-          n.y = ch * 0.5;
+        n.targetX = colX[n.col] * cw;
+        // Use explicit yPct if defined in the graph definition
+        const nodeDef = nodeDefs.find(d => d.id === n.id);
+        if (nodeDef && nodeDef.yPct != null) {
+          n.targetY = nodeDef.yPct * ch;
         } else {
-          // Dynamic spacing: tighter for more rows
-          const rowSpacing = numRows <= 3 ? 0.28 : (0.82 / (numRows - 1));
-          const totalHeight = (numRows - 1) * rowSpacing;
-          const startY = 0.5 - totalHeight / 2;
-          n.y = (startY + n.row * rowSpacing) * ch;
+          n.targetY = ch * 0.5;
         }
       });
     } else {
-      // Linear: evenly distributed at Y=50%
       const numNodes = this.nodes.length;
       this.nodes.forEach((n, i) => {
         const margin = 0.1;
         const span = 1 - margin * 2;
-        n.x = (margin + (numNodes > 1 ? (i / (numNodes - 1)) * span : 0.5 - margin)) * cw;
-        n.y = ch * 0.5;
+        n.targetX = (margin + (numNodes > 1 ? (i / (numNodes - 1)) * span : 0.5 - margin)) * cw;
+        n.targetY = ch * 0.5;
       });
     }
+
+    if (firstLayout) {
+      // Initialize positions with slight random offset for visual pop
+      this.nodes.forEach(n => {
+        n.x = n.targetX + (Math.random() - 0.5) * 40;
+        n.y = n.targetY + (Math.random() - 0.5) * 40;
+        n.vx = 0;
+        n.vy = 0;
+      });
+      this._forceSettled = false;
+    } else {
+      // On resize, update targets — simulation will smoothly animate
+      this._forceSettled = false;
+    }
+  },
+
+  // ── Drag Interaction ────────────────────────────────────────────
+
+  _canvasMousePos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  },
+
+  _nodeAtPoint(px, py) {
+    // Reverse order so topmost (last drawn) node is picked first
+    for (let i = this.nodes.length - 1; i >= 0; i--) {
+      const n = this.nodes[i];
+      if (px >= n.x - n.width / 2 && px <= n.x + n.width / 2 &&
+          py >= n.y - n.height / 2 && py <= n.y + n.height / 2) {
+        return n;
+      }
+    }
+    return null;
+  },
+
+  _handleMouseDown(e) {
+    const pos = this._canvasMousePos(e);
+    const node = this._nodeAtPoint(pos.x, pos.y);
+    if (!node) return;
+
+    this._dragNode = node;
+    this._dragOffsetX = pos.x - node.x;
+    this._dragOffsetY = pos.y - node.y;
+    node.vx = 0;
+    node.vy = 0;
+    this.canvas.style.cursor = 'grabbing';
+
+    // Wake up animation loop
+    this._forceSettled = false;
+    if (!this.animFrame) this._scheduleFrame();
+  },
+
+  _handleMouseMove(e) {
+    if (!this._dragNode) {
+      // Update cursor on hover
+      if (this.canvas) {
+        const pos = this._canvasMousePos(e);
+        const hover = this._nodeAtPoint(pos.x, pos.y);
+        this.canvas.style.cursor = hover ? 'grab' : 'default';
+      }
+      return;
+    }
+
+    const pos = this._canvasMousePos(e);
+    const node = this._dragNode;
+    node.x = pos.x - this._dragOffsetX;
+    node.y = pos.y - this._dragOffsetY;
+    node.vx = 0;
+    node.vy = 0;
+
+    // Keep simulation running while dragging
+    this._forceSettled = false;
+  },
+
+  _handleMouseUp() {
+    if (!this._dragNode) return;
+    // Lock the node where the user dropped it by updating its target
+    this._dragNode.targetX = this._dragNode.x;
+    this._dragNode.targetY = this._dragNode.y;
+    this._dragNode = null;
+    if (this.canvas) this.canvas.style.cursor = 'default';
+  },
+
+  // ── Force Simulation ────────────────────────────────────────────
+
+  _simulateForces() {
+    const gravity = this._forceGravity;
+    const repulsion = this._forceRepulsion;
+    const damping = this._forceDamping;
+    let maxMove = 0;
+
+    // Apply forces to each node
+    const dragged = this._dragNode;
+    this.nodes.forEach(node => {
+      // Skip force application for the node being dragged
+      if (node === dragged) {
+        node.vx = 0;
+        node.vy = 0;
+        return;
+      }
+
+      let fx = 0, fy = 0;
+
+      // Gravity: pull toward target position
+      fx += (node.targetX - node.x) * gravity;
+      fy += (node.targetY - node.y) * gravity;
+
+      // Repulsion: push away from other nodes
+      this.nodes.forEach(other => {
+        if (other === node) return;
+        const dx = node.x - other.x;
+        const dy = node.y - other.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = 400; // prevent extreme forces at very close range
+        const d = Math.max(distSq, minDist);
+        const force = repulsion / d;
+        const dist = Math.sqrt(d);
+        fx += (dx / dist) * force;
+        fy += (dy / dist) * force;
+      });
+
+      node.vx = (node.vx + fx) * damping;
+      node.vy = (node.vy + fy) * damping;
+    });
+
+    // Update positions and clamp to canvas bounds
+    const dpr = window.devicePixelRatio || 1;
+    const cw = this.canvas ? this.canvas.width / dpr : 800;
+    const ch = this.canvas ? this.canvas.height / dpr : 260;
+
+    this.nodes.forEach(node => {
+      node.x += node.vx;
+      node.y += node.vy;
+
+      // Clamp so the full node box stays within the canvas
+      const hw = node.width / 2;
+      const hh = node.height / 2;
+      const margin = 4;
+      node.x = Math.max(hw + margin, Math.min(cw - hw - margin, node.x));
+      node.y = Math.max(hh + margin, Math.min(ch - hh - margin, node.y));
+
+      // Kill velocity if we hit a wall
+      if (node.x <= hw + margin || node.x >= cw - hw - margin) node.vx = 0;
+      if (node.y <= hh + margin || node.y >= ch - hh - margin) node.vy = 0;
+
+      maxMove = Math.max(maxMove, Math.abs(node.vx), Math.abs(node.vy));
+    });
+
+    // Never settle while dragging; otherwise settle when movement is negligible
+    this._forceSettled = !this._dragNode && maxMove < 0.05;
   },
 
   // ── Animation Loop ──────────────────────────────────────────────
@@ -484,6 +654,11 @@ window.MigrationGraph = {
     const cw = this.canvas.width / dpr;
     const ch = this.canvas.height / dpr;
 
+    // Run force simulation
+    if (!this._forceSettled) {
+      this._simulateForces();
+    }
+
     const ctx = this.ctx;
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -500,7 +675,7 @@ window.MigrationGraph = {
     // Advance dash offset for active edge animation
     this.dashOffset -= 0.6;
 
-    if (!this.allDone) {
+    if (!this.allDone || !this._forceSettled) {
       this._scheduleFrame();
     }
   },
@@ -534,6 +709,7 @@ window.MigrationGraph = {
   _edgePoints(src, tgt) {
     const hw = (n) => n.width / 2;
     const hh = (n) => n.height / 2;
+    const pad = 12; // clearance around nodes
 
     if (src.col === tgt.col) {
       // Vertical edge: exit bottom of src → enter top of tgt
@@ -554,34 +730,75 @@ window.MigrationGraph = {
     const y2 = tgt.y;
     const dx = x2 - x1;
 
-    // Check if target column has a tall sub-node stack (4+ rows).
-    // Only then do we need special routing to avoid edges cutting
-    // through the sub-node area. Columns with 2-3 rows are fine
-    // with normal S-curves.
-    const tgtColMaxRow = Math.max(
-      ...this.nodes.filter(n => n.col === tgt.col).map(n => n.row)
-    );
-    if (tgtColMaxRow >= 3 && y1 > y2 + hh(tgt)) {
-      // Source is below target, target has tall sub-node stack.
-      // Use S-curve with early vertical transition: shift the
-      // inflection point toward the source so the curve reaches
-      // target Y level before entering the sub-node column.
-      const colSpan = tgt.col - src.col;
-      const frac = colSpan >= 2 ? 0.15 : 0.25;
-      const midX = x1 + dx * frac;
-      return {
-        x1, y1, x2, y2,
-        cp1x: midX, cp1y: y1,
-        cp2x: midX, cp2y: y2,
-      };
+    // Collect intermediate nodes (not src/tgt) whose bounding box
+    // is between x1 and x2 — candidates for edge collision.
+    const obstacles = this.nodes.filter(n => {
+      if (n.id === src.id || n.id === tgt.id) return false;
+      const nl = n.x - hw(n) - pad;
+      const nr = n.x + hw(n) + pad;
+      return nr > Math.min(x1, x2) && nl < Math.max(x1, x2);
+    });
+
+    // Test if a candidate bezier curve intersects any obstacle node
+    const curveClearsNodes = (cp1x, cp1y, cp2x, cp2y) => {
+      const pts = { x1, y1, x2, y2, cp1x, cp1y, cp2x, cp2y };
+      for (const obs of obstacles) {
+        const ol = obs.x - hw(obs) - pad;
+        const or_ = obs.x + hw(obs) + pad;
+        const ot = obs.y - hh(obs) - pad;
+        const ob = obs.y + hh(obs) + pad;
+        // Sample curve at intervals to check overlap
+        for (let t = 0.1; t <= 0.9; t += 0.05) {
+          const pt = this.cubicBezierPoint(t, pts);
+          if (pt.x >= ol && pt.x <= or_ && pt.y >= ot && pt.y <= ob) {
+            return false;
+          }
+        }
+      }
+      return true;
+    };
+
+    // Default S-curve
+    const defCp1x = x1 + dx * 0.5;
+    const defCp1y = y1;
+    const defCp2x = x2 - dx * 0.5;
+    const defCp2y = y2;
+
+    if (obstacles.length === 0 || curveClearsNodes(defCp1x, defCp1y, defCp2x, defCp2y)) {
+      return { x1, y1, x2, y2, cp1x: defCp1x, cp1y: defCp1y, cp2x: defCp2x, cp2y: defCp2y };
     }
 
-    // Normal S-curve
-    return {
-      x1, y1, x2, y2,
-      cp1x: x1 + dx * 0.5, cp1y: y1,
-      cp2x: x2 - dx * 0.5, cp2y: y2,
-    };
+    // Find the obstacle node closest to the midpoint of the edge
+    // and determine whether to route above or below it.
+    const midX = (x1 + x2) / 2;
+    let worstObs = obstacles[0];
+    let worstDist = Infinity;
+    for (const obs of obstacles) {
+      const d = Math.abs(obs.x - midX);
+      if (d < worstDist) { worstDist = d; worstObs = obs; }
+    }
+
+    // Route above or below the obstacle — pick the shorter detour
+    const aboveY = worstObs.y - hh(worstObs) - pad - 8;
+    const belowY = worstObs.y + hh(worstObs) + pad + 8;
+    const midY = (y1 + y2) / 2;
+    const routeY = Math.abs(aboveY - midY) < Math.abs(belowY - midY) ? aboveY : belowY;
+
+    // Try early inflection (route around obstacle)
+    const frac = 0.2;
+    const altCp1x = x1 + dx * frac;
+    const altCp1y = routeY;
+    const altCp2x = x2 - dx * frac;
+    const altCp2y = routeY;
+
+    if (curveClearsNodes(altCp1x, altCp1y, altCp2x, altCp2y)) {
+      return { x1, y1, x2, y2, cp1x: altCp1x, cp1y: altCp1y, cp2x: altCp2x, cp2y: altCp2y };
+    }
+
+    // Fallback: aggressive early inflection with both CPs at routeY
+    const aggCp1x = x1 + dx * 0.1;
+    const aggCp2x = x2 - dx * 0.1;
+    return { x1, y1, x2, y2, cp1x: aggCp1x, cp1y: routeY, cp2x: aggCp2x, cp2y: routeY };
   },
 
   _drawEdges(ctx) {
@@ -993,8 +1210,8 @@ window.MigrationGraph = {
       requestAnimationFrame(t => {
         this.render(t);
       });
-    } else if (this.allDone === false && !this.animFrame) {
-      // Restart loop if it stopped
+    } else if (!this.animFrame) {
+      // Restart loop if it stopped (force sim or animation may need it)
       this._scheduleFrame();
     }
   },

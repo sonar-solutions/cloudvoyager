@@ -61,7 +61,7 @@ function isNodeScript(binaryPath) {
 function writeTempConfig(config) {
   const tmpDir = app.getPath('temp');
   const configPath = path.join(tmpDir, `cloudvoyager-config-${Date.now()}.json`);
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
   return configPath;
 }
 
@@ -111,7 +111,8 @@ function runCommand(command, args, config, envVars, reportsDir, getMainWindow) {
     stdio: ['ignore', 'pipe', 'pipe'],
     env,
     cwd,
-    windowsHide: true
+    windowsHide: true,
+    detached: process.platform !== 'win32'
   });
 
   currentProcess = child;
@@ -143,6 +144,8 @@ function runCommand(command, args, config, envVars, reportsDir, getMainWindow) {
   });
 
   child.on('close', (code, signal) => {
+    stdoutRL.close();
+    stderrRL.close();
     cleanup(configPath);
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
@@ -158,10 +161,28 @@ function cancelCommand() {
     return false;
   }
 
-  if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', String(currentProcess.pid), '/T', '/F']);
-  } else {
-    currentProcess.kill('SIGTERM');
+  try {
+    if (process.platform === 'win32') {
+      const killer = spawn('taskkill', ['/pid', String(currentProcess.pid), '/T', '/F']);
+      killer.on('error', () => {}); // Ignore taskkill failures
+    } else {
+      // Kill the entire process group (negative PID) so child processes also die
+      process.kill(-currentProcess.pid, 'SIGTERM');
+
+      // Escalate to SIGKILL if still alive after 5 seconds
+      const pid = currentProcess.pid;
+      setTimeout(() => {
+        try {
+          // Check if process group is still alive (signal 0 = existence check)
+          process.kill(-pid, 0);
+          process.kill(-pid, 'SIGKILL');
+        } catch {
+          // Already dead — good
+        }
+      }, 5000);
+    }
+  } catch {
+    // Process may have already exited
   }
 
   return true;

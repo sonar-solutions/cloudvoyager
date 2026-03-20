@@ -18,7 +18,7 @@ let mainWindow = null;
 
 function createWindow() {
   const uiState = loadConfig('ui') || {};
-  const bounds = uiState.windowBounds || { width: 1400, height: 850 };
+  const bounds = uiState.windowBounds || { width: 1600, height: 1050 };
 
   mainWindow = new BrowserWindow({
     width: bounds.width,

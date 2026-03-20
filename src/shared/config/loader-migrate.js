@@ -24,10 +24,10 @@ export async function loadMigrateConfig(configPath) {
 }
 
 function applyMigrateEnvOverrides(config) {
-  if (process.env.SONARQUBE_TOKEN) {
+  if (config.sonarqube && process.env.SONARQUBE_TOKEN) {
     config.sonarqube.token = process.env.SONARQUBE_TOKEN;
   }
-  if (process.env.SONARQUBE_URL) {
+  if (config.sonarqube && process.env.SONARQUBE_URL) {
     config.sonarqube.url = process.env.SONARQUBE_URL;
   }
 }

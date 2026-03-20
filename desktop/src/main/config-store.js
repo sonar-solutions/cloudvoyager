@@ -19,7 +19,7 @@ const schema = {
         checkpoint: { enabled: true, cacheExtractions: true, cacheMaxAgeDays: 7, strictResume: false }
       },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
-      performance: { autoTune: false, maxConcurrency: 8, maxMemoryMB: 0 }
+      performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     }
   },
   migrateConfig: {
@@ -43,7 +43,7 @@ const schema = {
         dryRun: false
       },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
-      performance: { autoTune: false, maxConcurrency: 8, maxMemoryMB: 0 }
+      performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     }
   },
   envVars: {

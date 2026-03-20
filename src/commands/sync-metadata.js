@@ -2,7 +2,8 @@ import { loadMigrateConfig } from '../shared/config/loader.js';
 import { detectAndRoute } from '../version-router.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../shared/utils/concurrency.js';
 import logger, { enableFileLogging } from '../shared/utils/logger.js';
-import { CloudVoyagerError } from '../shared/utils/errors.js';
+import { CloudVoyagerError, GracefulShutdownError } from '../shared/utils/errors.js';
+import { ShutdownCoordinator } from '../shared/utils/shutdown.js';
 
 export function registerSyncMetadataCommand(program) {
   program
@@ -22,6 +23,9 @@ export function registerSyncMetadataCommand(program) {
     .option('--auto-tune', 'Auto-detect hardware and set optimal performance values')
     .option('--skip-all-branch-sync', 'Only sync the main branch of each project (skip non-main branches)')
     .action(async (options) => {
+      const shutdownCoordinator = new ShutdownCoordinator();
+      shutdownCoordinator.bind();
+
       try {
         if (options.verbose) logger.level = 'debug';
         enableFileLogging('sync-metadata');
@@ -66,8 +70,12 @@ export function registerSyncMetadataCommand(program) {
           process.exit(1);
         }
         logger.info('=== Metadata sync completed successfully ===');
+        process.exit(0);
       } catch (error) {
-        if (error instanceof CloudVoyagerError) {
+        if (error instanceof GracefulShutdownError) {
+          logger.info('Metadata sync interrupted gracefully. Resume by running the same command again.');
+          process.exit(0);
+        } else if (error instanceof CloudVoyagerError) {
           logger.error(`Metadata sync failed: ${error.message}`);
         } else {
           logger.error(`Unexpected error: ${error.message}`);
