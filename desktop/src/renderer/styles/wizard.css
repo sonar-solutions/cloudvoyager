@@ -441,7 +441,7 @@
   position: relative;
   overflow: hidden;
   border: 3px solid var(--whale-track-border);
-  box-shadow: 0 4px 12px var(--whale-track-shadow), inset 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px var(--whale-track-shadow), inset 0 0 10px var(--shadow-medium);
   image-rendering: pixelated;
 }
 
@@ -452,17 +452,17 @@
   height: 100%;
   width: 0%;
   background-color: var(--whale-trail-bg);
-  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  background-image: linear-gradient(90deg, transparent, var(--whale-shimmer), transparent);
   background-size: 200%;
   animation: shimmer 2s linear infinite;
-  border-right: 2px solid rgba(255, 255, 255, 0.3);
+  border-right: 2px solid var(--whale-border-trail);
   transition: width 0.6s ease-out;
   z-index: 1;
 }
 
 .whale-trail-complete {
   background-color: var(--whale-trail-complete);
-  border-right-color: rgba(255, 255, 255, 0.5);
+  border-right-color: var(--whale-border-trail-done);
   animation: glow-pulse-success 2s ease-in-out infinite;
 }
 
@@ -696,14 +696,14 @@
 }
 
 /* ANSI color classes */
-.ansi-red { color: #f85149; }
-.ansi-green { color: #3fb950; }
-.ansi-yellow { color: #d29922; }
-.ansi-blue { color: #58a6ff; }
-.ansi-magenta { color: #bc8cff; }
-.ansi-cyan { color: #39d2f5; }
-.ansi-white { color: #e6edf3; }
-.ansi-gray { color: #8b949e; }
+.ansi-red { color: var(--ansi-red); }
+.ansi-green { color: var(--ansi-green); }
+.ansi-yellow { color: var(--ansi-yellow); }
+.ansi-blue { color: var(--ansi-blue); }
+.ansi-magenta { color: var(--ansi-magenta); }
+.ansi-cyan { color: var(--ansi-cyan); }
+.ansi-white { color: var(--ansi-white); }
+.ansi-gray { color: var(--ansi-gray); }
 .ansi-bold { font-weight: 700; }
 
 /* Results screen */
@@ -762,11 +762,11 @@
   flex-shrink: 0;
 }
 
-.report-type-badge.json { background: rgba(74, 125, 255, 0.15); color: #58a6ff; box-shadow: 0 0 6px rgba(74, 125, 255, 0.3); }
-.report-type-badge.md { background: rgba(63, 185, 80, 0.15); color: #3fb950; box-shadow: 0 0 6px rgba(63, 185, 80, 0.3); }
-.report-type-badge.pdf { background: rgba(248, 81, 73, 0.15); color: #f85149; box-shadow: 0 0 6px rgba(248, 81, 73, 0.3); }
-.report-type-badge.txt { background: rgba(210, 153, 34, 0.15); color: #d29922; box-shadow: 0 0 6px rgba(210, 153, 34, 0.3); }
-.report-type-badge.csv { background: rgba(139, 148, 158, 0.15); color: #8b949e; box-shadow: 0 0 6px rgba(139, 148, 158, 0.3); }
+.report-type-badge.json { background: var(--accent-bg); color: var(--accent); box-shadow: 0 0 6px var(--glow-accent); }
+.report-type-badge.md { background: var(--success-bg); color: var(--success); box-shadow: 0 0 6px var(--glow-success); }
+.report-type-badge.pdf { background: var(--danger-bg); color: var(--danger); box-shadow: 0 0 6px var(--glow-danger); }
+.report-type-badge.txt { background: var(--warning-bg); color: var(--warning); box-shadow: 0 0 6px var(--glow-accent); }
+.report-type-badge.csv { background: var(--accent-bg); color: var(--text-muted); box-shadow: none; }
 
 .report-item {
   display: flex;
@@ -925,7 +925,7 @@
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -942,7 +942,7 @@
   padding: 28px;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 20px var(--glow-accent);
+  box-shadow: 0 8px 40px var(--shadow-heavy), 0 0 20px var(--glow-accent);
   animation: dialog-enter 200ms ease-out;
 }
 
@@ -1020,7 +1020,7 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur, 12px));
   -webkit-backdrop-filter: blur(var(--glass-blur, 12px));
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 24px var(--shadow-medium), inset 0 1px 0 var(--highlight-line);
   position: relative;
   overflow: hidden;
 }

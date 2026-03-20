@@ -66,6 +66,7 @@ window.ExecutionScreen = {
     const graphMode = (commandLabel === 'transfer') ? 'transfer'
       : (commandLabel === 'migrate') ? 'migrate'
       : (commandLabel === 'sync-metadata') ? 'sync-metadata'
+      : (commandLabel === 'verify') ? 'verify'
       : null;
     if (graphMode && typeof MigrationGraph !== 'undefined') {
       const graphContainer = container.querySelector('#migration-graph-container');
@@ -265,10 +266,15 @@ window.ExecutionScreen = {
   },
 
   drawWhale() {
-    const palette = {
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const palette = isDark ? {
       'D': '#1e293b', 'M': '#334155', 'L': '#94a3b8',
       'W': '#f8fafc', 'B': '#0f172a', 'C': '#bae6fd',
       'S': '#7dd3fc', 'P': '#e0f2fe'
+    } : {
+      'D': '#1e3a5f', 'M': '#2d5986', 'L': '#5b8cb8',
+      'W': '#ffffff', 'B': '#0c2340', 'C': '#7ec8e3',
+      'S': '#4da8da', 'P': '#b8dff0'
     };
 
     // Frame 1: Tail up, spout visible
@@ -421,8 +427,11 @@ window.ExecutionScreen = {
 
       const drawStars = () => {
         starCtx.clearRect(0, 0, starW, starH);
+        const dark = document.documentElement.getAttribute('data-theme') !== 'light';
         for (const star of stars) {
-          const color = star.isBlue ? `rgba(200, 220, 255, ${star.opacity})` : `rgba(255, 255, 255, ${star.opacity})`;
+          const color = dark
+            ? (star.isBlue ? `rgba(200, 220, 255, ${star.opacity})` : `rgba(255, 255, 255, ${star.opacity})`)
+            : (star.isBlue ? `rgba(100, 140, 200, ${star.opacity * 0.5})` : `rgba(80, 100, 140, ${star.opacity * 0.4})`);
           starCtx.fillStyle = color;
           starCtx.beginPath();
           starCtx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
@@ -740,19 +749,68 @@ window.ExecutionScreen = {
   },
 
   /**
-   * Verify pipeline: similar project-based structure.
+   * Verify pipeline progress layout (0-100%):
+   *   0-5%   : Connect (Step 1)
+   *   5-10%  : Fetch projects (Step 2)
+   *  10-15%  : Build mappings (Step 3) + org-wide checks
+   *  15-93%  : Per-project verification (divided equally among N projects)
+   *  93-98%  : Portfolios + summary
    */
   parseVerifyProgress(line, s) {
-    if (line.includes('=== Step 1:')) { this.setProgress(3); return; }
-    if (line.includes('=== Step 2:')) { this.setProgress(8); return; }
-    if (line.includes('=== Step 3:')) { this.setProgress(12); return; }
+    if (line.includes('=== Step 1:')) {
+      this.setProgress(2);
+      this.setPhaseLabel('Connecting to SonarQube...');
+      return;
+    }
+    if (line.includes('=== Step 2:')) {
+      this.setProgress(6);
+      this.setPhaseLabel('Fetching project list...');
+      return;
+    }
+    if (line.includes('=== Step 3:')) {
+      this.setProgress(10);
+      this.setPhaseLabel('Building org mappings...');
+      return;
+    }
+    if (line.includes('Verifying quality gates')) {
+      this.setProgress(11);
+      this.setPhaseLabel('Verifying quality gates...');
+      return;
+    }
+    if (line.includes('Verifying quality profiles')) {
+      this.setProgress(12);
+      this.setPhaseLabel('Verifying quality profiles...');
+      return;
+    }
+    if (line.includes('Verifying groups')) {
+      this.setProgress(13);
+      this.setPhaseLabel('Verifying groups...');
+      return;
+    }
+    if (line.includes('Verifying permission templates')) {
+      this.setProgress(14);
+      this.setPhaseLabel('Verifying permissions...');
+      return;
+    }
 
     const projectMatch = line.match(/--- Project (\d+)\/(\d+):/);
     if (projectMatch) {
       s.currentProject = parseInt(projectMatch[1], 10);
       s.totalProjects = parseInt(projectMatch[2], 10);
-      const pct = 15 + Math.round(((s.currentProject - 1) / s.totalProjects) * 80);
+      const pct = 15 + Math.round(((s.currentProject - 1) / s.totalProjects) * 78);
       this.setProgress(pct);
+      this.setPhaseLabel('Verifying project ' + s.currentProject + '/' + s.totalProjects + '...');
+      return;
+    }
+
+    if (line.includes('Verifying portfolios')) {
+      this.setProgress(94);
+      this.setPhaseLabel('Verifying portfolios...');
+      return;
+    }
+    if (line.includes('=== Verification Summary ===')) {
+      this.setProgress(98);
+      this.setPhaseLabel('Verification complete');
       return;
     }
   },
