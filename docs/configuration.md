@@ -34,6 +34,17 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
       "cacheMaxAgeDays": 7,
       "strictResume": false
     }
+  },
+  "rateLimit": {
+    "maxRetries": 3,
+    "baseDelay": 1000,
+    "minRequestInterval": 0
+  },
+  "performance": {
+    "autoTune": false,
+    "maxMemoryMB": 0,
+    "sourceExtraction": { "concurrency": 10 },
+    "hotspotExtraction": { "concurrency": 10 }
   }
 }
 ```
@@ -82,6 +93,20 @@ Performs a full migration from a SonarQube server to one or more SonarCloud orga
     "skipHotspotMetadataSync": false,
     "skipQualityProfileSync": false,
     "dryRun": false
+  },
+  "rateLimit": {
+    "maxRetries": 3,
+    "baseDelay": 1000,
+    "minRequestInterval": 0
+  },
+  "performance": {
+    "autoTune": false,
+    "maxMemoryMB": 0,
+    "sourceExtraction": { "concurrency": 10 },
+    "hotspotExtraction": { "concurrency": 10 },
+    "issueSync": { "concurrency": 5 },
+    "hotspotSync": { "concurrency": 3 },
+    "projectMigration": { "concurrency": 1 }
   }
 }
 ```
@@ -204,13 +229,13 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 {
   "performance": {
     "autoTune": false,
-    "maxConcurrency": 8,
+    "maxConcurrency": 64,
     "maxMemoryMB": 8192,
-    "sourceExtraction": { "concurrency": 10 },
-    "hotspotExtraction": { "concurrency": 10 },
-    "issueSync": { "concurrency": 5 },
-    "hotspotSync": { "concurrency": 3 },
-    "projectMigration": { "concurrency": 1 }
+    "sourceExtraction": { "concurrency": 50 },
+    "hotspotExtraction": { "concurrency": 50 },
+    "issueSync": { "concurrency": 20 },
+    "hotspotSync": { "concurrency": 20 },
+    "projectMigration": { "concurrency": 8 }
   }
 }
 ```
@@ -218,13 +243,27 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | Option | Default | Description |
 |--------|---------|-------------|
 | `autoTune` | `false` | Auto-detect CPU and RAM and set optimal values. When enabled, uses 75% of total RAM (max 16GB) and scales concurrency based on CPU cores. Explicit settings override auto-tuned values. |
-| `maxConcurrency` | `8` | General concurrency limit for parallel I/O operations (1–64) |
-| `maxMemoryMB` | `0` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
-| `sourceExtraction.concurrency` | `10` | Max concurrent source file fetches from SonarQube (1–50) |
-| `hotspotExtraction.concurrency` | `10` | Max concurrent hotspot detail fetches from SonarQube (1–50) |
-| `issueSync.concurrency` | `5` | Max concurrent issue metadata sync operations to SonarCloud (1–20) |
-| `hotspotSync.concurrency` | `3` | Max concurrent hotspot sync operations to SonarCloud (1–20). Lower default due to rate limiting sensitivity. |
-| `projectMigration.concurrency` | `1` | Max concurrent project migrations (1–8). Default `1` = sequential (backward-compatible). |
+| `maxConcurrency` | `64` | General concurrency limit for parallel I/O operations (1–64) |
+| `maxMemoryMB` | `8192` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
+| `sourceExtraction.concurrency` | `50` | Max concurrent source file fetches from SonarQube (1–50) |
+| `hotspotExtraction.concurrency` | `50` | Max concurrent hotspot detail fetches from SonarQube (1–50) |
+| `issueSync.concurrency` | `20` | Max concurrent issue metadata sync operations to SonarCloud (1–20) |
+| `hotspotSync.concurrency` | `20` | Max concurrent hotspot sync operations to SonarCloud (1–20) |
+| `projectMigration.concurrency` | `8` | Max concurrent project migrations (1–8) |
+
+**Auto-tune defaults:** When `autoTune` is enabled (or `--auto-tune` CLI flag is used), the following values are calculated based on your hardware:
+
+| Setting | Auto-tune formula |
+|---------|------------------|
+| `maxConcurrency` | CPU cores |
+| `maxMemoryMB` | 75% of total RAM (max 16GB) |
+| `sourceExtraction.concurrency` | CPU cores x 2 |
+| `hotspotExtraction.concurrency` | CPU cores x 2 |
+| `issueSync.concurrency` | CPU cores |
+| `hotspotSync.concurrency` | min(max(CPU/2, 3), 5) |
+| `projectMigration.concurrency` | max(1, CPU/3) |
+
+Explicit config values or CLI flags override auto-tuned values.
 
 **CLI overrides:** Performance settings can be overridden via CLI flags. Available flags vary by command:
 
@@ -235,10 +274,19 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `--max-memory <mb>` | Set max heap size in MB | `transfer`, `migrate`, `sync-metadata`, `verify` |
 | `--project-concurrency <n>` | Max concurrent project migrations | `migrate` |
 | `--skip-all-branch-sync` | Only sync the main branch (skip non-main branches). Equivalent to setting `syncAllBranches: false` in the `transfer` section | `transfer`, `migrate`, `sync-metadata` |
-| `--force-restart` | Discard checkpoint journal and start a fresh transfer | `transfer` |
+| `--force-restart` | Discard checkpoint/migration journal and start fresh | `transfer`, `migrate` |
 | `--force-fresh-extract` | Discard extraction caches and re-extract all data | `transfer` |
 | `--force-unlock` | Force release a stale lock file from a previous run | `transfer`, `migrate` |
 | `--show-progress` | Display checkpoint progress table and exit | `transfer` |
+
+**Migrate-specific flags:**
+
+| Flag | Description | Available on |
+|------|-------------|-------------|
+| `--dry-run` | Extract data and generate mapping CSVs without migrating | `migrate` |
+| `--skip-issue-metadata-sync` | Skip syncing issue metadata (statuses, assignments, comments, tags) | `migrate`, `sync-metadata` |
+| `--skip-hotspot-metadata-sync` | Skip syncing hotspot metadata (statuses, comments) | `migrate`, `sync-metadata` |
+| `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarCloud profiles) | `migrate`, `sync-metadata` |
 
 **Selective migration flag:**
 
@@ -269,10 +317,6 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 |------|-------------|-------------|
 | `--wait` | Wait for analysis to complete before returning (default: does not wait) | `transfer`, `migrate` |
 | `--output-dir <path>` | Output directory for verification reports (default: `./verification-output`) | `verify` |
-| `--force-restart` | Discard checkpoint journal and start a fresh transfer | `transfer`, `migrate` |
-| `--force-fresh-extract` | Discard extraction caches and re-extract all data | `transfer` |
-| `--force-unlock` | Force release a stale lock file from a previous run | `transfer`, `migrate` |
-| `--show-progress` | Display checkpoint progress table and exit | `transfer` |
 
 **Example: high-performance migration:**
 

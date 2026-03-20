@@ -105,6 +105,7 @@ See [`examples/migrate-config.example.json`](../examples/migrate-config.example.
 |-------|----------|-------------|
 | `sonarqube.url` | Yes | Full URL of your SonarQube server |
 | `sonarqube.token` | Yes | SonarQube admin API token |
+| `sonarcloud.enterprise.key` | No | Enterprise key — required for portfolio migration (uses Enterprise V2 API) |
 | `sonarcloud.organizations[].key` | Yes | SonarCloud organization key |
 | `sonarcloud.organizations[].token` | Yes | SonarCloud admin API token for this org |
 | `sonarcloud.organizations[].url` | No | SonarCloud URL (default: `https://sonarcloud.io`) |
@@ -112,7 +113,22 @@ See [`examples/migrate-config.example.json`](../examples/migrate-config.example.
 
 > **Tip:** You can set the SonarQube token via the `SONARQUBE_TOKEN` environment variable. SonarCloud tokens must be specified per-org in the config.
 
-> **Project keys:** By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
+> **Project key conflict resolution:** By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool automatically falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. This is especially common in multi-org migrations where different orgs may have projects with overlapping keys. All key conflicts are listed in the migration report.
+
+> **Enterprise key for portfolios:** Portfolios in SonarCloud are enterprise-wide, not per-organization. To migrate portfolios, add `sonarcloud.enterprise.key` to your config. Without it, portfolio migration is skipped. The tool uses the Enterprise V2 API to create portfolios after all organizations have been migrated.
+
+**Example config with enterprise key:**
+```json
+{
+  "sonarcloud": {
+    "enterprise": { "key": "your-enterprise-key" },
+    "organizations": [
+      { "key": "org-one", "token": "token_one" },
+      { "key": "org-two", "token": "token_two" }
+    ]
+  }
+}
+```
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🚀 Step 3: Run the migration (recommended 3-step approach)
@@ -182,6 +198,31 @@ This performs read-only checks comparing SonarQube and SonarCloud data and gener
 ```
 
 > **Resume after interruption:** If the migration is interrupted (CTRL+C, crash, network failure), simply re-run the same command. The migration journal tracks per-org and per-project completion, so already-completed organizations and projects are skipped on resume. Use `--force-restart` to discard the journal and start fresh.
+
+---
+
+## 🏗️ Per-organization resource migration
+
+For each target organization, the tool runs these steps before migrating individual projects:
+
+| # | Step | `--only` component |
+|---|------|--------------------|
+| 1 | Create groups | `permissions` |
+| 2 | Set global permissions | `permissions` |
+| 3 | Create quality gates | `quality-gates` |
+| 4 | Restore quality profiles | `quality-profiles` |
+| 5 | Compare quality profiles (generates diff report) | `quality-profiles` |
+| 6 | Create permission templates | `permission-templates` |
+
+After all organizations are fully migrated, **portfolios** are created at the enterprise level (requires `sonarcloud.enterprise.key`).
+
+### Per-project steps (11 steps per project)
+
+Each project within an organization goes through 11 individually-checkpointed steps — see the [single-org scenario](scenario-single-org.md#-what-happens-per-project-11-steps) for the full breakdown.
+
+### Parallel project extraction
+
+During the extraction phase, the tool fetches branches for all projects concurrently using bounded parallelism (`mapConcurrent`). The concurrency level is controlled by `performance.sourceExtraction.concurrency` in the config or by `--concurrency` on the CLI. This significantly speeds up the data-gathering phase for large SonarQube instances.
 
 ---
 

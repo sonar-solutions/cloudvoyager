@@ -488,6 +488,95 @@ You can verify specific components to save time:
 ./cloudvoyager verify -c migrate-config.json --only permissions
 ```
 
+## 🛑 Error Classes Reference
+
+CloudVoyager uses a hierarchy of custom error classes (defined in `src/shared/utils/errors.js`). Understanding which error you're seeing helps narrow down the root cause:
+
+| Error Class | HTTP Code | When It Occurs |
+|-------------|-----------|----------------|
+| **CloudVoyagerError** | 500 | Base class — all errors below extend this |
+| **ConfigurationError** | 400 | Invalid config file, missing required fields, schema validation failure |
+| **SonarQubeAPIError** | varies | SonarQube API returned an error (includes `endpoint` for debugging) |
+| **SonarCloudAPIError** | varies | SonarCloud API returned an error (includes `endpoint` for debugging) |
+| **AuthenticationError** | 401 | Invalid or expired token for SonarQube or SonarCloud |
+| **ProtobufEncodingError** | 500 | Failed to encode data into protobuf format (may include `data` payload) |
+| **StateError** | 500 | Corrupt state file, failed atomic write, or state inconsistency |
+| **ValidationError** | 400 | Data validation failure (includes `errors` array with details) |
+| **GracefulShutdownError** | 0 | SIGINT/SIGTERM received — not a real failure, used to unwind cleanly |
+| **LockError** | 423 | Another instance is running, or lock held by a different host |
+| **StaleResumeError** | 409 | Checkpoint journal fingerprint mismatch (e.g., project key changed between runs) |
+
+---
+
+## 🔒 Lock File Details
+
+Lock files prevent concurrent runs on the same state file. Key behaviors:
+
+- **Stale detection**: Locks older than **6 hours** are auto-released. The lock includes the PID and hostname of the process that acquired it.
+- **PID check**: On the same machine, the tool checks if the PID in the lock file is still alive. Dead processes' locks are released automatically.
+- **Cross-host locks**: If the lock was created by a different hostname (e.g., NFS-shared state), auto-release does not apply — use `--force-unlock`.
+- **Corrupt lock files**: Treated as stale and overwritten with a warning.
+
+---
+
+## 🧬 Checkpoint Fingerprint Validation
+
+When resuming from a checkpoint journal, the tool validates a session fingerprint against the stored journal. The behavior depends on what changed:
+
+| Field Changed | Behavior |
+|---------------|----------|
+| SonarQube version | **Warning** logged, resume continues |
+| SonarQube URL | **Warning** logged, resume continues |
+| CloudVoyager version | **Warning** logged, resume continues |
+| Project key | **Throws StaleResumeError** — hard fail, requires `--force-restart` |
+
+With `strictResume: true` in config, any fingerprint warning becomes a hard failure.
+
+---
+
+## 🗃️ Extraction Cache TTL
+
+Extraction caches are stored as **gzipped JSON** files in the `cache/` directory. Files older than **7 days** (configurable via `cacheMaxAgeDays`) are automatically purged. Use `--force-fresh-extract` to discard all caches and re-extract from SonarQube.
+
+---
+
+## 🔄 Upload Deduplication on Resume
+
+The checkpoint journal records successful CE task uploads per branch (task ID + timestamp). On resume, if a branch was already uploaded successfully, the upload is skipped. This prevents duplicate CE tasks in SonarCloud after a crash between upload and journal save.
+
+---
+
+## ⏹️ Graceful Shutdown (SIGINT / SIGTERM)
+
+CloudVoyager uses a `ShutdownCoordinator` that handles process signals:
+
+- **First SIGINT/SIGTERM**: Sets a shutdown flag, runs registered cleanup handlers (e.g., saving checkpoint journal), then exits with code 0.
+- **Second SIGINT/SIGTERM**: Forces immediate exit with code 1 — no cleanup.
+
+Between pipeline phases, the tool checks the shutdown flag and throws a `GracefulShutdownError` to unwind cleanly. This ensures the journal is saved and can be resumed later.
+
+---
+
+## 🔤 External Issue `cleanCodeAttribute` Must Be Enum
+
+When migrating issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft), the tool creates external issues. A critical encoding detail:
+
+- The `cleanCodeAttribute` field in the protobuf `AdHocRule` message must be encoded as a **protobuf enum (varint)**, not a string.
+- Despite the proto definition showing `optional string`, SonarCloud's CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
+- Valid enum values: `CONVENTIONAL=1`, `FORMATTED=2`, `IDENTIFIABLE=3`, `CLEAR=4`, `COMPLETE=5`, `EFFICIENT=6`, `LOGICAL=7`, `DISTINCT=8`, `FOCUSED=9`, `MODULAR=10`, `TESTED=11`, `LAWFUL=12`, `RESPECTFUL=13`, `TRUSTWORTHY=14`.
+
+---
+
+## 🕘 SonarQube 9.9 Issue Statuses
+
+SQ 9.9 LTS uses the legacy issue status model with only 5 statuses:
+
+`OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
+
+The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in SQ 9.9. The `sq-9.9` pipeline uses the `statuses` search parameter (not `issueStatuses`) and maps these legacy values during extraction.
+
+---
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts

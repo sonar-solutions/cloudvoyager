@@ -20,7 +20,7 @@ This document describes each feature of the CloudVoyager migration tool in pseud
 12. [Quality Profiles Migration](#12-quality-profiles-migration)
 13. [Permissions & Groups Migration](#13-permissions--groups-migration)
 14. [Organization Mapping & CSV Generation](#14-organization-mapping--csv-generation)
-15. [Version-Aware SonarQube Client](#15-version-aware-sonarqube-client)
+15. [Version Router and Pipeline Selection](#15-version-router-and-pipeline-selection)
 16. [State Management](#16-state-management)
 17. [Configuration & Validation](#17-configuration--validation)
 18. [Performance Tuning](#18-performance-tuning)
@@ -204,8 +204,9 @@ FUNCTION migrateAll(sonarqubeConfig, sonarcloudOrgs, migrateConfig, transferConf
   // --- Generate Organization Mappings ---
   orgAssignments = mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs)
   generateMappingCsvs(orgAssignments, extractedData, mappingsDir)
-  // Produces: projects.csv, quality-gates.csv, quality-profiles.csv,
-  //           groups.csv, permissions.csv, portfolios.csv
+  // Produces 9 CSVs: organizations.csv, projects.csv, group-mappings.csv,
+  //   profile-mappings.csv, gate-mappings.csv, portfolio-mappings.csv,
+  //   template-mappings.csv, global-permissions.csv, user-mappings.csv
 
   // --- Dry Run: Stop Here ---
   IF migrateConfig.dryRun:
@@ -229,7 +230,7 @@ FUNCTION migrateAll(sonarqubeConfig, sonarcloudOrgs, migrateConfig, transferConf
     migrateEnterprisePortfolios(portfolios, projectKeyMap)
 
   // --- Generate Reports ---
-  writeAllReports(results)   // Markdown + PDF
+  writeAllReports(results)   // JSON, Markdown, TXT, PDF (migration-report, executive-summary, performance-report)
   RETURN results
 
 
@@ -245,7 +246,7 @@ FUNCTION migrateOneOrganization(org, projects, extractedData, ...):
   profileMapping = migrateQualityProfiles(extractedData.qualityProfiles, scClient)
   migratePermissionTemplates(extractedData.permTemplates, scClient)
 
-  // --- Migrate Projects ---
+  // --- Migrate Projects (11 steps per project) ---
   FOR EACH project IN projects:
     // 1. Upload scanner report (same as transfer pipeline)
     transferProject(sqConfig, scConfig(project), transferConfig, ...)
@@ -254,19 +255,33 @@ FUNCTION migrateOneOrganization(org, projects, extractedData, ...):
     IF NOT skipIssueMetadataSync:
       syncIssues(project, sqIssues, scClient, sqClient)
 
-    // 3. Sync hotspot metadata
+    // 3. Sync hotspot metadata (status, comments)
     IF NOT skipHotspotMetadataSync:
       syncHotspots(project, sqHotspots, scClient)
 
-    // 4. Configure project
+    // 4. Migrate project settings (non-inherited config values)
     migrateProjectSettings(project, scClient)
+
+    // 5. Migrate project tags
     migrateProjectTags(project, scClient)
+
+    // 6. Migrate project links (CI, docs, issue tracker URLs)
     migrateProjectLinks(project, scClient)
-    assignQualityGate(project, gateMapping, scClient)
-    assignQualityProfiles(project, profileMapping, scClient)
-    migrateProjectPermissions(project, scClient)
+
+    // 7. Migrate new code period definition
     migrateNewCodeDefinition(project, scClient)
+
+    // 8. Migrate DevOps binding (GitHub/GitLab/Azure/Bitbucket)
     migrateDevOpsBinding(project, scClient)
+
+    // 9. Assign quality gate
+    assignQualityGate(project, gateMapping, scClient)
+
+    // 10. Assign quality profiles (per language)
+    assignQualityProfiles(project, profileMapping, scClient)
+
+    // 11. Set project-level permissions
+    migrateProjectPermissions(project, scClient)
 ```
 
 ---
@@ -988,24 +1003,36 @@ FUNCTION mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs
 
 FUNCTION generateMappingCsvs(orgAssignments, extractedData, mappingsDir):
 
-  // projects.csv
+  // 9 CSV files generated:
+
+  // 1. organizations.csv
+  //   Organization key, name, target URL
+
+  // 2. projects.csv
   //   Include | SonarQubeKey | SonarCloudKey | Organization | Branches
   //   yes     | my-project   | my-project    | my-org       | main,develop
 
-  // quality-gates.csv
-  //   Include | QualityGateName | Condition | Metric | Threshold | Operator | Groups
-
-  // quality-profiles.csv
-  //   Include | Language | ProfileName | IsDefault | ParentProfile
-
-  // groups.csv
+  // 3. group-mappings.csv
   //   Include | GroupName | MemberCount
 
-  // permissions.csv
+  // 4. profile-mappings.csv
+  //   Include | Language | ProfileName | IsDefault | ParentProfile
+
+  // 5. gate-mappings.csv
+  //   Include | QualityGateName | Condition | Metric | Threshold | Operator | Groups
+
+  // 6. portfolio-mappings.csv
+  //   Include | PortfolioKey | Name | ProjectCount | Projects
+
+  // 7. template-mappings.csv
+  //   Include | TemplateName | Description | ProjectKeyPattern | Permissions
+
+  // 8. global-permissions.csv
   //   Include | Type | Name | Permission | GroupOrUser
 
-  // portfolios.csv
-  //   Include | PortfolioKey | Name | ProjectCount | Projects
+  // 9. user-mappings.csv
+  //   Include | SonarQubeLogin | SonarCloudLogin
+  //   (User edits SonarCloudLogin to map logins between SQ and SC)
 
   WRITE all CSV files to mappingsDir
   // User reviews/edits, then re-runs without --dry-run

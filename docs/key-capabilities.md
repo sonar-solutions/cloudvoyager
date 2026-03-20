@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 21, 2026 -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -218,6 +218,17 @@ Each report includes an `scm_revision_id` (git commit hash) in its metadata. Son
 ### Branch Name Resolution
 
 The tool resolves the main branch name from SonarCloud (not SonarQube) to avoid mismatches where SonarQube uses "main" but SonarCloud expects "master" or vice versa.
+
+### Multi-Branch Support
+
+CloudVoyager transfers all branches by default (`syncAllBranches: true`), with the main branch always transferred first (SonarCloud's CE requires the main branch report before non-main branches can be submitted). Branch selection can be controlled through:
+
+- **Exclude list** (`excludeBranches` in config) — skip specific branches by name
+- **Include list** (`includeBranches` in config) — only transfer listed branches
+- **CSV-driven selection** — the `projects.csv` mapping file includes a `Branches` column, allowing per-project branch selection during migration
+- **`--skip-all-branch-sync` flag** — only sync the main branch (faster for initial migration)
+
+Completed branches are tracked in the state file, so interrupted transfers skip already-completed branches on resume.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Analysis Wait Mode
@@ -437,11 +448,21 @@ SonarCloud requires globally unique project keys across all organizations. Cloud
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### CSV Generation
 
-The mapping module generates structured CSV files for:
-- Organization assignments (which project goes where)
-- DevOps binding groups (how projects are clustered)
-- Project metadata (names, keys, binding info)
-- Resource mappings (gates, profiles, templates per organization)
+The mapping module generates **9 structured CSV files** for human review and editing before migration:
+
+| CSV File | Contents |
+|----------|----------|
+| `organizations.csv` | Target organization assignments |
+| `projects.csv` | Project keys, names, branches, organization mapping |
+| `group-mappings.csv` | User group definitions and membership counts |
+| `profile-mappings.csv` | Quality profile names, languages, inheritance, defaults |
+| `gate-mappings.csv` | Quality gate names, conditions, metrics, thresholds |
+| `portfolio-mappings.csv` | Portfolio definitions and project associations |
+| `template-mappings.csv` | Permission template definitions and group assignments |
+| `global-permissions.csv` | Organization-wide permission assignments |
+| `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping |
+
+Each CSV includes an `Include` column — setting it to `no` excludes that item from migration. Users edit these CSVs between a `--dry-run` and the actual migration run.
 
 ---
 
@@ -955,13 +976,15 @@ This ensures the verification is comparing exactly the same pairs that were sync
 
 | Metric | Value |
 |--------|-------|
-| Total source lines | ~8,100+ |
-| Source files | 100+ |
+| Total source lines | ~40,000+ (CLI) + ~2,000 (Desktop) |
+| Source files | 322 JS files (CLI) + 24 files (Desktop) |
+| Version-specific pipelines | 4 (sq-9.9, sq-10.0, sq-10.4, sq-2025) — 66 JS files each |
 | SonarQube extractor modules | 24 |
 | SonarCloud migrator modules | 9 |
 | CLI commands | 9 |
 | Report output formats | 6 (JSON, MD, TXT, PDF x3 types) |
 | Supported binary platforms | 6 (all via Node.js SEA) |
+| Mapping CSV types generated | 9 (organizations, projects, groups, profiles, gates, portfolios, templates, global-permissions, user-mappings) |
 | Production dependencies | 9 |
 | Resource types migrated | 12+ per organization |
 
@@ -971,6 +994,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 | Decision | Rationale |
 |----------|-----------|
 | Reverse-engineer scanner protocol | No official migration path exists; this is the only way to avoid re-scanning |
+| Pipeline-per-version (4 pipelines, 66 files each) | No runtime version branching — each SQ version range (9.9, 10.0, 10.4, 2025) has a fully independent pipeline with hardcoded behavior |
 | Zero-dependency concurrency | Avoid bloat; the custom implementation is ~80 lines and covers all use cases |
 | Dual packaging backends (SEA + Bun) | Node.js SEA for stability (default), Bun compile as experimental alternative for faster builds |
 | Inline proto schemas | Eliminate runtime file I/O dependencies for standalone binary compatibility |
@@ -998,6 +1022,7 @@ CloudVoyager Desktop provides a guided wizard interface for users who prefer a v
 **Key features:**
 - **Wizard-based configuration** — step-by-step forms replace manual JSON editing
 - **Live log streaming** — real-time migration output with ANSI color support
+- **Migration graph visualization** — real-time node graph showing migration progress per project/org
 - **Encrypted config storage** — tokens encrypted at rest via electron-store
 - **Cross-platform** — builds for Linux (x64/ARM64), macOS (x64/ARM64), Windows (x64/ARM64)
 - **No CLI knowledge needed** — all options available through the UI with plain-language descriptions
