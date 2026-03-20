@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { detectAndRoute } from '../../version-router.js';
-import { resolvePerformanceConfig, collectEnvironmentInfo } from '../utils/concurrency.js';
+import { mapConcurrent, resolvePerformanceConfig, collectEnvironmentInfo } from '../utils/concurrency.js';
 import { mapProjectsToOrganizations } from '../mapping/org-mapper.js';
 import logger from '../utils/logger.js';
 
@@ -65,12 +65,12 @@ export async function verifyAll(options) {
     // Step 3: Build org → project mapping
     logger.info('=== Step 3: Building organization mappings ===');
     const projectBindings = new Map();
-    for (const project of allProjects) {
+    await mapConcurrent(allProjects, async (project) => {
       try {
         const binding = await sqClient.getProjectBinding(project.key);
         if (binding) projectBindings.set(project.key, binding);
       } catch (_) { /* no binding */ }
-    }
+    }, { concurrency: 10, settled: true });
 
     const orgMapping = mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs);
 
@@ -100,37 +100,35 @@ export async function verifyAll(options) {
 
       const orgResult = { orgKey: org.key, checks: {} };
 
-      // Org-wide checks
-      if (shouldRun('quality-gates')) {
-        logger.info('--- Verifying quality gates ---');
-        orgResult.checks.qualityGates = await safeCheck(() => verifyQualityGates(sqClient, scClient));
-      }
-
-      if (shouldRun('quality-profiles')) {
-        logger.info('--- Verifying quality profiles ---');
-        orgResult.checks.qualityProfiles = await safeCheck(() => verifyQualityProfiles(sqClient, scClient));
-      }
-
-      if (shouldRun('permissions')) {
-        logger.info('--- Verifying groups ---');
-        orgResult.checks.groups = await safeCheck(() => verifyGroups(sqClient, scClient));
-
-        logger.info('--- Verifying global permissions ---');
-        orgResult.checks.globalPermissions = await safeCheck(() => verifyGlobalPermissions(sqClient, scClient));
-
-        logger.info('--- Verifying permission templates ---');
-        orgResult.checks.permissionTemplates = await safeCheck(() => verifyPermissionTemplates(sqClient, scClient));
+      // Org-wide checks (run in parallel)
+      {
+        const orgChecks = [];
+        if (shouldRun('quality-gates')) {
+          logger.info('--- Verifying quality gates ---');
+          orgChecks.push(safeCheck(() => verifyQualityGates(sqClient, scClient)).then(r => { orgResult.checks.qualityGates = r; }));
+        }
+        if (shouldRun('quality-profiles')) {
+          logger.info('--- Verifying quality profiles ---');
+          orgChecks.push(safeCheck(() => verifyQualityProfiles(sqClient, scClient)).then(r => { orgResult.checks.qualityProfiles = r; }));
+        }
+        if (shouldRun('permissions')) {
+          logger.info('--- Verifying groups, global permissions, permission templates ---');
+          orgChecks.push(safeCheck(() => verifyGroups(sqClient, scClient)).then(r => { orgResult.checks.groups = r; }));
+          orgChecks.push(safeCheck(() => verifyGlobalPermissions(sqClient, scClient)).then(r => { orgResult.checks.globalPermissions = r; }));
+          orgChecks.push(safeCheck(() => verifyPermissionTemplates(sqClient, scClient)).then(r => { orgResult.checks.permissionTemplates = r; }));
+        }
+        await Promise.all(orgChecks);
       }
 
       results.orgResults.push(orgResult);
 
-      // Per-project checks
+      // Per-project checks (parallelized across projects)
       const scProjects = await scClient.listProjects();
       const scProjectKeys = new Set(scProjects.map(p => p.key));
+      const projectConcurrency = perfConfig.projectVerification?.concurrency || 3;
 
-      for (let i = 0; i < projects.length; i++) {
-        const project = projects[i];
-        logger.info(`\n--- Project ${i + 1}/${projects.length}: ${project.key} ---`);
+      const projectResults = await mapConcurrent(projects, async (project, idx) => {
+        logger.info(`\n--- Project ${idx + 1}/${projects.length}: ${project.key} ---`);
 
         // Resolve SC project key (same logic as migrate)
         let scProjectKey = project.key;
@@ -151,8 +149,7 @@ export async function verifyAll(options) {
 
         if (!exists) {
           logger.warn(`Project ${scProjectKey} not found in SonarCloud — skipping all checks`);
-          results.projectResults.push(projectResult);
-          continue;
+          return projectResult;
         }
 
         const projectSqClient = new SonarQubeClient({
@@ -163,75 +160,63 @@ export async function verifyAll(options) {
           organization: org.key, projectKey: scProjectKey, rateLimit: rateLimitConfig
         });
 
-        // Branch check
+        // Run all per-project checks in parallel
+        const checks = [];
+
         if (shouldRun('scan-data') || shouldRun('scan-data-all-branches')) {
-          projectResult.checks.branches = await safeCheck(() =>
-            verifyBranches(projectSqClient, projectScClient, scProjectKey)
-          );
+          checks.push(safeCheck(() => verifyBranches(projectSqClient, projectScClient, scProjectKey))
+            .then(r => { projectResult.checks.branches = r; }));
         }
-
-        // Issue check
         if (shouldRun('issue-metadata')) {
-          projectResult.checks.issues = await safeCheck(() =>
-            verifyIssues(projectSqClient, projectScClient, scProjectKey, { concurrency: perfConfig.issueSync?.concurrency || 5 })
-          );
+          checks.push(safeCheck(() => verifyIssues(projectSqClient, projectScClient, scProjectKey, { concurrency: perfConfig.issueSync?.concurrency || 5 }))
+            .then(r => { projectResult.checks.issues = r; }));
         }
-
-        // Hotspot check
         if (shouldRun('hotspot-metadata')) {
-          projectResult.checks.hotspots = await safeCheck(() =>
-            verifyHotspots(projectSqClient, projectScClient, scProjectKey, { concurrency: perfConfig.hotspotSync?.concurrency || 3 })
-          );
+          checks.push(safeCheck(() => verifyHotspots(projectSqClient, projectScClient, scProjectKey, { concurrency: perfConfig.hotspotSync?.concurrency || 3 }))
+            .then(r => { projectResult.checks.hotspots = r; }));
         }
-
-        // Measures check
         if (shouldRun('scan-data')) {
-          projectResult.checks.measures = await safeCheck(() =>
-            verifyMeasures(projectSqClient, projectScClient, scProjectKey)
-          );
+          checks.push(safeCheck(() => verifyMeasures(projectSqClient, projectScClient, scProjectKey))
+            .then(r => { projectResult.checks.measures = r; }));
         }
-
-        // Quality gate assignment
         if (shouldRun('quality-gates')) {
-          projectResult.checks.qualityGate = await safeCheck(() =>
-            verifyProjectQualityGate(projectSqClient, projectScClient, scProjectKey)
-          );
+          checks.push(safeCheck(() => verifyProjectQualityGate(projectSqClient, projectScClient, scProjectKey))
+            .then(r => { projectResult.checks.qualityGate = r; }));
         }
-
-        // Quality profile assignment
         if (shouldRun('quality-profiles')) {
-          projectResult.checks.qualityProfiles = await safeCheck(() =>
-            verifyProjectQualityProfiles(projectSqClient, projectScClient, scProjectKey)
-          );
+          checks.push(safeCheck(() => verifyProjectQualityProfiles(projectSqClient, projectScClient, scProjectKey))
+            .then(r => { projectResult.checks.qualityProfiles = r; }));
         }
-
-        // Project config checks
         if (shouldRun('project-settings')) {
-          projectResult.checks.settings = await safeCheck(() =>
-            verifyProjectSettings(projectSqClient, projectScClient, project.key, scProjectKey)
-          );
-          projectResult.checks.tags = await safeCheck(() =>
-            verifyProjectTags(projectSqClient, projectScClient, scProjectKey)
-          );
-          projectResult.checks.links = await safeCheck(() =>
-            verifyProjectLinks(projectSqClient, projectScClient, project.key, scProjectKey)
-          );
-          projectResult.checks.newCodePeriods = await safeCheck(() =>
-            verifyNewCodePeriods(projectSqClient, projectScClient, project.key, scProjectKey)
-          );
-          projectResult.checks.devopsBinding = await safeCheck(() =>
-            verifyDevOpsBinding(projectSqClient, projectScClient, project.key, scProjectKey)
+          checks.push(
+            safeCheck(() => verifyProjectSettings(projectSqClient, projectScClient, project.key, scProjectKey))
+              .then(r => { projectResult.checks.settings = r; }),
+            safeCheck(() => verifyProjectTags(projectSqClient, projectScClient, scProjectKey))
+              .then(r => { projectResult.checks.tags = r; }),
+            safeCheck(() => verifyProjectLinks(projectSqClient, projectScClient, project.key, scProjectKey))
+              .then(r => { projectResult.checks.links = r; }),
+            safeCheck(() => verifyNewCodePeriods(projectSqClient, projectScClient, project.key, scProjectKey))
+              .then(r => { projectResult.checks.newCodePeriods = r; }),
+            safeCheck(() => verifyDevOpsBinding(projectSqClient, projectScClient, project.key, scProjectKey))
+              .then(r => { projectResult.checks.devopsBinding = r; })
           );
         }
-
-        // Project permissions
         if (shouldRun('permissions')) {
-          projectResult.checks.permissions = await safeCheck(() =>
-            verifyProjectPermissions(projectSqClient, projectScClient, project.key, scProjectKey)
-          );
+          checks.push(safeCheck(() => verifyProjectPermissions(projectSqClient, projectScClient, project.key, scProjectKey))
+            .then(r => { projectResult.checks.permissions = r; }));
         }
 
-        results.projectResults.push(projectResult);
+        await Promise.all(checks);
+        return projectResult;
+      }, { concurrency: projectConcurrency, settled: true });
+
+      // Collect results (handle settled format)
+      for (const r of projectResults) {
+        if (r.status === 'fulfilled') {
+          results.projectResults.push(r.value);
+        } else {
+          logger.error(`Project verification failed: ${r.reason?.message || r.reason}`);
+        }
       }
     }
 
