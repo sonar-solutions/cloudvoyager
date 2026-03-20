@@ -82,6 +82,34 @@ window.MigrationGraph = {
         ['projects', 'issueSync'], ['issueSync', 'hotspotSync'],
       ],
     },
+    verify: {
+      nodes: [
+        { id: 'vConnect',        label: 'Connect',          col: 0, row: 0, yPct: 0.50 },
+        { id: 'vFetchProjects',  label: 'Fetch Projects',   col: 1, row: 0, yPct: 0.30 },
+        { id: 'vBuildMappings',  label: 'Build Mappings',   col: 1, row: 1, yPct: 0.70 },
+        { id: 'vQualityGates',   label: 'Quality Gates',    col: 2, row: 0, yPct: 0.15 },
+        { id: 'vQualityProfiles',label: 'Quality Profiles', col: 2, row: 1, yPct: 0.38 },
+        { id: 'vGroups',         label: 'Groups',           col: 2, row: 2, yPct: 0.62 },
+        { id: 'vPermissions',    label: 'Permissions',      col: 2, row: 3, yPct: 0.85 },
+        { id: 'vProjects',       label: 'Projects',         col: 3, row: 0, yPct: 0.12 },
+        { id: 'vBranches',       label: 'Branches',         col: 3, row: 1, yPct: 0.32 },
+        { id: 'vIssues',         label: 'Issues',           col: 3, row: 2, yPct: 0.52 },
+        { id: 'vHotspots',       label: 'Hotspots',         col: 3, row: 3, yPct: 0.72 },
+        { id: 'vMeasures',       label: 'Measures',         col: 3, row: 4, yPct: 0.92 },
+        { id: 'vPortfolios',     label: 'Portfolios',       col: 4, row: 0, yPct: 0.50 },
+      ],
+      edges: [
+        ['vConnect', 'vFetchProjects'], ['vConnect', 'vBuildMappings'],
+        ['vFetchProjects', 'vQualityGates'], ['vFetchProjects', 'vQualityProfiles'],
+        ['vBuildMappings', 'vGroups'], ['vBuildMappings', 'vPermissions'],
+        ['vQualityGates', 'vProjects'], ['vQualityProfiles', 'vProjects'],
+        ['vGroups', 'vProjects'], ['vPermissions', 'vProjects'],
+        ['vProjects', 'vBranches'], ['vBranches', 'vIssues'],
+        ['vIssues', 'vHotspots'], ['vHotspots', 'vMeasures'],
+        ['vProjects', 'vPortfolios'],
+      ],
+      colPositions: [0.05, 0.22, 0.42, 0.65, 0.92],
+    },
   },
 
   // ── Font ────────────────────────────────────────────────────────
@@ -327,6 +355,171 @@ window.MigrationGraph = {
         ctx.fillRect(cx + s * 0.25, cy - s * 0.35, s * 0.2, s * 0.8);
         break;
 
+      // Verify-mode icons (prefix 'v' stripped for matching, reuse where sensible)
+      case 'vConnect': // Magnifying glass + plug
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.1, cy - s * 0.1, s * 0.35, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + s * 0.15, cy + s * 0.2);
+        ctx.lineTo(cx + s * 0.55, cy + s * 0.6);
+        ctx.stroke();
+        break;
+
+      case 'vFetchProjects': // List with download
+        ctx.strokeRect(cx - s * 0.45, cy - s * 0.6, s * 0.9, s * 1.2);
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.2, cy - s * 0.25);
+        ctx.lineTo(cx + s * 0.25, cy - s * 0.25);
+        ctx.moveTo(cx - s * 0.2, cy + s * 0.05);
+        ctx.lineTo(cx + s * 0.25, cy + s * 0.05);
+        ctx.stroke();
+        break;
+
+      case 'vBuildMappings': // Network/map
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.35, cy - s * 0.3, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + s * 0.35, cy - s * 0.3, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy + s * 0.35, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.2, cy - s * 0.2);
+        ctx.lineTo(cx + s * 0.2, cy - s * 0.2);
+        ctx.moveTo(cx - s * 0.25, cy - s * 0.15);
+        ctx.lineTo(cx - s * 0.1, cy + s * 0.2);
+        ctx.moveTo(cx + s * 0.25, cy - s * 0.15);
+        ctx.lineTo(cx + s * 0.1, cy + s * 0.2);
+        ctx.stroke();
+        break;
+
+      case 'vQualityGates': // Shield with checkmark
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - s * 0.8);
+        ctx.lineTo(cx - s * 0.6, cy - s * 0.4);
+        ctx.lineTo(cx - s * 0.6, cy + s * 0.1);
+        ctx.quadraticCurveTo(cx, cy + s * 0.9, cx, cy + s * 0.9);
+        ctx.quadraticCurveTo(cx, cy + s * 0.9, cx + s * 0.6, cy + s * 0.1);
+        ctx.lineTo(cx + s * 0.6, cy - s * 0.4);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.2, cy);
+        ctx.lineTo(cx - s * 0.05, cy + s * 0.2);
+        ctx.lineTo(cx + s * 0.25, cy - s * 0.15);
+        ctx.stroke();
+        break;
+
+      case 'vQualityProfiles': // Clipboard with checkmark
+        ctx.strokeRect(cx - s * 0.45, cy - s * 0.7, s * 0.9, s * 1.4);
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.2, cy - s * 0.1);
+        ctx.lineTo(cx - s * 0.05, cy + s * 0.1);
+        ctx.lineTo(cx + s * 0.25, cy - s * 0.2);
+        ctx.stroke();
+        break;
+
+      case 'vGroups': // Two people (reuse groups icon)
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.25, cy - s * 0.25, s * 0.25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.25, cy + s * 0.55, s * 0.4, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + s * 0.35, cy - s * 0.15, s * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+
+      case 'vPermissions': // Lock (reuse permissions icon)
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.2, s * 0.35, Math.PI, 0);
+        ctx.stroke();
+        ctx.strokeRect(cx - s * 0.45, cy, s * 0.9, s * 0.65);
+        ctx.beginPath();
+        ctx.arc(cx, cy + s * 0.25, s * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case 'vProjects': // Folder (reuse projects icon)
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.55, cy - s * 0.25);
+        ctx.lineTo(cx - s * 0.55, cy - s * 0.55);
+        ctx.lineTo(cx - s * 0.1, cy - s * 0.55);
+        ctx.lineTo(cx + s * 0.05, cy - s * 0.35);
+        ctx.lineTo(cx + s * 0.55, cy - s * 0.35);
+        ctx.lineTo(cx + s * 0.55, cy + s * 0.55);
+        ctx.lineTo(cx - s * 0.55, cy + s * 0.55);
+        ctx.closePath();
+        ctx.stroke();
+        break;
+
+      case 'vBranches': // Git branch
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.25, cy - s * 0.4, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + s * 0.25, cy - s * 0.4, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy + s * 0.45, s * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.25, cy - s * 0.25);
+        ctx.quadraticCurveTo(cx - s * 0.25, cy + s * 0.15, cx, cy + s * 0.3);
+        ctx.moveTo(cx + s * 0.25, cy - s * 0.25);
+        ctx.quadraticCurveTo(cx + s * 0.25, cy + s * 0.15, cx, cy + s * 0.3);
+        ctx.stroke();
+        break;
+
+      case 'vIssues': // Bug/issue
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - s * 0.15);
+        ctx.lineTo(cx, cy + s * 0.1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy + s * 0.22, s * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case 'vHotspots': // Flame (reuse hotspotSync icon)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + s * 0.6);
+        ctx.quadraticCurveTo(cx - s * 0.5, cy + s * 0.1, cx - s * 0.3, cy - s * 0.3);
+        ctx.quadraticCurveTo(cx - s * 0.1, cy - s * 0.1, cx, cy - s * 0.7);
+        ctx.quadraticCurveTo(cx + s * 0.1, cy - s * 0.1, cx + s * 0.3, cy - s * 0.3);
+        ctx.quadraticCurveTo(cx + s * 0.5, cy + s * 0.1, cx, cy + s * 0.6);
+        ctx.stroke();
+        break;
+
+      case 'vMeasures': // Chart bars (reuse analysis icon)
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.5, cy + s * 0.5);
+        ctx.lineTo(cx - s * 0.5, cy - s * 0.5);
+        ctx.moveTo(cx - s * 0.55, cy + s * 0.5);
+        ctx.lineTo(cx + s * 0.55, cy + s * 0.5);
+        ctx.stroke();
+        ctx.fillRect(cx - s * 0.35, cy + s * 0.1, s * 0.2, s * 0.35);
+        ctx.fillRect(cx - s * 0.05, cy - s * 0.2, s * 0.2, s * 0.65);
+        ctx.fillRect(cx + s * 0.25, cy - s * 0.35, s * 0.2, s * 0.8);
+        break;
+
+      case 'vPortfolios': // Grid (reuse portfolios icon)
+        ctx.strokeRect(cx - s * 0.55, cy - s * 0.4, s * 1.1, s * 0.8);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - s * 0.4);
+        ctx.lineTo(cx, cy + s * 0.4);
+        ctx.moveTo(cx - s * 0.55, cy);
+        ctx.lineTo(cx + s * 0.55, cy);
+        ctx.stroke();
+        break;
+
       default: // Circle dot fallback
         ctx.beginPath();
         ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2);
@@ -355,8 +548,12 @@ window.MigrationGraph = {
     this.container.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d');
 
-    // Theme
+    // Theme — re-read colors when data-theme attribute changes
     this.readThemeColors();
+    this._themeObserver = new MutationObserver(() => this.readThemeColors());
+    this._themeObserver.observe(document.documentElement, {
+      attributes: true, attributeFilter: ['data-theme'],
+    });
 
     // Build graph
     this._buildGraph();
@@ -389,6 +586,10 @@ window.MigrationGraph = {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
+    }
+    if (this._themeObserver) {
+      this._themeObserver.disconnect();
+      this._themeObserver = null;
     }
     if (this.canvas) {
       this.canvas.removeEventListener('mousedown', this._onMouseDown);
@@ -819,8 +1020,9 @@ window.MigrationGraph = {
         color = { r: 210, g: 153, b: 34 };
         alpha = 0.7;
       } else {
-        color = { r: 248, g: 81, b: 73 };
-        alpha = 0.4;
+        const pending = (this.themeColors && this.themeColors.pending) || { r: 110, g: 118, b: 138 };
+        color = pending;
+        alpha = 0.25;
       }
 
       ctx.save();
@@ -991,6 +1193,8 @@ window.MigrationGraph = {
       this._parseTransferLine(line);
     } else if (this.mode === 'sync-metadata') {
       this._parseSyncMetadataLine(line);
+    } else if (this.mode === 'verify') {
+      this._parseVerifyLine(line);
     }
   },
 
@@ -1027,15 +1231,12 @@ window.MigrationGraph = {
       this.setNodeState('qualityGates', 'active');
       return;
     }
-    if (/Restoring.*quality profiles/.test(line)) {
-      this.setNodeState('qualityGates', 'done');
-      return;
-    }
 
-    // Quality Profiles
-    m = line.match(/Restoring (\d+) quality profiles/);
+    // Quality Profiles (also marks quality gates done)
+    m = line.match(/Restoring(?: (\d+))? quality profiles/);
     if (m) {
-      this._setNodeCount('qualityProfiles', m[1]);
+      this.setNodeState('qualityGates', 'done');
+      if (m[1]) this._setNodeCount('qualityProfiles', m[1]);
       this.setNodeState('qualityProfiles', 'active');
       return;
     }
@@ -1194,6 +1395,190 @@ window.MigrationGraph = {
     }
   },
 
+  _parseVerifyLine(line) {
+    let m;
+
+    // Step 1: Connect
+    if (/=== Step 1.*Connecting/.test(line)) {
+      this.setNodeState('vConnect', 'active');
+      return;
+    }
+    if (/Using pipeline/.test(line)) {
+      this.setNodeState('vConnect', 'done');
+      return;
+    }
+
+    // Step 2: Fetch projects
+    if (/=== Step 2.*Fetching project list/.test(line)) {
+      this.setNodeState('vConnect', 'done');
+      this.setNodeState('vFetchProjects', 'active');
+      return;
+    }
+    m = line.match(/Found (\d+) projects in SonarQube/);
+    if (m) {
+      this._setNodeCount('vFetchProjects', m[1]);
+      this.setNodeState('vFetchProjects', 'done');
+      return;
+    }
+
+    // Step 3: Build mappings
+    if (/=== Step 3.*Building organization mappings/.test(line)) {
+      this.setNodeState('vFetchProjects', 'done');
+      this.setNodeState('vBuildMappings', 'active');
+      return;
+    }
+
+    // Org-wide verification checks
+    if (/Verifying organization/.test(line)) {
+      this.setNodeState('vBuildMappings', 'done');
+      return;
+    }
+
+    if (/Verifying quality gates/.test(line)) {
+      this.setNodeState('vQualityGates', 'active');
+      return;
+    }
+    if (/Quality gate verification/.test(line)) {
+      this.setNodeState('vQualityGates', 'done');
+      return;
+    }
+
+    if (/Verifying quality profiles/.test(line)) {
+      this.setNodeState('vQualityProfiles', 'active');
+      return;
+    }
+    if (/Quality profile verification/.test(line)) {
+      this.setNodeState('vQualityProfiles', 'done');
+      return;
+    }
+
+    if (/Verifying groups/.test(line)) {
+      this.setNodeState('vGroups', 'active');
+      return;
+    }
+    if (/Group verification/.test(line)) {
+      this.setNodeState('vGroups', 'done');
+      return;
+    }
+
+    if (/Verifying global permissions|Verifying permission templates/.test(line)) {
+      this.setNodeState('vPermissions', 'active');
+      return;
+    }
+    if (/Permission template verification|Global permission verification/.test(line)) {
+      this.setNodeState('vPermissions', 'done');
+      return;
+    }
+
+    // Per-project checks
+    m = line.match(/--- Project (\d+)\/(\d+)/);
+    if (m) {
+      this._setNodeCount('vProjects', m[1] + '/' + m[2]);
+      const node = this._nodeById('vProjects');
+      if (node && node.state === 'pending') {
+        // Mark org-wide checks done when projects start
+        this.setNodeState('vQualityGates', 'done');
+        this.setNodeState('vQualityProfiles', 'done');
+        this.setNodeState('vGroups', 'done');
+        this.setNodeState('vPermissions', 'done');
+        this.setNodeState('vProjects', 'active');
+      }
+      if (node && node.state === 'active') {
+        node.count = m[1] + '/' + m[2];
+      }
+      // Reset sub-nodes for each new project
+      this._resetVerifySubNodes();
+      return;
+    }
+
+    // Branch verification
+    if (/Branch verification/.test(line)) {
+      this.setNodeState('vBranches', 'active');
+      this.setNodeState('vBranches', 'done');
+      return;
+    }
+
+    // Issue verification
+    if (/Fetching issues from SonarQube/.test(line)) {
+      this.setNodeState('vBranches', 'done');
+      this.setNodeState('vIssues', 'active');
+      return;
+    }
+    if (/Issue verification/.test(line)) {
+      this.setNodeState('vIssues', 'done');
+      return;
+    }
+
+    // Hotspot verification
+    if (/Fetching hotspots from SonarQube|Fetching hotspots for project/.test(line)) {
+      this.setNodeState('vIssues', 'done');
+      this.setNodeState('vHotspots', 'active');
+      return;
+    }
+    if (/Hotspot verification/.test(line)) {
+      this.setNodeState('vHotspots', 'done');
+      return;
+    }
+
+    // Measures verification
+    if (/Fetching measures for project|Measures verification/.test(line)) {
+      this.setNodeState('vHotspots', 'done');
+      this.setNodeState('vMeasures', 'active');
+      if (/Measures verification/.test(line)) {
+        this.setNodeState('vMeasures', 'done');
+      }
+      return;
+    }
+
+    // Project settings/config checks
+    if (/Fetching project settings|Fetching quality gate for|Fetching quality profiles for/.test(line)) {
+      this.setNodeState('vMeasures', 'done');
+      return;
+    }
+
+    // Portfolios
+    if (/Verifying portfolios/.test(line)) {
+      this.setNodeState('vProjects', 'done');
+      this.setNodeState('vBranches', 'done');
+      this.setNodeState('vIssues', 'done');
+      this.setNodeState('vHotspots', 'done');
+      this.setNodeState('vMeasures', 'done');
+      this.setNodeState('vPortfolios', 'active');
+      return;
+    }
+    if (/Portfolio verification/.test(line)) {
+      this.setNodeState('vPortfolios', 'done');
+      return;
+    }
+
+    // Overall completion
+    if (/Verification complete|=== Verification Summary ===/.test(line)) {
+      this.setNodeState('vProjects', 'done');
+      this.setNodeState('vBranches', 'done');
+      this.setNodeState('vIssues', 'done');
+      this.setNodeState('vHotspots', 'done');
+      this.setNodeState('vMeasures', 'done');
+      this.setNodeState('vPortfolios', 'done');
+      return;
+    }
+  },
+
+  _resetVerifySubNodes() {
+    // Reset per-project sub-nodes so they cycle pending→active→done for each project
+    const subIds = ['vBranches', 'vIssues', 'vHotspots', 'vMeasures'];
+    subIds.forEach(id => {
+      const node = this._nodeById(id);
+      if (node) {
+        node.state = 'pending';
+        node.progress = 0;
+      }
+    });
+    // Remove particles for sub-node edges
+    this.particles = this.particles.filter(p => {
+      return !subIds.some(id => p.key.includes(id));
+    });
+  },
+
   // ── State Transitions ──────────────────────────────────────────
 
   setNodeState(nodeId, newState) {
@@ -1260,13 +1645,16 @@ window.MigrationGraph = {
 
   lerpColor(progress) {
     const p = Math.max(0, Math.min(1, progress));
+    const pending = (this.themeColors && this.themeColors.pending) || { r: 110, g: 118, b: 138 };
     let r, g, b;
     if (p <= 0.5) {
+      // Pending (theme-aware muted) → Amber
       const t = p / 0.5;
-      r = 248 + (210 - 248) * t;
-      g = 81 + (153 - 81) * t;
-      b = 73 + (34 - 73) * t;
+      r = pending.r + (210 - pending.r) * t;
+      g = pending.g + (153 - pending.g) * t;
+      b = pending.b + (34 - pending.b) * t;
     } else {
+      // Amber → Green
       const t = (p - 0.5) / 0.5;
       r = 210 + (63 - 210) * t;
       g = 153 + (185 - 153) * t;
@@ -1299,10 +1687,16 @@ window.MigrationGraph = {
 
   readThemeColors() {
     const styles = getComputedStyle(document.documentElement);
+    const theme = document.documentElement.getAttribute('data-theme');
+    const isDark = theme !== 'light';
     this.themeColors = {
       text: styles.getPropertyValue('--text-primary').trim() || '#e6edf3',
       textMuted: styles.getPropertyValue('--text-muted').trim() || '#7d8590',
       gridLine: styles.getPropertyValue('--glass-border').trim() || 'rgba(74, 125, 255, 0.08)',
+      // Pending: muted slate for dark, muted cool gray for light
+      pending: isDark
+        ? { r: 110, g: 118, b: 138 }
+        : { r: 160, g: 168, b: 185 },
     };
   },
 };

@@ -66,7 +66,7 @@ function buildSummaryTable(results) {
   const s = results.summary;
   const overall = s.failed === 0 && s.errors === 0 ? 'ALL CHECKS PASSED' : `${s.failed} FAILED, ${s.errors} ERRORS`;
 
-  return [
+  const nodes = [
     { text: 'Summary', style: 'heading' },
     {
       table: {
@@ -87,6 +87,52 @@ function buildSummaryTable(results) {
       margin: [0, 0, 0, 10],
     }
   ];
+
+  // List skipped checks with reasons
+  const skippedChecks = collectSkippedChecks(results);
+  if (skippedChecks.length > 0) {
+    nodes.push({ text: 'Skipped Checks', style: 'subheading' });
+    const skipRows = [
+      [{ text: 'Check', style: 'tableHeader' }, { text: 'Context', style: 'tableHeader' }, { text: 'Reason', style: 'tableHeader' }]
+    ];
+    for (const { checkName, context, reason } of skippedChecks) {
+      skipRows.push([checkName, context || '', reason]);
+    }
+    nodes.push({
+      table: { headerRows: 1, widths: [80, 100, '*'], body: skipRows },
+      layout: 'lightHorizontalLines',
+      fontSize: 8,
+      margin: [0, 0, 0, 10],
+    });
+  }
+
+  return nodes;
+}
+
+function collectSkippedChecks(results) {
+  const skipped = [];
+
+  for (const org of results.orgResults) {
+    for (const [name, check] of Object.entries(org.checks || {})) {
+      if (check?.status === 'skipped') {
+        skipped.push({ checkName: name, context: `org: ${org.orgKey}`, reason: check.details || check.error || 'No reason provided' });
+      }
+    }
+  }
+
+  for (const project of results.projectResults) {
+    for (const [name, check] of Object.entries(project.checks || {})) {
+      if (check?.status === 'skipped') {
+        skipped.push({ checkName: name, context: `project: ${project.sqProjectKey}`, reason: check.details || check.error || 'No reason provided' });
+      }
+    }
+  }
+
+  if (results.portfolios?.status === 'skipped') {
+    skipped.push({ checkName: 'Portfolios', context: '', reason: results.portfolios.details || 'No reason provided' });
+  }
+
+  return skipped;
 }
 
 function buildOrgResults(results) {

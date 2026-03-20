@@ -53,6 +53,29 @@ export function logVerificationSummary(results) {
   logger.info(`Errors:        ${s.errors}`);
   logger.info('');
 
+  // List skipped checks with reasons
+  if (s.skipped > 0) {
+    logger.info('--- Skipped Checks ---');
+    for (const org of results.orgResults) {
+      for (const [name, check] of Object.entries(org.checks || {})) {
+        if (check?.status === 'skipped') {
+          logger.info(`  ${name} (org: ${org.orgKey}): ${check.details || check.error || 'No reason provided'}`);
+        }
+      }
+    }
+    for (const project of results.projectResults) {
+      for (const [name, check] of Object.entries(project.checks || {})) {
+        if (check?.status === 'skipped') {
+          logger.info(`  ${name} (project: ${project.sqProjectKey}): ${check.details || check.error || 'No reason provided'}`);
+        }
+      }
+    }
+    if (results.portfolios?.status === 'skipped') {
+      logger.info(`  Portfolios: ${results.portfolios.details || 'No reason provided'}`);
+    }
+    logger.info('');
+  }
+
   if (s.failed === 0 && s.errors === 0) {
     logger.info('Result: ALL CHECKS PASSED');
   } else {
