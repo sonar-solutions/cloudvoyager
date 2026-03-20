@@ -167,7 +167,7 @@ export function mapResourcesToOrganizations(extractedData, orgAssignments) {
   for (const portfolio of (extractedData.portfolios || [])) {
     for (const assignment of orgAssignments) {
       const orgProjects = projectsByOrg.get(assignment.org.key);
-      const hasProject = portfolio.projects.some(p => orgProjects.has(p.key));
+      const hasProject = (portfolio.projects || []).some(p => orgProjects.has(p.key));
       if (hasProject) {
         portfoliosByOrg.get(assignment.org.key).push(portfolio);
       }

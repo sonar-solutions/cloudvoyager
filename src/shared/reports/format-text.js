@@ -103,8 +103,14 @@ function formatNewCodePeriodWarnings(lines, results, subsep) {
   lines.push('');
 }
 
+function getStepIcon(status) {
+  if (status === 'success') return 'OK  ';
+  if (status === 'skipped') return 'SKIP';
+  return 'FAIL';
+}
+
 function formatStepLine(lines, step) {
-  const icon = step.status === 'success' ? 'OK  ' : 'FAIL';
+  const icon = getStepIcon(step.status);
   const detail = step.detail ? ` (${step.detail})` : '';
   lines.push(`  [${icon}] ${step.step}${detail}`);
   if (step.error) {

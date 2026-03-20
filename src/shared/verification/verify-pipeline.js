@@ -146,7 +146,7 @@ export async function verifyAll(options) {
         };
 
         // Existence check
-        const exists = scProjectKeys.has(scProjectKey) || await scClient.projectExists();
+        const exists = scProjectKeys.has(scProjectKey) || await scClient.projectExists(scProjectKey);
         projectResult.checks.existence = { status: exists ? 'pass' : 'fail' };
 
         if (!exists) {

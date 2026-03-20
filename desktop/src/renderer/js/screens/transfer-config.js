@@ -118,7 +118,7 @@ window.TransferConfigScreen = {
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log during transfer' })}
       </div>
 
-      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', this.renderAdvancedHtml())}
+      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', this.renderAdvancedHtml(), true)}
 
       <div class="button-row right">
         <button class="btn btn-secondary" id="btn-back">Back</button>
@@ -180,22 +180,24 @@ window.TransferConfigScreen = {
     const val = (id) => container.querySelector(`#${id}`)?.value;
     const chk = (id) => container.querySelector(`#${id}`)?.checked;
 
-    this.config.rateLimit.maxRetries = parseInt(val('rl-retries'), 10) || 3;
-    this.config.rateLimit.baseDelay = parseInt(val('rl-delay'), 10) || 1000;
-    this.config.rateLimit.minRequestInterval = parseInt(val('rl-interval'), 10) || 0;
+    const numVal = (id, fallback) => { const n = parseInt(val(id), 10); return Number.isNaN(n) ? fallback : n; };
+
+    this.config.rateLimit.maxRetries = numVal('rl-retries', 3);
+    this.config.rateLimit.baseDelay = numVal('rl-delay', 1000);
+    this.config.rateLimit.minRequestInterval = numVal('rl-interval', 0);
 
     this.config.performance.autoTune = chk('perf-autotune') || false;
-    this.config.performance.maxConcurrency = parseInt(val('perf-concurrency'), 10) || 64;
-    this.config.performance.maxMemoryMB = parseInt(val('perf-memory'), 10) || 8192;
-    this.config.performance.sourceExtraction = { concurrency: parseInt(val('perf-source'), 10) || 50 };
-    this.config.performance.hotspotExtraction = { concurrency: parseInt(val('perf-hotspot'), 10) || 50 };
-    this.config.performance.issueSync = { concurrency: parseInt(val('perf-issue-sync'), 10) || 20 };
-    this.config.performance.hotspotSync = { concurrency: parseInt(val('perf-hotspot-sync'), 10) || 20 };
-    this.config.performance.projectMigration = { concurrency: parseInt(val('perf-project'), 10) || 8 };
+    this.config.performance.maxConcurrency = numVal('perf-concurrency', 64);
+    this.config.performance.maxMemoryMB = numVal('perf-memory', 8192);
+    this.config.performance.sourceExtraction = { concurrency: numVal('perf-source', 50) };
+    this.config.performance.hotspotExtraction = { concurrency: numVal('perf-hotspot', 50) };
+    this.config.performance.issueSync = { concurrency: numVal('perf-issue-sync', 20) };
+    this.config.performance.hotspotSync = { concurrency: numVal('perf-hotspot-sync', 20) };
+    this.config.performance.projectMigration = { concurrency: numVal('perf-project', 8) };
 
     this.config.transfer.checkpoint.enabled = chk('cp-enabled') !== false;
     this.config.transfer.checkpoint.cacheExtractions = chk('cp-cache') !== false;
-    this.config.transfer.checkpoint.cacheMaxAgeDays = parseInt(val('cp-maxage'), 10) || 7;
+    this.config.transfer.checkpoint.cacheMaxAgeDays = numVal('cp-maxage', 7);
     this.config.transfer.checkpoint.strictResume = chk('cp-strict') || false;
   },
 
@@ -265,7 +267,20 @@ window.TransferConfigScreen = {
     });
     container.querySelector('#btn-start').addEventListener('click', async () => {
       await this.saveConfig();
+      const checkpoint = await window.cloudvoyager.checkpoint.detect('transfer');
+      if (checkpoint.found) {
+        const choice = await App.showResumeDialog(checkpoint);
+        if (choice === 'cancel') return;
+        if (choice === 'resume') {
+          const args = [];
+          if (this.config._verbose) args.push('--verbose');
+          if (this.config._waitAnalysis) args.push('--wait');
+          App.navigate('execution', { command: 'transfer', args, configType: 'transfer', resumeRunDir: checkpoint.runDir });
+          return;
+        }
+      }
       const args = [];
+      if (checkpoint.found) { args.push('--force-restart', '--force-fresh-extract'); }
       if (this.config._verbose) args.push('--verbose');
       if (this.config._waitAnalysis) args.push('--wait');
       App.navigate('execution', { command: 'transfer', args, configType: 'transfer' });

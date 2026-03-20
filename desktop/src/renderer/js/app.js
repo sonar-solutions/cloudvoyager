@@ -215,6 +215,83 @@ window.App = {
     });
   },
 
+  /**
+   * Show a resume/restart dialog when an incomplete previous run is detected.
+   * Returns a Promise resolving to 'resume', 'fresh', or 'cancel'.
+   */
+  showResumeDialog(checkpoint) {
+    return new Promise((resolve) => {
+      const p = checkpoint.progress;
+      let detail;
+      if (p.totalProjects !== undefined) {
+        detail = `${p.completedProjects}/${p.totalProjects} projects completed across ${p.completedOrgs}/${p.totalOrgs} organizations` +
+          (p.failedProjects ? ` (${p.failedProjects} failed)` : '');
+      } else {
+        detail = `${p.completedPhases}/${p.totalPhases} phases completed` +
+          (p.totalBranches ? `, ${p.completedBranches}/${p.totalBranches} branches` : '') +
+          (p.projectKey ? ` for ${p.projectKey}` : '');
+      }
+
+      let startedLabel = '';
+      try {
+        const d = new Date(checkpoint.startedAt);
+        if (!Number.isNaN(d.getTime())) startedLabel = ` on ${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      } catch { /* ignore */ }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'dialog-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-label', 'Previous Run Found');
+
+      overlay.innerHTML = `
+        <div class="dialog-box" style="max-width:480px">
+          <h3>Previous Run Found</h3>
+          <p>An incomplete run was started${startedLabel} (status: <strong>${checkpoint.status}</strong>).</p>
+          <p style="font-size:0.92em;opacity:0.85;margin-top:4px">${detail}</p>
+          <div class="button-row right" style="gap:8px;margin-top:20px">
+            <button class="btn btn-secondary" data-choice="cancel">Cancel</button>
+            <button class="btn btn-danger" data-choice="fresh">Start Fresh</button>
+            <button class="btn btn-primary" data-choice="resume">Resume</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const buttons = overlay.querySelectorAll('button');
+      const firstBtn = buttons[0];
+      const lastBtn = buttons[buttons.length - 1];
+      lastBtn.focus();
+
+      const trapFocus = (e) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstBtn) {
+            e.preventDefault();
+            lastBtn.focus();
+          } else if (!e.shiftKey && document.activeElement === lastBtn) {
+            e.preventDefault();
+            firstBtn.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          close('cancel');
+        }
+      };
+
+      const close = (choice) => {
+        overlay.removeEventListener('keydown', trapFocus);
+        overlay.remove();
+        resolve(choice);
+      };
+
+      overlay.addEventListener('keydown', trapFocus);
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => close(btn.dataset.choice));
+      });
+    });
+  },
+
   async init() {
     // Display version
     try {

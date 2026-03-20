@@ -18,10 +18,22 @@ export async function extractChangesets(client, sourceFiles, components) {
 
   // Create minimal changeset data for each source file
   for (const file of sourceFiles) {
-    if (!file || !file.key) { logger.warn('Skipping file without key in changesets extraction'); continue; }
+    if (!file?.key) { logger.warn('Skipping file without key in changesets extraction'); continue; }
     try {
-      // Use actual source file line count
-      const lineCount = file.lines ? file.lines.length : 1;
+      // Use actual source file line count.
+      // file.lines may be an array (SourceFileData) or undefined (raw API component).
+      // If it's a string (unlikely), split by newlines to count lines.
+      let lineCount = 1;
+      if (Array.isArray(file.lines)) {
+        lineCount = file.lines.length;
+      } else if (typeof file.lines === 'string') {
+        lineCount = file.lines.split('\n').length;
+      } else {
+        // Fallback: look up line count from components measures
+        const comp = components?.find?.(c => c.key === file.key);
+        const linesMeasure = comp?.measures?.find?.(m => m.metric === 'lines');
+        lineCount = linesMeasure ? Number.parseInt(linesMeasure.value, 10) || 1 : 1;
+      }
 
       // Create minimal changeset: single changeset for all lines
       // changesetIndexByLine maps each line to its changeset index (0-based)

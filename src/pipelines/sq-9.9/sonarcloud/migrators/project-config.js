@@ -142,7 +142,7 @@ export async function migrateDevOpsBinding(projectKey, binding, client) {
         await client.setGitlabBinding(projectKey, binding.key, binding.repository);
         break;
       case 'azure':
-        await client.setAzureBinding(projectKey, binding.key, binding.repository, binding.slug);
+        await client.setAzureBinding(projectKey, binding.key, binding.slug, binding.repository);
         break;
       case 'bitbucket':
       case 'bitbucketcloud':

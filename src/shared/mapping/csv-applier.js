@@ -219,7 +219,7 @@ function applyTemplateMappingsCsv(csvData, permissionTemplates) {
   let excludedCount = 0;
   const filteredTemplates = [];
 
-  for (const template of permissionTemplates.templates) {
+  for (const template of (permissionTemplates.templates || [])) {
     const rows = templateRows.get(template.name);
     if (!rows) {
       filteredTemplates.push(template);

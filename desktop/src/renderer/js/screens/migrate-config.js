@@ -187,7 +187,7 @@ window.MigrateConfigScreen = {
         ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}
       </div>
 
-      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }))}
+      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }), true)}
 
       <div class="button-row right">
         <button class="btn btn-secondary" id="btn-back">Back</button>
@@ -283,13 +283,26 @@ window.MigrateConfigScreen = {
     });
     container.querySelector('#btn-start').addEventListener('click', async () => {
       await this.saveConfig();
-      const args = ['--force-restart'];
-      if (this.config._verbose) args.push('--verbose');
-      if (this.config._waitAnalysis) args.push('--wait');
-      if (this.config._onlyComponents && this.config._onlyComponents.length > 0) {
-        args.push('--only', this.config._onlyComponents.join(','));
+      const buildArgs = (extra = []) => {
+        const args = [...extra];
+        if (this.config._verbose) args.push('--verbose');
+        if (this.config._waitAnalysis) args.push('--wait');
+        if (this.config._onlyComponents && this.config._onlyComponents.length > 0) {
+          args.push('--only', this.config._onlyComponents.join(','));
+        }
+        return args;
+      };
+      const checkpoint = await window.cloudvoyager.checkpoint.detect('migrate');
+      if (checkpoint.found) {
+        const choice = await App.showResumeDialog(checkpoint);
+        if (choice === 'cancel') return;
+        if (choice === 'resume') {
+          App.navigate('execution', { command: 'migrate', args: buildArgs(), configType: 'migrate', resumeRunDir: checkpoint.runDir });
+          return;
+        }
       }
-      App.navigate('execution', { command: 'migrate', args, configType: 'migrate' });
+      const freshArgs = checkpoint.found ? ['--force-restart'] : [];
+      App.navigate('execution', { command: 'migrate', args: buildArgs(freshArgs), configType: 'migrate' });
     });
     container.querySelectorAll('[data-edit-step]').forEach(btn => {
       btn.addEventListener('click', () => {

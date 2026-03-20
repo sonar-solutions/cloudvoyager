@@ -45,7 +45,16 @@ export async function migrateQualityProfiles(extractedProfiles, client) {
   await restoreProfileChains(chains, restored, profileMapping, client);
   await restoreRemainingProfiles(customProfiles, restored, profileMapping, client);
 
-  // 2. Restore built-in profiles as custom profiles with renamed XML
+  // 2. Restore built-in profiles as custom profiles with renamed XML.
+  //    Skip if a profile with the migrated name already exists in SC (idempotent).
+  let existingScProfiles = [];
+  try {
+    existingScProfiles = await client.searchQualityProfiles() || [];
+  } catch (error) {
+    logger.debug(`Could not fetch existing SC profiles for dedup check: ${error.message}`);
+  }
+  const existingProfileNames = new Set(existingScProfiles.map(p => `${p.language}:${p.name}`));
+
   for (const profile of builtInProfiles) {
     if (!profile.backupXml) {
       logger.warn(`No backup XML for built-in profile ${profile.name} (${profile.language}), skipping`);
@@ -53,6 +62,16 @@ export async function migrateQualityProfiles(extractedProfiles, client) {
     }
 
     const migratedName = profile.name + MIGRATED_SUFFIX;
+
+    // Skip if already exists in SonarCloud (from a previous migration run)
+    if (existingProfileNames.has(`${profile.language}:${migratedName}`)) {
+      logger.info(`Built-in profile already migrated: ${migratedName} (${profile.language}), skipping restore`);
+      profileMapping.set(profile.key, migratedName);
+      builtInProfileMapping.set(profile.language, migratedName);
+      restored.add(profile.key);
+      continue;
+    }
+
     const renamedXml = renameBuiltInBackupXml(profile.backupXml, profile.name);
 
     try {

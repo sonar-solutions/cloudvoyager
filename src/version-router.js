@@ -24,7 +24,7 @@ export function resolvePipelineId(v) {
     return 'sq-9.9';
   }
   if (v.major >= 2025) return 'sq-2025';
-  if (v.major >= 10 && v.minor >= 4) return 'sq-10.4';
+  if ((v.major === 10 && v.minor >= 4) || (v.major > 10 && v.major < 2025)) return 'sq-10.4';
   if (v.major >= 10) return 'sq-10.0';
   return 'sq-9.9';
 }

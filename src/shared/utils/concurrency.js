@@ -29,8 +29,10 @@ export async function mapConcurrent(items, fn, { concurrency = 8, settled = fals
   // Worker-pool pattern: each worker pulls the next item as soon as it finishes,
   // so only `concurrency` items are ever in-flight simultaneously and the queue
   // never grows beyond the number of active workers regardless of input size.
+  let aborted = false;
+
   async function worker() {
-    while (nextIndex < items.length) {
+    while (nextIndex < items.length && !aborted) {
       const index = nextIndex++;
       try {
         const result = await fn(items[index], index);
@@ -40,7 +42,10 @@ export async function mapConcurrent(items, fn, { concurrency = 8, settled = fals
       } catch (error) {
         completed++;
         if (onProgress) onProgress(completed, items.length);
-        if (!settled) throw error;
+        if (!settled) {
+          aborted = true;
+          throw error;
+        }
         results[index] = { status: 'rejected', reason: error };
       }
     }

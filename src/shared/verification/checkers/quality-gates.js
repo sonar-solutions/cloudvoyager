@@ -131,6 +131,11 @@ function compareConditions(sqConditions, scConditions) {
     scCondMap.set(c.metric, c);
   }
 
+  const sqCondMap = new Map();
+  for (const c of sqConditions) {
+    sqCondMap.set(c.metric, c);
+  }
+
   for (const sqCond of sqConditions) {
     const scCond = scCondMap.get(sqCond.metric);
     if (!scCond) {
@@ -146,6 +151,13 @@ function compareConditions(sqConditions, scConditions) {
         scOp: scCond.op,
         scValue: scCond.error
       });
+    }
+  }
+
+  // Check for extra conditions in SC that don't exist in SQ
+  for (const scCond of scConditions) {
+    if (!sqCondMap.has(scCond.metric)) {
+      mismatches.push({ metric: scCond.metric, type: 'extra', scValue: scCond.error });
     }
   }
 
