@@ -18,10 +18,10 @@ window.SyncMetadataConfigScreen = {
     this.config = stored || {
       sonarqube: { url: '', token: '' },
       sonarcloud: { enterprise: { key: '' }, organizations: [] },
-      transfer: { mode: 'full', batchSize: 100, syncAllBranches: true },
+      transfer: { mode: 'full', batchSize: 100, syncAllBranches: true, excludeBranches: [], checkpoint: { enabled: true, cacheExtractions: true, cacheMaxAgeDays: 7, strictResume: false } },
       migrate: { outputDir: './migration-output', skipIssueMetadataSync: false, skipHotspotMetadataSync: false, skipQualityProfileSync: false },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
-      performance: { autoTune: false, maxConcurrency: 8, maxMemoryMB: 0 }
+      performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     };
     this.config._verbose = this.config._verbose || false;
     this.config._skipIssueSync = this.config._skipIssueSync || false;
@@ -161,6 +161,8 @@ window.SyncMetadataConfigScreen = {
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log' })}
       </div>
 
+      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }), true)}
+
       <div class="button-row spread">
         <button class="btn btn-secondary" id="btn-back">Back</button>
         <div style="display:flex;gap:12px">
@@ -170,8 +172,10 @@ window.SyncMetadataConfigScreen = {
       </div>
     `;
 
+    ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 1));
     container.querySelector('#btn-test').addEventListener('click', async () => {
+      TransferConfigScreen.readAdvancedValues.call({ config: this.config }, container);
       await this.saveConfig();
       App.navigate('connection-test', { command: 'test', configType: 'migrate', returnTo: 'sync-metadata-config' });
     });
@@ -181,6 +185,7 @@ window.SyncMetadataConfigScreen = {
       this.config._skipHotspotSync = container.querySelector('#skip-hotspot-meta')?.checked || false;
       this.config._skipQPSync = container.querySelector('#skip-qp-sync')?.checked || false;
       this.config._skipBranches = container.querySelector('#skip-branches')?.checked || false;
+      TransferConfigScreen.readAdvancedValues.call({ config: this.config }, container);
       await this.saveConfig();
 
       const args = [];
