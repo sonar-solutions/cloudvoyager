@@ -1,7 +1,8 @@
 // Ensure we're running as Electron, not as Node
 delete process.env.ELECTRON_RUN_AS_NODE;
 
-const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, globalShortcut } = require('electron');
+const fs = require('node:fs');
 const path = require('path');
 const { loadConfig, saveConfig } = require('./config-store');
 const { registerIpcHandlers } = require('./ipc-handlers');
@@ -51,6 +52,17 @@ function createWindow() {
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
+
+  // F6: capture screenshot to /tmp for debugging
+  mainWindow.webContents.on('before-input-event', async (_event, input) => {
+    if (input.key === 'F6' && input.type === 'keyDown') {
+      const image = await mainWindow.webContents.capturePage();
+      const ts = Date.now();
+      const filePath = `/tmp/cloudvoyager-screenshot-${ts}.png`;
+      fs.writeFileSync(filePath, image.toPNG());
+      console.log(`[devtools] Screenshot saved: ${filePath}`);
+    }
+  });
 }
 
 function getMainWindow() {

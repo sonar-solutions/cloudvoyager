@@ -52,9 +52,10 @@ window.ConnectionTestScreen = {
       }
     });
 
-    // Start the test
+    // Start the test — pass configType so the main process loads the correct config
     try {
-      await window.cloudvoyager.cli.run('test', ['--verbose']);
+      const configType = (this.params && this.params.configType) || 'transfer';
+      await window.cloudvoyager.cli.run('test', ['--verbose'], configType);
     } catch (err) {
       container.querySelector('#test-status').innerHTML = `<span class="badge badge-failed">${ConfigForm.icon('warning')} Error: ${err.message}</span>`;
       container.querySelector('#btn-back').disabled = false;

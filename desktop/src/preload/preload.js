@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('cloudvoyager', {
     saveKey: (key, value) => ipcRenderer.invoke('config:save-key', key, value)
   },
   cli: {
-    run: (command, args) => ipcRenderer.invoke('cli:run', command, args),
+    run: (command, args, configType) => ipcRenderer.invoke('cli:run', command, args, configType),
     cancel: () => ipcRenderer.invoke('cli:cancel'),
     onLog: (callback) => {
       const handler = (_event, data) => callback(data);
@@ -40,5 +40,8 @@ contextBridge.exposeInMainWorld('cloudvoyager', {
     onSystemChange: (cb) => {
       ipcRenderer.on('theme:system-changed', (_event, isDark) => cb(isDark));
     }
+  },
+  devtools: {
+    capture: () => ipcRenderer.invoke('devtools:capture')
   }
 });

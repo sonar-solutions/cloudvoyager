@@ -29,9 +29,13 @@ function registerIpcHandlers(getMainWindow) {
   });
 
   // CLI handlers
-  ipcMain.handle('cli:run', (_event, command, args) => {
+  ipcMain.handle('cli:run', (_event, command, args, configType) => {
     const allConfig = loadAll();
-    const isTransfer = ['transfer', 'test', 'validate', 'status', 'reset'].includes(command);
+    // Use explicit configType when provided (e.g. from connection-test screen),
+    // otherwise infer from the command name for backward compatibility.
+    const isTransfer = configType
+      ? configType === 'transfer'
+      : ['transfer', 'test', 'validate', 'status', 'reset'].includes(command);
     const config = isTransfer ? allConfig.transferConfig : allConfig.migrateConfig;
     const envVars = allConfig.envVars || {};
 
@@ -159,6 +163,17 @@ function registerIpcHandlers(getMainWindow) {
     } catch {
       return null;
     }
+  });
+
+  // DevTools: screenshot capture for debugging
+  ipcMain.handle('devtools:capture', async () => {
+    const win = getMainWindow();
+    if (!win || win.isDestroyed()) return null;
+    const image = await win.webContents.capturePage();
+    const png = image.toPNG();
+    const filePath = '/tmp/cloudvoyager-screenshot.png';
+    fs.writeFileSync(filePath, png);
+    return filePath;
   });
 
   // App info handlers

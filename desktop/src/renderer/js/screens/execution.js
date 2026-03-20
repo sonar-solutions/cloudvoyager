@@ -49,6 +49,7 @@ window.ExecutionScreen = {
           <div class="whale-phase-label" id="whale-phase" aria-live="polite"></div>
         </div>
       </div>
+      <div id="migration-graph-container" class="migration-graph-container"></div>
       <div id="exec-log"></div>
       <div class="button-row right" style="margin-top:16px">
         <button class="btn btn-secondary" id="btn-home" disabled>Back to Home</button>
@@ -60,6 +61,17 @@ window.ExecutionScreen = {
     // Setup log viewer
     const logContainer = container.querySelector('#exec-log');
     LogViewer.create(logContainer);
+
+    // Initialize migration graph if applicable
+    const graphMode = (commandLabel === 'transfer') ? 'transfer'
+      : (commandLabel === 'migrate') ? 'migrate'
+      : (commandLabel === 'sync-metadata') ? 'sync-metadata'
+      : null;
+    if (graphMode && typeof MigrationGraph !== 'undefined') {
+      const graphContainer = container.querySelector('#migration-graph-container');
+      MigrationGraph.create(graphContainer, graphMode);
+      logContainer.classList.add('log-container-with-graph');
+    }
 
     // Draw pixel whale sprite
     this.drawWhale();
@@ -74,6 +86,9 @@ window.ExecutionScreen = {
     this.unsubLog = window.cloudvoyager.cli.onLog((data) => {
       LogViewer.addLine(data);
       this.parseProgress(data.line);
+      if (typeof MigrationGraph !== 'undefined' && MigrationGraph.canvas) {
+        MigrationGraph.updateFromLog(data.line);
+      }
 
       // Add flash effect to the newest log line
       const logOutput = document.querySelector('.log-output');
@@ -184,7 +199,8 @@ window.ExecutionScreen = {
     // Start the command
     try {
       const args = this.params.args || [];
-      const result = await window.cloudvoyager.cli.run(this.params.command, args);
+      const configType = (this.params && this.params.configType) || undefined;
+      const result = await window.cloudvoyager.cli.run(this.params.command, args, configType);
       this.runReportsDir = result?.reportsDir || null;
     } catch (err) {
       this.isRunning = false;
@@ -204,6 +220,7 @@ window.ExecutionScreen = {
     if (this.whaleAnimInterval) { clearInterval(this.whaleAnimInterval); this.whaleAnimInterval = null; }
     if (this.typewriterInterval) { clearInterval(this.typewriterInterval); this.typewriterInterval = null; }
     if (this.starfieldTwinkleInterval) { clearInterval(this.starfieldTwinkleInterval); this.starfieldTwinkleInterval = null; }
+    if (typeof MigrationGraph !== 'undefined' && MigrationGraph.destroy) { MigrationGraph.destroy(); }
   },
 
   async recordHistory(commandLabel) {
