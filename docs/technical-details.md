@@ -264,7 +264,15 @@ Each transfer creates a checkpoint journal file alongside the state file:
 - **CheckpointJournal**: Phase-level tracking (10+ phases per branch), session fingerprint validation
 - **LockFile**: PID-based with 6h stale auto-release, re-entrant for same PID
 - **ExtractionCache**: Gzipped JSON with metadata envelope, 7-day default TTL
-- **MigrationJournal**: Org/project/step-level tracking for multi-org resume
+- **MigrationJournal**: Org/project/step-level tracking for multi-org resume, using a `completedSteps` array (supports parallel step completion; backward-compatible with old `lastCompletedStep` format on read)
+
+### Concurrent Safety
+
+Both `CheckpointJournal` and `MigrationJournal` use an in-process async mutex (`_withLock()`) to serialize all mutating operations. This prevents read-modify-write races when multiple branches or projects are transferred in parallel. All methods that modify journal state (start/complete/fail phase, record upload, mark interrupted, etc.) acquire the lock before reading and release it after writing.
+
+### Shared POST Throttler
+
+When multiple `SonarCloudClient` instances exist within an org (one per concurrent project migration), they share a single throttle state object (`sharedThrottler`) for POST requests. The throttler reserves the time slot before sleeping, preventing concurrent requests from bypassing the `minRequestInterval`.
 
 ### Atomic State Persistence
 
