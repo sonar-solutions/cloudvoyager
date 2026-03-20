@@ -1313,7 +1313,7 @@ window.MigrationGraph = {
     }
 
     // Per-project sub-phases: Project Config
-    if (/Migrating.*project settings|Setting quality gate|Setting quality profiles|Setting permissions for|Project settings|Project tags|Project links|New code definitions|DevOps binding|Assign quality gate|Assign quality profiles|Project permissions/.test(line)) {
+    if (!/^Extracting /.test(line) && /Migrating.*project settings|Setting quality gate|Setting quality profiles|Setting permissions for|Project settings|Project tags|Project links|New code definitions|DevOps binding|Assign quality gate|Assign quality profiles|Project permissions/.test(line)) {
       this.setNodeState('projectConfig', 'active');
       return;
     }
