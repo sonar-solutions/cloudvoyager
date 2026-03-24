@@ -34,6 +34,8 @@ Prefer a visual interface? **CloudVoyager Desktop** provides a guided wizard UI 
 
 Download the latest version from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
 
+**NEXT, IMPORTANT STEP**: If you are running this on MacOS, open your Terminal and unblock permissions by running this command: `xattr -cr "CloudVoyager Desktop.app"`. This only happens for MacOS due to MacOS in-built Gatekeeper permissions. For Windows and Linux users, you will not face this issue
+
 See the [Desktop App Guide](docs/desktop-app.md) for setup instructions and a walkthrough of the wizard.
 
 <!-- Updated: 2026-02-18 -->
