@@ -1,4 +1,4 @@
-**⚠️ IMPORTANT NOTE: This tool is still experimental, and the known bugs are documented here --> https://github.com/sonar-solutions/cloudvoyager/issues**
+**⚠️ IMPORTANT NOTE: This tool is still experimental, and the known bugs are documented here: https://github.com/sonar-solutions/cloudvoyager/issues**
 
 ---
 
