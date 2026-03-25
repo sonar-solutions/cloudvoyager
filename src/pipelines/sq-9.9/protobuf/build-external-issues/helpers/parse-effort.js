@@ -1,0 +1,13 @@
+// -------- Parse SonarQube Effort String to Minutes --------
+
+export function parseEffortToMinutes(effort) {
+  if (!effort) return 0;
+  if (typeof effort === 'number') return effort;
+
+  let minutes = 0;
+  const hourMatch = effort.match(/(\d+)h/);
+  const minMatch = effort.match(/(\d+)min/);
+  if (hourMatch) minutes += Number.parseInt(hourMatch[1], 10) * 60;
+  if (minMatch) minutes += Number.parseInt(minMatch[1], 10);
+  return minutes;
+}
