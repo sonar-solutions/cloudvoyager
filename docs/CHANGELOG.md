@@ -4,6 +4,61 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [1.1.4] - 2026-03-25
+
+### Pipeline Modularization and New Components
+
+Refactored project migration into modular components and added new capabilities across all 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025).
+
+#### Pipeline Decomposition
+- **project-config-migrator.js** — Extracted project config migration into its own module (settings, tags, links, new code periods, DevOps binding, quality gate/profile assignment, permissions). Uses journal-guarded steps for pause/resume.
+- **project-core-migrator.js** — Extracted core project migration (scanner report upload + project config) as Phase 1 of project migration. Returns context needed for Phase 2.
+- **project-metadata-sync.js** — Extracted issue + hotspot metadata sync as Phase 2 of project migration. Runs issue and hotspot sync in parallel.
+- **transfer-branch.js** — Extracted single-branch build→encode→upload pipeline into its own module, used by both transfer and migrate commands.
+
+#### Report Packaging and CE Submission
+- **report-packager.js** — Extracted scanner report ZIP creation into its own module. Handles all protobuf file types (metadata, components, issues, external issues, ad-hoc rules, measures, duplications, changesets, sources, active rules, context-props).
+- **ce-submitter.js** — Extracted CE submission with robust retry mechanism: submit → timeout fallback to `/api/ce/activity` polling (5 checks) → re-submit → poll again → fail with descriptive error.
+
+#### Issue Status Mapping
+- **issue-status-mapper.js** — Extracted issue status transition mapping from changelog diffs. Maps SonarQube status changes (CONFIRMED, REOPENED, RESOLVED, CLOSED, ACCEPTED, FALSE-POSITIVE, WONTFIX) to SonarCloud transitions. Handles SQ 10.4+ where WONTFIX/FALSE-POSITIVE appear as direct status values.
+
+#### Checkpoint-Aware Extraction
+- **checkpoint-extractor.js** — Extracted checkpoint-aware data extraction with journal + cache support. Implements 13-phase extraction pipeline (project metadata, metrics, components, source files, rules, issues, hotspots, measures, sources, duplications, changesets, symbols, syntax highlighting) with per-phase caching and resume capability. Also supports branch-specific extraction.
+
+#### CSV Entity Filtering
+- **csv-entity-filters.js** — New shared module for filtering extracted entities using dry-run CSV overrides. Supports filtering quality gates, quality profiles, groups, global permissions, permission templates, portfolios, and user mappings by Include column.
+
+#### Verification Report Modularization
+- **markdown-sections/** and **pdf-sections/** — Modularized verification report generation into separate section modules (detail-sections.js, project-results.js) for both Markdown and PDF formats.
+
+#### Desktop App Enhancements
+- **progress-parser.js** — New component that parses CLI log output in real-time to compute progress percentages and ETA for all three pipeline types (migrate, transfer, verify). Tracks per-project sub-phases and displays remaining time estimates.
+- **whale-animator.js** — New component rendering a pixel-art whale sprite animation with starfield, cloud parallax, and typewriter phase labels during execution. Supports dark/light themes.
+
+#### Files Added (per pipeline × 4 versions)
+- `src/pipelines/sq-{version}/pipeline/project-config-migrator.js`
+- `src/pipelines/sq-{version}/pipeline/project-core-migrator.js`
+- `src/pipelines/sq-{version}/pipeline/project-metadata-sync.js`
+- `src/pipelines/sq-{version}/sonarcloud/ce-submitter.js`
+- `src/pipelines/sq-{version}/sonarcloud/migrators/issue-status-mapper.js`
+- `src/pipelines/sq-{version}/sonarcloud/report-packager.js`
+- `src/pipelines/sq-{version}/sonarqube/extractors/checkpoint-extractor.js`
+- `src/pipelines/sq-{version}/transfer-branch.js`
+
+#### Files Added (shared)
+- `src/shared/mapping/csv-entity-filters.js`
+- `src/shared/verification/reports/markdown-sections/detail-sections.js`
+- `src/shared/verification/reports/markdown-sections/project-results.js`
+- `src/shared/verification/reports/pdf-sections/detail-sections.js`
+- `src/shared/verification/reports/pdf-sections/project-results.js`
+
+#### Files Added (desktop)
+- `desktop/src/renderer/js/components/progress-parser.js`
+- `desktop/src/renderer/js/components/whale-animator.js`
+
+---
+
 ## [Documentation] - 2026-03-20
 
 ### Updated

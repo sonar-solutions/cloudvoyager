@@ -678,8 +678,8 @@ window.ExecutionScreen = {
    * Transfer pipeline progress layout (0-100%):
    *   0-5%   : Connection test + setup
    *   5-45%  : Data extraction (Steps 1-10)
-   *  45-55%  : Build protobuf
-   *  55-65%  : Encode protobuf
+   *  45-55%  : Preparing upload
+   *  55-65%  : Encoding upload
    *  65-95%  : Upload + wait for analysis
    *  95-100% : Completion
    */
@@ -708,7 +708,7 @@ window.ExecutionScreen = {
     }
     if (line.includes('Building protobuf messages')) {
       this.setProgress(48);
-      this.setPhaseLabel('Building protobuf...');
+      this.setPhaseLabel('Preparing upload...');
       return;
     }
     if (line.includes('Successfully built all protobuf messages')) {

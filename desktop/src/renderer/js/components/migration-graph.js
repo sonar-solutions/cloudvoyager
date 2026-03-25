@@ -84,7 +84,7 @@ window.MigrationGraph = {
       nodes: [
         { id: 'connect',       label: 'Connect',        col: 0, row: 0 },
         { id: 'extract',       label: 'Extract',        col: 1, row: 0 },
-        { id: 'buildProtobuf', label: 'Build Protobuf', col: 2, row: 0 },
+        { id: 'buildProtobuf', label: 'Preparing Upload', col: 2, row: 0 },
         { id: 'upload',        label: 'Upload',         col: 3, row: 0 },
         { id: 'analysis',      label: 'Analysis',       col: 4, row: 0 },
       ],

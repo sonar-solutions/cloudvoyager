@@ -1,6 +1,6 @@
 # Verification
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 
 After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube or SonarCloud.
 
@@ -260,6 +260,18 @@ Same logic as global permissions, but scoped to the project.
 ### Portfolios
 
 Portfolio verification is **always skipped** — it requires Enterprise API access. SQ portfolios are listed in the report for reference.
+
+---
+
+### Report Modularization
+
+Verification report generation has been modularized into separate section modules:
+- `markdown-sections/detail-sections.js` — Per-check detail sections (issues, hotspots, branches, measures, etc.)
+- `markdown-sections/project-results.js` — Per-project result formatting
+- `pdf-sections/detail-sections.js` — PDF equivalents of the markdown detail sections
+- `pdf-sections/project-results.js` — PDF per-project result formatting
+
+This enables easier maintenance and extension of verification reports.
 
 ---
 
