@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 21, 2026 -->
+<!-- Last updated: Mar 25, 2026 -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -33,6 +33,8 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 22. [Migration Verification Pipeline](#22-migration-verification-pipeline)
 23. [Engineering Summary](#23-engineering-summary)
 24. [Desktop Application (Electron GUI)](#24-desktop-application-electron-gui)
+25. [Pipeline Modularization](#25-pipeline-modularization)
+26. [Desktop App Progress Tracking](#26-desktop-app-progress-tracking)
 
 ---
 
@@ -1029,6 +1031,70 @@ CloudVoyager Desktop provides a guided wizard interface for users who prefer a v
 - **Run History sidebar** — lists past successful migration/transfer runs in a sidebar; clicking an entry navigates to the results/reports screen for that run. History persists across app restarts (up to 50 entries stored in electron-store). Each entry displays the command type (Migration/Transfer), date/time, and duration
 
 The desktop app does not embed or import CLI source code. It spawns the platform-specific binary as a child process and communicates via stdout/stderr piping through Electron's IPC layer. This architecture means the CLI and desktop app always have identical migration behavior.
+
+---
+
+<!-- Updated: Mar 25, 2026 -->
+## 25. Pipeline Modularization
+
+CloudVoyager's per-version pipelines have been decomposed into focused, single-responsibility modules:
+
+### Project Migration Phases
+
+Each project migration is split into two phases, each in its own module:
+
+| Phase | Module | Responsibility |
+|-------|--------|---------------|
+| **Phase 1** | `project-core-migrator.js` | Scanner report upload + project config (settings, tags, links, gate, profiles, permissions) |
+| **Phase 2** | `project-metadata-sync.js` | Issue + hotspot metadata sync (parallel) |
+
+Phase 1 returns a context object consumed by Phase 2, enabling clean separation while sharing state.
+
+### Extracted Modules
+
+| Module | Purpose |
+|--------|---------|
+| `project-config-migrator.js` | Journal-guarded project config steps (settings, tags, links, new code periods, DevOps binding, gate assignment, profile assignment, permissions) — all with `Promise.all` parallelism |
+| `transfer-branch.js` | Single-branch build→encode→upload pipeline (protobuf build, encode, upload via CE submitter) |
+| `ce-submitter.js` | CE submission with retry (submit → timeout → activity polling → re-submit → fail) |
+| `report-packager.js` | Scanner report ZIP creation (all protobuf file types + source text + context-props) |
+| `issue-status-mapper.js` | SonarQube→SonarCloud issue status transition mapping with changelog replay and fallback modes |
+| `checkpoint-extractor.js` | 13-phase checkpoint-aware extraction with journal/cache (project metadata through syntax highlighting) |
+
+### CSV Entity Filtering
+
+The shared `csv-entity-filters.js` module enables dry-run CSV overrides for 7 entity types: quality gates, profiles, groups, global permissions, permission templates, portfolios, and user mappings. Each function reads the `Include` column from the CSV and filters the extracted data accordingly.
+
+---
+
+<!-- Updated: Mar 25, 2026 -->
+## 26. Desktop App Progress Tracking
+
+The desktop app now includes real-time progress tracking and a pixel-art whale animation during execution:
+
+### Progress Parser (`progress-parser.js`)
+
+Parses CLI stdout in real-time to compute progress percentages for all three pipeline types:
+
+| Pipeline | Progress Layout |
+|----------|----------------|
+| **migrate** | 0-10% setup → 10-15% org setup → 15-95% per-project (divided equally) → 95-100% finalization |
+| **transfer** | 0-5% connection → 5-45% extraction (10 steps) → 45-65% build+encode → 65-95% upload+analysis → 95-100% done |
+| **verify** | 0-15% connect+fetch+mappings+org checks → 15-93% per-project verification → 93-100% portfolios+summary |
+
+Features: monotonic progress (never goes backward), ETA calculation from recent progress history, per-project sub-phase tracking.
+
+### Whale Animator (`whale-animator.js`)
+
+Renders a pixel-art whale sprite that moves across the screen as progress advances:
+- Two-frame whale animation (tail up/down, water spout) at 450ms interval
+- Twinkling starfield background (40-60 stars with random opacity cycling)
+- Cloud parallax layer that tiles dynamically to window width
+- Typewriter effect for phase labels
+- Dark/light theme support with distinct color palettes
+- Completion state: green trail, animation stops on spout frame
+
+---
 
 ## 📚 Further Reading
 

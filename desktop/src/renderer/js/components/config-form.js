@@ -179,6 +179,44 @@ window.ConfigForm = {
   },
 
   /**
+   * Validate org entries — at least one org required, each with valid fields
+   */
+  validateOrgs(container) {
+    const errors = [];
+    this.clearErrors(container);
+
+    const orgEntries = container.querySelectorAll('.org-entry');
+
+    // Must have at least one organization
+    if (orgEntries.length === 0) {
+      errors.push('At least one organization is required');
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast('Please add at least one SonarCloud organization', 'error');
+      }
+      return { valid: false, errors };
+    }
+
+    // Validate required fields within each org entry
+    orgEntries.forEach((entry) => {
+      const idx = entry.dataset.orgIndex;
+      entry.querySelectorAll('.form-group').forEach(group => {
+        const input = group.querySelector('input');
+        if (!input) return;
+
+        const label = group.querySelector('label')?.textContent?.replace(' *', '') || input.id;
+        const value = input.value.trim();
+
+        if (input.getAttribute('aria-required') === 'true' && !value) {
+          errors.push(`Organization ${Number(idx) + 1}: ${label} is required`);
+          this.setFieldError(group, `${label} is required`);
+        }
+      });
+    });
+
+    return { valid: errors.length === 0, errors };
+  },
+
+  /**
    * Validate form fields in a container
    */
   validate(container) {

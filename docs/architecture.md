@@ -1,8 +1,8 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 25, 2026 -->
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📁 Project Structure
 
 CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
@@ -33,7 +33,8 @@ src/
     │   ├── csv-generator.js            # Generate mapping CSVs for review
     │   ├── csv-tables.js               # CSV table formatting helpers
     │   ├── csv-reader.js               # Parse CSV files from dry-run output
-    │   └── csv-applier.js              # Apply CSV overrides to filter/modify extracted data
+    │   ├── csv-applier.js              # Apply CSV overrides to filter/modify extracted data
+    │   └── csv-entity-filters.js       # CSV-based entity filtering (gates, profiles, groups, permissions, templates, portfolios, users)
     ├── reports/                       # Migration report generation
     │   ├── index.js                    # Report generation orchestrator
     │   ├── shared.js                   # Shared report utilities
@@ -81,7 +82,13 @@ src/
         └── reports/                    # Verification report generation
             ├── index.js                # Report orchestrator (JSON + MD + PDF + console)
             ├── format-markdown.js      # Markdown verification report
-            └── format-pdf.js           # PDF verification report
+            ├── format-pdf.js           # PDF verification report
+            ├── markdown-sections/      # Modularized markdown report sections
+            │   ├── detail-sections.js   # Detailed per-check markdown sections
+            │   └── project-results.js   # Per-project result markdown formatting
+            └── pdf-sections/           # Modularized PDF report sections
+                ├── detail-sections.js   # Detailed per-check PDF sections
+                └── project-results.js   # Per-project result PDF formatting
 ```
 
 ### Version-Specific Pipeline Structure
@@ -91,6 +98,7 @@ Each pipeline under `src/pipelines/sq-{version}/` has an identical directory lay
 ```
 sq-{version}/
 ├── transfer-pipeline.js           # Single-project transfer orchestrator
+├── transfer-branch.js             # Per-branch transfer (build + encode + upload)
 ├── migrate-pipeline.js            # Full multi-org migration orchestrator
 ├── sonarqube/                     # SonarQube integration (version-specific behavior hardcoded)
 │   ├── api-client.js               # HTTP client with pagination, auth, SCM revision
@@ -102,6 +110,7 @@ sq-{version}/
 │   │   └── server-config.js         # Server info, settings, webhooks API methods
 │   └── extractors/                 # Specialized data extractors
 │       ├── index.js                 # DataExtractor orchestrator
+│       ├── checkpoint-extractor.js  # Checkpoint-aware extraction (13 phases + branches)
 │       ├── projects.js, issues.js, hotspots.js, measures.js, sources.js, ...
 │       └── (25+ extractor modules)
 ├── protobuf/                      # Protobuf encoding (version-specific schema/builder)
@@ -119,6 +128,8 @@ sq-{version}/
 ├── sonarcloud/                    # SonarCloud integration (version-specific migrators)
 │   ├── api-client.js               # SonarCloud HTTP client (retry, throttle)
 │   ├── uploader.js                 # Report packaging and CE submission
+│   ├── ce-submitter.js             # CE submission with retry logic (2 attempts, activity fallback)
+│   ├── report-packager.js          # ZIP archive creation matching SonarScanner format
 │   ├── enterprise-client.js        # Enterprise edition API client
 │   ├── rule-enrichment.js          # Rule enrichment from SonarCloud (sq-9.9 uses this)
 │   ├── api/                        # API method modules
@@ -126,15 +137,19 @@ sq-{version}/
 │   └── migrators/                  # SonarCloud migration modules
 │       ├── quality-gates.js, quality-profiles.js, groups.js, permissions.js, ...
 │       ├── issue-sync.js            # Sync issue statuses, assignments, comments, tags
+│       ├── issue-status-mapper.js   # Issue status transition mapping (changelog diff → SC transition)
 │       └── hotspot-sync.js          # Sync hotspot statuses and comments
 └── pipeline/                      # Migration pipeline stages
     ├── extraction.js                # Server-wide data extraction orchestration
     ├── org-migration.js             # Per-organization migration logic
     ├── project-migration.js         # Per-project migration logic
+    ├── project-config-migrator.js   # Project config migration (settings, tags, links, gate, profiles, permissions)
+    ├── project-core-migrator.js     # Phase 1: scanner report upload + project config
+    ├── project-metadata-sync.js     # Phase 2: issue + hotspot metadata sync (parallel)
     └── results.js                   # Migration result tracking and aggregation
 ```
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing
 
 `version-router.js` detects the SonarQube server version and dynamically imports the correct pipeline:
@@ -163,10 +178,10 @@ No runtime version checks exist within any pipeline — each pipeline has its be
 | Clean Code source | SC enrichment map | Native from SQ | Native from SQ | Native from SQ |
 | Groups API | Standard | Standard | Standard | Standard (V2 API fallback) |
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔄 Commands and Pipelines
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### `transfer` — Single Project
 
 Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
@@ -186,7 +201,7 @@ Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 
 Interrupted transfers resume from the last completed checkpoint phase, skipping already-finished steps.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### `migrate` — Full Multi-Org Migration
 
 Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
@@ -217,7 +232,7 @@ Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
 
 On resume, completed organizations and projects are skipped based on the migration journal.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### `verify` — Migration Verification
 
 Uses `shared/verification/verify-pipeline.js`:
@@ -243,7 +258,7 @@ Uses `shared/verification/verify-pipeline.js`:
 5. **Portfolio check** — reference verification (SQ only)
 6. **Generate reports** — JSON, Markdown, PDF, and console summary
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🧩 Key Design Patterns
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
@@ -263,7 +278,7 @@ Uses `shared/verification/verify-pipeline.js`:
   - Project-level steps run in parallel where possible (issue + hotspot sync concurrent, config steps concurrent, gate/profile/permission assignment concurrent)
 - **Shared Throttler Pattern** — SonarCloud API clients within an org share a single POST throttler (`sharedThrottler`) to enforce `minRequestInterval` across all concurrent project migrations, preventing rate limit violations
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## ⚡ Concurrency and Performance
 
 CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurrency.js`) for parallel I/O:
@@ -275,19 +290,19 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurr
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). Each version-specific `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📦 Build and Packaging
 
 CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as the default, stable packaging pipeline. An experimental **Bun compile** pipeline is also available but may silently crash at runtime in some environments.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### Build Process (`scripts/build.js`)
 
 **Default (Node.js SEA):** Two-step — esbuild bundles `src/index.js` into `dist/cli.cjs` (with `.proto` schemas inlined as text), then Node.js SEA packages it into a standalone binary with V8 code cache via postject.
 
 **Experimental (Bun):** Single-step compile — Bun bundles all source files (including `.proto` schemas as text via `--loader .proto:text`) and compiles to a native binary in one command. No intermediate bundle file. Faster builds but less stable at runtime.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### Output Structure
 
 ```
@@ -304,7 +319,7 @@ dist/
     └── cloudvoyager-win-arm64.exe    # Node.js SEA
 ```
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ### Build Commands
 
 ```bash
@@ -319,7 +334,43 @@ CI uses 6 parallel jobs — one per platform. Most build natively on their targe
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
+## 🧪 Regression Testing (CI)
+
+A separate `Regression Tests` workflow runs on every push to `main` and on pull requests. It does **not** block the release workflow.
+
+**4-stage pipeline (visible as a graph in the Actions UI):**
+
+```
+setup → quality (lint + unit-tests) → ┬─ migrate (17 parallel jobs)      ─┬→ summary
+                                       ├─ sync-metadata (4 parallel jobs) ─┤
+                                       └─ verify (9 parallel jobs)        ─┘
+```
+
+- **Stage 1 — Setup:** Install dependencies, cache `node_modules`
+- **Stage 2 — Quality:** ESLint + unit tests with coverage (2 parallel jobs)
+- **Stage 3 — Integration:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files are generated at runtime from GitHub Secrets.
+- **Stage 4 — Summary:** Gate job that only passes when all 30 integration tests pass
+
+**Workflow files:**
+
+| File | Purpose |
+|---|---|
+| `regression.yml` | Orchestrator — triggers, stage sequencing |
+| `regression-setup.yml` | Stage 1: npm ci + cache |
+| `regression-quality.yml` | Stage 2: lint + unit tests |
+| `regression-migrate.yml` | Stage 3a: 17 migrate flag combos |
+| `regression-sync-metadata.yml` | Stage 3b: 4 sync-metadata flag combos |
+| `regression-verify.yml` | Stage 3c: 9 verify flag combos |
+| `regression-summary.yml` | Stage 4: final pass/fail gate |
+
+**Composite actions** (`.github/actions/`):
+- `restore-deps/` — Setup Node.js 18 + restore cached node_modules
+- `generate-config/` — Generate `migrate-config.json` from GitHub Secrets
+
+**Required GitHub Secrets:** `SONARQUBE_URL`, `SONARQUBE_TOKEN`, `SONARCLOUD_URL`, `SONARCLOUD_TOKEN`, `SONARCLOUD_ORG_KEY`, `SONARCLOUD_ENTERPRISE_KEY`
+
+<!-- Updated: Mar 25, 2026 -->
 ## 📄 Generated Report Structure
 
 ```
@@ -339,7 +390,7 @@ scanner-report.zip:
 
 Measures are only generated for file components (no project-level `measures-1.pb`). Components use a flat structure where all files are direct children of the project (no directory components).
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🖥️ Desktop App Architecture
 
 CloudVoyager Desktop is an Electron (v33) application in the `desktop/` directory that wraps the CLI binary with a guided wizard UI.
@@ -366,7 +417,7 @@ desktop/
 │       └── js/
 │           ├── app.js        # Hash-based screen router (9 screens)
 │           ├── screens/      # Wizard screens (welcome, transfer-config, migrate-config, verify-config, sync-metadata-config, connection-test, execution, results, status)
-│           └── components/   # Reusable UI (config-form, log-viewer, migration-graph, wizard-nav, sidebar-history)
+│           └── components/   # Reusable UI (config-form, log-viewer, migration-graph, wizard-nav, sidebar-history, progress-parser, whale-animator)
 ├── resources/
 │   └── cli/                  # CLI binary placed here at build time
 └── assets/                   # App icons (PNG, ICNS, ICO)
@@ -382,6 +433,8 @@ desktop/
 6. **Run History** — Successful runs are recorded in `electron-store` and displayed in a sidebar list for quick access to past reports
 
 The renderer uses vanilla HTML/CSS/JS with no build step. Security follows Electron best practices: `contextIsolation: true`, `nodeIntegration: false`, all Node.js access via `contextBridge`, CSP headers, path traversal guards, and HTML escaping.
+
+> **New desktop components:** `progress-parser.js` parses CLI log output to compute real-time progress percentages and ETA for all three pipeline types (migrate, transfer, verify). `whale-animator.js` renders a pixel-art whale sprite animation with starfield, cloud parallax, and typewriter phase labels during execution.
 
 ## 📚 Further Reading
 

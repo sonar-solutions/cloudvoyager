@@ -1,0 +1,45 @@
+name: Migrate Integration Tests
+
+on:
+  workflow_call:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script:
+          - migrate
+          - migrate:dry-run
+          - migrate:skip-hotspot-metadata
+          - migrate:skip-issue-metadata
+          - migrate:skip-all-metadata
+          - migrate:skip-quality-profiles
+          - migrate:skip-all
+          - migrate:only-scan-data
+          - migrate:only-scan-data-all-branches
+          - migrate:only-quality-gates
+          - migrate:only-quality-profiles
+          - migrate:only-permissions
+          - migrate:only-permission-templates
+          - migrate:only-portfolios
+          - migrate:only-issue-metadata
+          - migrate:only-hotspot-metadata
+          - migrate:only-project-settings
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: ./.github/actions/restore-deps
+
+      - uses: ./.github/actions/generate-config
+        env:
+          SONARQUBE_URL: ${{ secrets.SONARQUBE_URL }}
+          SONARQUBE_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+          SONARCLOUD_URL: ${{ secrets.SONARCLOUD_URL }}
+          SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONARCLOUD_ORG_KEY: ${{ secrets.SONARCLOUD_ORG_KEY }}
+          SONARCLOUD_ENTERPRISE_KEY: ${{ secrets.SONARCLOUD_ENTERPRISE_KEY }}
+
+      - name: Run ${{ matrix.script }}
+        run: npm run ${{ matrix.script }}

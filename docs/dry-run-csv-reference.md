@@ -1,6 +1,6 @@
 # Dry-Run CSV Reference
 
-<!-- Last updated: 2026-03-20 -->
+<!-- Last updated: Mar 25, 2026 -->
 
 ## Overview
 
@@ -240,6 +240,10 @@ In `user-mappings.csv`, set `Include` to `no` for the service account row.
 
 ### Remove a project from a portfolio
 In `portfolio-mappings.csv`, set `Include` to `no` on the specific member row (not the portfolio header).
+
+### CSV Entity Filtering Module
+
+The shared `csv-entity-filters.js` module (`src/shared/mapping/csv-entity-filters.js`) implements the filtering logic that applies CSV overrides during migration. It supports 7 entity types: quality gates, quality profiles, groups, global permissions, permission templates, portfolios, and user mappings. Each function reads the `Include` column and filters the extracted data accordingly.
 
 ## Notes
 

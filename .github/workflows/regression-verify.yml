@@ -1,0 +1,37 @@
+name: Verify Integration Tests
+
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script:
+          - verify
+          - verify:only-scan-data
+          - verify:only-scan-data-all-branches
+          - verify:only-issue-metadata
+          - verify:only-hotspot-metadata
+          - verify:only-quality-gates
+          - verify:only-quality-profiles
+          - verify:only-permissions
+          - verify:only-project-settings
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: ./.github/actions/restore-deps
+
+      - uses: ./.github/actions/generate-config
+        env:
+          SONARQUBE_URL: ${{ secrets.SONARQUBE_URL }}
+          SONARQUBE_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+          SONARCLOUD_URL: ${{ secrets.SONARCLOUD_URL }}
+          SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONARCLOUD_ORG_KEY: ${{ secrets.SONARCLOUD_ORG_KEY }}
+          SONARCLOUD_ENTERPRISE_KEY: ${{ secrets.SONARCLOUD_ENTERPRISE_KEY }}
+
+      - name: Run ${{ matrix.script }}
+        run: npm run ${{ matrix.script }}

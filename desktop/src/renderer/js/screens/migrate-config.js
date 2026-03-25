@@ -103,6 +103,8 @@ window.MigrateConfigScreen = {
     });
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 0));
     container.querySelector('#btn-next').addEventListener('click', () => {
+      const orgResult = ConfigForm.validateOrgs(container);
+      if (!orgResult.valid) return;
       this.readOrgs(container);
       const ek = container.querySelector('#enterprise-key')?.value.trim() || '';
       this.config.sonarcloud.enterprise = { key: ek };

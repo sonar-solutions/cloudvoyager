@@ -1,8 +1,8 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Mar 20, 2026 (protobuf details, external issues, enum values, error hierarchy, state management, API gotchas) -->
+<!-- Last updated: Mar 25, 2026 (protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📡 Protobuf Encoding
 
 The scanner report uses `scanner-report.proto` and `constants.proto` (in each pipeline's `protobuf/schema/` directory). Key protobuf messages: `Metadata`, `Component`, `Issue`, `ExternalIssue`, `AdHocRule`, `Measure`, `ActiveRule`, `Duplication`, `Changesets`, `Symbols`, `SyntaxHighlighting`, `LineCoverage`.
@@ -31,6 +31,19 @@ duplications-{ref}.pb             # Length-delimited Duplication messages per co
 context-props.pb                  # Empty (matches real scanner)
 ```
 
+<!-- Updated: Mar 25, 2026 -->
+## 🔄 CE Submission Retry Mechanism
+
+Report submission to SonarCloud's Compute Engine (`/api/ce/submit`) uses a robust retry strategy (implemented in `ce-submitter.js` within each pipeline):
+
+1. **Submit** the report ZIP via `POST /api/ce/submit` with a 60-second response timeout
+2. **On timeout** (no server response): fall back to `/api/ce/activity` polling — check for a matching CE task 5 times at 3-second intervals
+3. **If no task found**: re-submit the report (second attempt)
+4. **After second submission**: poll `/api/ce/activity` another 5 times
+5. **If still no task**: throw a descriptive error with full mechanism details
+
+The form data is buffered before sending (not streamed) to avoid runtime-specific issues with Bun's HTTP client. Branch characteristics (`branch=<name>`, `branchType=LONG`) are included for non-main branches.
+
 ### Key Enum Values
 
 | Enum | Values |
@@ -52,7 +65,7 @@ protobufjs automatically converts snake_case field names to camelCase in JavaScr
 
 All field names in the codebase use camelCase to match this convention.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📏 Measure Type Mapping
 
 Measures use typed value fields based on metric type:
@@ -60,24 +73,24 @@ Measures use typed value fields based on metric type:
 - **String metrics** (`stringValue`): `executable_lines_data`, `ncloc_data`, `alert_status`
 - **Float/percentage metrics** (`doubleValue`): `coverage`, `line_coverage`, `branch_coverage`, `duplicated_lines_density`, ratings
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📋 Active Rules
 
 - Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size
 - Rule keys are stripped of the repository prefix (e.g., `S7788` not `jsarchitecture:S7788`)
 - Quality profile keys are mapped to SonarCloud profile keys (not SonarQube keys)
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🧱 Component Structure
 
 Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube measures API values.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔖 SCM Revision Tracking
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🌿 Branch Sync
 
 By default, every branch discovered in SonarQube is transferred to SonarCloud (main branch first, then non-main branches). Each branch produces its own scanner report with branch-specific issues, measures, sources, and SCM data.
@@ -88,7 +101,7 @@ By default, every branch discovered in SonarQube is transferred to SonarCloud (m
 
 **Configuration:** Set `transfer.syncAllBranches` to `false` to only sync the main branch. Use `transfer.excludeBranches` to skip specific branch names (e.g., `["feature/old", "release/v1"]`).
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📄 API Pagination
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
@@ -105,7 +118,7 @@ The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🚦 Rate Limit Handling
 
 The SonarCloud API client supports a configurable two-layer strategy for rate limiting. Customize it via the `rateLimit` section in your config file.
@@ -114,7 +127,7 @@ The SonarCloud API client supports a configurable two-layer strategy for rate li
 
 2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔌 External Issues (Plugin Migration)
 
 Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSoft, ABAP) are automatically migrated as **external issues** using the `ExternalIssue` and `AdHocRule` protobuf messages.
@@ -132,7 +145,7 @@ Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSo
 - `impacts` array — `Impact` messages with `softwareQuality` and `severity` fields
 - `defaultImpacts` — on `AdHocRule` messages
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔄 Issue Sync
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
@@ -149,7 +162,7 @@ The `migrate` command syncs issue metadata after the scanner report is uploaded.
 
 The `verify` command validates this by fetching changelogs from both sides (`/api/issues/changelog`) and comparing the transition sequences.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔥 Hotspot Sync
 
 Similar to issue sync, hotspot metadata is matched and synced:
@@ -161,7 +174,27 @@ Hotspots are converted to `Issue` format for the scanner report (with `type=SECU
 
 **API gotcha**: The hotspot details API returns `comment` (singular, containing a list), not `comments`.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
+## 🔄 Issue Status Transition Mapping
+
+Each pipeline includes an `issue-status-mapper.js` that maps SonarQube issue changelog entries to SonarCloud transitions:
+
+| SonarQube Status/Resolution | SonarCloud Transition |
+|-----------------------------|----------------------|
+| `FALSE-POSITIVE` (resolution or status) | `falsepositive` |
+| `WONTFIX` (resolution or status) | `wontfix` |
+| `CONFIRMED` | `confirm` |
+| `REOPENED` | `reopen` |
+| `OPEN` | `unconfirm` |
+| `RESOLVED` | `resolve` |
+| `CLOSED` | `resolve` |
+| `ACCEPTED` (SQ 10.4+) | `accept` |
+
+The mapper handles both SQ < 10.4 (where `FALSE-POSITIVE` and `WONTFIX` appear as resolutions) and SQ 10.4+ (where they can appear as direct status values). Two modes:
+- **Changelog replay**: Extracts ordered transitions from the full issue changelog and replays them in sequence
+- **Fallback**: Maps the current SQ status/resolution to a single transition when no changelog is available
+
+<!-- Updated: Mar 25, 2026 -->
 ## 🔑 Project Key Resolution
 
 SonarCloud requires globally unique project keys across all organizations. When migrating projects, the tool uses the following strategy:
@@ -173,12 +206,12 @@ SonarCloud requires globally unique project keys across all organizations. When 
 
 Key conflicts are reported in the migration summary and in the `reports/migration-report.txt` / `reports/migration-report.json` output files.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🗺️ Organization Mapping
 
 The `migrate` command maps projects to target SonarCloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔍 Dry-Run & Editable CSV Workflow
 
 The `--dry-run` flag generates 8 exhaustive CSV files covering projects, organizations, groups, quality profiles, quality gates, portfolios, permission templates, and global permissions. Each CSV includes an `Include` column (defaulting to `yes`) that users can edit to filter what gets migrated.
@@ -192,7 +225,7 @@ Quality gate CSVs use a flat one-row-per-gate pattern — users can include or e
 
 See [dry-run-csv-reference.md](dry-run-csv-reference.md) for full CSV schema documentation.
 
-<!-- Updated: 2026-02-20 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 📋 Quality Profile Migration
 
 Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
@@ -210,7 +243,7 @@ After profile migration, a **quality profile diff report** (`quality-profiles/qu
 - **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
 - **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🚧 Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.
@@ -220,7 +253,7 @@ Quality gates are created with their full condition definitions (metric, operato
 - `/api/qualitygates/show` requires `name` param, not `id`
 - Built-in gates: permission APIs return 400 (expected, handle gracefully)
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## ⚡ Concurrency Model
 
 CloudVoyager uses a custom concurrency layer (`src/shared/utils/concurrency.js`) with zero external dependencies. Key primitives:
@@ -239,12 +272,12 @@ Performance config is resolved at startup by `resolvePerformanceConfig()`, which
 - `hotspotSync` = min(max(CPU cores / 2, 3), 5)
 - `projectMigration` = max(1, CPU cores / 3)
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- Updated: Mar 25, 2026 -->
 ## 💾 Memory Management
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
 
-<!-- Updated: Mar 10, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🔄 Checkpoint Journal and Pause/Resume
 
 CloudVoyager uses a write-ahead checkpoint journal to track progress at every major phase. If a transfer or migration is interrupted (CTRL+C, crash, network failure), re-running the same command resumes from the last completed checkpoint.
@@ -296,7 +329,53 @@ Before re-uploading after a crash, the uploader queries `/api/ce/activity` for r
 
 Advisory lock files (`<stateFile>.lock`) prevent concurrent runs. Lock metadata includes PID, hostname, and timestamp. Stale locks (dead PID or >6 hours old) are auto-released. Cross-machine locks (NFS) require manual `--force-unlock`.
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
+## 💾 Checkpoint-Aware Extraction
+
+Each pipeline's `checkpoint-extractor.js` implements a 13-phase extraction pipeline with journal and cache support:
+
+| Phase | Data Extracted |
+|-------|---------------|
+| `extract:project_metadata` | Project data + SCM revision |
+| `extract:metrics` | Metric definitions + common keys |
+| `extract:components` | Component-level measures |
+| `extract:source_file_list` | Source file listing |
+| `extract:rules` | Active rules from quality profiles |
+| `extract:issues` | Code issues with pagination |
+| `extract:hotspots` | Security hotspots (merged into issues) |
+| `extract:measures` | Project-level measures |
+| `extract:sources` | Full source code files |
+| `extract:duplications` | Code duplication blocks |
+| `extract:changesets` | SCM blame/changeset data |
+| `extract:symbols` | Symbol reference tables |
+| `extract:syntax_highlighting` | Syntax highlighting data |
+
+Each phase is guarded by the checkpoint journal:
+1. If phase is already completed → load from gzipped disk cache
+2. If cache miss → re-extract
+3. On failure → record in journal for retry
+4. Shutdown checks run between phases for graceful interruption
+
+Branch-specific extraction follows the same pattern with `extractBranchWithCheckpoints()`, reusing main branch data for metrics and active rules.
+
+<!-- Updated: Mar 25, 2026 -->
+## 📋 CSV Entity Filtering
+
+The `csv-entity-filters.js` module in `src/shared/mapping/` provides dry-run CSV override support for 7 entity types:
+
+| Function | Entities Filtered | Filter Key |
+|----------|------------------|------------|
+| `applyGateMappingsCsv` | Quality gates | Gate Name + Include |
+| `applyProfileMappingsCsv` | Quality profiles | Profile Name + Language + Include |
+| `applyGroupMappingsCsv` | Groups | Group Name + Include |
+| `applyGlobalPermissionsCsv` | Global permissions | Group Name + Permission + Include |
+| `applyTemplateMappingsCsv` | Permission templates | Template Name + Permission Key + Include |
+| `applyPortfolioMappingsCsv` | Portfolios | Portfolio Key + Member Project Key + Include |
+| `applyUserMappingsCsv` | User mappings | SonarQube Login + SonarCloud Login + Include |
+
+All filters use the `Include` column from the CSV (default: `yes`). Setting `Include=no` excludes the entity from migration.
+
+<!-- Updated: Mar 25, 2026 -->
 ## ⚠️ Error Hierarchy
 
 All errors extend `CloudVoyagerError` base class (11 classes total):
@@ -315,7 +394,7 @@ All errors extend `CloudVoyagerError` base class (11 classes total):
 | `LockError` | 423 | Lock contention |
 | `StaleResumeError` | 409 | Environment mismatch |
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 ## 🛑 Graceful Shutdown
 
 SIGINT/SIGTERM triggers registered cleanup handlers (journal save, lock release) then exits with code 0. A second signal forces immediate exit. The `shutdownCheck()` callback is passed through the pipeline for interrupt safety, allowing long-running operations to check for pending shutdown.

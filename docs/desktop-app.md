@@ -1,6 +1,6 @@
 # Desktop App
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Updated: Mar 25, 2026 -->
 
 CloudVoyager Desktop wraps the CLI binary in a guided wizard UI built with Electron. No terminal needed — fill in forms, click Start, and watch live logs stream in real-time. All configuration persists between app restarts with encrypted token storage.
 
@@ -99,6 +99,15 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 - **Run History** (sidebar) — Lists past successful migration and transfer runs in the sidebar. Click any entry to view its reports. History persists across app restarts (max 50 entries).
 - **Status** — View migration progress, sync history, and reset state
 
+### Progress Tracking and Animation
+
+The execution screen includes real-time progress tracking with a whale animation:
+
+- **Progress Parser** (`progress-parser.js`) — Parses CLI log lines to compute progress percentages and ETA for all pipeline types (migrate, transfer, verify). Uses pattern matching on log output to track extraction steps, per-project phases, and sub-operations.
+- **Whale Animator** (`whale-animator.js`) — Pixel-art whale sprite that moves across the screen as progress advances. Includes a twinkling starfield, cloud parallax, and typewriter phase labels. Supports dark/light themes.
+
+The progress bar layout divides 0-100% across pipeline phases (e.g., for migrate: 0-10% setup, 10-15% org config, 15-95% per-project migration, 95-100% finalization).
+
 ## Configuration Persistence
 
 - All settings are saved automatically as you navigate between wizard steps
@@ -190,7 +199,9 @@ desktop/
 │               ├── migration-graph.js  # Canvas DAG with force simulation, node color
 │               │                       # transitions, particle effects
 │               ├── wizard-nav.js       # Step indicator component
-│               └── sidebar-history.js  # 50-entry run history
+│               ├── sidebar-history.js  # 50-entry run history
+│               ├── progress-parser.js # CLI log progress parsing and ETA
+│               └── whale-animator.js  # Pixel-art whale animation with starfield
 └── assets/                             # App icons
 ```
 

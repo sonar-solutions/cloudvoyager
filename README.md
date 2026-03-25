@@ -1,6 +1,6 @@
 # ☁️ 🐋 CloudVoyager
 
-<!-- Last updated: 2026-03-20 -->
+<!-- Last updated: 2026-03-25 -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
@@ -20,6 +20,8 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 ## 🖥️ Desktop App (New!)
 
 Prefer a visual interface? **CloudVoyager Desktop** provides a guided wizard UI — no terminal or config files needed. Includes a **Run History** sidebar for quick access to past migration results.
+
+The execution screen features real-time progress tracking with an animated pixel-art whale that moves across the screen as migration progresses, plus ETA calculations and phase labels.
 
 ![CloudVoyager Desktop — Welcome Screen](docs/screenshots/start_page.png)
 
