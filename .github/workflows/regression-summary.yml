@@ -1,0 +1,11 @@
+name: Regression Summary
+
+on:
+  workflow_call:
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: All regression tests passed
+        run: echo "All 30 regression test jobs completed successfully."

@@ -335,6 +335,42 @@ CI uses 6 parallel jobs — one per platform. Most build natively on their targe
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
 <!-- Updated: Mar 25, 2026 -->
+## 🧪 Regression Testing (CI)
+
+A separate `Regression Tests` workflow runs on every push to `main` and on pull requests. It does **not** block the release workflow.
+
+**4-stage pipeline (visible as a graph in the Actions UI):**
+
+```
+setup → quality (lint + unit-tests) → ┬─ migrate (17 parallel jobs)      ─┬→ summary
+                                       ├─ sync-metadata (4 parallel jobs) ─┤
+                                       └─ verify (9 parallel jobs)        ─┘
+```
+
+- **Stage 1 — Setup:** Install dependencies, cache `node_modules`
+- **Stage 2 — Quality:** ESLint + unit tests with coverage (2 parallel jobs)
+- **Stage 3 — Integration:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files are generated at runtime from GitHub Secrets.
+- **Stage 4 — Summary:** Gate job that only passes when all 30 integration tests pass
+
+**Workflow files:**
+
+| File | Purpose |
+|---|---|
+| `regression.yml` | Orchestrator — triggers, stage sequencing |
+| `regression-setup.yml` | Stage 1: npm ci + cache |
+| `regression-quality.yml` | Stage 2: lint + unit tests |
+| `regression-migrate.yml` | Stage 3a: 17 migrate flag combos |
+| `regression-sync-metadata.yml` | Stage 3b: 4 sync-metadata flag combos |
+| `regression-verify.yml` | Stage 3c: 9 verify flag combos |
+| `regression-summary.yml` | Stage 4: final pass/fail gate |
+
+**Composite actions** (`.github/actions/`):
+- `restore-deps/` — Setup Node.js 18 + restore cached node_modules
+- `generate-config/` — Generate `migrate-config.json` from GitHub Secrets
+
+**Required GitHub Secrets:** `SONARQUBE_URL`, `SONARQUBE_TOKEN`, `SONARCLOUD_URL`, `SONARCLOUD_TOKEN`, `SONARCLOUD_ORG_KEY`, `SONARCLOUD_ENTERPRISE_KEY`
+
+<!-- Updated: Mar 25, 2026 -->
 ## 📄 Generated Report Structure
 
 ```

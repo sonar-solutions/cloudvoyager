@@ -1,0 +1,34 @@
+name: Regression Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  setup:
+    uses: ./.github/workflows/regression-setup.yml
+
+  quality:
+    needs: setup
+    uses: ./.github/workflows/regression-quality.yml
+
+  migrate:
+    needs: quality
+    uses: ./.github/workflows/regression-migrate.yml
+    secrets: inherit
+
+  sync-metadata:
+    needs: quality
+    uses: ./.github/workflows/regression-sync-metadata.yml
+    secrets: inherit
+
+  verify:
+    needs: quality
+    uses: ./.github/workflows/regression-verify.yml
+    secrets: inherit
+
+  summary:
+    needs: [migrate, sync-metadata, verify]
+    uses: ./.github/workflows/regression-summary.yml

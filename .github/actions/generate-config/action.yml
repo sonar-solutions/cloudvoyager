@@ -1,0 +1,50 @@
+name: Generate Config Files
+description: Create migrate-config.json from secrets
+
+runs:
+  using: composite
+  steps:
+    - name: Generate migrate-config.json
+      shell: bash
+      run: |
+        node -e "
+        const config = {
+          sonarqube: {
+            url: process.env.SONARQUBE_URL,
+            token: process.env.SONARQUBE_TOKEN
+          },
+          sonarcloud: {
+            enterprise: { key: process.env.SONARCLOUD_ENTERPRISE_KEY },
+            organizations: [{
+              key: process.env.SONARCLOUD_ORG_KEY,
+              token: process.env.SONARCLOUD_TOKEN,
+              url: process.env.SONARCLOUD_URL
+            }]
+          },
+          transfer: { mode: 'full', batchSize: 100 },
+          migrate: {
+            outputDir: './migration-output',
+            skipIssueMetadataSync: false,
+            skipHotspotMetadataSync: false,
+            dryRun: false
+          },
+          rateLimit: {
+            maxRetries: 5,
+            baseDelay: 1000,
+            minRequestInterval: 150
+          },
+          performance: {
+            maxConcurrency: 64,
+            maxMemoryMB: 8192,
+            sourceExtraction: { concurrency: 50 },
+            hotspotExtraction: { concurrency: 50 },
+            issueSync: { concurrency: 20 },
+            hotspotSync: { concurrency: 20 },
+            projectMigration: { concurrency: 8 }
+          }
+        };
+        require('fs').writeFileSync(
+          'migrate-config.json',
+          JSON.stringify(config, null, 2)
+        );
+        "

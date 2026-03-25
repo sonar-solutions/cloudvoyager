@@ -4,6 +4,34 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [1.1.6] - 2026-03-25
+
+### Regression Testing Suite
+
+Added a comprehensive GitHub Actions regression testing workflow that runs all CLI feature/flag combinations in parallel.
+
+- **30 parallel integration test jobs** covering all `migrate`, `sync-metadata`, and `verify` flag combinations
+- **4-stage pipeline graph** visible in the Actions UI: setup → quality → integration tests → summary
+- **Completely separate** from the release workflow — does not block asset builds
+- **Matrix strategy** with `fail-fast: false` so one failure doesn't cancel other tests
+- **Config generation from secrets** — `migrate-config.json` built at runtime from GitHub Secrets
+- **Composite actions** for shared steps (dependency restore, config generation)
+- Triggers automatically on push to `main` and on pull requests
+
+---
+
+## [1.1.5] - 2026-03-25
+
+### Desktop App — SonarCloud Organization Validation
+
+- **config-form.js** — Added `validateOrgs()` method that enforces at least one SonarCloud organization is present and all required fields (org key, token) are filled before allowing the user to proceed.
+- **migrate-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
+- **sync-metadata-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
+- **verify-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
+- Shows a toast notification when no organizations have been added.
+
+---
+
 ## [1.1.4] - 2026-03-25
 
 ### Pipeline Modularization and New Components
