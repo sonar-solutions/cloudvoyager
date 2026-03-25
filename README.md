@@ -103,6 +103,20 @@ Each pipeline folder (`src/pipelines/sq-*`) contains its own SonarQube client, S
 
 See [Backward Compatibility](docs/backward-compatibility.md) for technical details on how version differences are handled.
 
+<!-- Updated: 2026-03-25 -->
+## 🧪 CI / Regression Testing
+
+Two independent workflows run on every push to `main`:
+
+| Workflow | What it does |
+|----------|-------------|
+| **Build and Release** | Builds CLI binaries (6 platforms) + Desktop apps → creates GitHub Release |
+| **Regression Tests** | Runs **30 parallel integration tests** covering every CLI flag combination |
+
+The regression suite tests all `migrate`, `sync-metadata`, and `verify` commands with every flag combo (e.g., `--dry-run`, `--only quality-gates`, `--skip-issue-metadata-sync`, etc.). Unit tests run in parallel but don't block integration tests.
+
+**Setup:** Add 6 secrets in your repo settings — see [Architecture > Regression Testing](docs/architecture.md#-regression-testing-ci) for details.
+
 <!-- Updated: 2026-02-19 -->
 ## 🛠️ Local Development
 

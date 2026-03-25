@@ -1,0 +1,27 @@
+// -------- Main Logic --------
+
+/**
+ * Map a changelog diff entry (newStatus + newResolution) to a SonarCloud transition.
+ */
+export function mapChangelogDiffToTransition(diffs) {
+  const statusDiff = diffs.find(d => d.key === 'status');
+  const resolutionDiff = diffs.find(d => d.key === 'resolution');
+  const newStatus = statusDiff?.newValue;
+  const newResolution = resolutionDiff?.newValue;
+
+  if (!newStatus) return null;
+
+  // Resolution-based transitions take priority
+  if (newResolution === 'FALSE-POSITIVE' || newStatus === 'FALSE-POSITIVE') return 'falsepositive';
+  if (newResolution === 'WONTFIX' || newStatus === 'WONTFIX') return 'wontfix';
+
+  switch (newStatus) {
+    case 'CONFIRMED': return 'confirm';
+    case 'REOPENED': return 'reopen';
+    case 'OPEN': return 'unconfirm';
+    case 'RESOLVED': return 'resolve';
+    case 'CLOSED': return 'resolve';
+    case 'ACCEPTED': return 'wontfix';
+    default: return null;
+  }
+}

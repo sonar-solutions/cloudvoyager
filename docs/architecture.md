@@ -93,61 +93,133 @@ src/
 
 ### Version-Specific Pipeline Structure
 
-Each pipeline under `src/pipelines/sq-{version}/` has an identical directory layout:
+Each pipeline under `src/pipelines/sq-{version}/` uses a **folder-based module architecture** where every module over ~30 lines is decomposed into `module-name/index.js` + `module-name/helpers/*.js`. A re-export file at the original path (e.g., `transfer-pipeline.js`) preserves backward-compatible import paths.
 
 ```
 sq-{version}/
-├── transfer-pipeline.js           # Single-project transfer orchestrator
-├── transfer-branch.js             # Per-branch transfer (build + encode + upload)
-├── migrate-pipeline.js            # Full multi-org migration orchestrator
-├── sonarqube/                     # SonarQube integration (version-specific behavior hardcoded)
-│   ├── api-client.js               # HTTP client with pagination, auth, SCM revision
-│   ├── models.js                   # Data models (with language support)
-│   ├── api/                        # API method modules
-│   │   ├── issues-hotspots.js       # Issue and hotspot API methods
-│   │   ├── permissions.js           # Permission API methods
-│   │   ├── quality.js               # Quality gate and profile API methods
-│   │   └── server-config.js         # Server info, settings, webhooks API methods
-│   └── extractors/                 # Specialized data extractors
-│       ├── index.js                 # DataExtractor orchestrator
-│       ├── checkpoint-extractor.js  # Checkpoint-aware extraction (13 phases + branches)
-│       ├── projects.js, issues.js, hotspots.js, measures.js, sources.js, ...
-│       └── (25+ extractor modules)
-├── protobuf/                      # Protobuf encoding (version-specific schema/builder)
-│   ├── builder.js                   # Orchestrates protobuf message building
-│   ├── build-components.js          # Component protobuf messages
-│   ├── build-issues.js              # Issue protobuf messages
-│   ├── build-external-issues.js     # External issue protobuf messages
-│   ├── build-duplications.js        # Duplication protobuf messages
-│   ├── build-measures.js            # Measure protobuf messages
-│   ├── encoder.js                   # Encodes messages using protobufjs
-│   ├── encode-types.js              # Typed encoding helpers
-│   └── schema/                      # .proto definitions
+├── transfer-pipeline.js              # Re-export → transfer-pipeline/index.js
+├── transfer-pipeline/
+│   ├── index.js                       # Single-project transfer orchestrator
+│   └── helpers/                       # 15 helper files (one function each)
+├── transfer-branch.js                # Re-export → transfer-branch/index.js
+├── transfer-branch/
+│   ├── index.js
+│   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, ...
+├── migrate-pipeline.js               # Re-export → migrate-pipeline/index.js
+├── migrate-pipeline/
+│   ├── index.js                       # Full multi-org migration orchestrator
+│   └── helpers/                       # 10 helper files
+│
+├── sonarqube/                        # SonarQube integration
+│   ├── api-client.js                  # Re-export → api-client/index.js
+│   ├── api-client/
+│   │   ├── index.js                    # HTTP client (factory function: createSonarQubeClient)
+│   │   └── helpers/                    # 12 helper files (pagination, auth, delegate methods, ...)
+│   ├── models.js                      # Re-export → models/index.js
+│   ├── models/
+│   │   ├── index.js
+│   │   └── helpers/                    # Factory functions: createIssueData, createMetricData, ...
+│   ├── api/
+│   │   ├── issues-hotspots.js          # Issue and hotspot API methods (<50 lines, no decomposition)
+│   │   ├── permissions.js              # Permission API methods
+│   │   ├── quality.js                  # Re-export → quality/index.js (gate + profile API helpers)
+│   │   └── server-config.js            # Re-export → server-config/index.js (10 helper files)
+│   └── extractors/
+│       ├── index.js                    # DataExtractor orchestrator (factory: createDataExtractor)
+│       ├── helpers/                     # 20 helper files for extraction phases
+│       ├── projects.js                  # Project/branch extraction (<50 lines)
+│       ├── issues.js                    # Issue extraction (<50 lines)
+│       ├── rules.js                     # Re-export → rules/helpers/ (5 helpers)
+│       ├── hotspots.js                  # Re-export → hotspots/helpers/ (2 helpers)
+│       ├── hotspots-to-issues.js        # Re-export → hotspots-to-issues/helpers/ (2 helpers)
+│       ├── measures.js                  # Re-export → measures/helpers/ (2 helpers)
+│       ├── metrics.js                   # Re-export → metrics/helpers/ (3 helpers)
+│       ├── sources.js                   # Re-export → sources/helpers/ (1 helper)
+│       ├── duplications.js              # Re-export → duplications/helpers/ (2 helpers)
+│       ├── changesets.js                # Re-export → changesets/helpers/ (1 helper)
+│       ├── new-code-periods.js          # Re-export → new-code-periods/helpers/ (2 helpers)
+│       ├── permissions.js               # Re-export → permissions/helpers/ (3 helpers)
+│       ├── quality-gates.js             # Re-export → quality-gates/helpers/ (2 helpers)
+│       ├── quality-profiles.js          # Re-export → quality-profiles/helpers/ (2 helpers)
+│       ├── users.js                     # Re-export → users/helpers/ (2 helpers)
+│       └── devops-bindings.js           # Re-export → devops-bindings/helpers/ (3 helpers)
+│
+├── protobuf/                         # Protobuf encoding
+│   ├── builder.js                     # Re-export → builder/index.js (factory: createProtobufBuilder)
+│   ├── builder/
+│   │   ├── index.js
+│   │   └── helpers/                    # 10 helper files
+│   ├── encoder.js                     # Re-export → encoder/index.js
+│   ├── encoder/
+│   │   ├── index.js
+│   │   └── helpers/                    # 6 helper files
+│   ├── encode-types.js                # Typed encoding helpers (<50 lines)
+│   ├── build-components.js            # Re-export → build-components/helpers/ (4 helpers)
+│   ├── build-issues.js                # Re-export → build-issues/helpers/ (2 helpers)
+│   ├── build-external-issues.js       # Re-export → build-external-issues/helpers/ (11 helpers)
+│   ├── build-duplications.js          # Re-export → build-duplications/helpers/ (5 helpers)
+│   ├── build-measures.js              # Re-export → build-measures/helpers/ (3 helpers)
+│   └── schema/
 │       ├── scanner-report.proto
 │       └── constants.proto
-├── sonarcloud/                    # SonarCloud integration (version-specific migrators)
-│   ├── api-client.js               # SonarCloud HTTP client (retry, throttle)
-│   ├── uploader.js                 # Report packaging and CE submission
-│   ├── ce-submitter.js             # CE submission with retry logic (2 attempts, activity fallback)
-│   ├── report-packager.js          # ZIP archive creation matching SonarScanner format
-│   ├── enterprise-client.js        # Enterprise edition API client
-│   ├── rule-enrichment.js          # Rule enrichment from SonarCloud (sq-9.9 uses this)
-│   ├── api/                        # API method modules
-│   │   ├── hotspots.js, issues.js, permissions.js, project-config.js, ...
-│   └── migrators/                  # SonarCloud migration modules
-│       ├── quality-gates.js, quality-profiles.js, groups.js, permissions.js, ...
-│       ├── issue-sync.js            # Sync issue statuses, assignments, comments, tags
-│       ├── issue-status-mapper.js   # Issue status transition mapping (changelog diff → SC transition)
-│       └── hotspot-sync.js          # Sync hotspot statuses and comments
-└── pipeline/                      # Migration pipeline stages
-    ├── extraction.js                # Server-wide data extraction orchestration
-    ├── org-migration.js             # Per-organization migration logic
-    ├── project-migration.js         # Per-project migration logic
-    ├── project-config-migrator.js   # Project config migration (settings, tags, links, gate, profiles, permissions)
-    ├── project-core-migrator.js     # Phase 1: scanner report upload + project config
-    ├── project-metadata-sync.js     # Phase 2: issue + hotspot metadata sync (parallel)
-    └── results.js                   # Migration result tracking and aggregation
+│
+├── sonarcloud/                       # SonarCloud integration
+│   ├── api-client.js                  # Re-export → api-client/index.js (factory: createSonarCloudClient)
+│   ├── api-client/
+│   │   ├── index.js
+│   │   └── helpers/                    # 8 helper files
+│   ├── uploader.js                    # Re-export → uploader/index.js
+│   ├── uploader/
+│   │   ├── index.js
+│   │   └── helpers/                    # 10 helper files
+│   ├── enterprise-client.js           # Re-export → enterprise-client/index.js
+│   ├── enterprise-client/
+│   │   ├── index.js
+│   │   └── helpers/                    # 4 helper files
+│   ├── rule-enrichment.js             # Rule enrichment from SonarCloud (sq-9.9 uses this)
+│   ├── api/
+│   │   ├── hotspots.js                 # Hotspot API methods (<50 lines)
+│   │   ├── issues.js                   # Re-export → issues/helpers/ (3 helpers)
+│   │   ├── permissions.js              # Re-export → permissions/helpers/ (2 helpers)
+│   │   ├── project-config.js           # Re-export → project-config/helpers/ (2 helpers)
+│   │   └── quality-profiles.js         # Re-export → quality-profiles/helpers/ (7 helpers)
+│   └── migrators/
+│       ├── groups.js                   # Group creation (<50 lines)
+│       ├── quality-gates.js            # Re-export → quality-gates/helpers/ (6 helpers)
+│       ├── quality-profiles.js         # Re-export → quality-profiles/helpers/ (7 helpers)
+│       ├── quality-profile-diff.js     # Re-export → quality-profile-diff/helpers/ (3 helpers)
+│       ├── permissions.js              # Re-export → permissions/helpers/ (6 helpers)
+│       ├── portfolios.js               # Re-export → portfolios/helpers/ (4 helpers)
+│       ├── project-config.js           # Re-export → project-config/helpers/ (5 helpers)
+│       ├── issue-sync.js               # Re-export → issue-sync/helpers/ (12 helpers)
+│       ├── issue-status-mapper.js      # Re-export → issue-status-mapper/helpers/ (4 helpers)
+│       └── hotspot-sync.js             # Re-export → hotspot-sync/helpers/ (15 helpers)
+│
+└── pipeline/                         # Migration pipeline stages
+    ├── extraction.js                  # Re-export → extraction/index.js
+    ├── extraction/
+    │   ├── index.js
+    │   └── helpers/                    # 4 helper files
+    ├── org-migration.js               # Re-export → org-migration/index.js
+    ├── org-migration/
+    │   ├── index.js
+    │   └── helpers/                    # 10 helper files
+    ├── project-migration.js           # Re-export → project-migration/index.js
+    ├── project-migration/
+    │   ├── index.js
+    │   └── helpers/                    # 21 helper files
+    └── results.js                     # Re-export → results/index.js
+        results/
+        ├── index.js
+        └── helpers/                    # 5 helper files
 ```
+
+**Module pattern:** Each decomposed module follows the same structure:
+- `module-name.js` — 1-line re-export preserving the original import path
+- `module-name/index.js` — orchestrator that imports from `helpers/`
+- `module-name/helpers/*.js` — one exported function per file, ≤50 lines each
+
+**404 JS files** across the sq-10.4 pipeline, all ≤50 lines. Classes converted to factory functions (`createSonarQubeClient`, `createSonarCloudClient`, `createProtobufBuilder`, `createDataExtractor`) with thin class wrappers for backward compatibility.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing
@@ -337,32 +409,35 @@ All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work id
 <!-- Updated: Mar 25, 2026 -->
 ## 🧪 Regression Testing (CI)
 
-A separate `Regression Tests` workflow runs on every push to `main` and on pull requests. It does **not** block the release workflow.
+A separate `Regression Tests` workflow runs on every push to `main` (merged PRs only). It does **not** block the release workflow.
 
-**4-stage pipeline (visible as a graph in the Actions UI):**
+**Pipeline graph (visible in the Actions UI):**
 
 ```
-setup → quality (lint + unit-tests) → ┬─ migrate (17 parallel jobs)      ─┬→ summary
-                                       ├─ sync-metadata (4 parallel jobs) ─┤
-                                       └─ verify (9 parallel jobs)        ─┘
+              ┌─ lint ──────────────┬─ migrate (17 parallel jobs)      ─┬─ summary
+setup ────────┤                     ├─ sync-metadata (4 parallel jobs)  ─┤
+              └─ unit-tests         └─ verify (9 parallel jobs)        ─┘
+                (non-blocking)
 ```
 
-- **Stage 1 — Setup:** Install dependencies, cache `node_modules`
-- **Stage 2 — Quality:** ESLint + unit tests with coverage (2 parallel jobs)
-- **Stage 3 — Integration:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files are generated at runtime from GitHub Secrets.
-- **Stage 4 — Summary:** Gate job that only passes when all 30 integration tests pass
+- **Setup:** Install dependencies, cache `node_modules`
+- **Lint:** ESLint — gates integration tests (syntax errors caught before 30 jobs spin up)
+- **Unit Tests:** Runs in parallel but does **not** block integration tests
+- **Integration Tests:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files generated at runtime from GitHub Secrets.
+- **Summary:** Gate job that only passes when all 30 integration tests pass
 
 **Workflow files:**
 
 | File | Purpose |
 |---|---|
 | `regression.yml` | Orchestrator — triggers, stage sequencing |
-| `regression-setup.yml` | Stage 1: npm ci + cache |
-| `regression-quality.yml` | Stage 2: lint + unit tests |
-| `regression-migrate.yml` | Stage 3a: 17 migrate flag combos |
-| `regression-sync-metadata.yml` | Stage 3b: 4 sync-metadata flag combos |
-| `regression-verify.yml` | Stage 3c: 9 verify flag combos |
-| `regression-summary.yml` | Stage 4: final pass/fail gate |
+| `regression-setup.yml` | Install + cache node_modules |
+| `regression-quality.yml` | Lint (ESLint) |
+| `regression-unit-tests.yml` | Unit tests with coverage (non-blocking) |
+| `regression-migrate.yml` | 17 migrate flag combos (matrix) |
+| `regression-sync-metadata.yml` | 4 sync-metadata flag combos (matrix) |
+| `regression-verify.yml` | 9 verify flag combos (matrix) |
+| `regression-summary.yml` | Final pass/fail gate |
 
 **Composite actions** (`.github/actions/`):
 - `restore-deps/` — Setup Node.js 18 + restore cached node_modules

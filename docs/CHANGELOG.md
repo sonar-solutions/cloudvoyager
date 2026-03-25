@@ -4,6 +4,58 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## [1.1.8] - 2026-03-25
+
+### Bug Fix — Broken Relative Import Paths After Folder Refactoring
+
+Fixed 366 broken relative import paths across 325 files in `src/pipelines/`, `src/commands/`, and `src/version-router/`. After the folder-based module decomposition (v1.1.7), helper files nested inside new subfolder structures had incorrect `../` counts in their relative paths to `src/shared/` and to sibling pipeline modules.
+
+#### Root Cause
+Files moved one level deeper (e.g., from `module.js` into `module/helpers/fn.js`) still used the old `../` count, causing imports to resolve to `src/pipelines/shared/` instead of `src/shared/`.
+
+#### Scope
+- **358 shared/ imports** fixed across `src/pipelines/sq-9.9/`, `sq-10.0/`, `sq-10.4/`, and `sq-2025/`
+- **8 intra-pipeline imports** fixed (transfer-pipeline, rule-helpers, quality-profiles, find-task-from-activity)
+- **1,652 files** verified — all relative imports now resolve correctly
+- CLI verified working via `node src/index.js --help`
+
+---
+
+## [1.1.7] - 2026-03-25
+
+### Code Architecture Refactoring — Folder-Based Module Decomposition
+
+Refactored all 55+ files exceeding 50 lines in `src/pipelines/sq-10.4/` into a folder-based module architecture. Every large file is now decomposed into `module-name/index.js` + `module-name/helpers/*.js`, with a 1-line re-export file at the original path preserving all existing import paths.
+
+#### Architecture Pattern
+- **Module pattern:** `big-file.js` → `big-file.js` (re-export) + `big-file/index.js` (orchestrator) + `big-file/helpers/*.js` (one function per file)
+- **Factory functions over classes:** `SonarQubeClient` → `createSonarQubeClient()`, `SonarCloudClient` → `createSonarCloudClient()`, `ProtobufBuilder` → `createProtobufBuilder()`, `DataExtractor` → `createDataExtractor()`. Thin class wrappers preserved for backward compatibility.
+- **All files ≤50 lines** — down from 55+ files exceeding the limit (largest was 641 lines)
+- **Zero public API changes** — all import paths remain the same via re-export files
+
+#### Key Metrics
+- **Before:** 73 JS files, 9,317 total lines, 55+ files over 50 lines
+- **After:** 404 JS files, 8,656 total lines, 0 files over 50 lines
+- **Dead code removed:** `checkpoint-extractor.js`, `ce-submitter.js`, `report-packager.js`, `project-core-migrator.js`, `project-metadata-sync.js`, `project-config-migrator.js`
+
+#### Largest Files Decomposed
+| Original File | Lines Before → After | Helper Files |
+|---|---|---|
+| `sonarqube/extractors/index.js` | 641 → 42 | 20 helpers |
+| `transfer-pipeline.js` | 478 → 2 | 15 helpers |
+| `pipeline/project-migration.js` | 453 → 6 | 21 helpers |
+| `sonarcloud/uploader.js` | 381 → 2 | 10 helpers |
+| `sonarcloud/api-client.js` | 360 → 1 | 8 helpers (+ 4 delegate files) |
+| `sonarcloud/migrators/issue-sync.js` | 308 → 1 | 12 helpers |
+| `migrate-pipeline.js` | 307 → 1 | 10 helpers |
+| `pipeline/org-migration.js` | 304 → 6 | 10 helpers |
+| `sonarcloud/migrators/hotspot-sync.js` | 293 → 1 | 15 helpers |
+| `sonarqube/api-client.js` | 259 → 1 | 12 helpers |
+| `protobuf/build-external-issues.js` | 257 → 1 | 11 helpers |
+| `protobuf/builder.js` | 227 → 1 | 10 helpers |
+
+---
+
 ## [1.1.6] - 2026-03-25
 
 ### Regression Testing Suite

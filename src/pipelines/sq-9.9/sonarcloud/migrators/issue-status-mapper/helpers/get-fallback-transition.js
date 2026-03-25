@@ -1,0 +1,15 @@
+// -------- Get Fallback Transition from Current Issue Status --------
+
+export function getFallbackTransition(sqIssue) {
+  if (sqIssue.resolution === 'FALSE-POSITIVE' || sqIssue.status === 'FALSE-POSITIVE') return 'falsepositive';
+  if (sqIssue.resolution === 'WONTFIX' || sqIssue.status === 'WONTFIX') return 'wontfix';
+
+  switch (sqIssue.status) {
+    case 'CONFIRMED': return 'confirm';
+    case 'RESOLVED':
+    case 'CLOSED': return 'resolve';
+    case 'ACCEPTED': return 'accept';
+    case 'REOPENED': return 'reopen';
+    default: return null;
+  }
+}
