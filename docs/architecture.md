@@ -415,34 +415,64 @@ CI uses 6 parallel jobs — one per platform. Most build natively on their targe
 
 All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work identically whether running via `node src/index.js`, `node dist/cli.cjs`, or the standalone binary.
 
-<!-- Updated: Mar 25, 2026 -->
-## 🧪 Regression Testing (CI)
+<!-- Updated: Mar 26, 2026 -->
+## 🧪 CI Workflows
 
-A separate `Regression Tests` workflow runs on every push to `main` (merged PRs only). It does **not** block the release workflow.
+All workflows trigger **only on push to `main`** (merged PRs). No workflow runs on feature branches or pull requests.
+
+### Unit Tests
+
+A standalone `Unit Tests` workflow (`unit-tests.yml`) runs on every push to `main`. It installs dependencies, then runs `npm test`.
+
+### Regression Tests
+
+A separate `Regression Tests` workflow runs on every push to `main`. It does **not** block the release workflow.
 
 **Pipeline graph (visible in the Actions UI):**
 
 ```
               ┌─ lint ──────────────┬─ migrate (17 parallel jobs)      ─┬─ summary
 setup ────────┤                     ├─ sync-metadata (4 parallel jobs)  ─┤
-              └─ unit-tests         └─ verify (9 parallel jobs)        ─┘
-                (non-blocking)
+              └────────────────────└─ verify (9 parallel jobs)        ─┘
 ```
 
 - **Setup:** Install dependencies, cache `node_modules`
 - **Lint:** ESLint — gates integration tests (syntax errors caught before 30 jobs spin up)
-- **Unit Tests:** Runs in parallel but does **not** block integration tests
 - **Integration Tests:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files generated at runtime from GitHub Secrets.
 - **Summary:** Gate job that only passes when all 30 integration tests pass
 
-**Workflow files:**
+### SonarCloud Analysis
+
+A standalone `SonarCloud Analysis` workflow (`sonarcloud.yml`) runs SAST and SCA scanning on every push to `main`. It does **not** run unit tests or ingest coverage — those are handled by the separate Unit Tests workflow.
+
+### Auto Version Bump
+
+The `Auto Version Bump` workflow (`version-bump.yml`) triggers when a PR is merged to `main` **and** the PR has a milestone assigned. It automatically bumps the version in `package.json` and `package-lock.json`:
+
+- If the milestone matches the current major.minor (e.g., both `1.2`): bumps the patch version (`1.2.1` → `1.2.2`)
+- If the milestone changed (e.g., `1.2` → `1.3`): resets to the new milestone (`1.3.0`)
+- Commits and pushes the version bump to `main`, which then triggers the Build and Release workflow
+
+**To use:** Assign a milestone (e.g., `1.2`) to your PR in the GitHub sidebar before merging. The version is derived automatically from the milestone title.
+
+### Build and Release
+
+The `Build and Release` workflow (`release.yml`) builds binaries for 6 platforms and creates a GitHub Release. The release body includes:
+- Auto-generated release notes from merged PRs
+- A link to the corresponding GitHub milestone (derived from `package.json` version)
+
+### Workflow files
 
 | File | Purpose |
 |---|---|
-| `regression.yml` | Orchestrator — triggers, stage sequencing |
+| `unit-tests.yml` | Standalone unit tests (push to main only) |
+| `sonarcloud.yml` | SAST/SCA scanning via SonarCloud |
+| `version-bump.yml` | Auto-bump version from PR milestone on merge |
+| `release.yml` | Orchestrator — install, build, desktop build, release |
+| `regression.yml` | Regression orchestrator — triggers, stage sequencing |
 | `regression-setup.yml` | Install + cache node_modules |
 | `regression-quality.yml` | Lint (ESLint) |
-| `regression-unit-tests.yml` | Unit tests with coverage (non-blocking) |
+| `regression-unit-tests.yml` | Unit tests with coverage (reusable, called by regression) |
 | `regression-migrate.yml` | 17 migrate flag combos (matrix) |
 | `regression-sync-metadata.yml` | 4 sync-metadata flag combos (matrix) |
 | `regression-verify.yml` | 9 verify flag combos (matrix) |
@@ -452,7 +482,7 @@ setup ────────┤                     ├─ sync-metadata (4 pa
 - `restore-deps/` — Setup Node.js 18 + restore cached node_modules
 - `generate-config/` — Generate `migrate-config.json` from GitHub Secrets
 
-**Required GitHub Secrets:** `SONARQUBE_URL`, `SONARQUBE_TOKEN`, `SONARCLOUD_URL`, `SONARCLOUD_TOKEN`, `SONARCLOUD_ORG_KEY`, `SONARCLOUD_ENTERPRISE_KEY`
+**Required GitHub Secrets:** `SONARQUBE_URL`, `SONARQUBE_TOKEN`, `SONARCLOUD_URL`, `SONARCLOUD_TOKEN`, `SONARCLOUD_ORG_KEY`, `SONARCLOUD_ENTERPRISE_KEY`, `SONAR_TOKEN`
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📄 Generated Report Structure

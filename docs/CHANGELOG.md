@@ -4,6 +4,36 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## CI Workflow Restructure (2026-03-26)
+
+Restructured GitHub Actions workflows to simplify CI and automate versioning.
+
+### Workflow Trigger Cleanup
+
+All workflows now trigger **only on push to `main`**. Removed all `pull_request` triggers to prevent redundant runs on feature branches.
+
+- **Changed:** `sonarcloud.yml` — removed `pull_request` trigger
+- **Changed:** `unit-tests.yml` — removed `pull_request` trigger
+
+### Separate Unit Tests Workflow
+
+Unit tests are now a standalone workflow, decoupled from both SonarCloud scanning and regression tests.
+
+- **New:** `.github/workflows/unit-tests.yml` — standalone unit test workflow triggered on push to `main`
+- **Changed:** `.github/workflows/sonarcloud.yml` — removed test coverage step; now only runs SAST/SCA scanning
+- **Changed:** `.github/workflows/regression.yml` — removed `unit-tests` job from regression pipeline
+- **Changed:** `sonar-project.properties` — removed `sonar.tests`, `sonar.test.inclusions`, `sonar.javascript.lcov.reportPaths`, and `sonar.coverage.exclusions`
+
+### Auto Version Bump from PR Milestone
+
+Version bumping is now fully automated based on the milestone assigned to merged PRs.
+
+- **New:** `.github/workflows/version-bump.yml` — on PR merge, reads the milestone title and bumps `package.json` + `package-lock.json` (patch increment if same milestone, reset to `.0` if new milestone)
+- **Changed:** `.github/workflows/gh-release.yml` — milestone link now uses the correct GitHub milestone integer ID (queried via API) instead of the version string
+- **Changed:** `package.json` — version bumped from `1.1.2` to `1.2.0` for milestone 1.2
+
+---
+
 ## Bug Fix Audit (2026-03-26)
 
 A comprehensive codebase audit identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
