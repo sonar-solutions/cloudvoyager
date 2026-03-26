@@ -20,11 +20,15 @@ jobs:
 
       - name: Extract milestone from package.json
         id: milestone
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           MILESTONE=$(echo "$VERSION" | cut -d. -f1,2)
+          MILESTONE_NUMBER=$(gh api repos/${{ github.repository }}/milestones --jq ".[] | select(.title==\"$MILESTONE\") | .number" || echo "")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "milestone=$MILESTONE" >> "$GITHUB_OUTPUT"
+          echo "milestone_number=$MILESTONE_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -42,7 +46,7 @@ jobs:
           body: |
             ## Milestone ${{ steps.milestone.outputs.milestone }}
 
-            This release is part of the **[${{ steps.milestone.outputs.milestone }} milestone](https://github.com/sonar-solutions/cloudvoyager/milestone/${{ steps.milestone.outputs.milestone }})**.
+            This release is part of the **[${{ steps.milestone.outputs.milestone }} milestone](https://github.com/${{ github.repository }}/milestone/${{ steps.milestone.outputs.milestone_number }})**.
 
             Full version: `${{ steps.milestone.outputs.version }}`
 
