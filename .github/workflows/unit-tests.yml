@@ -1,8 +1,7 @@
-# -------- Workflow: SonarCloud Analysis --------
-# Runs SAST and SCA scanning via SonarCloud.
-# Triggers automatically on push to main and on pull requests.
+# -------- Workflow: Unit Tests --------
+# Runs unit tests with coverage on push to main and pull requests.
 
-name: SonarCloud Analysis
+name: Unit Tests
 
 # -------- Triggers --------
 on:
@@ -14,20 +13,17 @@ on:
 # -------- Permissions --------
 permissions:
   contents: read
-  pull-requests: read
 
 # -------- Jobs --------
 jobs:
-  sonarcloud:
-    name: SonarCloud Scan
+  unit-tests:
+    name: Run Unit Tests
     runs-on: ubuntu-latest
 
     steps:
       # -------- Checkout --------
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # -------- Node.js Setup --------
       - name: Setup Node.js
@@ -47,8 +43,6 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm ci --ignore-scripts
 
-      # -------- SonarCloud Scan --------
-      - name: Run SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # -------- Run Tests --------
+      - name: Run unit tests with coverage
+        run: npm test
