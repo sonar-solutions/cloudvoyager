@@ -1,5 +1,6 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { getPaginated } from './query-methods.js';
+import { FALLBACK_SONARCLOUD_REPOS } from '../../../../../shared/utils/fallback-repos/index.js';
 
 // -------- Permission & Group Query Methods --------
 
@@ -30,13 +31,20 @@ export async function searchIssuesWithComments(client, organization, projectKey,
 }
 
 export async function getRuleRepositories(client) {
-  try {
-    const response = await client.get('/api/rules/repositories');
-    const repos = (response.data.repositories || []).map(r => r.key);
-    logger.debug(`SonarCloud has ${repos.length} rule repositories`);
-    return new Set(repos);
-  } catch (error) {
-    logger.warn(`Failed to fetch rule repositories: ${error.message}`);
-    return new Set();
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await client.get('/api/rules/repositories');
+      const repos = (response.data.repositories || []).map(r => r.key);
+      logger.debug(`SonarCloud has ${repos.length} rule repositories`);
+      return new Set(repos);
+    } catch (error) {
+      logger.warn(`Attempt ${attempt}/${maxAttempts} failed to fetch rule repositories: ${error.message}`);
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+      }
+    }
   }
+  logger.warn('All retries exhausted — falling back to built-in rule repository list');
+  return FALLBACK_SONARCLOUD_REPOS;
 }

@@ -3,13 +3,15 @@ import * as ih from '../../api/issues-hotspots.js';
 import * as perm from '../../api/permissions.js';
 import * as sc from '../../api/server-config.js';
 import logger from '../../../../../shared/utils/logger.js';
+import { probeTotal } from './probe-total.js';
 
 // -------- Delegate Methods --------
 
 /** Attach delegation methods for quality, issues, permissions, and server config. */
 export function attachDelegateMethods(inst) {
+  const probeFn = (ep, params, dk) => probeTotal(inst.client, ep, params, dk);
   inst.getIssueChangelog = async (k) => ih.getIssueChangelog(inst.client, k);
-  inst.getHotspots = async (f = {}) => ih.getHotspots(inst.getPaginated.bind(inst), inst.projectKey, f);
+  inst.getHotspots = async (f = {}) => ih.getHotspots(probeFn, inst.getPaginated.bind(inst), inst.projectKey, f);
   inst.getHotspotDetails = async (k) => ih.getHotspotDetails(inst.client, k);
 
   inst.getQualityGates = async () => qual.getQualityGates(inst.client);

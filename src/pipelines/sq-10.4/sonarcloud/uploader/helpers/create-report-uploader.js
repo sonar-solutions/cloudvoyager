@@ -41,5 +41,6 @@ export function createReportUploader(client) {
     validateReport,
     prepareReportData,
     submitToComputeEngine: (reportData, metadata) => submitToComputeEngine(client, reportData, metadata),
+    _findTaskFromActivity: (startTime, maxChecks, intervalSec) => findTaskFromActivity(client, startTime, maxChecks, intervalSec),
   };
 }

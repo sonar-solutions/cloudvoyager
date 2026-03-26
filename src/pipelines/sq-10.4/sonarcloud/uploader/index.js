@@ -39,4 +39,8 @@ export class ReportUploader {
   validateReport(encodedReport) {
     return this._instance.validateReport(encodedReport);
   }
+
+  _findTaskFromActivity(startTime, maxChecks, intervalSec) {
+    return this._instance._findTaskFromActivity(startTime, maxChecks, intervalSec);
+  }
 }

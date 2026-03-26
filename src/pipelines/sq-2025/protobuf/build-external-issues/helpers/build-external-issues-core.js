@@ -9,8 +9,7 @@ export function buildExternalIssues(builder) {
   const sonarCloudRepos = builder.sonarCloudRepos;
 
   if (!sonarCloudRepos || sonarCloudRepos.size === 0) {
-    logger.debug('No SonarCloud repositories available — skipping external issue auto-detection');
-    return { externalIssuesByComponent: new Map(), adHocRules: [] };
+    logger.warn('No SonarCloud repositories available — using fallback built-in repo list');
   }
 
   logger.info('Auto-detecting external issues (rule repos not in SonarCloud)...');

@@ -1,6 +1,6 @@
 # 🔧 Troubleshooting
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 26, 2026 -->
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 🐛 Debugging a Migration Run
@@ -574,6 +574,35 @@ SQ 9.9 LTS uses the legacy issue status model with only 5 statuses:
 `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
 
 The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in SQ 9.9. The `sq-9.9` pipeline uses the `statuses` search parameter (not `issueStatuses`) and maps these legacy values during extraction.
+
+---
+
+## 📊 Projects with 10,000+ Issues
+
+SonarQube's `/api/issues/search` endpoint caps results at 10,000. If your project has more issues than this, older versions of CloudVoyager silently dropped everything beyond the cap.
+
+**Symptom:** After migration, the issue count in SonarCloud is exactly 10,000 (or noticeably lower than SonarQube) for a large project.
+
+**Fix (v1.2+):** CloudVoyager now automatically detects this situation and uses date-window slicing to retrieve all issues. No configuration is needed — it is transparent. If you migrated before v1.2, re-run the migration for affected projects to pick up the missing issues.
+
+**Verification:** Run `./cloudvoyager verify -c migrate-config.json --only issue-metadata` to compare issue counts between SonarQube and SonarCloud.
+
+---
+
+## 🔌 Third-Party Issues Not Appearing in SonarCloud
+
+External (third-party) issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft, ABAP) may be silently dropped if the rule-repository detection fails.
+
+**Symptom:** Issues from third-party plugins are missing in SonarCloud after migration, even though they exist in SonarQube.
+
+**Possible causes:**
+1. The SonarCloud `/api/rules/repositories` endpoint was unreachable during migration (network issue, token scope).
+2. The rule key does not contain a colon separator (malformed rule).
+3. The live repository set returned empty due to a transient API error.
+
+**Fix (v1.2+):** CloudVoyager now retries the repository API 3 times with exponential backoff and falls back to a built-in set of 43 known SonarCloud repositories. Rules without a colon are handled gracefully. If you migrated before v1.2, re-run the migration for affected projects.
+
+**Debugging:** Enable `--verbose` and search the log for `FALLBACK_SONARCLOUD_REPOS` or `getRuleRepositories` to confirm whether the fallback was used.
 
 ---
 

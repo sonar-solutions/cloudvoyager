@@ -20,9 +20,10 @@ export function buildSubmitForm(client, reportData, metadata) {
 
   // Branch characteristics for non-main branches
   if (metadata.branchName) {
+    const branchType = metadata.branchType || 'LONG';
     form.append('characteristic', `branch=${metadata.branchName}`);
-    form.append('characteristic', 'branchType=LONG');
-    logger.info(`Branch characteristics: branch=${metadata.branchName}, branchType=LONG`);
+    form.append('characteristic', `branchType=${branchType}`);
+    logger.info(`Branch characteristics: branch=${metadata.branchName}, branchType=${branchType}`);
   }
 
   const analysisProperties = [

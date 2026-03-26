@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Mar 25, 2026 (protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
+<!-- Last updated: Mar 26, 2026 (search slicing for 10K+ issues, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📡 Protobuf Encoding
@@ -117,6 +117,36 @@ SonarQube client handles pagination automatically via `getPaginated` method with
 The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
+
+<!-- Updated: Mar 26, 2026 -->
+## 🔍 Search Slicing for 10K+ Issues
+
+SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results regardless of pagination. Projects with more than 10,000 issues would silently lose data during extraction.
+
+**Solution:** `src/shared/utils/search-slicer/` implements a date-window bisection algorithm:
+
+1. **Probe** — `probe-total.js` (in each pipeline's `api-client/helpers/`) sends a lightweight request (`ps=1`) to get the total issue count for a query.
+2. **Partition** — If the total exceeds 10,000, the full creation-date range is split into equal-width windows.
+3. **Bisect** — Any window that still exceeds 10,000 is recursively halved until every window is under the limit.
+4. **Fetch** — Each window is fetched independently with `createdAfter` / `createdBefore` parameters.
+5. **Merge** — Results from all windows are deduplicated by issue key and merged into a single array.
+
+The slicing is transparent to callers — `issues-hotspots.js` in each pipeline calls `fetchWithSlicing`, which falls back to a normal paginated fetch when the total is under 10,000.
+
+<!-- Updated: Mar 26, 2026 -->
+## 🔄 Fallback Rule Repositories
+
+External-issue detection depends on knowing which rule repositories exist in SonarCloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 43 known SonarCloud repositories (`src/shared/utils/fallback-repos/index.js`).
+
+**Retry strategy for `getRuleRepositories()`:**
+1. Attempt the API call.
+2. On failure, retry up to 3 times with exponential backoff (1 s, 2 s, 3 s).
+3. If all retries fail, return the fallback set and log a warning.
+
+**`isExternalIssue()` guards:**
+- Uses the fallback set when the live set is empty.
+- Handles rules without a colon separator (treated as non-external).
+- Handles empty repository prefixes gracefully.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🚦 Rate Limit Handling
