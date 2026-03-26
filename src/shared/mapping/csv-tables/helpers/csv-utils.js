@@ -2,6 +2,7 @@
 export function escapeCsv(value) {
   if (value == null) return '';
   const str = String(value);
+  if (/^[=+\-@]/.test(str)) return `"'${str.replaceAll('"', '""')}"`;
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replaceAll('"', '""')}"`;
   }

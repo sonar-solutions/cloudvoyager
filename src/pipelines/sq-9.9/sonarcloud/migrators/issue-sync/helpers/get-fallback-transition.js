@@ -8,7 +8,7 @@ export function getFallbackTransition(sqIssue) {
     case 'CONFIRMED': return 'confirm';
     case 'RESOLVED':
     case 'CLOSED': return 'resolve';
-    case 'ACCEPTED': return 'accept';
+    case 'ACCEPTED': return 'wontfix';
     case 'REOPENED': return 'reopen';
     default: return null;
   }

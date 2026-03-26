@@ -10,7 +10,7 @@ import { addSourceLink } from './add-source-link.js';
 export async function syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats) {
   const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
   if (transitioned) stats.transitioned++;
-  syncIssueAssignment(sqIssue, scIssue, client, userMappings, stats);
+  await syncIssueAssignment(sqIssue, scIssue, client, userMappings, stats);
   await syncIssueComments(sqIssue, scIssue, client, stats);
   await syncIssueTags(sqIssue, scIssue, client, stats);
   await addSourceLink(sqIssue, scIssue, client, sqClient, stats);

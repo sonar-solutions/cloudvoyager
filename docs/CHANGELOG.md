@@ -4,6 +4,131 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix Audit (2026-03-26)
+
+A comprehensive codebase audit identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
+
+- **Fixed:** Org-level verification was comparing SonarCloud to itself (passing `scClient` as both args to `runOrgChecks`). Now correctly constructs a `SonarQubeClient` for the SQ side.
+- **Fixed:** Missing `await` on `syncIssueAssignment()` in sq-10.0 pipeline caused silent error swallowing and stats race conditions.
+- **Fixed:** `ACCEPTED` status mapped to invalid `'accept'` transition in sq-9.9 and sq-10.0 pipelines (SonarCloud only supports `wontfix`). Now matches sq-10.4/sq-2025 correct mapping.
+- **Fixed:** `ShutdownCoordinator` created but never passed to `handleMigrateAction` and `handleSyncMetadataAction`, preventing graceful cleanup on SIGINT.
+- **Fixed:** `build-match-key.js` used `||` instead of `??` for line numbers, treating `line: 0` (file-level issues) as falsy. Fixed in sq-9.9, sq-10.4, and sq-2025.
+- **Fixed:** `findDateRange` in search slicer had no null check — empty API results caused `NaN` timestamps and silent data loss.
+- **Fixed:** CSV injection vulnerability in `escapeCsv()` — values starting with `=`, `+`, `-`, `@` are now prefixed with a single quote inside double quotes.
+- **Fixed:** XSS via `innerHTML` in Desktop app — `err.message` in connection-test and status screens, and `screen` variable in app.js, are now escaped with `ConfigForm.escapeHtml()`.
+- **Fixed:** `createLimiter()` silently deadlocked when `concurrency` was 0, NaN, or negative. Now throws an error for invalid values.
+- **Fixed:** Desktop config cross-contamination — verify-config and sync-metadata-config screens were saving to `migrateConfig`, overwriting migrate settings. Each now uses its own config key (`verifyConfig`, `syncMetadataConfig`) with backward-compatible fallback.
+
+---
+
+## Milestone 1.2 Fixes (2026-03-26)
+
+The following four fixes were applied as part of the v1.2 milestone.
+
+### Search Slicing for 10K+ Issues (#53)
+
+SonarQube's `/api/issues/search` endpoint caps results at 10,000. Projects exceeding this limit now use date-window slicing to retrieve all issues.
+
+- **New:** `src/shared/utils/search-slicer/` (5 files) — partitions the creation-date range into narrowing windows until each window returns fewer than 10K results
+- **New:** `probe-total.js` added to each pipeline's `api-client/helpers/` (sq-9.9, sq-10.0, sq-10.4, sq-2025) — probes the total issue count for a query
+- **Modified:** `issues-hotspots.js` in all 4 pipelines now calls `fetchWithSlicing` when the total exceeds the 10K ceiling
+
+### Third-Party Issue Migration Fix (#56)
+
+Fixed silent loss of external (third-party) issues when the SonarCloud rule-repositories API was unreachable.
+
+- **New:** `src/shared/utils/fallback-repos/index.js` — built-in set of 43 known SonarCloud rule repositories used as a fallback
+- **Fixed:** `isExternalIssue()` falls back to `FALLBACK_SONARCLOUD_REPOS` when the live repo set is empty; handles rules without colons and empty repo prefixes
+- **Fixed:** `getRuleRepositories()` retries the API call up to 3 times with exponential backoff (1 s, 2 s, 3 s) and returns the fallback set if all retries fail
+
+*(See the existing v1.1.9 entry below for per-file details.)*
+
+### SonarCloud Public Scanning (#66)
+
+Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarCloud.
+
+- **New:** `.github/workflows/sonarcloud.yml` — triggers on push to `main` and on pull requests
+- **New:** `sonar-project.properties` — SonarCloud project configuration (org, project key, sources, exclusions)
+- **Requires:** `SONAR_TOKEN` secret configured in the GitHub repository
+
+### Release Milestone References (#75)
+
+GitHub releases now include the corresponding milestone link in the release body.
+
+- **Modified:** `.github/workflows/gh-release.yml` — extracts the version tag, derives the milestone name, and appends a milestone link to the auto-generated release notes
+
+### Desktop UI — Collapsible Config Sections
+
+The migrate-config wizard now groups optional settings into collapsible sections that start collapsed by default, reducing visual clutter for new users.
+
+- **Changed:** "Choose What to Migrate" section is now collapsed by default (collapsible with shield icon)
+- **Changed:** "More Settings (Advanced)" section is now collapsed by default (collapsible with gear icon)
+
+---
+
+## [1.1.10] - 2026-03-26
+
+### Bug Fix — Test Compatibility for Factory-Pattern Class Wrappers
+
+Fixed 134 hook failures and 47 test failures caused by the refactored class wrappers (`SonarQubeClient`, `SonarCloudClient`, `ProtobufBuilder`, `ProtobufEncoder`, `EnterpriseClient`, `ReportUploader`) not being compatible with sinon prototype stubbing.
+
+#### Root Cause
+The major refactor (v1.1.7) converted monolithic classes into factory functions with thin class wrappers using `Object.assign(this, instance)`. This broke sinon's `sinon.stub(Class.prototype, 'method')` pattern because:
+1. Methods existed as instance properties (from `Object.assign`), not on the prototype
+2. Sinon requires methods to exist on the prototype before stubbing
+3. Instance properties from `Object.assign` shadowed prototype stubs
+
+#### Fix
+- Added prototype method placeholders to all class wrappers so sinon can stub them
+- Changed constructors to detect sinon stubs (via `isSinonProxy` flag) and skip overwriting them
+- Added missing `handleError` method to `SonarQubeClient` factory
+- Added missing `_findTaskFromActivity` method to `ReportUploader` class and factory
+- Fixed `buildSubmitForm` to use `metadata.branchType` instead of hardcoded `'LONG'`
+- Made `handleError` reference `instance.baseURL` dynamically instead of closure capture
+
+#### Files Changed
+- `src/pipelines/sq-10.4/sonarqube/api-client/index.js`
+- `src/pipelines/sq-10.4/sonarqube/api-client/helpers/create-sonarqube-client.js`
+- `src/pipelines/sq-10.4/sonarcloud/api-client/index.js`
+- `src/pipelines/sq-10.4/protobuf/builder/index.js`
+- `src/pipelines/sq-10.4/protobuf/encoder/index.js`
+- `src/pipelines/sq-10.4/sonarcloud/enterprise-client/index.js`
+- `src/pipelines/sq-10.4/sonarcloud/uploader/index.js`
+- `src/pipelines/sq-10.4/sonarcloud/uploader/helpers/create-report-uploader.js`
+- `src/pipelines/sq-10.4/sonarcloud/uploader/helpers/build-submit-form.js`
+
+---
+
+## [1.1.9] - 2026-03-26
+
+### Bug Fix — Third-Party Issue Migration (#56)
+
+Fixed a bug where external (third-party) issues were silently dropped during migration when the SonarCloud `/api/rules/repositories` endpoint was unreachable or returned an error.
+
+#### Root Cause
+When `sonarCloudRepos` was empty (due to API failure), three layers of code conspired to skip all external issues:
+1. `isExternalIssue()` returned `false` for every issue when the repo set was empty
+2. `buildExternalIssues()` short-circuited with an early return when the repo set was empty
+3. `getRuleRepositories()` returned an empty `Set` on any API error with no retry
+
+#### Fix (applied across all 4 pipelines: sq-9.9, sq-10.0, sq-10.4, sq-2025)
+- **`isExternalIssue`** — Falls back to `FALLBACK_SONARCLOUD_REPOS` (a built-in set of known SonarCloud rule repos) when the live repo set is empty. Also adds guards for rules without colons and empty repo prefixes.
+- **`buildExternalIssues`** — Removes the early-return that skipped processing; now logs a warning and continues with fallback data.
+- **`getRuleRepositories`** — Retries the API call up to 3 times with exponential backoff (1s, 2s, 3s). If all retries fail, returns `FALLBACK_SONARCLOUD_REPOS` instead of an empty set.
+
+#### Files Changed
+- `src/pipelines/sq-{9.9,10.0,10.4,2025}/protobuf/build-external-issues/helpers/is-external-issue.js`
+- `src/pipelines/sq-9.9/protobuf/build-external-issues/helpers/build-external-issues-core.js`
+- `src/pipelines/sq-10.0/protobuf/build-external-issues/index.js`
+- `src/pipelines/sq-10.4/protobuf/build-external-issues/helpers/build-external-issues.js`
+- `src/pipelines/sq-2025/protobuf/build-external-issues/helpers/build-external-issues-core.js`
+- `src/pipelines/sq-9.9/sonarcloud/api-client/helpers/query-methods-extended.js`
+- `src/pipelines/sq-10.0/sonarcloud/api-client/helpers/permission-query-methods.js`
+- `src/pipelines/sq-10.4/sonarcloud/api-client/helpers/extended-query-methods.js`
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/query-methods-4.js`
+
+---
+
 ## [1.1.8] - 2026-03-25
 
 ### Bug Fix — Broken Relative Import Paths After Folder Refactoring

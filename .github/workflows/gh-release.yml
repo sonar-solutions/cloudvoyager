@@ -15,6 +15,17 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract milestone from package.json
+        id: milestone
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          MILESTONE=$(echo "$VERSION" | cut -d. -f1,2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "milestone=$MILESTONE" >> "$GITHUB_OUTPUT"
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -28,4 +39,12 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: CloudVoyager ${{ inputs.tag }}
           generate_release_notes: true
+          body: |
+            ## Milestone ${{ steps.milestone.outputs.milestone }}
+
+            This release is part of the **[${{ steps.milestone.outputs.milestone }} milestone](https://github.com/sonar-solutions/cloudvoyager/milestone/${{ steps.milestone.outputs.milestone }})**.
+
+            Full version: `${{ steps.milestone.outputs.version }}`
+
+            ---
           files: dist/bin/*

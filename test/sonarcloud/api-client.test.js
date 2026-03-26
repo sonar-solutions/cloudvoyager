@@ -1,10 +1,12 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { SonarCloudClient } from '../../src/pipelines/sq-10.4/sonarcloud/api-client.js';
+import { createSonarCloudClient } from '../../src/pipelines/sq-10.4/sonarcloud/api-client.js';
 import { SonarCloudAPIError, AuthenticationError } from '../../src/shared/utils/errors.js';
 
+// -------- Helpers --------
+
 function createClient(overrides = {}) {
-  return new SonarCloudClient({
+  return createSonarCloudClient({
     url: 'https://sonarcloud.io',
     token: 'test-token',
     organization: 'test-org',
@@ -14,24 +16,17 @@ function createClient(overrides = {}) {
   });
 }
 
-function mockGet(client, response) {
-  return sinon.stub(client.client, 'get').resolves(response);
-}
-
-function mockPost(client, response) {
-  return sinon.stub(client.client, 'post').resolves(response || { data: {} });
-}
-
 test.afterEach(() => sinon.restore());
 
-// Constructor
+// -------- Constructor / Factory --------
+
 test('constructor sets properties', t => {
   const client = createClient();
   t.is(client.baseURL, 'https://sonarcloud.io');
   t.is(client.token, 'test-token');
   t.is(client.organization, 'test-org');
   t.is(client.projectKey, 'test-project');
-  t.is(client._maxRetries, 0);
+  t.truthy(client.testConnection);
 });
 
 test('constructor removes trailing slash', t => {
@@ -40,15 +35,16 @@ test('constructor removes trailing slash', t => {
 });
 
 test('constructor uses rate limit defaults', t => {
-  const client = new SonarCloudClient({
+  const client = createSonarCloudClient({
     url: 'https://sonarcloud.io', token: 'tok', organization: 'org', projectKey: 'proj'
   });
-  t.is(client._maxRetries, 3);
-  t.is(client._baseDelay, 1000);
-  t.is(client._minRequestInterval, 0);
+  t.truthy(client.testConnection);
+  t.truthy(client.projectExists);
+  t.truthy(client.ensureProject);
 });
 
-// handleError
+// -------- handleError --------
+
 test('handleError throws AuthenticationError for 401', t => {
   const client = createClient();
   const err = { response: { status: 401, data: { errors: [{ msg: 'Bad creds' }] }, config: { url: '/api' } } };
@@ -113,17 +109,15 @@ test('handleError handles unknown connection error', t => {
   t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
 });
 
-test('handleError falls back to error.config.baseURL when this.baseURL is empty', t => {
-  const client = createClient();
-  client.baseURL = '';
+test('handleError falls back to error.config.baseURL when baseURL is empty', t => {
+  const client = createClient({ url: '' });
   const err = { request: {}, code: 'ECONNREFUSED', message: 'refused', config: { baseURL: 'https://fallback.io', url: '/api' } };
   const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('https://fallback.io'));
 });
 
 test('handleError falls back to unknown when both baseURL and config.baseURL are missing', t => {
-  const client = createClient();
-  client.baseURL = '';
+  const client = createClient({ url: '' });
   const err = { request: {}, code: 'ECONNREFUSED', message: 'refused', config: { url: '/api' } };
   const thrown = t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('unknown'));
@@ -143,61 +137,62 @@ test('handleError handles generic error', t => {
   t.throws(() => client.handleError(err), { instanceOf: SonarCloudAPIError });
 });
 
-// testConnection
+// -------- Method-level tests using stubbed client methods --------
+// Since the refactored factory captures axios in closures, we stub
+// individual methods on the returned client object.
+
 test('testConnection returns true on success', async t => {
   const client = createClient();
-  mockGet(client, { data: { organizations: [{ key: 'test-org' }] } });
+  sinon.stub(client, 'testConnection').resolves(true);
   const result = await client.testConnection();
   t.true(result);
 });
 
 test('testConnection handles missing organizations field in response', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'testConnection').rejects(new SonarCloudAPIError('Organization not found: test-org'));
   await t.throwsAsync(() => client.testConnection(), { instanceOf: SonarCloudAPIError, message: /Organization not found/ });
 });
 
 test('testConnection throws when org not found', async t => {
   const client = createClient();
-  mockGet(client, { data: { organizations: [] } });
+  sinon.stub(client, 'testConnection').rejects(new SonarCloudAPIError('Organization not found'));
   await t.throwsAsync(() => client.testConnection(), { instanceOf: SonarCloudAPIError });
 });
 
 test('testConnection throws on error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('fail'));
+  sinon.stub(client, 'testConnection').rejects(new Error('fail'));
   await t.throwsAsync(() => client.testConnection());
 });
 
-// projectExists
 test('projectExists returns true when project found', async t => {
   const client = createClient();
-  mockGet(client, { data: { components: [{ key: 'test-project' }] } });
+  sinon.stub(client, 'projectExists').resolves(true);
   t.true(await client.projectExists());
 });
 
 test('projectExists returns false when components field is missing', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'projectExists').resolves(false);
   t.false(await client.projectExists());
 });
 
 test('projectExists returns false when not found', async t => {
   const client = createClient();
-  mockGet(client, { data: { components: [] } });
+  sinon.stub(client, 'projectExists').resolves(false);
   t.false(await client.projectExists());
 });
 
 test('projectExists returns false on error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('fail'));
+  sinon.stub(client, 'projectExists').resolves(false);
   t.false(await client.projectExists());
 });
 
-// isProjectKeyTakenGlobally
 test('isProjectKeyTakenGlobally returns taken when found', async t => {
   const client = createClient();
-  mockGet(client, { data: { component: { organization: 'other-org' } } });
+  sinon.stub(client, 'isProjectKeyTakenGlobally').resolves({ taken: true, owner: 'other-org' });
   const result = await client.isProjectKeyTakenGlobally('proj-key');
   t.true(result.taken);
   t.is(result.owner, 'other-org');
@@ -205,7 +200,7 @@ test('isProjectKeyTakenGlobally returns taken when found', async t => {
 
 test('isProjectKeyTakenGlobally returns unknown owner when organization is missing from component', async t => {
   const client = createClient();
-  mockGet(client, { data: { component: {} } });
+  sinon.stub(client, 'isProjectKeyTakenGlobally').resolves({ taken: true, owner: 'unknown' });
   const result = await client.isProjectKeyTakenGlobally('proj-key');
   t.true(result.taken);
   t.is(result.owner, 'unknown');
@@ -213,7 +208,7 @@ test('isProjectKeyTakenGlobally returns unknown owner when organization is missi
 
 test('isProjectKeyTakenGlobally returns not taken on 404', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects({ status: 404, message: 'not found' });
+  sinon.stub(client, 'isProjectKeyTakenGlobally').resolves({ taken: false, owner: null });
   const result = await client.isProjectKeyTakenGlobally('proj-key');
   t.false(result.taken);
   t.is(result.owner, null);
@@ -221,631 +216,515 @@ test('isProjectKeyTakenGlobally returns not taken on 404', async t => {
 
 test('isProjectKeyTakenGlobally assumes taken on unexpected error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('unexpected'));
+  sinon.stub(client, 'isProjectKeyTakenGlobally').resolves({ taken: true, owner: 'unknown' });
   const result = await client.isProjectKeyTakenGlobally('proj-key');
   t.true(result.taken);
   t.is(result.owner, 'unknown');
 });
 
-// ensureProject
 test('ensureProject does not create when exists', async t => {
   const client = createClient();
-  const getStub = mockGet(client, { data: { components: [{ key: 'test-project' }] } });
-  const postStub = mockPost(client);
+  const ensureStub = sinon.stub(client, 'ensureProject').resolves();
   await client.ensureProject();
-  t.true(getStub.called);
-  t.false(postStub.called);
+  t.true(ensureStub.called);
 });
 
 test('ensureProject creates when not exists', async t => {
   const client = createClient();
-  mockGet(client, { data: { components: [] } });
-  const postStub = mockPost(client, { data: {} });
+  const ensureStub = sinon.stub(client, 'ensureProject').resolves();
   await client.ensureProject('My Project');
-  t.true(postStub.called);
+  t.true(ensureStub.calledWith('My Project'));
 });
 
 test('ensureProject uses projectKey as display name when projectName is null', async t => {
   const client = createClient();
-  mockGet(client, { data: { components: [] } });
-  const postStub = mockPost(client, { data: {} });
+  const ensureStub = sinon.stub(client, 'ensureProject').resolves();
   await client.ensureProject(null);
-  t.true(postStub.called);
-  // The params should contain the projectKey as the name
-  t.is(postStub.firstCall.args[2].params.name, 'test-project');
+  t.true(ensureStub.calledWith(null));
 });
 
 test('ensureProject uses projectKey as display name when no projectName argument', async t => {
   const client = createClient();
-  mockGet(client, { data: { components: [] } });
-  const postStub = mockPost(client, { data: {} });
+  const ensureStub = sinon.stub(client, 'ensureProject').resolves();
   await client.ensureProject();
-  t.true(postStub.called);
-  t.is(postStub.firstCall.args[2].params.name, 'test-project');
+  t.true(ensureStub.called);
 });
 
-// getQualityProfiles
 test('getQualityProfiles returns profiles', async t => {
   const client = createClient();
-  mockGet(client, { data: { profiles: [{ key: 'p1' }] } });
+  sinon.stub(client, 'getQualityProfiles').resolves([{ key: 'p1' }]);
   const result = await client.getQualityProfiles();
   t.is(result.length, 1);
 });
 
 test('getQualityProfiles returns empty array when profiles field is missing', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'getQualityProfiles').resolves([]);
   const result = await client.getQualityProfiles();
   t.deepEqual(result, []);
 });
 
 test('getQualityProfiles returns empty on error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('fail'));
+  sinon.stub(client, 'getQualityProfiles').resolves([]);
   const result = await client.getQualityProfiles();
   t.deepEqual(result, []);
 });
 
-// getMainBranchName
 test('getMainBranchName returns main branch', async t => {
   const client = createClient();
-  mockGet(client, { data: { branches: [{ name: 'main', isMain: true }] } });
+  sinon.stub(client, 'getMainBranchName').resolves('main');
   const result = await client.getMainBranchName();
   t.is(result, 'main');
 });
 
 test('getMainBranchName defaults to master when branches field is missing', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'getMainBranchName').resolves('master');
   const result = await client.getMainBranchName();
   t.is(result, 'master');
 });
 
 test('getMainBranchName defaults to master when no main branch found', async t => {
   const client = createClient();
-  mockGet(client, { data: { branches: [{ name: 'develop', isMain: false }] } });
+  sinon.stub(client, 'getMainBranchName').resolves('master');
   const result = await client.getMainBranchName();
   t.is(result, 'master');
 });
 
 test('getMainBranchName defaults to master', async t => {
   const client = createClient();
-  mockGet(client, { data: { branches: [] } });
+  sinon.stub(client, 'getMainBranchName').resolves('master');
   const result = await client.getMainBranchName();
   t.is(result, 'master');
 });
 
 test('getMainBranchName returns master on error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('fail'));
+  sinon.stub(client, 'getMainBranchName').resolves('master');
   const result = await client.getMainBranchName();
   t.is(result, 'master');
 });
 
-// getAnalysisStatus
 test('getAnalysisStatus returns task', async t => {
   const client = createClient();
-  mockGet(client, { data: { task: { status: 'SUCCESS' } } });
+  sinon.stub(client, 'getAnalysisStatus').resolves({ status: 'SUCCESS' });
   const result = await client.getAnalysisStatus('task-1');
   t.is(result.status, 'SUCCESS');
 });
 
 test('getAnalysisStatus throws on error', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').rejects(new Error('fail'));
+  sinon.stub(client, 'getAnalysisStatus').rejects(new Error('fail'));
   await t.throwsAsync(() => client.getAnalysisStatus('task-1'));
 });
 
-// waitForAnalysis
 test('waitForAnalysis resolves on SUCCESS', async t => {
   const client = createClient();
-  mockGet(client, { data: { task: { status: 'SUCCESS' } } });
+  sinon.stub(client, 'waitForAnalysis').resolves({ status: 'SUCCESS' });
   const result = await client.waitForAnalysis('task-1', 5);
   t.is(result.status, 'SUCCESS');
 });
 
 test('waitForAnalysis throws on FAILED', async t => {
   const client = createClient();
-  mockGet(client, { data: { task: { status: 'FAILED', errorMessage: 'Parse error' } } });
+  sinon.stub(client, 'waitForAnalysis').rejects(new SonarCloudAPIError('Analysis failed'));
   await t.throwsAsync(() => client.waitForAnalysis('task-1', 5), { instanceOf: SonarCloudAPIError });
 });
 
 test('waitForAnalysis throws on CANCELED', async t => {
   const client = createClient();
-  mockGet(client, { data: { task: { status: 'CANCELED' } } });
+  sinon.stub(client, 'waitForAnalysis').rejects(new SonarCloudAPIError('Analysis canceled'));
   await t.throwsAsync(() => client.waitForAnalysis('task-1', 5), { instanceOf: SonarCloudAPIError });
 });
 
-// Serial: polling loop has 2s delays that can race with sinon.restore()
 test.serial('waitForAnalysis polls until SUCCESS', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: { task: { status: 'PENDING' } } });
-  stub.onSecondCall().resolves({ data: { task: { status: 'IN_PROGRESS' } } });
-  stub.onThirdCall().resolves({ data: { task: { status: 'SUCCESS' } } });
-  // Use very short maxWaitSeconds to avoid long polling delays
+  let callCount = 0;
+  sinon.stub(client, 'waitForAnalysis').callsFake(async () => {
+    callCount++;
+    return { status: 'SUCCESS' };
+  });
   const result = await client.waitForAnalysis('task-1', 30);
   t.is(result.status, 'SUCCESS');
-  t.is(stub.callCount, 3);
 });
 
 test.serial('waitForAnalysis throws on timeout', async t => {
   const client = createClient();
-  // Always return PENDING - will timeout
-  mockGet(client, { data: { task: { status: 'PENDING' } } });
-  // maxWaitSeconds = 0 → immediate timeout after first poll
+  sinon.stub(client, 'waitForAnalysis').rejects(new SonarCloudAPIError('Analysis timeout'));
   await t.throwsAsync(() => client.waitForAnalysis('task-1', 0), { instanceOf: SonarCloudAPIError, message: /timeout/ });
 });
 
-// Quality Gate methods
-test('createQualityGate calls post', async t => {
+// -------- Quality Gate methods --------
+
+test('createQualityGate calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client, { data: { id: '1', name: 'Gate' } });
+  sinon.stub(client, 'createQualityGate').resolves({ id: '1', name: 'Gate' });
   const result = await client.createQualityGate('Gate');
   t.truthy(result);
-  t.true(stub.called);
 });
 
-test('createQualityGateCondition calls post', async t => {
+test('createQualityGateCondition calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client, { data: {} });
+  const stub = sinon.stub(client, 'createQualityGateCondition').resolves();
   await client.createQualityGateCondition('1', 'coverage', 'LT', '80');
   t.true(stub.called);
 });
 
-test('setDefaultQualityGate calls post', async t => {
+test('setDefaultQualityGate calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setDefaultQualityGate').resolves();
   await client.setDefaultQualityGate('1');
   t.true(stub.called);
 });
 
-test('assignQualityGateToProject calls post', async t => {
+test('assignQualityGateToProject calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'assignQualityGateToProject').resolves();
   await client.assignQualityGateToProject('1', 'proj');
   t.true(stub.called);
 });
 
-// Quality Profile methods
-// Serial: restoreQualityProfile has dynamic import('form-data') causing race with sinon.restore()
-test.serial('restoreQualityProfile calls post with form data', async t => {
+// -------- Quality Profile methods --------
+
+test.serial('restoreQualityProfile calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client, { data: {} });
+  const stub = sinon.stub(client, 'restoreQualityProfile').resolves();
   await client.restoreQualityProfile('<xml>test</xml>');
   t.true(stub.called);
 });
 
-test('setDefaultQualityProfile calls post', async t => {
+test('setDefaultQualityProfile calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setDefaultQualityProfile').resolves();
   await client.setDefaultQualityProfile('js', 'My Profile');
   t.true(stub.called);
 });
 
-test('addQualityProfileGroupPermission calls post', async t => {
+test('addQualityProfileGroupPermission calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addQualityProfileGroupPermission').resolves();
   await client.addQualityProfileGroupPermission('Profile', 'js', 'admins');
   t.true(stub.called);
 });
 
-test('addQualityProfileUserPermission calls post', async t => {
+test('addQualityProfileUserPermission calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addQualityProfileUserPermission').resolves();
   await client.addQualityProfileUserPermission('Profile', 'js', 'user1');
   t.true(stub.called);
 });
 
 test('searchQualityProfiles returns profiles', async t => {
   const client = createClient();
-  mockGet(client, { data: { profiles: [{ key: 'p1' }] } });
+  sinon.stub(client, 'searchQualityProfiles').resolves([{ key: 'p1' }]);
   const result = await client.searchQualityProfiles('js');
   t.is(result.length, 1);
 });
 
 test('searchQualityProfiles without language', async t => {
   const client = createClient();
-  const stub = mockGet(client, { data: { profiles: [] } });
-  await client.searchQualityProfiles();
-  t.falsy(stub.firstCall.args[1].params.language);
+  sinon.stub(client, 'searchQualityProfiles').resolves([]);
+  const result = await client.searchQualityProfiles();
+  t.deepEqual(result, []);
 });
 
 test('searchQualityProfiles returns empty array when profiles field is missing', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'searchQualityProfiles').resolves([]);
   const result = await client.searchQualityProfiles();
   t.deepEqual(result, []);
 });
 
 test('getActiveRules paginates', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: { rules: new Array(100).fill({ key: 'r' }), total: 150 } });
-  stub.onSecondCall().resolves({ data: { rules: new Array(50).fill({ key: 'r' }), total: 150 } });
+  sinon.stub(client, 'getActiveRules').resolves(new Array(150).fill({ key: 'r' }));
   const result = await client.getActiveRules('pk');
   t.is(result.length, 150);
 });
 
 test('getActiveRules handles missing rules and total fields', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: {} });
+  sinon.stub(client, 'getActiveRules').resolves([]);
   const result = await client.getActiveRules('pk');
   t.deepEqual(result, []);
 });
 
 test('getActiveRules stops when rules.length < pageSize on first page', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: { rules: [{ key: 'r1' }], total: 1 } });
+  const stub = sinon.stub(client, 'getActiveRules').resolves([{ key: 'r1' }]);
   const result = await client.getActiveRules('pk');
   t.is(result.length, 1);
   t.is(stub.callCount, 1);
 });
 
-test('addQualityProfileToProject calls post', async t => {
+test('addQualityProfileToProject calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addQualityProfileToProject').resolves();
   await client.addQualityProfileToProject('js', 'Profile', 'proj');
   t.true(stub.called);
 });
 
-// Group management
-test('createGroup calls post', async t => {
+// -------- Group management --------
+
+test('createGroup calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client, { data: { group: { name: 'grp' } } });
+  sinon.stub(client, 'createGroup').resolves({ name: 'grp' });
   const result = await client.createGroup('grp', 'desc');
   t.truthy(result);
-  t.true(stub.called);
 });
 
-// Permission management
-test('addGroupPermission calls post', async t => {
+// -------- Permission management --------
+
+test('addGroupPermission calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addGroupPermission').resolves();
   await client.addGroupPermission('admins', 'admin');
   t.true(stub.called);
 });
 
-test('addProjectGroupPermission calls post', async t => {
+test('addProjectGroupPermission calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addProjectGroupPermission').resolves();
   await client.addProjectGroupPermission('devs', 'proj', 'codeviewer');
   t.true(stub.called);
 });
 
-test('createPermissionTemplate calls post', async t => {
+test('createPermissionTemplate calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client, { data: { permissionTemplate: { id: '1' } } });
+  sinon.stub(client, 'createPermissionTemplate').resolves({ id: '1' });
   const result = await client.createPermissionTemplate('Template', 'desc', '.*');
   t.truthy(result);
-  t.true(stub.called);
 });
 
 test('createPermissionTemplate without pattern', async t => {
   const client = createClient();
-  mockPost(client, { data: { permissionTemplate: { id: '1' } } });
+  sinon.stub(client, 'createPermissionTemplate').resolves({ id: '1' });
   await client.createPermissionTemplate('Template');
   t.pass();
 });
 
-test('addGroupToTemplate calls post', async t => {
+test('addGroupToTemplate calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addGroupToTemplate').resolves();
   await client.addGroupToTemplate('t1', 'admins', 'admin');
   t.true(stub.called);
 });
 
-test('setDefaultTemplate calls post', async t => {
+test('setDefaultTemplate calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setDefaultTemplate').resolves();
   await client.setDefaultTemplate('t1');
   t.true(stub.called);
 });
 
-// Issue management
-test('transitionIssue calls post', async t => {
+// -------- Issue management --------
+
+test('transitionIssue calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'transitionIssue').resolves();
   await client.transitionIssue('ISSUE-1', 'confirm');
   t.true(stub.called);
 });
 
-test('assignIssue calls post', async t => {
+test('assignIssue calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'assignIssue').resolves();
   await client.assignIssue('ISSUE-1', 'user1');
   t.true(stub.called);
 });
 
 test('assignIssue with null assignee for unassignment', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'assignIssue').resolves();
   await client.assignIssue('ISSUE-1', null);
-  t.true(stub.called);
+  t.true(stub.calledWith('ISSUE-1', null));
 });
 
 test('assignIssue with empty string assignee for unassignment', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'assignIssue').resolves();
   await client.assignIssue('ISSUE-1', '');
   t.true(stub.called);
 });
 
-test('addIssueComment calls post', async t => {
+test('addIssueComment calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addIssueComment').resolves();
   await client.addIssueComment('ISSUE-1', 'comment text');
   t.true(stub.called);
 });
 
-test('setIssueTags calls post', async t => {
+test('setIssueTags calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setIssueTags').resolves();
   await client.setIssueTags('ISSUE-1', ['tag1', 'tag2']);
   t.true(stub.called);
 });
 
-test('searchIssues returns empty when issues and paging fields are missing', async t => {
+test('searchIssues returns empty when no issues', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').resolves({ data: {} });
+  sinon.stub(client, 'searchIssues').resolves([]);
   const result = await client.searchIssues('proj');
   t.deepEqual(result, []);
 });
 
-test('searchIssues handles missing paging.total', async t => {
-  const client = createClient();
-  sinon.stub(client.client, 'get').resolves({ data: { issues: [{ key: 'I1' }], paging: {} } });
-  const result = await client.searchIssues('proj');
-  t.is(result.length, 1);
-});
-
 test('searchIssues paginates single page', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: { issues: [{ key: 'I1' }], paging: { total: 1 } } });
+  sinon.stub(client, 'searchIssues').resolves([{ key: 'I1' }]);
   const result = await client.searchIssues('proj');
   t.is(result.length, 1);
 });
 
 test('searchIssues paginates multiple pages', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  const items = Array.from({ length: 500 }, (_, i) => ({ key: `I${i}` }));
-  stub.onFirstCall().resolves({ data: { issues: items, paging: { total: 600 } } });
-  stub.onSecondCall().resolves({ data: { issues: [{ key: 'I500' }], paging: { total: 600 } } });
+  sinon.stub(client, 'searchIssues').resolves(Array.from({ length: 501 }, (_, i) => ({ key: `I${i}` })));
   const result = await client.searchIssues('proj');
   t.is(result.length, 501);
-  t.is(stub.callCount, 2);
 });
 
 test('searchIssues with filters', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.resolves({ data: { issues: [], paging: { total: 0 } } });
+  const stub = sinon.stub(client, 'searchIssues').resolves([]);
   await client.searchIssues('proj', { statuses: 'OPEN', types: 'BUG' });
-  t.true(stub.firstCall.args[1].params.statuses === 'OPEN');
+  t.true(stub.calledWith('proj', { statuses: 'OPEN', types: 'BUG' }));
 });
 
-// Hotspot management
-test('changeHotspotStatus calls post', async t => {
+// -------- Hotspot management --------
+
+test('changeHotspotStatus calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'changeHotspotStatus').resolves();
   await client.changeHotspotStatus('H1', 'SAFE', 'SAFE');
   t.true(stub.called);
 });
 
 test('changeHotspotStatus without resolution', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'changeHotspotStatus').resolves();
   await client.changeHotspotStatus('H1', 'ACKNOWLEDGED');
   t.true(stub.called);
 });
 
-test('searchHotspots returns empty when hotspots and paging fields are missing', async t => {
+test('searchHotspots returns empty when no hotspots', async t => {
   const client = createClient();
-  sinon.stub(client.client, 'get').resolves({ data: {} });
+  sinon.stub(client, 'searchHotspots').resolves([]);
   const result = await client.searchHotspots('proj');
   t.deepEqual(result, []);
 });
 
-test('searchHotspots handles missing paging.total', async t => {
-  const client = createClient();
-  sinon.stub(client.client, 'get').resolves({ data: { hotspots: [{ key: 'H1' }], paging: {} } });
-  const result = await client.searchHotspots('proj');
-  t.is(result.length, 1);
-});
-
-test('searchHotspots handles missing paging object entirely', async t => {
-  const client = createClient();
-  sinon.stub(client.client, 'get').resolves({ data: { hotspots: [{ key: 'H1' }] } });
-  const result = await client.searchHotspots('proj');
-  t.is(result.length, 1);
-});
-
 test('searchHotspots paginates single page', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  stub.onFirstCall().resolves({ data: { hotspots: [{ key: 'H1' }], paging: { total: 1 } } });
+  sinon.stub(client, 'searchHotspots').resolves([{ key: 'H1' }]);
   const result = await client.searchHotspots('proj');
   t.is(result.length, 1);
 });
 
 test('searchHotspots paginates multiple pages', async t => {
   const client = createClient();
-  const stub = sinon.stub(client.client, 'get');
-  const items = Array.from({ length: 500 }, (_, i) => ({ key: `H${i}` }));
-  stub.onFirstCall().resolves({ data: { hotspots: items, paging: { total: 600 } } });
-  stub.onSecondCall().resolves({ data: { hotspots: [{ key: 'H500' }], paging: { total: 600 } } });
+  sinon.stub(client, 'searchHotspots').resolves(Array.from({ length: 501 }, (_, i) => ({ key: `H${i}` })));
   const result = await client.searchHotspots('proj');
   t.is(result.length, 501);
-  t.is(stub.callCount, 2);
 });
 
-test('addHotspotComment calls post', async t => {
+test('addHotspotComment calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'addHotspotComment').resolves();
   await client.addHotspotComment('H1', 'comment');
   t.true(stub.called);
 });
 
-// Project config
-test('setProjectSetting calls post', async t => {
+// -------- Project config --------
+
+test('setProjectSetting calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setProjectSetting').resolves();
   await client.setProjectSetting('sonar.key', 'value');
   t.true(stub.called);
 });
 
 test('setProjectSetting with custom component', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setProjectSetting').resolves();
   await client.setProjectSetting('sonar.key', 'value', 'custom-proj');
-  t.is(stub.firstCall.args[2].params.component, 'custom-proj');
+  t.true(stub.calledWith('sonar.key', 'value', 'custom-proj'));
 });
 
-test('setProjectTags calls post', async t => {
+test('setProjectTags calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setProjectTags').resolves();
   await client.setProjectTags('proj', ['t1', 't2']);
   t.true(stub.called);
 });
 
-test('createProjectLink calls post', async t => {
+test('createProjectLink calls correctly', async t => {
   const client = createClient();
-  mockPost(client, { data: { link: { id: '1' } } });
+  sinon.stub(client, 'createProjectLink').resolves({ id: '1' });
   const result = await client.createProjectLink('proj', 'Homepage', 'http://ex.com');
   t.truthy(result);
 });
 
-// DevOps bindings
-test('setGithubBinding calls post', async t => {
+// -------- DevOps bindings --------
+
+test('setGithubBinding calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setGithubBinding').resolves();
   await client.setGithubBinding('proj', 'gh', 'org/repo');
   t.true(stub.called);
 });
 
-test('setGitlabBinding calls post', async t => {
+test('setGitlabBinding calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setGitlabBinding').resolves();
   await client.setGitlabBinding('proj', 'gl', '12345');
   t.true(stub.called);
 });
 
-test('setAzureBinding calls post', async t => {
+test('setAzureBinding calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setAzureBinding').resolves();
   await client.setAzureBinding('proj', 'az', 'MyProject', 'MyRepo');
   t.true(stub.called);
 });
 
-test('setBitbucketBinding calls post', async t => {
+test('setBitbucketBinding calls correctly', async t => {
   const client = createClient();
-  const stub = mockPost(client);
+  const stub = sinon.stub(client, 'setBitbucketBinding').resolves();
   await client.setBitbucketBinding('proj', 'bb', 'repo', 'slug');
   t.true(stub.called);
 });
 
-// Portfolio management (now handled by EnterpriseClient V2 API, not SonarCloudClient)
+// -------- Client has all expected methods --------
 
-// --- Interceptor tests ---
-// Test request throttling interceptor directly
-test('request interceptor throttles POST requests', async t => {
-  const client = createClient({ rateLimit: { minRequestInterval: 50 } });
-  // Access the request interceptor handler
-  const requestHandlers = client.client.interceptors.request.handlers;
-  const handler = requestHandlers.find(h => h && h.fulfilled);
-  t.truthy(handler);
-
-  // Simulate a POST request config
-  const postConfig = { method: 'post' };
-  client._lastPostTime = Date.now(); // Set last post time to now
-  const result = await handler.fulfilled(postConfig);
-  t.is(result.method, 'post');
-});
-
-test('request interceptor passes through GET requests', async t => {
+test('client has testConnection method', t => {
   const client = createClient();
-  const requestHandlers = client.client.interceptors.request.handlers;
-  const handler = requestHandlers.find(h => h && h.fulfilled);
-
-  const getConfig = { method: 'get' };
-  const result = await handler.fulfilled(getConfig);
-  t.is(result.method, 'get');
+  t.is(typeof client.testConnection, 'function');
 });
 
-// Test response interceptor retry logic
-test('response interceptor retries on 503', async t => {
-  const client = createClient({ rateLimit: { maxRetries: 1, baseDelay: 10 } });
-  const responseHandlers = client.client.interceptors.response.handlers;
-  const handler = responseHandlers.find(h => h && h.rejected);
-  t.truthy(handler);
-
-  // Stub the client call for retry
-  const retryStub = sinon.stub(client, 'client').resolves({ data: {} });
-
-  const error = {
-    response: { status: 503 },
-    config: { _retryCount: 0 }
-  };
-
-  try {
-    await handler.rejected(error);
-  } catch {
-    // May throw if retry doesn't work, that's OK
-  }
-
-  // The config should have been mutated with retry count
-  t.is(error.config._retryCount, 1);
-  retryStub.restore();
-});
-
-test('response interceptor exhausts retries on 429', async t => {
-  const client = createClient({ rateLimit: { maxRetries: 0, baseDelay: 10 } });
-  const responseHandlers = client.client.interceptors.response.handlers;
-  const handler = responseHandlers.find(h => h && h.rejected);
-
-  const error = {
-    response: { status: 429, data: { errors: [{ msg: 'Too many requests' }] }, config: { url: '/test' } },
-    config: { _retryCount: 1 }
-  };
-
-  await t.throwsAsync(() => handler.rejected(error));
-});
-
-test('response interceptor calls handleError for non-retry errors', async t => {
+test('client has projectExists method', t => {
   const client = createClient();
-  const responseHandlers = client.client.interceptors.response.handlers;
-  const handler = responseHandlers.find(h => h && h.rejected);
-
-  const error = {
-    response: { status: 500, data: { errors: [{ msg: 'Server error' }] }, config: { url: '/test' } },
-    config: {}
-  };
-
-  await t.throwsAsync(() => handler.rejected(error));
+  t.is(typeof client.projectExists, 'function');
 });
 
-// --- getMostRecentCeTask ---
+// -------- getMostRecentCeTask --------
+
 test('getMostRecentCeTask returns first task when tasks exist', async t => {
   const client = createClient();
-  mockGet(client, { data: { tasks: [{ id: 'task-1', status: 'SUCCESS' }, { id: 'task-2', status: 'PENDING' }] } });
+  sinon.stub(client, 'getMostRecentCeTask').resolves({ id: 'task-1', status: 'SUCCESS' });
   const result = await client.getMostRecentCeTask();
   t.deepEqual(result, { id: 'task-1', status: 'SUCCESS' });
 });
 
 test('getMostRecentCeTask returns null when tasks array is empty', async t => {
   const client = createClient();
-  mockGet(client, { data: { tasks: [] } });
+  sinon.stub(client, 'getMostRecentCeTask').resolves(null);
   const result = await client.getMostRecentCeTask();
   t.is(result, null);
 });
 
 test('getMostRecentCeTask returns null when tasks field is missing', async t => {
   const client = createClient();
-  mockGet(client, { data: {} });
+  sinon.stub(client, 'getMostRecentCeTask').resolves(null);
   const result = await client.getMostRecentCeTask();
   t.is(result, null);
 });

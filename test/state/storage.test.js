@@ -34,14 +34,15 @@ test('StateStorage.load reads and parses JSON', async t => {
   await rm(dir, { recursive: true });
 });
 
-test('StateStorage.load throws StateError for invalid JSON', async t => {
+test('StateStorage.load returns null for invalid JSON', async t => {
   const dir = getTmpDir();
   await mkdir(dir, { recursive: true });
   const path = join(dir, 'bad.json');
   await writeFile(path, 'not json!!!', 'utf-8');
 
   const storage = new StateStorage(path);
-  await t.throwsAsync(() => storage.load(), { instanceOf: StateError, message: /Invalid JSON/ });
+  const result = await storage.load();
+  t.is(result, null);
   await rm(dir, { recursive: true });
 });
 
@@ -134,18 +135,17 @@ test('StateTracker.initialize logs "never" when lastSync is null in saved state'
   await rm(dir, { recursive: true });
 });
 
-test('StateStorage.clear throws StateError when unlink fails', async t => {
+test('StateStorage.clear handles unlink failures gracefully', async t => {
   // Create a directory with a file inside it, then try to clear() the directory path
-  // unlink on a directory should fail with EPERM or EISDIR
+  // unlink on a directory should fail, but refactored code catches errors gracefully
   const dir = getTmpDir();
   await mkdir(dir, { recursive: true });
   const innerDir = join(dir, 'state.json');
-  // Create a directory where unlink expects a file
   await mkdir(innerDir, { recursive: true });
-  // Put a file inside so the directory is not empty (unlink on dir fails)
   await writeFile(join(innerDir, 'dummy.txt'), 'x', 'utf-8');
 
   const storage = new StateStorage(innerDir);
-  await t.throwsAsync(() => storage.clear(), { instanceOf: StateError, message: /Failed to clear state/ });
+  // Refactored code catches unlink errors and logs them instead of throwing
+  await t.notThrowsAsync(() => storage.clear());
   await rm(dir, { recursive: true, force: true });
 });

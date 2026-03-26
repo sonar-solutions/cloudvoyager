@@ -252,6 +252,15 @@ All features are supported across all four pipelines:
 | Verification | Yes | Yes | Yes | Yes |
 | Multi-branch support | Yes | Yes | Yes | Yes |
 | Report generation | Yes | Yes | Yes | Yes |
+| Search slicing (10K+ issues) | Yes | Yes | Yes | Yes |
+| Fallback rule repositories | Yes | Yes | Yes | Yes |
+
+## Search Slicing and Fallback Repos (All Versions)
+
+Two resilience features apply identically across all four pipelines:
+
+- **Search slicing for 10K+ issues** — Each pipeline's `issues-hotspots.js` calls `fetchWithSlicing` from the shared `src/shared/utils/search-slicer/` utility. A `probe-total.js` helper in each pipeline's `api-client/helpers/` probes the total count with `ps=1`. If the total exceeds 10,000, the date-window bisection algorithm activates automatically.
+- **Fallback rule repositories** — Each pipeline's `getRuleRepositories()` retries 3 times with exponential backoff and falls back to the shared `src/shared/utils/fallback-repos/index.js` (43 known SonarCloud repositories). The `isExternalIssue()` guard in each pipeline uses the fallback set when the live set is empty.
 
 ## What Works Identically Across Pipelines
 

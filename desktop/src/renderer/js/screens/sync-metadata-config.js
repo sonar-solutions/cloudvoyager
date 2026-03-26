@@ -14,7 +14,7 @@ window.SyncMetadataConfigScreen = {
 
   async init() {
     // Reuse stored migrate config as base (same shape)
-    const stored = await window.cloudvoyager.config.loadKey('migrateConfig');
+    const stored = await window.cloudvoyager.config.loadKey('syncMetadataConfig') || await window.cloudvoyager.config.loadKey('migrateConfig');
     this.config = stored || {
       sonarqube: { url: '', token: '' },
       sonarcloud: { enterprise: { key: '' }, organizations: [] },
@@ -202,7 +202,7 @@ window.SyncMetadataConfigScreen = {
   },
 
   async saveConfig() {
-    await window.cloudvoyager.config.saveKey('migrateConfig', this.config);
+    await window.cloudvoyager.config.saveKey('syncMetadataConfig', this.config);
   },
 
   async saveAndNext(container) {

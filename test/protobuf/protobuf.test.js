@@ -1,6 +1,6 @@
 import test from 'ava';
-import { ProtobufBuilder } from '../../src/pipelines/sq-10.4/protobuf/builder.js';
-import { ProtobufEncoder } from '../../src/pipelines/sq-10.4/protobuf/encoder.js';
+import { createProtobufBuilder } from '../../src/pipelines/sq-10.4/protobuf/builder.js';
+import { createProtobufEncoder } from '../../src/pipelines/sq-10.4/protobuf/encoder.js';
 import { ProtobufEncodingError } from '../../src/shared/utils/errors.js';
 
 // ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ test('ProtobufBuilder: constructor stores data and config', t => {
   const data = createExtractedData();
   const config = createSonarCloudConfig();
   const profiles = createSonarCloudProfiles();
-  const builder = new ProtobufBuilder(data, config, profiles, { sonarCloudBranchName: 'custom-branch' });
+  const builder = createProtobufBuilder(data, config, profiles, { sonarCloudBranchName: 'custom-branch' });
 
   t.is(builder.data, data);
   t.is(builder.sonarCloudConfig, config);
@@ -167,7 +167,7 @@ test('ProtobufBuilder: constructor stores data and config', t => {
 
 test('ProtobufBuilder: constructor defaults', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data);
+  const builder = createProtobufBuilder(data);
 
   t.deepEqual(builder.sonarCloudConfig, {});
   t.deepEqual(builder.sonarCloudProfiles, []);
@@ -179,7 +179,7 @@ test('ProtobufBuilder: constructor defaults', t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufBuilder.getComponentRef: assigns sequential refs starting from 1', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
 
   const ref1 = builder.getComponentRef('comp-a');
   const ref2 = builder.getComponentRef('comp-b');
@@ -191,7 +191,7 @@ test('ProtobufBuilder.getComponentRef: assigns sequential refs starting from 1',
 });
 
 test('ProtobufBuilder.getComponentRef: is idempotent for same key', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
 
   const ref = builder.getComponentRef('test-key');
   t.is(builder.getComponentRef('test-key'), ref);
@@ -203,7 +203,7 @@ test('ProtobufBuilder.getComponentRef: is idempotent for same key', t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufBuilder.generateFakeCommitHash: returns 40-char hex string', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
   const hash = builder.generateFakeCommitHash();
 
   t.is(hash.length, 40);
@@ -211,7 +211,7 @@ test('ProtobufBuilder.generateFakeCommitHash: returns 40-char hex string', t => 
 });
 
 test('ProtobufBuilder.generateFakeCommitHash: generates unique hashes', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
   const hash1 = builder.generateFakeCommitHash();
   const hash2 = builder.generateFakeCommitHash();
 
@@ -226,7 +226,7 @@ test('ProtobufBuilder.buildMetadata: returns correct metadata structure', t => {
   const data = createExtractedData();
   const config = createSonarCloudConfig();
   const profiles = createSonarCloudProfiles();
-  const builder = new ProtobufBuilder(data, config, profiles);
+  const builder = createProtobufBuilder(data, config, profiles);
 
   const metadata = builder.buildMetadata();
 
@@ -245,7 +245,7 @@ test('ProtobufBuilder.buildMetadata: returns correct metadata structure', t => {
 
 test('ProtobufBuilder.buildMetadata: uses analysisDate from metadata', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const metadata = builder.buildMetadata();
   t.is(metadata.analysisDate, new Date('2026-02-15T12:00:00Z').getTime());
@@ -253,7 +253,7 @@ test('ProtobufBuilder.buildMetadata: uses analysisDate from metadata', t => {
 
 test('ProtobufBuilder.buildMetadata: uses sonarCloudBranchName when set', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles(), {
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles(), {
     sonarCloudBranchName: 'release/1.0'
   });
 
@@ -264,7 +264,7 @@ test('ProtobufBuilder.buildMetadata: uses sonarCloudBranchName when set', t => {
 
 test('ProtobufBuilder.buildMetadata: generates fake commit hash when scmRevisionId missing', t => {
   const data = createExtractedData({ metadata: { extractedAt: '2026-02-15T12:00:00Z' } });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const metadata = builder.buildMetadata();
   t.is(metadata.scmRevisionId.length, 40);
@@ -278,7 +278,7 @@ test('ProtobufBuilder.buildMetadata: falls back to first branch when no main bra
       branches: [{ name: 'develop', isMain: false }]
     }
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const metadata = builder.buildMetadata();
   t.is(metadata.branchName, 'develop');
@@ -291,7 +291,7 @@ test('ProtobufBuilder.buildMetadata: falls back to master when no branches', t =
       branches: []
     }
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const metadata = builder.buildMetadata();
   t.is(metadata.branchName, 'master');
@@ -299,7 +299,7 @@ test('ProtobufBuilder.buildMetadata: falls back to master when no branches', t =
 
 test('ProtobufBuilder.buildMetadata: uses project key from data when sonarCloudConfig has no projectKey', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, {}, createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, {}, createSonarCloudProfiles());
 
   const metadata = builder.buildMetadata();
   t.is(metadata.projectKey, 'my-project');
@@ -313,7 +313,7 @@ test('ProtobufBuilder.buildMetadata: uses project key from data when sonarCloudC
 test('ProtobufBuilder.buildQProfiles: maps languages to SonarCloud profile keys', t => {
   const data = createExtractedData();
   const profiles = createSonarCloudProfiles();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), profiles);
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), profiles);
 
   const qprofiles = builder.buildQProfiles();
 
@@ -323,18 +323,17 @@ test('ProtobufBuilder.buildQProfiles: maps languages to SonarCloud profile keys'
   t.is(qprofiles.js.language, 'js');
 });
 
-test('ProtobufBuilder.buildQProfiles: uses fallback when no SC profile found', t => {
+test('ProtobufBuilder.buildQProfiles: skips unsupported language when no SC profiles exist', t => {
   const data = createExtractedData({
     activeRules: [{ ruleRepository: 'python', ruleKey: 'S100', language: 'py', severity: 3, paramsByKey: {}, qProfileKey: 'sq-py' }],
     sources: [{ key: 'my-project:main.py', language: 'py', lines: ['print("hi")'] }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), []); // No SC profiles
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), []); // No SC profiles
 
   const qprofiles = builder.buildQProfiles();
 
-  t.truthy(qprofiles.py);
-  t.is(qprofiles.py.key, 'default-py');
-  t.is(qprofiles.py.name, 'Sonar way');
+  // When no SC profiles exist for a language, it is skipped as unsupported
+  t.falsy(qprofiles.py);
 });
 
 test('ProtobufBuilder.buildQProfiles: handles multiple languages', t => {
@@ -352,7 +351,7 @@ test('ProtobufBuilder.buildQProfiles: handles multiple languages', t => {
     { key: 'sc-js', name: 'JS Way', language: 'js', rulesUpdatedAt: '2026-01-01T00:00:00Z' },
     { key: 'sc-ts', name: 'TS Way', language: 'ts', rulesUpdatedAt: '2026-01-01T00:00:00Z' }
   ];
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), profiles);
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), profiles);
 
   const qprofiles = builder.buildQProfiles();
 
@@ -368,7 +367,7 @@ test('ProtobufBuilder.buildQProfiles: handles multiple languages', t => {
 
 test('ProtobufBuilder.buildFileCountsByType: counts files per language', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const counts = builder.buildFileCountsByType();
 
@@ -382,7 +381,7 @@ test('ProtobufBuilder.buildFileCountsByType: uses unknown for missing language',
       { key: 'p:b.js', language: 'js', lines: ['x'] }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const counts = builder.buildFileCountsByType();
   t.is(counts.unknown, 1);
@@ -395,7 +394,7 @@ test('ProtobufBuilder.buildFileCountsByType: uses unknown for missing language',
 
 test('ProtobufBuilder.buildComponents: creates PROJECT and FILE components', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
 
@@ -410,7 +409,7 @@ test('ProtobufBuilder.buildComponents: creates PROJECT and FILE components', t =
 
 test('ProtobufBuilder.buildComponents: skips directory components', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
 
@@ -420,7 +419,7 @@ test('ProtobufBuilder.buildComponents: skips directory components', t => {
 
 test('ProtobufBuilder.buildComponents: files are children of project (flat structure)', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const project = components.find(c => c.type === 1);
@@ -434,7 +433,7 @@ test('ProtobufBuilder.buildComponents: files are children of project (flat struc
 
 test('ProtobufBuilder.buildComponents: uses source line count for files', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const indexJs = components.find(c => c.projectRelativePath === 'src/index.js');
@@ -452,7 +451,7 @@ test('ProtobufBuilder.buildComponents: includes sources not in components list',
       { key: 'my-project:src/extra.js', language: 'js', lines: ['z', 'w'] } // Not in components
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const extra = components.find(c => c.projectRelativePath === 'src/extra.js');
@@ -477,7 +476,7 @@ test('ProtobufBuilder.buildComponents: only includes FIL components with source 
       ...createExtractedData().components
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const noSource = components.find(c => c.projectRelativePath === 'src/no-source.js');
@@ -488,7 +487,7 @@ test('ProtobufBuilder.buildComponents: only includes FIL components with source 
 
 test('ProtobufBuilder.buildComponents: sets validComponentKeys', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   builder.buildComponents();
 
@@ -503,7 +502,7 @@ test('ProtobufBuilder.buildComponents: sets validComponentKeys', t => {
 
 test('ProtobufBuilder.buildIssues: maps issues by component ref', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents(); // Must call first to populate refs and validComponentKeys
 
   const issuesByComponent = builder.buildIssues();
@@ -515,7 +514,7 @@ test('ProtobufBuilder.buildIssues: maps issues by component ref', t => {
 
 test('ProtobufBuilder.buildIssues: parses rule repository and key', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -532,7 +531,7 @@ test('ProtobufBuilder.buildIssues: parses rule repository and key', t => {
 
 test('ProtobufBuilder.buildIssues: maps severity correctly', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -546,7 +545,7 @@ test('ProtobufBuilder.buildIssues: maps severity correctly', t => {
 
 test('ProtobufBuilder.buildIssues: includes text range', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -574,7 +573,7 @@ test('ProtobufBuilder.buildIssues: skips issues for missing components', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -593,7 +592,7 @@ test('ProtobufBuilder.buildIssues: handles issue without text range', t => {
       severity: 'INFO'
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -609,7 +608,7 @@ test('ProtobufBuilder.buildIssues: handles issue without text range', t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufBuilder.mapSeverity: maps all known severities', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
 
   t.is(builder.mapSeverity('INFO'), 1);
   t.is(builder.mapSeverity('MINOR'), 2);
@@ -619,7 +618,7 @@ test('ProtobufBuilder.mapSeverity: maps all known severities', t => {
 });
 
 test('ProtobufBuilder.mapSeverity: defaults to MAJOR for unknown', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
 
   t.is(builder.mapSeverity('UNKNOWN'), 3);
   t.is(builder.mapSeverity(undefined), 3);
@@ -632,7 +631,7 @@ test('ProtobufBuilder.mapSeverity: defaults to MAJOR for unknown', t => {
 
 test('ProtobufBuilder.buildMeasures: creates measures for FILE components only', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -644,7 +643,7 @@ test('ProtobufBuilder.buildMeasures: creates measures for FILE components only',
 
 test('ProtobufBuilder.buildMeasures: skips directory components', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -658,7 +657,7 @@ test('ProtobufBuilder.buildMeasures: skips directory components', t => {
 
 test('ProtobufBuilder.buildMeasures: integer values use intValue', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -673,7 +672,7 @@ test('ProtobufBuilder.buildMeasures: integer values use intValue', t => {
 
 test('ProtobufBuilder.buildMeasures: float values use doubleValue', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -701,7 +700,7 @@ test('ProtobufBuilder.buildMeasures: string metrics use stringValue', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -727,7 +726,7 @@ test('ProtobufBuilder.buildMeasures: boolean values use booleanValue', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -752,7 +751,7 @@ test('ProtobufBuilder.buildMeasures: large integers use longValue', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -777,7 +776,7 @@ test('ProtobufBuilder.buildMeasures: NaN string values use stringValue', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -802,7 +801,7 @@ test('ProtobufBuilder.buildMeasures: empty value uses stringValue', t => {
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const measuresByComponent = builder.buildMeasures();
@@ -818,7 +817,7 @@ test('ProtobufBuilder.buildMeasures: empty value uses stringValue', t => {
 
 test('ProtobufBuilder.buildSourceFiles: returns source files with componentRef and lines', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const sourceFiles = builder.buildSourceFiles();
@@ -844,7 +843,7 @@ test('ProtobufBuilder.buildSourceFiles: skips sources without component refs', t
       ...createExtractedData().sources
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const sourceFiles = builder.buildSourceFiles();
@@ -860,7 +859,7 @@ test('ProtobufBuilder.buildSourceFiles: skips sources without component refs', t
 
 test('ProtobufBuilder.buildActiveRules: strips repo prefix from ruleKey', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -871,7 +870,7 @@ test('ProtobufBuilder.buildActiveRules: strips repo prefix from ruleKey', t => {
 
 test('ProtobufBuilder.buildActiveRules: keeps ruleKey without prefix unchanged', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -882,7 +881,7 @@ test('ProtobufBuilder.buildActiveRules: keeps ruleKey without prefix unchanged',
 test('ProtobufBuilder.buildActiveRules: maps qProfileKey to SonarCloud profile key', t => {
   const data = createExtractedData();
   const profiles = createSonarCloudProfiles();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), profiles);
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), profiles);
 
   const rules = builder.buildActiveRules();
 
@@ -906,7 +905,7 @@ test('ProtobufBuilder.buildActiveRules: keeps original qProfileKey when no SC pr
     }]
   });
   // SC profiles only have 'js', not 'py'
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -915,7 +914,7 @@ test('ProtobufBuilder.buildActiveRules: keeps original qProfileKey when no SC pr
 
 test('ProtobufBuilder.buildActiveRules: includes impacts when present', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -928,7 +927,7 @@ test('ProtobufBuilder.buildActiveRules: includes impacts when present', t => {
 
 test('ProtobufBuilder.buildActiveRules: omits impacts when empty', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -938,7 +937,7 @@ test('ProtobufBuilder.buildActiveRules: omits impacts when empty', t => {
 
 test('ProtobufBuilder.buildActiveRules: preserves params', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
   const ruleWithParams = rules.find(r => r.ruleKey === 'S5678');
@@ -952,7 +951,7 @@ test('ProtobufBuilder.buildActiveRules: preserves params', t => {
 
 test('ProtobufBuilder.buildChangesets: builds changeset messages from Map', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const changesetsByComponent = builder.buildChangesets();
@@ -979,7 +978,7 @@ test('ProtobufBuilder.buildChangesets: skips changesets for unknown components',
       }]
     ])
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const changesetsByComponent = builder.buildChangesets();
@@ -988,7 +987,7 @@ test('ProtobufBuilder.buildChangesets: skips changesets for unknown components',
 
 test('ProtobufBuilder.buildChangesets: handles empty changeset map', t => {
   const data = createExtractedData({ changesets: new Map() });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const changesetsByComponent = builder.buildChangesets();
@@ -1001,7 +1000,7 @@ test('ProtobufBuilder.buildChangesets: handles empty changeset map', t => {
 
 test('ProtobufBuilder.buildAll: returns all message types', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const messages = builder.buildAll();
 
@@ -1016,7 +1015,7 @@ test('ProtobufBuilder.buildAll: returns all message types', t => {
 
 test('ProtobufBuilder.buildAll: metadata has correct project key', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const messages = builder.buildAll();
 
@@ -1025,7 +1024,7 @@ test('ProtobufBuilder.buildAll: metadata has correct project key', t => {
 
 test('ProtobufBuilder.buildAll: components include project and files', t => {
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const messages = builder.buildAll();
 
@@ -1037,7 +1036,7 @@ test('ProtobufBuilder.buildAll: throws ProtobufEncodingError on failure', t => {
   const data = createExtractedData({
     project: null // This will cause a TypeError
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const error = t.throws(() => builder.buildAll());
   t.true(error instanceof ProtobufEncodingError);
@@ -1049,7 +1048,7 @@ test('ProtobufBuilder.buildAll: throws ProtobufEncodingError on failure', t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufBuilder.buildPlugins: returns default javascript plugin', t => {
-  const builder = new ProtobufBuilder(createExtractedData());
+  const builder = createProtobufBuilder(createExtractedData());
 
   const plugins = builder.buildPlugins();
 
@@ -1067,7 +1066,7 @@ test('ProtobufBuilder.buildPlugins: returns default javascript plugin', t => {
 test('buildComponents: uses project.key when sonarCloudConfig.projectKey is falsy (line 12)', t => {
   const data = createExtractedData();
   // No projectKey in sonarCloudConfig
-  const builder = new ProtobufBuilder(data, {}, createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, {}, createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const project = components.find(c => c.type === 1);
@@ -1086,7 +1085,7 @@ test('buildComponents: handles source with no language and null lines (lines 19-
     ],
     components: []
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
 
@@ -1110,7 +1109,7 @@ test('buildComponents: handles source with empty language string (lines 19)', t 
     ],
     components: []
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/emptyLang.js');
@@ -1137,7 +1136,7 @@ test('buildComponents: uses measures line count when source has no lines (line 2
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/measured.js');
@@ -1164,7 +1163,7 @@ test('buildComponents: falls to 0 when no lineCount and no lines measure (line 2
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/nolines.js');
@@ -1176,7 +1175,7 @@ test('buildComponents: falls to 0 when no lineCount and no lines measure (line 2
 test('buildComponents: uses info.language when comp.language is missing (line 32)', t => {
   const data = createExtractedData({
     sources: [
-      { key: 'my-project:src/fromSource.js', language: 'ts', lines: ['x'] }
+      { key: 'my-project:src/fromSource.js', language: 'js', lines: ['x'] }
     ],
     components: [
       {
@@ -1189,12 +1188,12 @@ test('buildComponents: uses info.language when comp.language is missing (line 32
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/fromSource.js');
   t.truthy(comp);
-  t.is(comp.language, 'ts'); // Falls back to info.language from source
+  t.is(comp.language, 'js'); // Falls back to info.language from source
 });
 
 // Line 32: both comp.language and info.language are falsy, falls to ''
@@ -1214,7 +1213,7 @@ test('buildComponents: uses empty string when both comp and info language are fa
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/noLangAnywhere.txt');
@@ -1239,7 +1238,7 @@ test('buildComponents: uses comp.name when comp.path is missing (line 35)', t =>
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'pathless.js');
@@ -1255,7 +1254,7 @@ test('buildComponents: source key without colon uses full key as path (line 42)'
     ],
     components: [] // No matching component, so handled by sources loop
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   // split(':').pop() on 'nocolonkey' returns 'nocolonkey' which is truthy
@@ -1274,7 +1273,7 @@ test('buildComponents: source key ending with colon falls back to source.key (li
     ],
     components: []
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   // 'project:'.split(':').pop() returns '' (falsy), so || source.key gives 'project:'
@@ -1291,7 +1290,7 @@ test('buildComponents: source with null lines in extra sources loop uses 0 (line
     ],
     components: [] // No matching component
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/nullLines.js');
@@ -1307,7 +1306,7 @@ test('buildComponents: source with falsy language in extra sources loop uses emp
     ],
     components: [] // No matching component
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const components = builder.buildComponents();
   const comp = components.find(c => c.projectRelativePath === 'src/noLangExtra.txt');
@@ -1331,7 +1330,7 @@ test('buildIssues: handles rule without colon separator (lines 21-22)', t => {
       textRange: { startLine: 1, endLine: 1, startOffset: 0, endOffset: 10 }
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1355,7 +1354,7 @@ test('buildIssues: handles rule starting with colon (line 21 empty repo)', t => 
       severity: 'INFO'
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1379,7 +1378,7 @@ test('buildIssues: handles issue with no message (line 27)', t => {
       // message is undefined
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1400,7 +1399,7 @@ test('buildIssues: handles issue with null message (line 27)', t => {
       severity: 'MAJOR'
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1422,7 +1421,7 @@ test('buildIssues: handles textRange with undefined offsets (lines 35-36)', t =>
       textRange: { startLine: 5, endLine: 5 } // No startOffset/endOffset
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1445,7 +1444,7 @@ test('buildIssues: handles textRange with null offsets (lines 35-36)', t => {
       textRange: { startLine: 1, endLine: 1, startOffset: null, endOffset: null }
     }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const issuesByComponent = builder.buildIssues();
@@ -1468,7 +1467,7 @@ test('buildSourceFiles: skips sources whose key is not in componentRefMap (line 
       { key: 'orphan-key-not-in-refs', language: 'js', lines: ['orphan'] }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents(); // This registers refs for both sources
 
   // Manually remove the orphan from componentRefMap to exercise the early return
@@ -1508,7 +1507,7 @@ test('buildActiveRules: falls back to empty object when paramsByKey is null/unde
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
 
   const rules = builder.buildActiveRules();
 
@@ -1528,7 +1527,7 @@ test('buildChangesets: falls back to empty array when changesetIndexByLine is mi
       }]
     ])
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const changesetsByComponent = builder.buildChangesets();
@@ -1551,7 +1550,7 @@ test('buildChangesets: falls back to empty array when changesetIndexByLine is nu
       }]
     ])
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   const changesetsByComponent = builder.buildChangesets();
@@ -1588,7 +1587,7 @@ test('buildMeasures: skips FIL component not in componentRefMap (line 17)', t =>
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   builder.buildComponents();
 
   // Remove unregistered.js from componentRefMap to exercise the early return
@@ -1611,7 +1610,7 @@ test('buildMeasures: skips FIL component not in componentRefMap (line 17)', t =>
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.loadSchemas: loads proto schemas successfully', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
 
   await encoder.loadSchemas();
 
@@ -1625,7 +1624,7 @@ test('ProtobufEncoder.loadSchemas: loads proto schemas successfully', async t =>
 });
 
 test('ProtobufEncoder.loadSchemas: loads Severity enum from constants.proto', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const Severity = encoder.root.lookupEnum('Severity');
@@ -1639,7 +1638,7 @@ test('ProtobufEncoder.loadSchemas: loads Severity enum from constants.proto', as
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeMetadata: encodes valid metadata to buffer', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const metadata = {
@@ -1662,7 +1661,7 @@ test('ProtobufEncoder.encodeMetadata: encodes valid metadata to buffer', async t
 });
 
 test('ProtobufEncoder.encodeMetadata: encoded metadata can be decoded', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const metadata = {
@@ -1690,7 +1689,7 @@ test('ProtobufEncoder.encodeMetadata: encoded metadata can be decoded', async t 
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeComponent: encodes project component', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const component = {
@@ -1712,7 +1711,7 @@ test('ProtobufEncoder.encodeComponent: encodes project component', async t => {
 });
 
 test('ProtobufEncoder.encodeComponent: encodes file component', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const component = {
@@ -1740,7 +1739,7 @@ test('ProtobufEncoder.encodeComponent: encodes file component', async t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeIssueDelimited: encodes issue with length prefix', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const issue = {
@@ -1768,7 +1767,7 @@ test('ProtobufEncoder.encodeIssueDelimited: encodes issue with length prefix', a
 });
 
 test('ProtobufEncoder.encodeIssueDelimited: throws on invalid issue', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   // overriddenSeverity must be an enum value (int), passing object should fail verify
@@ -1788,7 +1787,7 @@ test('ProtobufEncoder.encodeIssueDelimited: throws on invalid issue', async t =>
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeMeasureDelimited: encodes integer measure', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const measure = {
@@ -1806,7 +1805,7 @@ test('ProtobufEncoder.encodeMeasureDelimited: encodes integer measure', async t 
 });
 
 test('ProtobufEncoder.encodeMeasureDelimited: encodes double measure', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const measure = {
@@ -1823,7 +1822,7 @@ test('ProtobufEncoder.encodeMeasureDelimited: encodes double measure', async t =
 });
 
 test('ProtobufEncoder.encodeMeasureDelimited: encodes string measure', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const measure = {
@@ -1840,7 +1839,7 @@ test('ProtobufEncoder.encodeMeasureDelimited: encodes string measure', async t =
 });
 
 test('ProtobufEncoder.encodeMeasureDelimited: encodes boolean measure', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const measure = {
@@ -1860,7 +1859,7 @@ test('ProtobufEncoder.encodeMeasureDelimited: encodes boolean measure', async t 
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeActiveRuleDelimited: encodes active rule', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const activeRule = {
@@ -1886,7 +1885,7 @@ test('ProtobufEncoder.encodeActiveRuleDelimited: encodes active rule', async t =
 });
 
 test('ProtobufEncoder.encodeActiveRuleDelimited: encodes rule with impacts', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const activeRule = {
@@ -1914,7 +1913,7 @@ test('ProtobufEncoder.encodeActiveRuleDelimited: encodes rule with impacts', asy
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeChangeset: encodes changeset message', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const changeset = {
@@ -1943,7 +1942,7 @@ test('ProtobufEncoder.encodeChangeset: encodes changeset message', async t => {
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder.encodeAll: throws if schemas not loaded', t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
 
   t.throws(() => encoder.encodeAll({}), {
     instanceOf: ProtobufEncodingError,
@@ -1952,11 +1951,11 @@ test('ProtobufEncoder.encodeAll: throws if schemas not loaded', t => {
 });
 
 test('ProtobufEncoder.encodeAll: encodes full builder output', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
 
   const encoded = encoder.encodeAll(messages);
@@ -2000,11 +1999,11 @@ test('ProtobufEncoder.encodeAll: encodes full builder output', async t => {
 });
 
 test('ProtobufEncoder.encodeAll: source file text is joined with newlines', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
 
   const encoded = encoder.encodeAll(messages);
@@ -2017,11 +2016,11 @@ test('ProtobufEncoder.encodeAll: source file text is joined with newlines', asyn
 });
 
 test('ProtobufEncoder.encodeAll: encoded metadata can be decoded back', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
   const encoded = encoder.encodeAll(messages);
 
@@ -2034,11 +2033,11 @@ test('ProtobufEncoder.encodeAll: encoded metadata can be decoded back', async t 
 });
 
 test('ProtobufEncoder.encodeAll: encoded components can be decoded back', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
   const encoded = encoder.encodeAll(messages);
 
@@ -2053,11 +2052,11 @@ test('ProtobufEncoder.encodeAll: encoded components can be decoded back', async 
 // (Replaced by the clean version below that uses the synchronous protobuf import)
 
 test('ProtobufEncoder.encodeAll: changesets are encoded per component', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
   const encoded = encoder.encodeAll(messages);
 
@@ -2078,11 +2077,11 @@ test('ProtobufEncoder.encodeAll: changesets are encoded per component', async t 
 // ---------------------------------------------------------------------------
 
 test('End-to-end: builder output is fully encodable', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData();
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
 
   // This should not throw
@@ -2095,7 +2094,7 @@ test('End-to-end: builder output is fully encodable', async t => {
 });
 
 test('End-to-end: empty data (no issues, no measures, no changesets)', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData({
@@ -2104,7 +2103,7 @@ test('End-to-end: empty data (no issues, no measures, no changesets)', async t =
     changesets: new Map(),
     sources: [{ key: 'my-project:empty.js', language: 'js', lines: ['// empty'] }]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
   const encoded = encoder.encodeAll(messages);
 
@@ -2118,7 +2117,7 @@ test('End-to-end: empty data (no issues, no measures, no changesets)', async t =
 import protobuf from 'protobufjs';
 
 test.serial('ProtobufEncoder.loadSchemas: throws ProtobufEncodingError when proto parsing fails', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
 
   // Monkey-patch protobuf.parse to throw, simulating invalid proto files
   const originalParse = protobuf.parse;
@@ -2136,7 +2135,7 @@ test.serial('ProtobufEncoder.loadSchemas: throws ProtobufEncodingError when prot
 });
 
 test('ProtobufEncoder.encodeAll: wraps errors in ProtobufEncodingError', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   // Pass messages object that will cause encoding to fail
@@ -2158,7 +2157,7 @@ test('ProtobufEncoder.encodeAll: wraps errors in ProtobufEncodingError', async t
 });
 
 test('ProtobufEncoder.encodeAll: decodes multiple concatenated delimited issues', async t => {
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   const data = createExtractedData({
@@ -2173,7 +2172,7 @@ test('ProtobufEncoder.encodeAll: decodes multiple concatenated delimited issues'
       }
     ]
   });
-  const builder = new ProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
   const messages = builder.buildAll();
   const encoded = encoder.encodeAll(messages);
 
@@ -2236,9 +2235,9 @@ test.serial('ProtobufEncoder.loadSchemas succeeds via dynamic import path (line 
   // We must create a fresh ProtobufEncoder from a fresh module load so the
   // dynamic imports inside loadProtoSchemas actually run through our hook.
   // esmock ensures we get a fresh module instance.
-  const { ProtobufEncoder: FreshEncoder } = await esmock('../../src/pipelines/sq-10.4/protobuf/encoder.js', {});
+  const { createProtobufEncoder: freshCreateEncoder } = await esmock('../../src/pipelines/sq-10.4/protobuf/encoder.js', {});
 
-  const encoder = new FreshEncoder();
+  const encoder = freshCreateEncoder();
   await encoder.loadSchemas();
 
   // Verify schemas loaded correctly via the dynamic import success path

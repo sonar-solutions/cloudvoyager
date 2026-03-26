@@ -7,8 +7,8 @@ import { ProtobufEncodingError } from '../../../../../shared/utils/errors.js';
 async function loadProtoTexts() {
   try {
     const [constantsMod, scannerReportMod] = await Promise.all([
-      import('../schema/constants.proto'),
-      import('../schema/scanner-report.proto'),
+      import('../../schema/constants.proto'),
+      import('../../schema/scanner-report.proto'),
     ]);
     return [constantsMod.default, scannerReportMod.default];
   } catch {
@@ -16,7 +16,7 @@ async function loadProtoTexts() {
     const { dirname, join } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
     const dir = dirname(fileURLToPath(import.meta.url));
-    const schemaDir = join(dir, '..', 'schema');
+    const schemaDir = join(dir, '..', '..', 'schema');
     return [
       readFileSync(join(schemaDir, 'constants.proto'), 'utf-8'),
       readFileSync(join(schemaDir, 'scanner-report.proto'), 'utf-8'),

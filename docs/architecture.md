@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 25, 2026 -->
+<!-- Last updated: Mar 26, 2026 -->
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📁 Project Structure
@@ -65,7 +65,16 @@ src/
     │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
     │   ├── progress.js                 # Checkpoint progress display and ETA
     │   ├── prompt.js                   # Interactive user prompts (confirmation dialogs)
-    │   └── version.js                  # SonarQube version parsing and comparison
+    │   ├── version.js                  # SonarQube version parsing and comparison
+    │   ├── search-slicer/             # Date-window slicing for 10K+ issue retrieval
+    │   │   ├── index.js                # fetchWithSlicing orchestrator
+    │   │   ├── helpers/
+    │   │   │   ├── bisect-window.js    # Binary-split a date window
+    │   │   │   ├── build-windows.js    # Initial window partitioning
+    │   │   │   ├── fetch-window.js     # Fetch issues within a single window
+    │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
+    │   └── fallback-repos/
+    │       └── index.js                # 43 known SonarCloud rule repositories (fallback set)
     └── verification/                  # Migration verification
         ├── verify-pipeline.js          # Verification orchestrator (read-only comparison)
         ├── checkers/                   # Per-check verification modules
@@ -114,7 +123,7 @@ sq-{version}/
 │   ├── api-client.js                  # Re-export → api-client/index.js
 │   ├── api-client/
 │   │   ├── index.js                    # HTTP client (factory function: createSonarQubeClient)
-│   │   └── helpers/                    # 12 helper files (pagination, auth, delegate methods, ...)
+│   │   └── helpers/                    # 12+ helper files (pagination, auth, delegate methods, probe-total, ...)
 │   ├── models.js                      # Re-export → models/index.js
 │   ├── models/
 │   │   ├── index.js

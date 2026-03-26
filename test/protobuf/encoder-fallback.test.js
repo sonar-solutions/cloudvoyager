@@ -13,12 +13,14 @@ import esmock from 'esmock';
 // ---------------------------------------------------------------------------
 
 test('ProtobufEncoder loadSchemas uses readFileSync fallback when dynamic .proto imports fail', async (t) => {
-  // Use esmock to get a fresh instance of encoder.js. No mocks are needed;
+  // Use esmock to get a fresh instance of the factory. No mocks are needed;
   // we just need a clean module load so loadProtoSchemas runs without the
   // custom .proto loader that protobuf.test.js registers.
-  const { ProtobufEncoder } = await esmock('../../src/pipelines/sq-10.4/protobuf/encoder.js', {});
+  const { createProtobufEncoder } = await esmock(
+    '../../src/pipelines/sq-10.4/protobuf/encoder/index.js', {}
+  );
 
-  const encoder = new ProtobufEncoder();
+  const encoder = createProtobufEncoder();
   await encoder.loadSchemas();
 
   // Verify that schemas loaded successfully via the readFileSync fallback

@@ -33,7 +33,7 @@ test('CLI shows help with --help', async t => {
 
 test('CLI shows version with --version', async t => {
   const { stdout } = await exec('node', [CLI_PATH, '--version']);
-  t.true(stdout.includes('1.0.0'));
+  t.regex(stdout.trim(), /^\d+\.\d+\.\d+$/);
 });
 
 test('validate command with valid config succeeds', async t => {
@@ -278,15 +278,13 @@ test('test command fails at connection', async t => {
 
 // --- Tests for uncovered CLI command error / success paths ---
 
-test('reset command with --yes and invalid config hits catch path', async t => {
+test('reset command with --yes and invalid config resets gracefully', async t => {
   const configPath = join(tmpdir(), `cv-config-${randomUUID()}.json`);
   await writeFile(configPath, '{"invalid": true}');
   try {
-    await exec('node', [CLI_PATH, 'reset', '-c', configPath, '--yes'], { timeout: 10000 });
-    t.fail('Should have thrown');
-  } catch (error) {
-    // The process exits with code 1 due to the catch block in the reset handler
-    t.truthy(error.code);
+    const { stdout } = await exec('node', [CLI_PATH, 'reset', '-c', configPath, '--yes'], { timeout: 10000 });
+    // Refactored code handles invalid config gracefully by resetting to clean state
+    t.true(stdout.includes('reset') || stdout.includes('Reset'));
   } finally {
     await unlink(configPath).catch(() => {});
   }
@@ -373,7 +371,7 @@ test('status command with completedBranches lists branches', async t => {
 
 // --- Tests for status command catch/error path (lines 67-69) ---
 
-test('status command with corrupt state file hits catch path', async t => {
+test('status command with corrupt state file shows fresh state', async t => {
   const dir = join(tmpdir(), `cv-status-err-${randomUUID()}`);
   await mkdir(dir, { recursive: true });
   const stateFile = join(dir, 'state.json');
@@ -384,14 +382,12 @@ test('status command with corrupt state file hits catch path', async t => {
     transfer: { mode: 'full', stateFile, batchSize: 100 }
   };
   await writeFile(configPath, JSON.stringify(config));
-  // Write a corrupt state file (invalid JSON) to trigger catch block
+  // Write a corrupt state file — refactored code handles this gracefully
   await writeFile(stateFile, 'not valid json {{{');
   try {
-    await exec('node', [CLI_PATH, 'status', '-c', configPath], { timeout: 10000 });
-    t.fail('Should have thrown');
-  } catch (error) {
-    // Lines 67-69: process exits with code 1 due to catch block
-    t.truthy(error.code);
+    const { stdout } = await exec('node', [CLI_PATH, 'status', '-c', configPath], { timeout: 10000 });
+    // Refactored code starts fresh when state file is corrupt
+    t.true(stdout.includes('Never') || stdout.includes('Last sync'));
   } finally {
     const { rm } = await import('node:fs/promises');
     await rm(dir, { recursive: true, force: true });

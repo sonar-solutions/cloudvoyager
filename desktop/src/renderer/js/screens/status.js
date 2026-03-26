@@ -59,7 +59,7 @@ window.StatusScreen = {
 
     window.cloudvoyager.cli.run('status', []).catch(err => {
       this.cleanup();
-      outputEl.innerHTML = `<div class="card" style="padding:30px"><p style="color:var(--danger)">Error: ${err.message}</p></div>`;
+      outputEl.innerHTML = `<div class="card" style="padding:30px"><p style="color:var(--danger)">Error: ${ConfigForm.escapeHtml(err.message)}</p></div>`;
     });
   },
 

@@ -38,7 +38,7 @@ export function registerMigrateCommand(program) {
         if (options.verbose) logger.level = 'debug';
         enableFileLogging('migrate');
         logger.info('=== CloudVoyager - Full Organization Migration ===');
-        await handleMigrateAction(options);
+        await handleMigrateAction(options, shutdownCoordinator);
         logger.info('=== Migration completed successfully ===');
         process.exit(0);
       } catch (error) {

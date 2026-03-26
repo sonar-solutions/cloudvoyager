@@ -24,8 +24,9 @@ export async function verifyOrganization(params) {
     return;
   }
 
+  const sqClient = new SonarQubeClient({ url: sonarqubeConfig.url, token: sonarqubeConfig.token, rateLimit: rateLimitConfig });
   const orgResult = { orgKey: org.key, checks: {} };
-  await runOrgChecks(scClient, scClient, orgResult, shouldRun);
+  await runOrgChecks(sqClient, scClient, orgResult, shouldRun);
   results.orgResults.push(orgResult);
 
   const scProjects = await scClient.listProjects();

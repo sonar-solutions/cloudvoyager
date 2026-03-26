@@ -2,15 +2,17 @@ import * as ih from '../../api/issues-hotspots.js';
 import * as qual from '../../api/quality.js';
 import * as perm from '../../api/permissions.js';
 import * as sc from '../../api/server-config.js';
+import { probeTotal } from './probe-total.js';
 
 // -------- Bind Delegated Methods --------
 
 export function bindDelegatedMethods(client, paginate, pk) {
+  const probeFn = (ep, params, dk) => probeTotal(client, ep, params, dk);
   return {
-    getIssues: (f = {}) => ih.getIssues(paginate, pk, f),
-    getIssuesWithComments: (f = {}) => ih.getIssuesWithComments(paginate, pk, f),
+    getIssues: (f = {}) => ih.getIssues(probeFn, paginate, pk, f),
+    getIssuesWithComments: (f = {}) => ih.getIssuesWithComments(probeFn, paginate, pk, f),
     getIssueChangelog: (k) => ih.getIssueChangelog(client, k),
-    getHotspots: (f = {}) => ih.getHotspots(paginate, pk, f),
+    getHotspots: (f = {}) => ih.getHotspots(probeFn, paginate, pk, f),
     getHotspotDetails: (k) => ih.getHotspotDetails(client, k),
     getQualityGates: () => qual.getQualityGates(client),
     getQualityGateDetails: (n) => qual.getQualityGateDetails(client, n),

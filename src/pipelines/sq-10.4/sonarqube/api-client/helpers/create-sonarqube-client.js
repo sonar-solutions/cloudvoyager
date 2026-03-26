@@ -1,4 +1,5 @@
 import { createHttpClient } from './create-http-client.js';
+import { handleApiError } from './handle-api-error.js';
 import { getPaginated } from './get-paginated.js';
 import { buildProjectMethods } from './project-methods.js';
 import { buildQualityMethods } from './quality-methods.js';
@@ -23,6 +24,7 @@ export function createSonarQubeClient(config) {
 
   const instance = {
     baseURL, token: config.token, projectKey, client,
+    handleError: (error) => handleApiError(error, instance.baseURL),
     getPaginated: gp,
     getLatestAnalysisRevision: () => buildConnectionMethods(client).getLatestAnalysisRevision(projectKey),
     ...projectMethods,

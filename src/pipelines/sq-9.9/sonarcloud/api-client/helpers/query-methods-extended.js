@@ -1,6 +1,7 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { getPaginated } from './get-paginated.js';
 import * as iss from '../../api/issues.js';
+import { FALLBACK_SONARCLOUD_REPOS } from '../../../../../shared/utils/fallback-repos/index.js';
 
 // -------- Extended Query Methods (new code periods, bindings, permissions, etc.) --------
 
@@ -24,10 +25,20 @@ export async function searchIssuesWithComments(ctx, pk, filters = {}) { return i
 export async function getHotspotDetails(ctx, hk) { const r = await ctx.client.get('/api/hotspots/show', { params: { hotspot: hk } }); return r.data; }
 
 export async function getRuleRepositories(ctx) {
-  try {
-    const r = await ctx.client.get('/api/rules/repositories');
-    const repos = (r.data.repositories || []).map(x => x.key);
-    logger.debug(`SonarCloud has ${repos.length} rule repositories`);
-    return new Set(repos);
-  } catch (e) { logger.warn(`Failed to fetch SonarCloud rule repositories: ${e.message}. External issue auto-detection will be skipped.`); return new Set(); }
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const r = await ctx.client.get('/api/rules/repositories');
+      const repos = (r.data.repositories || []).map(x => x.key);
+      logger.debug(`SonarCloud has ${repos.length} rule repositories`);
+      return new Set(repos);
+    } catch (e) {
+      logger.warn(`Attempt ${attempt}/${maxAttempts} failed to fetch rule repositories: ${e.message}`);
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+      }
+    }
+  }
+  logger.warn('All retries exhausted — falling back to built-in rule repository list');
+  return FALLBACK_SONARCLOUD_REPOS;
 }

@@ -57,7 +57,7 @@ window.ConnectionTestScreen = {
       const configType = (this.params && this.params.configType) || 'transfer';
       await window.cloudvoyager.cli.run('test', ['--verbose'], configType);
     } catch (err) {
-      container.querySelector('#test-status').innerHTML = `<span class="badge badge-failed">${ConfigForm.icon('warning')} Error: ${err.message}</span>`;
+      container.querySelector('#test-status').innerHTML = `<span class="badge badge-failed">${ConfigForm.icon('warning')} Error: ${ConfigForm.escapeHtml(err.message)}</span>`;
       container.querySelector('#btn-back').disabled = false;
     }
   },

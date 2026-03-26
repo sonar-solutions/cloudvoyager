@@ -455,21 +455,14 @@ test.afterEach(() => {
   sinon.restore();
 });
 
-test('generateMappingCsvs: generates all seven CSV files', async t => {
-  const writtenFiles = new Map();
-
-  // Stub fs module functions used by csv-generator
-  // Since csv-generator imports from 'node:fs/promises', we can't easily stub it.
-  // Instead, we test by calling the function and checking it doesn't throw,
-  // using a temporary directory approach.
-
+test('generateMappingCsvs: generates all CSV files', async t => {
   const tmpDir = `/tmp/cloudvoyager-test-csvs-${Date.now()}`;
   const mappingData = buildFullMappingData();
 
   await generateMappingCsvs(mappingData, tmpDir);
 
   // Verify files were created
-  const { readdir, readFile } = await import('node:fs/promises');
+  const { readdir } = await import('node:fs/promises');
   const files = await readdir(tmpDir);
 
   t.true(files.includes('organizations.csv'));
@@ -479,7 +472,9 @@ test('generateMappingCsvs: generates all seven CSV files', async t => {
   t.true(files.includes('gate-mappings.csv'));
   t.true(files.includes('portfolio-mappings.csv'));
   t.true(files.includes('template-mappings.csv'));
-  t.is(files.length, 8);
+  t.true(files.includes('global-permissions.csv'));
+  t.true(files.includes('user-mappings.csv'));
+  t.is(files.length, 9);
 
   // Cleanup
   const { rm } = await import('node:fs/promises');
@@ -611,7 +606,7 @@ test('generateMappingCsvs: handles empty resource mappings gracefully', async t 
 
   const { readdir, rm } = await import('node:fs/promises');
   const files = await readdir(tmpDir);
-  t.is(files.length, 8);
+  t.is(files.length, 9);
 
   await rm(tmpDir, { recursive: true, force: true });
 });

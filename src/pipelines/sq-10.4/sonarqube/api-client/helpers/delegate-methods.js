@@ -2,17 +2,19 @@ import * as qual from '../../api/quality.js';
 import * as ih from '../../api/issues-hotspots.js';
 import * as perm from '../../api/permissions.js';
 import * as sc from '../../api/server-config.js';
+import { probeTotal } from './probe-total.js';
 
 // -------- Main Logic --------
 
 // Build delegate methods that forward to API sub-modules.
 export function buildDelegateMethods(client, projectKey, getPaginatedFn) {
   const gp = getPaginatedFn;
+  const probeFn = (ep, params, dk) => probeTotal(client, ep, params, dk);
   return {
-    async getIssues(f = {}) { return ih.getIssues(gp, projectKey, f); },
-    async getIssuesWithComments(f = {}) { return ih.getIssuesWithComments(gp, projectKey, f); },
+    async getIssues(f = {}) { return ih.getIssues(probeFn, gp, projectKey, f); },
+    async getIssuesWithComments(f = {}) { return ih.getIssuesWithComments(probeFn, gp, projectKey, f); },
     async getIssueChangelog(k) { return ih.getIssueChangelog(client, k); },
-    async getHotspots(f = {}) { return ih.getHotspots(gp, projectKey, f); },
+    async getHotspots(f = {}) { return ih.getHotspots(probeFn, gp, projectKey, f); },
     async getHotspotDetails(k) { return ih.getHotspotDetails(client, k); },
     async getQualityGates() { return qual.getQualityGates(client); },
     async getQualityGateDetails(n) { return qual.getQualityGateDetails(client, n); },

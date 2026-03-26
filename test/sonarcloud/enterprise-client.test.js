@@ -1,6 +1,6 @@
 import test from 'ava';
 import sinon from 'sinon';
-import { EnterpriseClient } from '../../src/pipelines/sq-10.4/sonarcloud/enterprise-client.js';
+import { createEnterpriseClient } from '../../src/pipelines/sq-10.4/sonarcloud/enterprise-client.js';
 import { migratePortfolios } from '../../src/pipelines/sq-10.4/sonarcloud/migrators/portfolios.js';
 import { SonarCloudAPIError } from '../../src/shared/utils/errors.js';
 
@@ -9,7 +9,7 @@ import { SonarCloudAPIError } from '../../src/shared/utils/errors.js';
 // ============================================================================
 
 function createClient(overrides = {}) {
-  return new EnterpriseClient({
+  return createEnterpriseClient({
     url: 'https://sonarcloud.io',
     token: 'test-token',
     rateLimit: { maxRetries: 0, baseDelay: 10 },
@@ -77,7 +77,7 @@ test('constructor sets timeout of 60000ms', t => {
 
 test('constructor uses default rateLimit when none provided', t => {
   // This just exercises the default path for maxRetries and baseDelay
-  const client = new EnterpriseClient({
+  const client = createEnterpriseClient({
     url: 'https://sonarcloud.io',
     token: 'tok'
   });
@@ -87,93 +87,82 @@ test('constructor uses default rateLimit when none provided', t => {
 });
 
 // ============================================================================
-// EnterpriseClient - _handleError
+// Error handling via interceptor
 // ============================================================================
 
-test('_handleError throws SonarCloudAPIError with response status and message from data.message', t => {
+// Helper to get the response rejection handler from the axios interceptor
+function getErrorHandler(client) {
+  const handlers = client.client.interceptors.response.handlers;
+  const handler = handlers.find(h => h && h.rejected);
+  return handler.rejected;
+}
+
+test('error handler throws SonarCloudAPIError with response status and message', async t => {
   const client = createClient();
+  const handleError = getErrorHandler(client);
   const error = {
-    response: {
-      status: 400,
-      data: { message: 'Bad request' },
-      config: { url: '/enterprises' }
-    }
+    response: { status: 400, data: { message: 'Bad request' }, config: { url: '/enterprises' } }
   };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('400'));
   t.true(thrown.message.includes('Bad request'));
   t.is(thrown.statusCode, 400);
   t.is(thrown.endpoint, '/enterprises');
 });
 
-test('_handleError extracts message from data.errors array', t => {
+test('error handler extracts message from data.errors array', async t => {
   const client = createClient();
+  const handleError = getErrorHandler(client);
   const error = {
-    response: {
-      status: 422,
-      data: { errors: [{ msg: 'Validation failed' }] },
-      config: { url: '/portfolios' }
-    }
+    response: { status: 422, data: { errors: [{ msg: 'Validation failed' }] }, config: { url: '/portfolios' } }
   };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('Validation failed'));
   t.is(thrown.statusCode, 422);
 });
 
-test('_handleError falls back to error.message when no data message', t => {
+test('error handler falls back to error.message when no data message', async t => {
   const client = createClient();
+  const handleError = getErrorHandler(client);
   const error = {
-    response: {
-      status: 500,
-      data: {},
-      config: { url: '/portfolios' }
-    },
+    response: { status: 500, data: {}, config: { url: '/portfolios' } },
     message: 'Fallback message'
   };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('Fallback message'));
 });
 
-test('_handleError throws network error when request exists but no response', t => {
+test('error handler throws network error when request exists but no response', async t => {
   const client = createClient();
-  const error = {
-    request: {},
-    message: 'ECONNREFUSED',
-    config: { url: '/enterprises' }
-  };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const handleError = getErrorHandler(client);
+  const error = { request: {}, message: 'ECONNREFUSED', config: { url: '/enterprises' } };
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('Cannot connect'));
   t.true(thrown.message.includes('ECONNREFUSED'));
   t.is(thrown.statusCode, 0);
 });
 
-test('_handleError network error includes baseURL', t => {
+test('error handler network error includes baseURL', async t => {
   const client = createClient({ url: 'https://sc-staging.io' });
-  const error = {
-    request: {},
-    message: 'timeout',
-    config: { url: '/enterprises' }
-  };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const handleError = getErrorHandler(client);
+  const error = { request: {}, message: 'timeout', config: { url: '/enterprises' } };
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('api.sc-staging.io'));
 });
 
-test('_handleError network error handles missing config.url', t => {
+test('error handler network error handles missing config.url', async t => {
   const client = createClient();
-  const error = {
-    request: {},
-    message: 'network fail'
-  };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
-  // error.config is undefined, so error.config?.url is undefined, which becomes endpoint=undefined in constructor
-  // However SonarCloudAPIError defaults endpoint to null
+  const handleError = getErrorHandler(client);
+  const error = { request: {}, message: 'network fail' };
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.is(thrown.endpoint, null);
 });
 
-test('_handleError throws generic error when neither response nor request', t => {
+test('error handler throws generic error when neither response nor request', async t => {
   const client = createClient();
+  const handleError = getErrorHandler(client);
   const error = { message: 'Something unexpected' };
-  const thrown = t.throws(() => client._handleError(error), { instanceOf: SonarCloudAPIError });
+  const thrown = await t.throwsAsync(() => handleError(error), { instanceOf: SonarCloudAPIError });
   t.true(thrown.message.includes('request failed'));
   t.true(thrown.message.includes('Something unexpected'));
 });

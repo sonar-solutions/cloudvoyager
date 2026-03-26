@@ -30,7 +30,7 @@ export function registerSyncMetadataCommand(program) {
         if (options.verbose) logger.level = 'debug';
         enableFileLogging('sync-metadata');
         logger.info('=== CloudVoyager - Issue & Hotspot Metadata Sync ===');
-        await handleSyncMetadataAction(options);
+        await handleSyncMetadataAction(options, shutdownCoordinator);
         logger.info('=== Metadata sync completed successfully ===');
         process.exit(0);
       } catch (error) {

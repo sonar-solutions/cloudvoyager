@@ -110,7 +110,7 @@ window.App = {
         }
       });
     } else {
-      this.getContent().innerHTML = `<p style="color:var(--danger)">Unknown screen: ${screen}</p>`;
+      this.getContent().innerHTML = `<p style="color:var(--danger)">Unknown screen: ${typeof ConfigForm !== 'undefined' ? ConfigForm.escapeHtml(screen) : screen}</p>`;
     }
 
     // Save current screen
