@@ -20,14 +20,14 @@ export async function loadProtoSchemas() {
 
 async function loadProtoTexts() {
   try {
-    const [cm, sm] = await Promise.all([import('../schema/constants.proto'), import('../schema/scanner-report.proto')]);
+    const [cm, sm] = await Promise.all([import('../../schema/constants.proto'), import('../../schema/scanner-report.proto')]);
     return [cm.default, sm.default];
   } catch {
     const { readFileSync } = await import('node:fs');
     const { dirname, join } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
     const dir = dirname(fileURLToPath(import.meta.url));
-    const schemaDir = join(dir, '..', 'schema');
+    const schemaDir = join(dir, '..', '..', 'schema');
     return [readFileSync(join(schemaDir, 'constants.proto'), 'utf-8'), readFileSync(join(schemaDir, 'scanner-report.proto'), 'utf-8')];
   }
 }
