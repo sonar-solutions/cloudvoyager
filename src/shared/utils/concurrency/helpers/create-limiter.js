@@ -1,5 +1,6 @@
 // -------- Create Concurrency Limiter --------
 export function createLimiter(concurrency) {
+  if (!concurrency || concurrency < 1) throw new Error(`createLimiter: concurrency must be >= 1, got ${concurrency}`);
   let active = 0;
   const queue = [];
   const next = () => {

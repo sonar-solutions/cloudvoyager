@@ -1,6 +1,6 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Mar 20, 2026 -->
+<!-- Last updated: Mar 26, 2026 -->
 
 CloudVoyager supports two configuration formats depending on the command you're using.
 
@@ -342,6 +342,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 | `LOG_LEVEL` | Set logging level (`debug`, `info`, `warn`, `error`) |
 | `LOG_FILE` | Path to log file (optional) |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
+| `SONAR_TOKEN` | SonarCloud token used by the `sonarcloud.yml` GitHub Actions workflow for SAST/SCA scanning of the CloudVoyager repository itself (not used by the CLI) |
 
 <!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
 ## 📜 npm Scripts vs Binary Commands

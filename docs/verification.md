@@ -334,6 +334,8 @@ The verifier normalizes rule keys by stripping the `external_` prefix before mat
 
 **Important:** External issues in SC do **not** preserve tags from SQ. Tag comparison is skipped entirely for external issues.
 
+**Improved in v1.2:** External issue detection is now more reliable. If the SonarCloud `/api/rules/repositories` API is unreachable during migration, the tool falls back to a built-in set of 43 known repositories (with 3 retries and exponential backoff). Rules without a colon separator and empty repository prefixes are also handled gracefully. If verification shows missing external issues from a pre-v1.2 migration, re-run the migration for affected projects.
+
 ### Branch Naming
 
 SQ and SC may have different default branch names (e.g., SQ uses `main`, SC uses `master`). The verifier detects each side's default branch (via the `isMain` flag) and treats them as equivalent.

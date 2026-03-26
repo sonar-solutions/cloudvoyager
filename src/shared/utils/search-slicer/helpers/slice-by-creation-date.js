@@ -23,6 +23,8 @@ export async function sliceByCreationDate(
     probeTotalFn, getPaginatedFn, endpoint, params, dataKey
   );
 
+  if (!oldest || !newest) return [];
+
   const windows = buildWindows(oldest, newest, INITIAL_WINDOW_COUNT);
   logger.info(`Slicing into ${windows.length} date windows`);
 

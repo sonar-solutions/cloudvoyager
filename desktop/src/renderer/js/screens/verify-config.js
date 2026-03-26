@@ -14,7 +14,7 @@ window.VerifyConfigScreen = {
 
   async init() {
     // Reuse stored migrate config as base (same shape)
-    const stored = await window.cloudvoyager.config.loadKey('migrateConfig');
+    const stored = await window.cloudvoyager.config.loadKey('verifyConfig') || await window.cloudvoyager.config.loadKey('migrateConfig');
     this.config = stored || {
       sonarqube: { url: '', token: '' },
       sonarcloud: { enterprise: { key: '' }, organizations: [] },
@@ -214,8 +214,7 @@ window.VerifyConfigScreen = {
   },
 
   async saveConfig() {
-    // Save as migrateConfig since verify uses the same config shape
-    await window.cloudvoyager.config.saveKey('migrateConfig', this.config);
+    await window.cloudvoyager.config.saveKey('verifyConfig', this.config);
   },
 
   async saveAndNext(container) {

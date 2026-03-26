@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Mar 20, 2026 — updated build pipeline, testing, CI/CD details -->
+<!-- Last updated: Mar 26, 2026 — updated build pipeline, testing, CI/CD details, SonarCloud scanning -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -776,6 +776,12 @@ The project uses a multi-stage GitHub Actions pipeline:
 | `build.yml` | Build CLI binaries | 6 platform builds in parallel using Node.js 20 |
 | `build-desktop.yml` | Build Electron desktop apps | 6 Electron builds (depends on CLI build artifacts) |
 | `release.yml` | Orchestrator | Chains: install → build → build-desktop → release |
+| `sonarcloud.yml` | SonarCloud SAST/SCA | Automatic scanning on push to `main` and on PRs. Requires `SONAR_TOKEN` secret |
+| `gh-release.yml` | GitHub Releases | Creates releases with milestone links derived from version tags |
+
+### SonarCloud Scanning
+
+The repository includes a `sonarcloud.yml` workflow and a `sonar-project.properties` file at the project root for automatic SAST/SCA scanning via SonarCloud. The workflow runs on every push to `main` and on pull requests. It requires a `SONAR_TOKEN` secret configured in the GitHub repository settings.
 
 ### Platform Build Matrix (6 targets)
 

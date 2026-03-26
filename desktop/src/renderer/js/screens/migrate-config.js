@@ -192,13 +192,12 @@ window.MigrateConfigScreen = {
         ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis' })}
       </div>
 
-      <div class="card">
-        <div class="card-header">${ConfigForm.icon('shield')} Choose What to Migrate (optional)</div>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to move, or leave all unchecked to move everything.</p>
-        ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}
-      </div>
+      ${ConfigForm.collapsible('migrate-components', `${ConfigForm.icon('shield')} Choose What to Migrate (optional)`,
+        `<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to move, or leave all unchecked to move everything.</p>
+        ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}`
+      )}
 
-      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }), true)}
+      ${ConfigForm.collapsible('advanced-section', `${ConfigForm.icon('gear')} More Settings (Advanced)`, TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }))}
 
       <div class="button-row right">
         <button class="btn btn-secondary" id="btn-back">Back</button>

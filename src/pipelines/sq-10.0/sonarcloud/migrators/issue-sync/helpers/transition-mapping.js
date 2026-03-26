@@ -14,7 +14,7 @@ export function mapChangelogDiffToTransition(diffs) {
     case 'OPEN': return 'unconfirm';
     case 'RESOLVED': return 'resolve';
     case 'CLOSED': return 'resolve';
-    case 'ACCEPTED': return 'accept';
+    case 'ACCEPTED': return 'wontfix';
     default: return null;
   }
 }
@@ -36,7 +36,7 @@ export function getFallbackTransition(sqIssue) {
   switch (sqIssue.status) {
     case 'CONFIRMED': return 'confirm';
     case 'RESOLVED': case 'CLOSED': return 'resolve';
-    case 'ACCEPTED': return 'accept';
+    case 'ACCEPTED': return 'wontfix';
     case 'REOPENED': return 'reopen';
     default: return null;
   }

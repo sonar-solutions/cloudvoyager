@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 25, 2026 -->
+<!-- Last updated: Mar 26, 2026 -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -1012,9 +1012,11 @@ This ensures the verification is comparing exactly the same pairs that were sync
 1. **No existing tool does this.** CloudVoyager is the first to reverse-engineer SonarScanner's protobuf protocol and reconstruct it programmatically.
 2. **Zero source code access required.** The migration operates entirely at the API level — no repository cloning, no build systems, no CI/CD integration needed.
 3. **Complete fidelity.** Issues, hotspots, measures, quality gates, quality profiles, permissions, groups, templates, portfolios, settings, tags, links, bindings, and new code periods are all preserved.
-4. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
-5. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
-6. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
+4. **Handles projects with 10,000+ issues.** SonarQube caps `/api/issues/search` at 10K results; CloudVoyager automatically detects this and uses date-window bisection (search slicing) to retrieve every issue without data loss.
+5. **Robust external issue detection.** Third-party plugin issues are reliably detected even when the SonarCloud rule-repository API is unreachable, using a built-in fallback set of 43 known repositories with retry and exponential backoff.
+6. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
+7. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
+8. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
 
 <!-- Updated: Mar 13, 2026 at 12:00:00 PM -->
 ## 24. Desktop Application (Electron GUI)

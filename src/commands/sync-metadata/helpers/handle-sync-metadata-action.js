@@ -5,7 +5,7 @@ import { detectAndRoute } from '../../../version-router.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
 import logger from '../../../shared/utils/logger.js';
 
-export async function handleSyncMetadataAction(options) {
+export async function handleSyncMetadataAction(options, shutdownCoordinator) {
   const config = await loadMigrateConfig(options.config);
   const migrateConfig = config.migrate || {};
   if (options.skipIssueMetadataSync) migrateConfig.skipIssueMetadataSync = true;
@@ -36,7 +36,8 @@ export async function handleSyncMetadataAction(options) {
     migrateConfig,
     transferConfig,
     rateLimitConfig: config.rateLimit,
-    performanceConfig: perfConfig
+    performanceConfig: perfConfig,
+    shutdownCoordinator
   });
 
   const failed = results.projects.filter(p => p.status === 'failed').length;

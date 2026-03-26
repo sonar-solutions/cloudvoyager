@@ -4,6 +4,23 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix Audit (2026-03-26)
+
+A comprehensive codebase audit identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
+
+- **Fixed:** Org-level verification was comparing SonarCloud to itself (passing `scClient` as both args to `runOrgChecks`). Now correctly constructs a `SonarQubeClient` for the SQ side.
+- **Fixed:** Missing `await` on `syncIssueAssignment()` in sq-10.0 pipeline caused silent error swallowing and stats race conditions.
+- **Fixed:** `ACCEPTED` status mapped to invalid `'accept'` transition in sq-9.9 and sq-10.0 pipelines (SonarCloud only supports `wontfix`). Now matches sq-10.4/sq-2025 correct mapping.
+- **Fixed:** `ShutdownCoordinator` created but never passed to `handleMigrateAction` and `handleSyncMetadataAction`, preventing graceful cleanup on SIGINT.
+- **Fixed:** `build-match-key.js` used `||` instead of `??` for line numbers, treating `line: 0` (file-level issues) as falsy. Fixed in sq-9.9, sq-10.4, and sq-2025.
+- **Fixed:** `findDateRange` in search slicer had no null check — empty API results caused `NaN` timestamps and silent data loss.
+- **Fixed:** CSV injection vulnerability in `escapeCsv()` — values starting with `=`, `+`, `-`, `@` are now prefixed with a single quote inside double quotes.
+- **Fixed:** XSS via `innerHTML` in Desktop app — `err.message` in connection-test and status screens, and `screen` variable in app.js, are now escaped with `ConfigForm.escapeHtml()`.
+- **Fixed:** `createLimiter()` silently deadlocked when `concurrency` was 0, NaN, or negative. Now throws an error for invalid values.
+- **Fixed:** Desktop config cross-contamination — verify-config and sync-metadata-config screens were saving to `migrateConfig`, overwriting migrate settings. Each now uses its own config key (`verifyConfig`, `syncMetadataConfig`) with backward-compatible fallback.
+
+---
+
 ## Milestone 1.2 Fixes (2026-03-26)
 
 The following four fixes were applied as part of the v1.2 milestone.
@@ -39,6 +56,13 @@ Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarCloud.
 GitHub releases now include the corresponding milestone link in the release body.
 
 - **Modified:** `.github/workflows/gh-release.yml` — extracts the version tag, derives the milestone name, and appends a milestone link to the auto-generated release notes
+
+### Desktop UI — Collapsible Config Sections
+
+The migrate-config wizard now groups optional settings into collapsible sections that start collapsed by default, reducing visual clutter for new users.
+
+- **Changed:** "Choose What to Migrate" section is now collapsed by default (collapsible with shield icon)
+- **Changed:** "More Settings (Advanced)" section is now collapsed by default (collapsible with gear icon)
 
 ---
 

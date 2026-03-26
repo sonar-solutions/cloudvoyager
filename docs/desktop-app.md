@@ -1,6 +1,6 @@
 # Desktop App
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Mar 26, 2026 -->
 
 CloudVoyager Desktop wraps the CLI binary in a guided wizard UI built with Electron. No terminal needed — fill in forms, click Start, and watch live logs stream in real-time. All configuration persists between app restarts with encrypted token storage.
 
@@ -64,7 +64,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 |------|-------------|
 | 1. SonarQube Connection | Enter URL and admin token for the source SonarQube instance |
 | 2. SonarCloud Organizations | Add or remove target SonarCloud organizations with their tokens |
-| 3. Migration Settings | Configure output directory, dry run, included/excluded projects |
+| 3. Migration Settings | Configure output directory, dry run, included/excluded projects. The "Choose What to Migrate" and "More Settings (Advanced)" sections are collapsed by default to reduce clutter (click the shield or gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the full migration |
 
 ![Migration Settings Wizard](screenshots/full_migration.png)

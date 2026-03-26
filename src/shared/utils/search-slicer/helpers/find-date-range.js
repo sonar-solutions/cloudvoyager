@@ -34,6 +34,11 @@ export async function findDateRange(
   const oldest = oldestResults[0]?.creationDate || oldestResults[0]?.createdAt;
   const newest = newestResults[0]?.creationDate || newestResults[0]?.createdAt;
 
+  if (!oldest || !newest) {
+    logger.warn('No items found — date range is empty');
+    return { oldest: null, newest: null };
+  }
+
   logger.info(`Date range: ${oldest} to ${newest}`);
 
   return { oldest, newest };

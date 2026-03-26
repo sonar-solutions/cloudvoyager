@@ -7,7 +7,7 @@ import logger from '../../../shared/utils/logger.js';
 import { applyMigrateOptions } from './apply-migrate-options.js';
 import { buildMigratePerfConfig } from './build-migrate-perf-config.js';
 
-export async function handleMigrateAction(options) {
+export async function handleMigrateAction(options, shutdownCoordinator) {
   const config = await loadMigrateConfig(options.config);
   const migrateConfig = config.migrate || {};
   const transferConfig = config.transfer || { mode: 'full', batchSize: 100 };
@@ -29,7 +29,8 @@ export async function handleMigrateAction(options) {
     transferConfig,
     rateLimitConfig: config.rateLimit,
     performanceConfig: perfConfig,
-    wait: options.wait || false
+    wait: options.wait || false,
+    shutdownCoordinator
   });
 
   const partial = results.projects.filter(p => p.status === 'partial').length;
