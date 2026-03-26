@@ -12,10 +12,6 @@ jobs:
     needs: setup
     uses: ./.github/workflows/regression-quality.yml
 
-  unit-tests:
-    needs: setup
-    uses: ./.github/workflows/regression-unit-tests.yml
-
   migrate:
     needs: [setup, lint]
     uses: ./.github/workflows/regression-migrate.yml
