@@ -11,22 +11,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-linux-x64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-linux-x64
+          key: cli-binary-linux-x64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-linux-x64 desktop/resources/cli/
       - name: Make binary executable
         run: chmod +x desktop/resources/cli/cloudvoyager-linux-x64
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (linux-x64)
         run: cd desktop && npm run build:linux-x64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-linux-x64
-          path: dist/desktop/*.AppImage
+          path: dist/desktop/
+          key: desktop-binary-linux-x64-${{ github.sha }}
 
   build-desktop-linux-arm64:
     runs-on: ubuntu-24.04-arm
@@ -35,22 +39,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-linux-arm64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-linux-arm64
+          key: cli-binary-linux-arm64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-linux-arm64 desktop/resources/cli/
       - name: Make binary executable
         run: chmod +x desktop/resources/cli/cloudvoyager-linux-arm64
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (linux-arm64)
         run: cd desktop && npm run build:linux-arm64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-linux-arm64
-          path: dist/desktop/*.AppImage
+          path: dist/desktop/
+          key: desktop-binary-linux-arm64-${{ github.sha }}
 
   build-desktop-macos-arm64:
     runs-on: macos-latest
@@ -59,22 +67,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-macos-arm64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-macos-arm64
+          key: cli-binary-macos-arm64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-macos-arm64 desktop/resources/cli/
       - name: Make binary executable
         run: chmod +x desktop/resources/cli/cloudvoyager-macos-arm64
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (macos-arm64)
         run: cd desktop && npm run build:mac-arm64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-macos-arm64
-          path: dist/desktop/*.dmg
+          path: dist/desktop/
+          key: desktop-binary-macos-arm64-${{ github.sha }}
 
   build-desktop-macos-x64:
     runs-on: macos-latest
@@ -83,22 +95,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-macos-x64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-macos-x64
+          key: cli-binary-macos-x64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-macos-x64 desktop/resources/cli/
       - name: Make binary executable
         run: chmod +x desktop/resources/cli/cloudvoyager-macos-x64
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (macos-x64)
         run: cd desktop && npm run build:mac-x64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-macos-x64
-          path: dist/desktop/*.dmg
+          path: dist/desktop/
+          key: desktop-binary-macos-x64-${{ github.sha }}
 
   build-desktop-win-x64:
     runs-on: windows-latest
@@ -107,20 +123,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-win-x64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-win-x64.exe
+          key: cli-binary-win-x64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-win-x64.exe desktop/resources/cli/
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (win-x64)
         run: cd desktop && npm run build:win-x64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-win-x64
-          path: dist/desktop/*.exe
+          path: dist/desktop/
+          key: desktop-binary-win-x64-${{ github.sha }}
 
   build-desktop-win-arm64:
     runs-on: windows-11-arm
@@ -129,17 +149,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download CLI binary
-        uses: actions/download-artifact@v4
+      - name: Sync desktop version from root package.json
+        run: node -e "const p='desktop/package.json',d=require('./'+p);d.version=require('./package.json').version;require('fs').writeFileSync(p,JSON.stringify(d,null,2)+'\n')"
+      - name: Restore CLI binary from cache
+        uses: actions/cache/restore@v4
         with:
-          name: cloudvoyager-win-arm64
-          path: desktop/resources/cli/
+          path: dist/bin/cloudvoyager-win-arm64.exe
+          key: cli-binary-win-arm64-${{ github.sha }}
+      - name: Copy CLI binary to desktop resources
+        run: mkdir -p desktop/resources/cli && cp dist/bin/cloudvoyager-win-arm64.exe desktop/resources/cli/
       - name: Install desktop dependencies
         run: cd desktop && npm ci
       - name: Build desktop app (win-arm64)
         run: cd desktop && npm run build:win-arm64
-      - name: Upload desktop artifact
-        uses: actions/upload-artifact@v4
+      - name: Save desktop artifact to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-desktop-win-arm64
-          path: dist/desktop/*.exe
+          path: dist/desktop/
+          key: desktop-binary-win-arm64-${{ github.sha }}

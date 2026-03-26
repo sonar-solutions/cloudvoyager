@@ -15,12 +15,82 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - name: Create output directories
+        run: mkdir -p dist/bin dist/desktop
+
+      # -------- CLI Binaries --------
+      - name: Restore linux-x64 CLI binary
+        uses: actions/cache/restore@v4
         with:
-          pattern: cloudvoyager-*
-          path: dist/bin
-          merge-multiple: true
+          path: dist/bin/cloudvoyager-linux-x64
+          key: cli-binary-linux-x64-${{ github.sha }}
+
+      - name: Restore linux-arm64 CLI binary
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/bin/cloudvoyager-linux-arm64
+          key: cli-binary-linux-arm64-${{ github.sha }}
+
+      - name: Restore macos-arm64 CLI binary
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/bin/cloudvoyager-macos-arm64
+          key: cli-binary-macos-arm64-${{ github.sha }}
+
+      - name: Restore macos-x64 CLI binary
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/bin/cloudvoyager-macos-x64
+          key: cli-binary-macos-x64-${{ github.sha }}
+
+      - name: Restore win-x64 CLI binary
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/bin/cloudvoyager-win-x64.exe
+          key: cli-binary-win-x64-${{ github.sha }}
+
+      - name: Restore win-arm64 CLI binary
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/bin/cloudvoyager-win-arm64.exe
+          key: cli-binary-win-arm64-${{ github.sha }}
+
+      # -------- Desktop Binaries --------
+      - name: Restore linux-x64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-linux-x64-${{ github.sha }}
+
+      - name: Restore linux-arm64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-linux-arm64-${{ github.sha }}
+
+      - name: Restore macos-arm64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-macos-arm64-${{ github.sha }}
+
+      - name: Restore macos-x64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-macos-x64-${{ github.sha }}
+
+      - name: Restore win-x64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-win-x64-${{ github.sha }}
+
+      - name: Restore win-arm64 desktop build
+        uses: actions/cache/restore@v4
+        with:
+          path: dist/desktop/
+          key: desktop-binary-win-arm64-${{ github.sha }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -28,4 +98,6 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: CloudVoyager ${{ inputs.tag }}
           generate_release_notes: true
-          files: dist/bin/*
+          files: |
+            dist/bin/*
+            dist/desktop/*

@@ -24,11 +24,11 @@ jobs:
       - run: npm ci
       - name: Build linux-x64 binary via Node.js SEA
         run: npm run package
-      - name: Upload linux-x64
-        uses: actions/upload-artifact@v4
+      - name: Save linux-x64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-linux-x64
           path: dist/bin/cloudvoyager-linux-x64
+          key: cli-binary-linux-x64-${{ github.sha }}
 
   build-sea-linux-arm64:
     runs-on: ubuntu-24.04-arm
@@ -45,11 +45,11 @@ jobs:
       - run: npm ci
       - name: Build linux-arm64 binary via Node.js SEA
         run: npm run package
-      - name: Upload linux-arm64
-        uses: actions/upload-artifact@v4
+      - name: Save linux-arm64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-linux-arm64
           path: dist/bin/cloudvoyager-linux-arm64
+          key: cli-binary-linux-arm64-${{ github.sha }}
 
   build-sea-macos-arm64:
     runs-on: macos-latest
@@ -66,11 +66,11 @@ jobs:
       - run: npm ci
       - name: Build macos-arm64 binary via Node.js SEA
         run: npm run package
-      - name: Upload macos-arm64
-        uses: actions/upload-artifact@v4
+      - name: Save macos-arm64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-macos-arm64
           path: dist/bin/cloudvoyager-macos-arm64
+          key: cli-binary-macos-arm64-${{ github.sha }}
 
   build-sea-macos-x64:
     runs-on: macos-latest
@@ -87,11 +87,11 @@ jobs:
       - run: npm ci
       - name: Build macos-x64 binary via Node.js SEA (cross-compile)
         run: node scripts/build.js --package --target=macos-x64
-      - name: Upload macos-x64
-        uses: actions/upload-artifact@v4
+      - name: Save macos-x64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-macos-x64
           path: dist/bin/cloudvoyager-macos-x64
+          key: cli-binary-macos-x64-${{ github.sha }}
 
   build-sea-win-x64:
     runs-on: windows-latest
@@ -108,11 +108,11 @@ jobs:
       - run: npm ci
       - name: Build win-x64 binary via Node.js SEA
         run: npm run package
-      - name: Upload win-x64
-        uses: actions/upload-artifact@v4
+      - name: Save win-x64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-win-x64
           path: dist/bin/cloudvoyager-win-x64.exe
+          key: cli-binary-win-x64-${{ github.sha }}
 
   build-sea-win-arm64:
     runs-on: windows-11-arm
@@ -129,11 +129,11 @@ jobs:
       - run: npm ci
       - name: Build win-arm64 binary via Node.js SEA
         run: npm run package
-      - name: Upload win-arm64
-        uses: actions/upload-artifact@v4
+      - name: Save win-arm64 binary to cache
+        uses: actions/cache/save@v4
         with:
-          name: cloudvoyager-win-arm64
           path: dist/bin/cloudvoyager-win-arm64.exe
+          key: cli-binary-win-arm64-${{ github.sha }}
 
   tag:
     needs: [build-sea-linux-x64, build-sea-linux-arm64, build-sea-macos-arm64, build-sea-macos-x64, build-sea-win-x64, build-sea-win-arm64]
