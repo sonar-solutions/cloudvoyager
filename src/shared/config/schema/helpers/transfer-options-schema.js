@@ -7,6 +7,8 @@ export const transferOptionsSchema = {
     batchSize: { type: 'integer', minimum: 1, maximum: 500, default: 100, description: 'Number of items to process in each batch' },
     syncAllBranches: { type: 'boolean', default: true, description: 'Sync all branches of every project (default: true).' },
     excludeBranches: { type: 'array', items: { type: 'string' }, default: [], description: 'Branch names to exclude from sync when syncAllBranches is true' },
+    skipIssueMetadataSync: { type: 'boolean', default: false, description: 'Skip issue status/comment/tag/assignment sync after upload' },
+    skipHotspotMetadataSync: { type: 'boolean', default: false, description: 'Skip hotspot status/comment sync after upload' },
     checkpoint: {
       type: 'object', description: 'Checkpoint and resume settings for incremental migrations',
       properties: {

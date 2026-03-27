@@ -118,20 +118,38 @@ The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
-<!-- Updated: Mar 26, 2026 -->
+<!-- Updated: Mar 28, 2026 -->
 ## 🔍 Search Slicing for 10K+ Issues
 
 SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results regardless of pagination. Projects with more than 10,000 issues would silently lose data during extraction.
 
 **Solution:** `src/shared/utils/search-slicer/` implements a date-window bisection algorithm:
 
-1. **Probe** — `probe-total.js` (in each pipeline's `api-client/helpers/`) sends a lightweight request (`ps=1`) to get the total issue count for a query.
-2. **Partition** — If the total exceeds 10,000, the full creation-date range is split into equal-width windows.
-3. **Bisect** — Any window that still exceeds 10,000 is recursively halved until every window is under the limit.
-4. **Fetch** — Each window is fetched independently with `createdAfter` / `createdBefore` parameters.
-5. **Merge** — Results from all windows are deduplicated by issue key and merged into a single array.
+1. **Probe** — `probe-total.js` (in each pipeline's `api-client/helpers/`) sends a lightweight request (`ps=1, p=1`) to get the total issue count for a query without fetching data.
+2. **Partition** — If the total exceeds 10,000, the full SonarQube era (`2006-01-01` → now) is divided into **12 equal-width time windows** via `build-date-windows.js`. A fixed epoch is used instead of probing the date range — probing via `getPaginated(ps=1)` would loop page-by-page through all issues and itself hit the Elasticsearch 10K limit on large projects.
+3. **Bisect** — Any window that still exceeds 10,000 is **recursively halved** at the midpoint timestamp (via `split-midpoint.js`) until every window is under the limit. This binary subdivision guarantees convergence for any realistic issue distribution.
+4. **Guard** — If a window cannot be split further (both halves land on the same millisecond boundary, e.g. a mass-import scenario where all issues share the same creation timestamp), the window is fetched directly. This is an unavoidable SonarQube API limitation; it affects only projects where thousands of issues share an identical millisecond timestamp.
+5. **Fetch** — Each window is fetched independently using standard pagination (`ps=500`) with `createdAfter` / `createdBefore` API parameters scoping results to that window.
+6. **Merge & deduplicate** — `deduplicate-results.js` merges results from all windows and removes duplicates by `item.key || item.id` to handle boundary overlaps where an issue's creation timestamp falls on a window edge.
+
+**Helper files** (`src/shared/utils/search-slicer/helpers/`):
+
+| File | Role |
+|------|------|
+| `fetch-window.js` | Fetches one window; recursively bisects if it exceeds the limit |
+| `slice-by-creation-date.js` | Partitions epoch→now into 12 windows, calls `fetchWindow` for each |
+| `build-date-windows.js` | Builds evenly-spaced `{ start, end }` window objects |
+| `split-midpoint.js` | Computes the SonarQube-compatible datetime at the midpoint between two timestamps |
+| `format-sonarqube-date.js` | Formats timestamps as `YYYY-MM-DDTHH:MM:SS+0000` (SonarQube rejects `.XXXZ` milliseconds) |
+| `deduplicate-results.js` | Deduplicates merged results by `item.key \|\| item.id` |
 
 The slicing is transparent to callers — `issues-hotspots.js` in each pipeline calls `fetchWithSlicing`, which falls back to a normal paginated fetch when the total is under 10,000.
+
+**Applies to SonarQube only.** The slicing workaround targets SonarQube's `/api/issues/search` and `/api/hotspots/search` endpoints, which enforce the 10K cap. SonarCloud's issue search endpoints use simple pagination without slicing — the 10K cap does not apply in practice on the SonarCloud side.
+
+**Both commands use it:**
+- `transfer` — calls `getIssuesWithComments()` via `fetch-and-sync-issues.js`, which invokes `fetchWithSlicing` under the hood.
+- `migrate` — calls `getIssuesWithComments()` via `sync-issue-metadata.js` → `sync-project-issues.js`, using the same `fetchWithSlicing` function.
 
 <!-- Updated: Mar 26, 2026 -->
 ## 🔄 Fallback Rule Repositories

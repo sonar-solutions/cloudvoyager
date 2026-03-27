@@ -2,21 +2,15 @@
 
 import logger from '../../logger.js';
 import { deduplicateResults } from './deduplicate-results.js';
+import { splitMidpoint } from './split-midpoint.js';
 
 // -------- Main Logic --------
 
 /**
  * Fetches results for a single date window. If the window exceeds the
  * API result limit, it recursively splits into two smaller windows.
- *
- * @param {Function} probeTotalFn - Probes total count for a query
- * @param {Function} getPaginatedFn - Fetches paginated results
- * @param {string} endpoint - API endpoint
- * @param {object} params - Base query parameters
- * @param {string} dataKey - Response data key
- * @param {{ start: string, end: string }} window - Date window
- * @param {number} limit - API result limit
- * @returns {Promise<Array>} Results for this window
+ * If the window cannot be split further (same-millisecond boundary),
+ * fetches directly — unavoidable SonarQube API limitation.
  */
 export async function fetchWindow(
   probeTotalFn, getPaginatedFn, endpoint,
@@ -29,40 +23,29 @@ export async function fetchWindow(
   };
 
   const total = await probeTotalFn(endpoint, windowParams, dataKey);
-  logger.debug(
-    `Window ${window.start} to ${window.end}: ${total} results`
-  );
+  logger.info(`  Window ${window.start.slice(0, 10)} → ${window.end.slice(0, 10)}: ${total} results`);
 
-  if (total < limit) {
+  if (total < limit) return await getPaginatedFn(endpoint, windowParams, dataKey);
+
+  const midpoint = splitMidpoint(window.start, window.end);
+
+  // If midpoint equals either boundary the window is at minimum granularity —
+  // splitting would loop forever, so fetch directly despite exceeding the limit.
+  if (midpoint === window.start || midpoint === window.end) {
+    logger.warn(`Window unsplittable — fetching ${total} results directly (same-ms boundary)`);
     return await getPaginatedFn(endpoint, windowParams, dataKey);
   }
 
-  // Recursively split this window in half
-  logger.warn(
-    `Window still has ${total} results — splitting in half`
-  );
-
-  const midpoint = splitMidpoint(window.start, window.end);
-  const leftWindow = { start: window.start, end: midpoint };
-  const rightWindow = { start: midpoint, end: window.end };
+  logger.warn(`Window has ${total} results — splitting at ${midpoint.slice(0, 10)}`);
 
   const leftResults = await fetchWindow(
     probeTotalFn, getPaginatedFn, endpoint,
-    params, dataKey, leftWindow, limit
+    params, dataKey, { start: window.start, end: midpoint }, limit
   );
   const rightResults = await fetchWindow(
     probeTotalFn, getPaginatedFn, endpoint,
-    params, dataKey, rightWindow, limit
+    params, dataKey, { start: midpoint, end: window.end }, limit
   );
 
   return deduplicateResults([...leftResults, ...rightResults]);
-}
-
-// -------- Helper --------
-
-/** Returns the ISO midpoint between two date strings. */
-function splitMidpoint(startIso, endIso) {
-  const start = new Date(startIso).getTime();
-  const end = new Date(endIso).getTime();
-  return new Date(start + Math.floor((end - start) / 2)).toISOString();
 }
