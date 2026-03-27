@@ -117,6 +117,8 @@ window.TransferConfigScreen = {
         ${ConfigForm.numberField('batch-size', 'Items per group', t.batchSize, { min: 1, max: 500, hint: 'How many items to process at once (1\u2013500). Higher = faster but uses more memory' })}
         ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis of the uploaded data' })}
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log during transfer' })}
+        ${ConfigForm.checkbox('skip-issue-meta', 'Skip issue metadata sync', t.skipIssueMetadataSync || false, { hint: 'Skip syncing issue statuses, comments, tags, and assignments after upload' })}
+        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip hotspot metadata sync', t.skipHotspotMetadataSync || false, { hint: 'Skip syncing hotspot statuses and comments after upload' })}
       </div>
 
       ${ConfigForm.collapsible('advanced-section', `${ConfigForm.icon('gear')} More Settings (Advanced)`, this.renderAdvancedHtml())}
@@ -135,6 +137,8 @@ window.TransferConfigScreen = {
       this.config.transfer.batchSize = parseInt(container.querySelector('#batch-size').value, 10) || 100;
       this.config._waitAnalysis = container.querySelector('#wait-analysis').checked;
       this.config._verbose = container.querySelector('#verbose').checked;
+      this.config.transfer.skipIssueMetadataSync = container.querySelector('#skip-issue-meta').checked;
+      this.config.transfer.skipHotspotMetadataSync = container.querySelector('#skip-hotspot-meta').checked;
       this.readAdvancedValues(container);
       this.saveAndNext(container);
     });
@@ -254,7 +258,9 @@ window.TransferConfigScreen = {
           ['What to transfer', modeLabel],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
           ['Excluded branches', (t.excludeBranches || []).join(', ') || 'None'],
-          ['Items per group', t.batchSize]
+          ['Items per group', t.batchSize],
+          ['Issue metadata sync', t.skipIssueMetadataSync ? 'Skipped' : 'Enabled'],
+          ['Hotspot metadata sync', t.skipHotspotMetadataSync ? 'Skipped' : 'Enabled']
         ])}
       </div>
 
