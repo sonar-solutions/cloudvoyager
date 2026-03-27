@@ -4,6 +4,18 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## External Issue Prefix Fix (2026-03-27)
+
+Fixed a critical bug where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube 2025+.
+
+- **Root cause:** SonarQube 2025+ returns external linter rules with an `external_` prefix (e.g., `external_ruff:D200`). SonarCloud's `/api/rules/repositories` includes `external_ruff` as a known repo, causing `isExternalIssue()` to misclassify these as native issues. SC then dropped them because no native rule `external_ruff:D200` exists.
+- **Fixed:** `isExternalIssue()` now detects the `external_` prefix and always treats such rules as external — across all 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025).
+- **Fixed:** External issue builders now strip the `external_` prefix from the engineId via a new shared `stripExternalPrefix()` utility, preventing a double `external_external_ruff:D200` prefix in SonarCloud.
+- **Fixed:** sq-2025 issue model now preserves `externalRuleEngine` from SQ API responses.
+- **Impact:** Affected up to 36 external linter types. Tested with `okorach-oss_sonar-tools` project (1,101 Ruff+Pylint issues previously dropped, now migrated correctly).
+
+---
+
 ## CI Workflow Restructure (2026-03-26)
 
 Restructured GitHub Actions workflows to simplify CI and automate versioning.

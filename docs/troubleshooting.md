@@ -557,6 +557,12 @@ Between pipeline phases, the tool checks the shutdown flag and throws a `Gracefu
 
 ---
 
+## 🔤 External Linter Issues Missing After Migration (SQ 2025+)
+
+SonarQube 2025+ stores external linter rules (Ruff, Pylint, ESLint, Checkstyle, etc.) with an `external_` prefix in the rule key (e.g., `external_ruff:D200`). If you see zero Ruff/Pylint/etc. issues in SonarCloud after migration, ensure you are running CloudVoyager v1.2.0+ which correctly handles this prefix. Older versions misclassify these as native issues, causing SonarCloud to silently drop them.
+
+---
+
 ## 🔤 External Issue `cleanCodeAttribute` Must Be Enum
 
 When migrating issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft), the tool creates external issues. A critical encoding detail:

@@ -22,5 +22,6 @@ export function createIssueData(issue) {
     type: issue.type,
     cleanCodeAttribute: issue.cleanCodeAttribute || null,
     impacts: issue.impacts || [],
+    externalRuleEngine: issue.externalRuleEngine || null,
   };
 }
