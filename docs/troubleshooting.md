@@ -583,13 +583,21 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 
 ---
 
+<!-- Updated: Mar 28, 2026 -->
 ## 📊 Projects with 10,000+ Issues
 
-SonarQube's `/api/issues/search` endpoint caps results at 10,000. If your project has more issues than this, older versions of CloudVoyager silently dropped everything beyond the cap.
+SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit. Requesting the 10,001st result returns a 400 error: `Can return only the first 10000 results. 10001th result asked.`
 
-**Symptom:** After migration, the issue count in SonarCloud is exactly 10,000 (or noticeably lower than SonarQube) for a large project.
+**Symptom:** Transfer or migration fails with the above error, or the issue count in SonarCloud is exactly 10,000 (or noticeably lower than SonarQube) for a large project.
 
-**Fix (v1.2+):** CloudVoyager now automatically detects this situation and uses date-window slicing to retrieve all issues. No configuration is needed — it is transparent. If you migrated before v1.2, re-run the migration for affected projects to pick up the missing issues.
+**Root cause of the failure:** When slicing was first activated for a >10K project, an internal date-range probe called `getPaginated` with `ps=1` (one result per page). This caused the paginator to loop page-by-page through all issues — reaching page 10,001 and triggering the Elasticsearch error before any date windows were even built.
+
+**Fix (v1.2.1+):** The date-range probe has been replaced with a fixed epoch (`2006-01-01`) to now range, eliminating the looping paginator entirely. The algorithm now:
+1. Divides the full SonarQube era into 12 equal-width time windows
+2. Recursively bisects any window that still exceeds 10K
+3. Stops bisecting only if a window cannot be split further (same-millisecond boundary — an unavoidable SonarQube API limitation for mass-import scenarios)
+
+No configuration is needed — it is fully transparent for both the `transfer` and `migrate` commands. If you hit this error before v1.2.1, re-run the transfer or migration.
 
 **Verification:** Run `./cloudvoyager verify -c migrate-config.json --only issue-metadata` to compare issue counts between SonarQube and SonarCloud.
 
