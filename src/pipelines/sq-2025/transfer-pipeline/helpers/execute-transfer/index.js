@@ -33,10 +33,10 @@ export async function executeTransfer(opts) {
   checkShutdown(shutdownCheck);
 
   return runTransferPhases({
-    sonarcloudConfig, sonarCloudProfiles, wait, shutdownCheck,
+    sonarqubeConfig, sonarcloudConfig, transferConfig, sonarCloudProfiles, wait, shutdownCheck,
     isIncremental, syncAllBranches, excludeBranches, includeBranches,
     lockFile, stateTracker, journal, cache, ruleEnrichmentMap,
-    sonarCloudClient, sonarCloudMainBranch, sonarCloudRepos,
+    sonarQubeClient, sonarCloudClient, sonarCloudMainBranch, sonarCloudRepos,
     extractedData, extractor, projectKey, performanceConfig,
   });
 }

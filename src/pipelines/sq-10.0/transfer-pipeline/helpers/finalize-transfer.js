@@ -2,10 +2,11 @@ import logger from '../../../../shared/utils/logger.js';
 import { checkShutdown } from '../../../../shared/utils/shutdown.js';
 import { transferNonMainBranches } from './transfer-non-main-branches.js';
 import { waitForMainAnalysis } from './wait-for-main-analysis.js';
+import { syncTransferMetadata } from './sync-transfer-metadata/index.js';
 
 // -------- Finalize Transfer (non-main branches + cleanup) --------
 
-export async function finalizeTransfer({ mainResult, sonarCloudMainBranch, syncAllBranches, excludeBranches, includeBranches, extractedData, extractor, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudClient, journal, cache, stateTracker, isIncremental, shutdownCheck, performanceConfig, sonarCloudRepos, ruleEnrichmentMap, projectKey, lockFile }) {
+export async function finalizeTransfer({ mainResult, sonarCloudMainBranch, syncAllBranches, excludeBranches, includeBranches, extractedData, extractor, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudClient, sonarQubeClient, journal, cache, stateTracker, isIncremental, shutdownCheck, performanceConfig, sonarCloudRepos, ruleEnrichmentMap, projectKey, lockFile, transferConfig }) {
   const aggregatedStats = {
     issuesTransferred: mainResult.stats.issuesTransferred || 0,
     hotspotsTransferred: mainResult.stats.hotspotsTransferred || 0,
@@ -27,9 +28,14 @@ export async function finalizeTransfer({ mainResult, sonarCloudMainBranch, syncA
       logger.info('No additional branches to sync (only the main branch exists)');
     }
   }
+  // -------- Phase 2: Metadata Sync --------
+  const metadataStats = await syncTransferMetadata({
+    sonarQubeClient, sonarCloudClient, sonarcloudConfig, transferConfig, performanceConfig,
+  });
+
   if (isIncremental) await stateTracker.recordTransfer(aggregatedStats);
   if (journal) await journal.markCompleted();
   await lockFile.release();
   logger.info(`Transfer completed for project: ${projectKey} — ${aggregatedStats.branchesTransferred.length} branch(es)`);
-  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats: aggregatedStats };
+  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats: aggregatedStats, metadataStats };
 }

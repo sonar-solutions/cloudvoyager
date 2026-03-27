@@ -1,4 +1,5 @@
 import logger from '../../../../../shared/utils/logger.js';
+import { stripExternalPrefix } from '../../../../../shared/utils/strip-external-prefix/index.js';
 import { isExternalIssue } from './is-external-issue.js';
 import { resolveCleanCodeAttr } from './resolve-clean-code-attr.js';
 import { resolveImpacts } from './resolve-impacts.js';
@@ -25,7 +26,8 @@ export function buildExternalIssues(builder) {
     if (!isExternalIssue(issue, sonarCloudRepos)) continue;
     if (!builder.validComponentKeys?.has(issue.component) || !builder.componentRefMap.get(issue.component)) { skippedIssues++; continue; }
 
-    const [engineId = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const [rawEngine = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const engineId = stripExternalPrefix(rawEngine);
     detectedEngines.add(engineId);
     const fullRuleKey = `${engineId}:${ruleId}`;
     const enrichment = ruleEnrichmentMap.get(fullRuleKey);

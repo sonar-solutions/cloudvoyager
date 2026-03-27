@@ -1,6 +1,7 @@
 import { isExternalIssue } from './is-external-issue.js';
 import { buildOneExternalIssue } from './build-one-external-issue.js';
 import { collectAdHocRule } from './collect-ad-hoc-rule.js';
+import { stripExternalPrefix } from '../../../../../shared/utils/strip-external-prefix/index.js';
 
 // -------- Process One Issue --------
 
@@ -12,7 +13,8 @@ export function processOneIssue(issue, builder, ctx) {
   const componentRef = builder.componentRefMap.get(issue.component);
   if (!componentRef) { ctx.skippedIssues++; return; }
 
-  const fullRuleKey = `${issue.rule.split(':')[0] || 'unknown'}:${issue.rule.split(':')[1] || issue.rule}`;
+  const rawEngine = issue.rule.split(':')[0] || 'unknown';
+  const fullRuleKey = `${stripExternalPrefix(rawEngine)}:${issue.rule.split(':')[1] || issue.rule}`;
   const enrichment = ctx.ruleEnrichmentMap.get(fullRuleKey);
   const result = buildOneExternalIssue(issue, builder, enrichment);
 

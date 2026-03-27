@@ -119,7 +119,7 @@ window.TransferConfigScreen = {
         ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log during transfer' })}
       </div>
 
-      ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', this.renderAdvancedHtml(), true)}
+      ${ConfigForm.collapsible('advanced-section', `${ConfigForm.icon('gear')} More Settings (Advanced)`, this.renderAdvancedHtml())}
 
       <div class="button-row right">
         <button class="btn btn-secondary" id="btn-back">Back</button>

@@ -39,7 +39,7 @@ export async function transferProject(opts) {
     const ruleEnrichmentMap = p.prebuiltEnrichmentMap || new Map();
     checkShutdown(p.shutdownCheck);
     const mainResult = await transferMainBranch({ extractedData, sonarcloudConfig: p.sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait: p.wait, sonarCloudClient, journal, sonarCloudRepos, ruleEnrichmentMap });
-    return await finalizeTransfer({ mainResult, sonarCloudMainBranch, ...p, extractedData, extractor, sonarCloudProfiles, sonarCloudClient, journal, cache, stateTracker, sonarCloudRepos, ruleEnrichmentMap, lockFile });
+    return await finalizeTransfer({ mainResult, sonarCloudMainBranch, ...p, extractedData, extractor, sonarCloudProfiles, sonarCloudClient, sonarQubeClient, journal, cache, stateTracker, sonarCloudRepos, ruleEnrichmentMap, lockFile });
   } catch (error) {
     if (!(error instanceof GracefulShutdownError) && journal) { await journal.markInterrupted().catch(() => {}); }
     await lockFile.release();

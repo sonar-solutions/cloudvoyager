@@ -1,13 +1,14 @@
 import { parseEffortToMinutes, mapIssueType } from './enum-mappers.js';
 import { resolveCleanCodeAttr } from './resolve-clean-code-attr.js';
 import { resolveImpacts } from './resolve-impacts.js';
+import { stripExternalPrefix } from '../../../../../shared/utils/strip-external-prefix/index.js';
 
 // -------- Build One External Issue --------
 
 /** Build a single ExternalIssue message from a SQ issue. */
 export function buildOneExternalIssue(issue, builder, enrichment) {
   const ruleParts = issue.rule.split(':');
-  const engineId = ruleParts[0] || 'unknown';
+  const engineId = stripExternalPrefix(ruleParts[0] || 'unknown');
   const ruleId = ruleParts[1] || issue.rule;
   const componentRef = builder.componentRefMap.get(issue.component);
 

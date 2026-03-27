@@ -1,4 +1,5 @@
 import logger from '../../../../../shared/utils/logger.js';
+import { stripExternalPrefix } from '../../../../../shared/utils/strip-external-prefix/index.js';
 import { mapIssueType } from './enum-mappers.js';
 import { isExternalIssue } from './is-external-issue.js';
 import { buildSingleExternalIssue } from './build-single-external-issue.js';
@@ -23,7 +24,8 @@ export function buildExternalIssues(builder) {
     if (!builder.validComponentKeys?.has(issue.component)) { skipped++; return; }
     const componentRef = builder.componentRefMap.get(issue.component);
     if (!componentRef) { skipped++; return; }
-    const [engineId = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const [rawEngine = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const engineId = stripExternalPrefix(rawEngine);
     engines.add(engineId);
     const fullRuleKey = `${engineId}:${ruleId}`;
     const result = buildSingleExternalIssue(issue, engineId, ruleId, ruleEnrichmentMap.get(fullRuleKey), builder);

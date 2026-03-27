@@ -109,7 +109,12 @@ sq-{version}/
 ├── transfer-pipeline.js              # Re-export → transfer-pipeline/index.js
 ├── transfer-pipeline/
 │   ├── index.js                       # Single-project transfer orchestrator
-│   └── helpers/                       # 15 helper files (one function each)
+│   └── helpers/                       # 15+ helper files (one function each)
+│       └── sync-transfer-metadata/    # Post-upload metadata sync (issues + hotspots)
+│           ├── index.js                # Orchestrates issue and hotspot metadata sync
+│           └── helpers/
+│               ├── fetch-and-sync-issues.js    # Fetches SQ issues, syncs to SC
+│               └── fetch-and-sync-hotspots.js  # Fetches SQ hotspots, syncs to SC
 ├── transfer-branch.js                # Re-export → transfer-branch/index.js
 ├── transfer-branch/
 │   ├── index.js
@@ -277,8 +282,9 @@ Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 8. **Encode** — encode messages to binary protobuf format
 9. **Package** — create ZIP archive (metadata.pb, component-N.pb, issues-N.pb, externalissues-N.pb, adhocrules.pb, measures-N.pb, duplications-N.pb, source-N.txt, activerules.pb, changesets-N.pb)
 10. **Upload** — submit scanner report ZIP to SonarCloud CE endpoint
-11. **Release lock** — release the advisory lock file
-12. **Update state** — record successful transfer in state file
+11. **Metadata sync** — sync issue statuses, comments, assignments, and tags from SQ to SC; sync hotspot statuses, comments, and source links (skippable via `skipIssueMetadataSync` / `skipHotspotMetadataSync`)
+12. **Release lock** — release the advisory lock file
+13. **Update state** — record successful transfer in state file
 
 Interrupted transfers resume from the last completed checkpoint phase, skipping already-finished steps.
 

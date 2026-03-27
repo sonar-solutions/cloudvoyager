@@ -55,7 +55,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 |------|-------------|
 | 1. SonarQube Connection | Enter URL and token for the source SonarQube instance |
 | 2. SonarCloud Connection | Enter URL, token, organization, and project key for the target |
-| 3. Transfer Settings | Choose transfer mode (full/incremental), batch size, branch options |
+| 3. Transfer Settings | Choose transfer mode (full/incremental), batch size, branch options. The "More Settings (Advanced)" section is collapsed by default (click the gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the transfer |
 
 ### Migrate Config (4 steps)

@@ -164,11 +164,15 @@ Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSo
 
 **Auto-detection**: The tool compares SonarQube rule repositories against SonarCloud's available repositories via `getRuleRepositories()`. If a rule's repository is not present in SonarCloud, the issue is routed through the external issue path instead of the regular `Issue` path.
 
+**SonarQube 2025+ `external_` prefix handling**: SonarQube 2025+ returns external linter issues with an `external_` prefix in the rule key (e.g., `external_ruff:D200` instead of `ruff:D200`). The tool detects this prefix and always treats such rules as external, then strips the prefix before building the `ExternalIssue` protobuf message to avoid double-prefixing in SonarCloud.
+
 **How it works**:
-1. Issues with unsupported rule repos are built as `ExternalIssue` messages (not `Issue`)
-2. Each unique rule becomes an `AdHocRule` with name, description, severity, type, clean code attribute, and impacts
-3. External issues appear in SonarCloud as `external_{engineId}:{ruleId}` (e.g., `external_mulesoft:MS058`)
-4. Ad-hoc rules do not appear in SonarCloud's rules search (expected behavior per SC docs)
+1. Rules with an `external_` prefix in SQ are always treated as external (regardless of SC repo list)
+2. The `external_` prefix is stripped from the engineId before encoding (SQ `external_ruff:D200` → engineId `ruff`, ruleId `D200`)
+3. Issues with unsupported rule repos (no `external_` prefix) are detected by comparing against SC repositories
+4. Each unique rule becomes an `AdHocRule` with name, description, severity, type, clean code attribute, and impacts
+5. External issues appear in SonarCloud as `external_{engineId}:{ruleId}` (e.g., `external_ruff:D200`, `external_mulesoft:MS058`)
+6. Ad-hoc rules do not appear in SonarCloud's rules search (expected behavior per SC docs)
 
 **Requirements**: Each `ExternalIssue` and `AdHocRule` must include:
 - `cleanCodeAttribute` — encoded as protobuf enum (varint), not string (see Protobuf Encoding section)

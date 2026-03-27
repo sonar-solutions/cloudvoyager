@@ -4,6 +4,7 @@ import { initJournalSession } from './init-journal-session.js';
 import { resolveProjectName } from './resolve-project-name.js';
 import { checkMainBranchIncluded } from './check-main-branch-included.js';
 import { runTransferPhases } from './run-transfer-phases.js';
+import { syncTransferMetadata } from './sync-transfer-metadata/index.js';
 import logger from '../../../../shared/utils/logger.js';
 
 // -------- Execute Transfer (inner logic) --------
@@ -30,6 +31,11 @@ export async function executeTransfer(ctx) {
   if (journal) await journal.markCompleted();
   await lockFile.release();
 
+  // -------- Phase 2: Metadata Sync --------
+  const metadataStats = await syncTransferMetadata({
+    sonarQubeClient, sonarCloudClient, sonarcloudConfig, transferConfig, performanceConfig,
+  });
+
   logger.info(`Transfer completed for project: ${projectKey}`);
-  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats };
+  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats, metadataStats };
 }

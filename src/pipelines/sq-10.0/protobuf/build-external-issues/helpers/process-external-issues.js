@@ -2,6 +2,7 @@ import { mapIssueType } from './enum-mappers.js';
 import { isExternalIssue } from './is-external-issue.js';
 import { buildExternalIssueMsg } from './build-external-issue-msg.js';
 import { buildIssueFlows } from './build-issue-flows.js';
+import { stripExternalPrefix } from '../../../../../shared/utils/strip-external-prefix/index.js';
 
 // -------- Process External Issues --------
 
@@ -23,7 +24,8 @@ export function processExternalIssues(builder, sonarCloudRepos) {
     const componentRef = builder.componentRefMap.get(issue.component);
     if (!componentRef) { skippedIssues++; return; }
 
-    const [engineId = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const [rawEngine = 'unknown', ruleId = issue.rule] = issue.rule.split(':');
+    const engineId = stripExternalPrefix(rawEngine);
     detectedEngines.add(engineId);
 
     const fullRuleKey = `${engineId}:${ruleId}`;
