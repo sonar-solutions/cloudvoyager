@@ -10,7 +10,8 @@ import { buildDateWindows } from './build-date-windows.js';
 const API_RESULT_LIMIT = 10000;
 const INITIAL_WINDOW_COUNT = 12;
 // SonarQube was open-sourced in 2007; no issues can predate this epoch.
-const SONARQUBE_EPOCH = '2006-01-01T00:00:00.000Z';
+// Use +0000 format — SonarQube rejects ISO milliseconds (.000Z).
+const SONARQUBE_EPOCH = '2006-01-01T00:00:00+0000';
 
 // -------- Main Logic --------
 

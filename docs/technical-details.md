@@ -139,7 +139,8 @@ SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results re
 | `fetch-window.js` | Fetches one window; recursively bisects if it exceeds the limit |
 | `slice-by-creation-date.js` | Partitions epoch→now into 12 windows, calls `fetchWindow` for each |
 | `build-date-windows.js` | Builds evenly-spaced `{ start, end }` window objects |
-| `split-midpoint.js` | Computes the ISO midpoint between two timestamps |
+| `split-midpoint.js` | Computes the SonarQube-compatible datetime at the midpoint between two timestamps |
+| `format-sonarqube-date.js` | Formats timestamps as `YYYY-MM-DDTHH:MM:SS+0000` (SonarQube rejects `.XXXZ` milliseconds) |
 | `deduplicate-results.js` | Deduplicates merged results by `item.key \|\| item.id` |
 
 The slicing is transparent to callers — `issues-hotspots.js` in each pipeline calls `fetchWithSlicing`, which falls back to a normal paginated fetch when the total is under 10,000.

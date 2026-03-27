@@ -586,18 +586,29 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 <!-- Updated: Mar 28, 2026 -->
 ## 📊 Projects with 10,000+ Issues
 
-SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit. Requesting the 10,001st result returns a 400 error: `Can return only the first 10000 results. 10001th result asked.`
+SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
 
-**Symptom:** Transfer or migration fails with the above error, or the issue count in SonarCloud is exactly 10,000 (or noticeably lower than SonarQube) for a large project.
+### Error: `10001th result asked`
 
-**Root cause of the failure:** When slicing was first activated for a >10K project, an internal date-range probe called `getPaginated` with `ps=1` (one result per page). This caused the paginator to loop page-by-page through all issues — reaching page 10,001 and triggering the Elasticsearch error before any date windows were even built.
+**Symptom:** Transfer or migration fails with `SonarQube API error (400): Can return only the first 10000 results. 10001th result asked.`
 
-**Fix (v1.2.1+):** The date-range probe has been replaced with a fixed epoch (`2006-01-01`) to now range, eliminating the looping paginator entirely. The algorithm now:
-1. Divides the full SonarQube era into 12 equal-width time windows
-2. Recursively bisects any window that still exceeds 10K
-3. Stops bisecting only if a window cannot be split further (same-millisecond boundary — an unavoidable SonarQube API limitation for mass-import scenarios)
+**Fix (v1.2.1+):** The date-range probe that triggered this error has been replaced with a fixed epoch (`2006-01-01` → now) range. No configuration needed — re-run the transfer or migration.
 
-No configuration is needed — it is fully transparent for both the `transfer` and `migrate` commands. If you hit this error before v1.2.1, re-run the transfer or migration.
+### Error: `Date cannot be parsed as either a date or date+time`
+
+**Symptom:** Transfer fails with `SonarQube API error (400): Date '2007-09-08T21:21:02.125Z' cannot be parsed as either a date or date+time` when slicing activates.
+
+**Cause:** JavaScript's `toISOString()` produces milliseconds (`.125Z`). SonarQube's `createdAfter`/`createdBefore` API parameters require `+0000` format without milliseconds.
+
+**Fix (v1.2.1+):** Date window boundaries now use `+0000` format. Re-run the transfer or migration.
+
+### General info
+
+The search slicer algorithm:
+1. Detects when total issues exceed 10K
+2. Divides the full SonarQube era into 12 equal-width time windows
+3. Recursively bisects any window that still exceeds 10K
+4. Stops bisecting only if a window cannot be split further (same-millisecond boundary — an unavoidable SonarQube API limitation for mass-import scenarios where all issues share one identical timestamp)
 
 **Verification:** Run `./cloudvoyager verify -c migrate-config.json --only issue-metadata` to compare issue counts between SonarQube and SonarCloud.
 

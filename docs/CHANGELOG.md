@@ -7,14 +7,25 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 <!-- Updated: Mar 28, 2026 -->
 ## Search Slicer: Fix 10K Limit on Large Projects (2026-03-28)
 
-Fixed a critical bug where transferring or migrating a project with **more than 10,000 issues** failed with:
-`SonarQube API error (400): Can return only the first 10000 results. 10001th result asked.`
+Fixed two bugs that caused transfers to fail for projects with more than 10,000 issues.
+
+### Bug 1 — `10001th result asked` (Elasticsearch limit hit during date-range probe)
 
 - **Root cause:** `slice-by-creation-date.js` called `findDateRange()` to determine the oldest/newest issue before building date windows. `findDateRange` used `getPaginatedFn` with `ps=1`, causing the paginator to loop page-by-page through all issues. On projects with >10K issues it reached page 10,001, which Elasticsearch rejects.
 - **Fixed:** Removed `find-date-range.js` and the probing step entirely. `sliceByCreationDate` now uses a fixed epoch (`2006-01-01` → now) to build 12 equal-width time windows, requiring zero API calls to determine the date range.
 - **Fixed:** Added an unsplittable-window guard in `fetchWindow` — if bisection reaches a same-millisecond boundary (e.g. mass-import scenarios where all issues share one timestamp), the window is fetched directly rather than looping forever.
 - **Refactored:** Extracted `splitMidpoint` to `split-midpoint.js` and `buildDateWindows` to `build-date-windows.js` to keep all files under 50 lines.
 - **Deleted:** `find-date-range.js` (contained the bug; no longer needed).
+
+### Bug 2 — `Date cannot be parsed as either a date or date+time` (wrong datetime format)
+
+- **Root cause:** JavaScript's `Date.toISOString()` produces `2007-09-08T21:21:02.125Z` (includes milliseconds). SonarQube's `createdAfter`/`createdBefore` API parameters reject this format and require `2007-09-08T21:21:02+0000`.
+- **Fixed:** Added `format-sonarqube-date.js` helper that strips milliseconds and replaces `Z` with `+0000`. All date-window boundaries and midpoints now use this formatter.
+
+### Bug 3 — Desktop app config validation failure (`/transfer must NOT have additional properties`)
+
+- **Root cause:** The desktop transfer wizard set `transfer.skipIssueMetadataSync` and `transfer.skipHotspotMetadataSync` in the config, but these weren't declared in `transfer-options-schema.js`. The schema's `additionalProperties: false` rejected them.
+- **Fixed:** Added both properties to the transfer options schema.
 
 ---
 
