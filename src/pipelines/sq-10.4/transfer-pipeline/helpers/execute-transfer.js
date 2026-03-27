@@ -4,6 +4,7 @@ import { validateMainBranchIncluded } from './validate-main-branch.js';
 import { extractAndFetchMetadata } from './extract-and-fetch-metadata.js';
 import { transferMainBranch } from './transfer-main-branch.js';
 import { transferNonMainBranches } from './transfer-non-main-branches.js';
+import { syncTransferMetadata } from './sync-transfer-metadata/index.js';
 import logger from '../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
@@ -39,9 +40,15 @@ export async function executeTransfer(opts) {
     await transferNonMainBranches({ extractedData, sonarcloudConfig, sonarCloudProfiles, mainBranchResult, sonarCloudMainBranch, wait, sonarCloudClient, extractor, journal, cache, stateTracker, isIncremental, shutdownCheck, excludeBranches, includeBranches, performanceConfig, aggregatedStats, sonarCloudRepos, ruleEnrichmentMap });
   }
 
+  // -------- Phase 2: Metadata Sync --------
+  checkShutdown(shutdownCheck);
+  const metadataStats = await syncTransferMetadata({
+    sonarQubeClient, sonarCloudClient, sonarcloudConfig, transferConfig, performanceConfig,
+  });
+
   if (isIncremental) await stateTracker.recordTransfer(aggregatedStats);
   if (journal) await journal.markCompleted();
 
   logger.info(`Transfer completed for project: ${projectKey} — ${aggregatedStats.branchesTransferred.length} branch(es)`);
-  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats: aggregatedStats };
+  return { projectKey, sonarCloudProjectKey: sonarcloudConfig.projectKey, stats: aggregatedStats, metadataStats };
 }

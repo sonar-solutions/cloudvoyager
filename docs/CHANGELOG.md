@@ -4,6 +4,17 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Transfer Command: Metadata Sync (2026-03-27)
+
+The `transfer` command now includes a **Phase 2: Metadata Sync** that runs automatically after the scanner report upload completes.
+
+- **Added:** Issue metadata sync — replays full status history from SQ changelog, copies comments with attribution, adds `metadata-synchronized` tag, syncs assignments, and adds a `[SonarQube Source]` comment linking back to the original SQ issue URL.
+- **Added:** Hotspot metadata sync — syncs hotspot statuses, comments, and source links.
+- **Added:** `skipIssueMetadataSync` and `skipHotspotMetadataSync` options in transfer config to opt out.
+- **Impact:** All 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025) now include metadata sync. Previously, the `transfer` command only uploaded the scanner report, leaving all issues in default "Open" status with no comments, tags, or assignments.
+
+---
+
 ## External Issue Prefix Fix (2026-03-27)
 
 Fixed a critical bug where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube 2025+.

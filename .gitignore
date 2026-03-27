@@ -66,3 +66,4 @@ desktop/resources/cli/
 dist/desktop/
 **/*.json.journal
 **/*.json.journal.backup
+**/*.json.gz

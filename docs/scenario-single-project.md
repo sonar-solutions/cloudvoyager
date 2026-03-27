@@ -20,6 +20,8 @@ This does **not** migrate org-level settings like quality gates, quality profile
 | **Metrics & measures** | Project and component-level measures (coverage, complexity, etc.) |
 | **SCM changesets** | Per-file changeset info (author, date, revision) |
 | **Active rules** | Quality profile rules filtered by languages used in the project |
+| **Issue metadata** | Status history (full changelog replay), comments, assignments, `metadata-synchronized` tag, and a link back to the original SonarQube issue URL |
+| **Hotspot metadata** | Hotspot statuses, comments, and source links |
 
 > **Not included:** Quality gates, quality profiles, groups, permissions, portfolios, project settings, tags, links, DevOps bindings, and new code definitions. Use the [`migrate` command](scenario-single-org.md) to transfer these.
 
