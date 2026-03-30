@@ -54,11 +54,22 @@ jobs:
       - name: Update package.json version
         run: npm version ${{ steps.version.outputs.new }} --no-git-tag-version
 
+      # -------- Sync version to desktop/package.json --------
+      - name: Update desktop/package.json version
+        run: |
+          cd desktop
+          npm version ${{ steps.version.outputs.new }} --no-git-tag-version
+
+      # -------- Sync version to src/index.js --------
+      - name: Update CLI hardcoded version
+        run: |
+          sed -i "s/.version('[^']*')/.version('${{ steps.version.outputs.new }}')/" src/index.js
+
       # -------- Commit and Push --------
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
+          git add package.json package-lock.json desktop/package.json desktop/package-lock.json src/index.js
           git commit -m "chore: bump version to ${{ steps.version.outputs.new }}"
           git push
