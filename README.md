@@ -37,11 +37,13 @@ The execution screen features real-time progress tracking with an animated pixel
 Download the latest version from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
 
 **NEXT, PLEASE DO THE BELOW**: 
+
 You will get an error when opening the desktop app for the first time:
 
 <img width="267" height="313" alt="image" src="https://github.com/user-attachments/assets/dbd5abc8-800a-457a-8312-71cbec18fdb5" />
 
 Now, **PROCEED TO DO THE FOLLOWING** for it to work:
+
 - Open your Terminal and unblock permissions by running this command: 
 
   `xattr -cr "CloudVoyager Desktop.app"`
