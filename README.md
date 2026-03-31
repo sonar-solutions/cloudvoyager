@@ -42,8 +42,14 @@ You will get an error when opening the desktop app for the first time:
 <img width="267" height="313" alt="image" src="https://github.com/user-attachments/assets/dbd5abc8-800a-457a-8312-71cbec18fdb5" />
 
 Now, **PROCEED TO DO THE FOLLOWING** for it to work:
-- Open your Terminal and unblock permissions by running this command: `xattr -cr "CloudVoyager Desktop.app"`.
-- Or if that does not work, older versions use an older command `xattr -c /Applications/CloudVoyager\ Desktop.app`
+- Open your Terminal and unblock permissions by running this command: 
+
+  `xattr -cr "CloudVoyager Desktop.app"`
+  
+- Or if that does not work, older versions use an older command
+
+  `xattr -c /Applications/CloudVoyager\ Desktop.app`
+
 - This only happens for MacOS due to MacOS in-built Gatekeeper permissions. After running the command above, you should be able to run CloudVoyager Desktop.
 - For Windows and Linux users, you will not face this issue.
 
