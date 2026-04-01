@@ -5,6 +5,8 @@ import { formatTextReport } from '../format-text.js';
 import { formatMarkdownReport } from '../format-markdown.js';
 import { formatExecutiveSummaryMarkdown } from '../format-markdown-executive.js';
 import { formatPerformanceReport } from '../format-performance.js';
+import { formatRulesComparisonReport } from '../format-rules-comparison.js';
+import { formatIssuesDeltaReport } from '../format-issues-delta.js';
 
 export async function writeTextReports(results, outputDir) {
   const reports = [];
@@ -23,5 +25,9 @@ export async function writeTextReports(results, outputDir) {
   const perfMdPath = join(outputDir, 'performance-report.md');
   await writeFile(perfMdPath, formatPerformanceReport(results));
   reports.push('performance-report.md');
+  const rcMd = formatRulesComparisonReport(results);
+  if (rcMd) { await writeFile(join(outputDir, 'rules-comparison-report.md'), rcMd); reports.push('rules-comparison-report.md'); }
+  const idMd = formatIssuesDeltaReport(results);
+  if (idMd) { await writeFile(join(outputDir, 'issues-delta-report.md'), idMd); reports.push('issues-delta-report.md'); }
   return reports;
 }

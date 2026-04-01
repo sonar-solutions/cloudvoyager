@@ -4,6 +4,143 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## sq-10.4: Multi-Value Setting Support in setProjectSetting (2026-04-02)
+
+`setProjectSetting` in the sq-10.4 SonarCloud project-config helper now handles multi-value settings correctly.
+
+Previously, the function accepted a single `value` string and always used SonarCloud's `value` param. SonarCloud requires multi-value settings (e.g. exclusion lists) to be submitted as repeated `values` params in the query string, which a plain `{ params: { value } }` object cannot express.
+
+### Change
+
+- **Renamed:** `value` parameter → `valueOrValues` to reflect that either a string or an array is accepted.
+- **Added:** Array-detection branch that serialises the values via `URLSearchParams` with repeated `values` keys and appends them directly to the endpoint URL.
+- **Unchanged:** Single-value path continues to use `{ params: { key, value: valueOrValues, component } }` as before.
+
+**Modified:** `src/pipelines/sq-10.4/sonarcloud/api/project-config/helpers/project-settings-api.js`
+
+---
+
+## sq-2025: Fix multi-value project settings migration (2026-04-02)
+
+Fixed a bug in `migrate-project-settings.js` (sq-2025 pipeline) where multi-value settings (`setting.values`) were incorrectly comma-joined into a single string before being passed to `client.setProjectSetting`. The SonarCloud API expects repeated `values` parameters (an array), not a comma-concatenated string.
+
+- **Fixed:** `setting.values` is now passed as a raw array to `client.setProjectSetting`, allowing the API layer to serialize it correctly as repeated params.
+- **Fixed:** Error catch block now logs at `logger.warn` instead of `logger.debug`, ensuring setting failures are visible in non-verbose runs.
+- **Refactored:** Removed the merged `const value = ...` expression — the `values` array and scalar `value` paths are now separate `if / else if` branches.
+
+**File changed:** `src/pipelines/sq-2025/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+
+Also fixed the underlying API helper (`set-project-setting.js`) to handle array values via `URLSearchParams` repeated `values` params — this is the SonarCloud API requirement for settings like `sonar.exclusions`.
+
+- **Changed:** `src/pipelines/sq-2025/sonarcloud/api/project-config/helpers/set-project-setting.js` — parameter renamed `value` → `valueOrValues`; when an array is passed, builds the query string with repeated `values` entries via `URLSearchParams`; scalar values continue to use the existing `{ params: { value } }` path.
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## sq-10.0: Fix multi-value project settings migration (2026-04-02)
+
+Fixed a bug in `migrate-project-settings.js` (sq-10.0 pipeline) where multi-value settings (`setting.values`) were incorrectly comma-joined into a single string before being passed to `client.setProjectSetting`. The SonarCloud API expects repeated `values` parameters (an array), not a comma-concatenated string.
+
+- **Fixed:** `setting.values` is now passed as a raw array to `client.setProjectSetting`, allowing the API layer to serialize it correctly as repeated params.
+- **Fixed:** Error catch block now logs at `logger.warn` instead of `logger.debug`, ensuring setting failures are visible in non-verbose runs.
+- **Refactored:** Removed the merged `const value = ...` expression — the `values` array and scalar `value` paths are now separate `if / else if` branches.
+
+**File changed:** `src/pipelines/sq-10.0/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## sq-9.9: Multi-Value Project Settings Support (2026-04-02)
+
+Updated `setProjectSetting` in `src/pipelines/sq-9.9/sonarcloud/api/project-config/helpers/project-settings.js` to handle both single-value and multi-value settings.
+
+Previously the function accepted only a single `value` string and called `/api/settings/set` with a `value` param. It now accepts either a string or an array:
+
+- **Single value** — behaves as before: `{ params: { key, value, component } }`
+- **Array of values** — builds `URLSearchParams` with repeated `values` entries (SonarCloud API requirement for multi-value settings) and appends them to the URL: `/api/settings/set?key=...&component=...&values=...&values=...`
+
+- **Modified:** `src/pipelines/sq-9.9/sonarcloud/api/project-config/helpers/project-settings.js` — `setProjectSetting` now accepts `valueOrValues` (string or string[]) and branches on `Array.isArray`.
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## Test Fix: migrateProjectSettings multi-value assertion updated (2026-04-02)
+
+Updated the unit test for `migrateProjectSettings` to reflect the corrected behavior where multi-value settings pass the array directly instead of joining values into a comma-separated string.
+
+- **Changed:** `test/sonarcloud/migrators/migrators.test.js` — renamed test `'migrateProjectSettings joins values array'` to `'migrateProjectSettings passes values array directly for multi-value settings'`; changed assertion from `t.is(..., '**/*.test.js,**/*.spec.js')` to `t.deepEqual(..., ['**/*.test.js', '**/*.spec.js'])`
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## sq-2025: Quality Profile Rules Comparison and Project Issues Delta Reports (2026-04-02)
+
+Added two new migration reports to the sq-2025 migrate pipeline: a **Quality Profile Rules Comparison Report** and a **Project Issues Delta Report**.
+
+### Quality Profile Rules Comparison Report (`rules-comparison-report.md`)
+
+Compares active rules between SonarQube quality profiles and their migrated SonarCloud counterparts, highlighting per-language discrepancies so teams can anticipate issue count changes before go-live.
+
+- **Missing from SonarCloud** — Rules active in SonarQube that do not exist on SonarCloud (issues that will disappear post-migration)
+- **Added in SonarCloud** — Rules present on SonarCloud but not in SonarQube (new issues that will appear post-migration)
+
+New/modified files:
+- **Added:** `src/shared/reports/format-rules-comparison/index.js` — Orchestrator: renders full markdown diff report
+- **Added:** `src/shared/reports/format-rules-comparison/helpers/format-profile-section.js` — Formats one language/profile comparison section
+- **Added:** `src/shared/reports/format-rules-comparison.js` — Re-export barrel
+- **Modified:** `src/pipelines/sq-2025/migrate-pipeline/helpers/migrate-org-wide-batch2.js` — Attaches diff data to `results.rulesComparisonData`
+
+### Project Issues Delta Report (`issues-delta-report.md`)
+
+Per-project comparison of actual issues on SonarQube versus SonarCloud post-migration. Shows per-rule breakdown of which issues disappeared or appeared, enabling operators to confirm migration fidelity at the issue level.
+
+New files:
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/helpers/diff-project-issues.js` — Diffs SQ vs SC issue sets for one project
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/helpers/build-rule-breakdown.js` — Groups disappeared/appeared issues by rule key
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/helpers/gather-project-delta.js` — Fetches and diffs issues for a single project
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/helpers/gather-all-delta.js` — Runs `gatherProjectDelta` across all projects
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/index.js` — Re-exports `gatherAllDelta`
+- **Added:** `src/pipelines/sq-2025/migrate-pipeline/helpers/gather-issues-delta.js` — Calls `gatherAllDelta` from the migrate pipeline
+- **Added:** `src/shared/reports/format-issues-delta/index.js` — Orchestrator: renders full markdown delta report
+- **Added:** `src/shared/reports/format-issues-delta/helpers/` — Helper files for delta report formatting
+- **Added:** `src/shared/reports/format-issues-delta.js` — Re-export barrel
+
+Modified files:
+- **Modified:** `create-empty-results.js` — Added `rulesComparisonData` and `issuesDeltaData` fields to the results object
+- **Modified:** `run-org-migrations.js` — Stores `ctx.projectKeyMap` for downstream report use
+- **Modified:** `migrate-pipeline/index.js` — Calls `gatherIssuesDelta` before writing reports
+- **Modified:** `write-text-reports.js` — Writes the two new markdown report files
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+## sq-2025: Expose mergedProjectKeyMap on ctx after org core migrations (2026-04-01)
+
+After the `for (const r of orgCoreResults)` loop that builds `mergedProjectKeyMap` in `run-org-migrations.js`, the merged map is now assigned to `ctx.projectKeyMap`. This makes the fully-resolved project-key map available to downstream callers (e.g. `migrateEnterprisePortfolios`) via the shared `ctx` object.
+
+- **Changed:** `src/pipelines/sq-2025/migrate-pipeline/helpers/apply-csv-and-migrate/helpers/run-org-migrations.js` — added `ctx.projectKeyMap = mergedProjectKeyMap;` after the org-core results loop.
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+## sq-2025: Add build-rule-breakdown helper (2026-04-01)
+
+Added a new helper to the sq-2025 pipeline's issues-delta reports subsystem.
+
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/helpers/build-rule-breakdown.js` — groups disappeared/appeared issues by rule key, returning `{ [ruleKey]: { disappeared: number, appeared: number } }`. Used to summarise which rules account for deltas between SonarQube and SonarCloud issue sets.
+
+---
+
+<!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+## sq-2025: Add issues-delta report index (2026-04-01)
+
+Added a new barrel export file for the `issues-delta` report module in the sq-2025 pipeline.
+
+- **Added:** `src/pipelines/sq-2025/sonarcloud/reports/issues-delta/index.js` — re-exports `gatherAllDelta` from its helpers subfolder, following the standard folder-centric module pattern.
+
+---
+
 <!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
 ## Desktop Migration Graph: Bug Fixes (2026-04-01)
 

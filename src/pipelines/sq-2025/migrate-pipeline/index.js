@@ -9,6 +9,7 @@ import { extractAndCacheData } from './helpers/extract-and-cache-data.js';
 import { handleDryRun } from './helpers/handle-dry-run.js';
 import { applyCsvAndMigrate } from './helpers/apply-csv-and-migrate.js';
 import { collectAssigneeData } from './helpers/collect-assignee-data.js';
+import { gatherIssuesDelta } from './helpers/gather-issues-delta.js';
 
 // -------- Migrate All --------
 
@@ -35,6 +36,8 @@ export async function migrateAll(options) {
     await applyCsvAndMigrate(orgMapping, resourceMappings, extractedData, preExistingCsvs, results, ctx);
   } finally {
     results.endTime = new Date().toISOString();
+    try { await gatherIssuesDelta(results, ctx); }
+    catch (e) { logger.warn(`Issues delta report failed: ${e.message}`); }
     try { await writeAllReports(results, join(outputDir, 'reports')); }
     catch (e) { logger.error(`Failed to write migration report: ${e.message}`); }
   }

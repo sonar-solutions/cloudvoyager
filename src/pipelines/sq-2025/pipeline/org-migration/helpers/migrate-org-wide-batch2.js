@@ -20,6 +20,7 @@ export async function migrateOrgWideBatch2(extractedData, scClient, sqClient, or
     (!shouldRun('quality-profiles') || ctx.skipQualityProfileSync) ? null : runOrgStep(orgResult, 'Compare quality profiles', async () => {
       logger.info('Comparing quality profiles between SonarQube and SonarCloud...');
       const diffReport = await generateQualityProfileDiff(extractedData.qualityProfiles, sqClient, scClient);
+      results.rulesComparisonData = diffReport;
       const diffPath = join(ctx.outputDir, 'quality-profiles', 'quality-profile-diff.json');
       await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
       logger.info(`Quality profile diff report written to ${diffPath}`);

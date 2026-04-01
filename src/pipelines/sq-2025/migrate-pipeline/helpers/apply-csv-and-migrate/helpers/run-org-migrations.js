@@ -22,6 +22,7 @@ export async function runOrgMigrations(effectiveOrgAssignments, effectiveExtract
       logger.error(`Organization migration failed: ${r.reason?.message || r.reason}`);
     }
   }
+  ctx.projectKeyMap = mergedProjectKeyMap;
 
   const only = ctx.onlyComponents;
   await Promise.all([

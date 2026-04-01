@@ -1136,7 +1136,7 @@ test('migrateProjectSettings sets settings with value field', async t => {
   t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.coverage.exclusions', '**/*.test.js', 'proj']);
 });
 
-test('migrateProjectSettings joins values array', async t => {
+test('migrateProjectSettings passes values array directly for multi-value settings', async t => {
   const client = mockClient();
   const settings = [
     { key: 'sonar.exclusions', values: ['**/*.test.js', '**/*.spec.js'] }
@@ -1145,7 +1145,7 @@ test('migrateProjectSettings joins values array', async t => {
   await migrateProjectSettings('proj', settings, client);
 
   t.is(client.setProjectSetting.callCount, 1);
-  t.is(client.setProjectSetting.firstCall.args[1], '**/*.test.js,**/*.spec.js');
+  t.deepEqual(client.setProjectSetting.firstCall.args[1], ['**/*.test.js', '**/*.spec.js']);
 });
 
 test('migrateProjectSettings skips settings with no value', async t => {

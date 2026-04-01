@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 26, 2026 -->
+<!-- Last updated: Apr 1, 2026 -->
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📁 Project Structure
@@ -49,7 +49,16 @@ src/
     │   ├── pdf-sections.js             # PDF report section builders
     │   ├── pdf-exec-sections.js        # Executive summary PDF section builders
     │   ├── pdf-perf-sections.js        # Performance report PDF section builders
-    │   └── perf-tables.js              # Performance data table formatters
+    │   ├── perf-tables.js              # Performance data table formatters
+    │   ├── format-rules-comparison.js  # Re-export → format-rules-comparison/index.js
+    │   ├── format-rules-comparison/   # Quality profile rule diff report formatter
+    │   │   ├── index.js                # Orchestrator: renders full markdown diff report
+    │   │   └── helpers/
+    │   │       └── format-profile-section.js  # Formats one language/profile comparison section
+    │   ├── format-issues-delta.js     # Re-export → format-issues-delta/index.js
+    │   └── format-issues-delta/      # Project issues delta report formatter <!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+    │       ├── index.js               # Orchestrator: renders full markdown delta report
+    │       └── helpers/               # Per-section helpers for delta report rendering
     ├── state/                         # State management and persistence
     │   ├── storage.js                  # File-based state persistence (atomic write, backup rotation)
     │   ├── tracker.js                  # Incremental transfer state tracking (with lock integration)
@@ -197,6 +206,14 @@ sq-{version}/
 │   │   ├── permissions.js              # Re-export → permissions/helpers/ (2 helpers)
 │   │   ├── project-config.js           # Re-export → project-config/helpers/ (2 helpers)
 │   │   └── quality-profiles.js         # Re-export → quality-profiles/helpers/ (7 helpers)
+│   ├── reports/                       # sq-2025 pipeline-specific reports <!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+│   │   └── issues-delta/              # Project issues delta data gatherer
+│   │       ├── index.js               # Re-exports gatherAllDelta
+│   │       └── helpers/
+│   │           ├── diff-project-issues.js   # Diffs SQ vs SC issue sets for one project
+│   │           ├── build-rule-breakdown.js  # Groups disappeared/appeared issues by rule key
+│   │           ├── gather-project-delta.js  # Fetches and diffs issues for a single project
+│   │           └── gather-all-delta.js      # Runs gatherProjectDelta across all projects
 │   └── migrators/
 │       ├── groups.js                   # Group creation (<50 lines)
 │       ├── quality-gates.js            # Re-export → quality-gates/helpers/ (6 helpers)
@@ -289,6 +306,7 @@ Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 Interrupted transfers resume from the last completed checkpoint phase, skipping already-finished steps.
 
 <!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
 ### `migrate` — Full Multi-Org Migration
 
 Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
@@ -315,7 +333,10 @@ Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
      - Assign migrated built-in quality profiles
      - Set project-level permissions
    - Create portfolios and assign projects
-6. **Generate reports** — write migration reports (JSON, Markdown, PDF)
+6. **Gather issues delta** (sq-2025 only) — call `gatherIssuesDelta` to compare live SQ vs SC issue counts per project, building `issuesDeltaData`
+7. **Generate reports** — write migration reports (JSON, Markdown, PDF) plus the two new Markdown reports:
+   - `rules-comparison-report.md` — quality profile rules comparison (missing/added rules per language)
+   - `issues-delta-report.md` — per-project live issue delta (disappeared/appeared issues per rule)
 
 On resume, completed organizations and projects are skipped based on the migration journal.
 

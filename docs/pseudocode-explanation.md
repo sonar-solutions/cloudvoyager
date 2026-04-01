@@ -875,6 +875,29 @@ FUNCTION assignQualityGatesToProjects(gateMapping, projectAssignments, scClient)
 ## 12. Quality Profiles Migration
 
 ```
+// Quality profile diff markdown rendering (src/shared/reports/format-rules-comparison/helpers/format-profile-section.js):
+FUNCTION formatProfileSection(langKey, diff):
+  lines = [header with profile names and rule counts]
+  IF diff.missingRules not empty:
+    lines.APPEND section "Rules missing from SonarCloud" with markdown table (key, name, type, severity)
+  IF diff.addedRules not empty:
+    lines.APPEND section "Rules added in SonarCloud" with markdown table
+  IF both empty:
+    lines.APPEND "Profiles are identical"
+  RETURN lines joined with newline
+
+// Quality profile rules comparison report rendering (src/shared/reports/format-rules-comparison/index.js):
+// <!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+FUNCTION formatRulesComparisonReport(rulesComparisonData):
+  // rulesComparisonData: { [langKey]: { sqProfileName, scProfileName, missingRules: [], addedRules: [] } }
+  lines = ["# Quality Profile Rules Comparison Report", ""]
+  FOR EACH langKey IN rulesComparisonData:
+    diff = rulesComparisonData[langKey]
+    section = formatProfileSection(langKey, diff)
+    lines.APPEND(section)
+    lines.APPEND("")
+  RETURN lines joined with newline
+
 FUNCTION migrateQualityProfiles(extractedProfiles, scClient):
   profileMapping = new Map()
   builtInProfileMapping = new Map()
@@ -930,6 +953,89 @@ FUNCTION buildInheritanceChains(profiles):
       chains.PUSH(chain)
 
   RETURN chains
+```
+
+---
+
+---
+
+## 12b. Project Issues Delta Report (sq-2025 only)
+
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+
+Gathers a per-project, per-rule breakdown of issue count differences between SonarQube and SonarCloud post-migration, then renders a Markdown report.
+
+```
+// --- Data gathering layer (src/pipelines/sq-2025/sonarcloud/reports/issues-delta/) ---
+
+FUNCTION diffProjectIssues(sqIssues, scIssues):
+  // sqIssues / scIssues: array of { rule, component, line, status, ... }
+  sqKeys = SET(sqIssues.map(i => i.rule + "|" + i.component + "|" + i.line))
+  scKeys = SET(scIssues.map(i => i.rule + "|" + i.component + "|" + i.line))
+
+  disappeared = sqIssues.filter(i => NOT scKeys.HAS(matchKey(i)))
+  appeared    = scIssues.filter(i => NOT sqKeys.HAS(matchKey(i)))
+  RETURN { disappeared, appeared }
+
+
+FUNCTION buildRuleBreakdown(disappeared, appeared):
+  // Groups issue lists by rule key, counting disappeared and appeared per rule
+  breakdown = {}                         // { ruleKey -> { disappeared: n, appeared: n } }
+  FOR EACH issue IN disappeared:
+    breakdown[issue.rule].disappeared += 1
+  FOR EACH issue IN appeared:
+    breakdown[issue.rule].appeared += 1
+  RETURN breakdown
+
+
+FUNCTION gatherProjectDelta(sqClient, scClient, sqProjectKey, scProjectKey):
+  sqIssues = sqClient.searchIssues(sqProjectKey)
+  scIssues = scClient.searchIssues(scProjectKey)
+  { disappeared, appeared } = diffProjectIssues(sqIssues, scIssues)
+  ruleBreakdown = buildRuleBreakdown(disappeared, appeared)
+  RETURN {
+    sqProjectKey,
+    scProjectKey,
+    totalDisappeared: disappeared.length,
+    totalAppeared:    appeared.length,
+    ruleBreakdown
+  }
+
+
+FUNCTION gatherAllDelta(sqClient, scClient, projectKeyMap):
+  // projectKeyMap: { sqKey -> scKey } for all migrated projects
+  deltas = []
+  FOR EACH [sqKey, scKey] IN projectKeyMap:
+    delta = gatherProjectDelta(sqClient, scClient, sqKey, scKey)
+    deltas.PUSH(delta)
+  RETURN deltas
+
+
+// --- Pipeline integration (sq-2025 migrate pipeline) ---
+
+FUNCTION gatherIssuesDelta(ctx):
+  // ctx.projectKeyMap populated by run-org-migrations.js
+  // ctx.sqClient, ctx.scClient available from pipeline context
+  deltas = gatherAllDelta(ctx.sqClient, ctx.scClient, ctx.projectKeyMap)
+  ctx.results.issuesDeltaData = deltas
+  RETURN deltas
+
+
+// --- Markdown rendering (src/shared/reports/format-issues-delta/index.js) ---
+
+FUNCTION formatIssuesDeltaReport(issuesDeltaData):
+  lines = ["# Project Issues Delta Report", ""]
+  FOR EACH delta IN issuesDeltaData:
+    lines.APPEND("## " + delta.sqProjectKey)
+    lines.APPEND("- Disappeared: " + delta.totalDisappeared)
+    lines.APPEND("- Appeared:    " + delta.totalAppeared)
+    IF delta.ruleBreakdown not empty:
+      lines.APPEND("| Rule | Disappeared | Appeared |")
+      lines.APPEND("|------|-------------|----------|")
+      FOR EACH [ruleKey, counts] IN delta.ruleBreakdown:
+        lines.APPEND("| " + ruleKey + " | " + counts.disappeared + " | " + counts.appeared + " |")
+    lines.APPEND("")
+  RETURN lines joined with newline
 ```
 
 ---

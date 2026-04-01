@@ -21,5 +21,7 @@ export function createEmptyResults() {
     projectLinesOfCode: [],
     environment: null,
     configuration: null,
+    rulesComparisonData: null,
+    issuesDeltaData: null,
   };
 }

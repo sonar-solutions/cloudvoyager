@@ -134,6 +134,18 @@ The regression suite tests all `migrate`, `sync-metadata`, and `verify` commands
 
 Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) for step-by-step instructions.
 
+<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
+## 📊 Migration Reports
+
+After each `migrate` run, CloudVoyager generates several Markdown reports in the output directory in addition to the standard JSON/PDF reports:
+
+| Report | Description |
+|--------|-------------|
+| `rules-comparison-report.md` | Per-language comparison of active rules between SonarQube quality profiles and their SonarCloud counterparts — highlights rules that will disappear (missing from SC) and new rules that will appear (added in SC) |
+| `issues-delta-report.md` | Per-project, per-rule breakdown of actual issues on SonarQube vs SonarCloud post-migration — shows how many issues disappeared or appeared for each rule across every project |
+
+These reports help teams verify migration fidelity and anticipate issue count changes before switching teams to SonarCloud.
+
 <!-- Updated: 2026-04-01 -->
 ## 📚 Documentation
 
