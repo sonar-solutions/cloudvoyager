@@ -158,15 +158,15 @@ window.MigrateConfigScreen = {
     const t = this.config.transfer;
 
     const onlyComponents = [
-      { id: 'scan-data', label: 'Code Analysis Data' },
-      { id: 'scan-data-all-branches', label: 'Code Analysis (All Branches)' },
-      { id: 'portfolios', label: 'Portfolios (Project Collections)' },
-      { id: 'quality-gates', label: 'Quality Policies (Gates)' },
-      { id: 'quality-profiles', label: 'Coding Rules (Profiles)' },
+      { id: 'scan-data', label: 'Scan Data' },
+      { id: 'scan-data-all-branches', label: 'Scan Data (All Branches)' },
+      { id: 'portfolios', label: 'Portfolios' },
+      { id: 'quality-gates', label: 'Quality Gates' },
+      { id: 'quality-profiles', label: 'Quality Profiles' },
       { id: 'permission-templates', label: 'Permission Templates' },
       { id: 'permissions', label: 'Permissions' },
-      { id: 'issue-metadata', label: 'Issue Details' },
-      { id: 'hotspot-metadata', label: 'Security Hotspot Details' },
+      { id: 'issue-metadata', label: 'Issue Metadata' },
+      { id: 'hotspot-metadata', label: 'Hotspot Metadata' },
       { id: 'project-settings', label: 'Project Settings' }
     ];
 
@@ -177,23 +177,23 @@ window.MigrateConfigScreen = {
       </div>
       <div class="card">
         ${ConfigForm.folderField('output-dir', 'Reports Output Folder', m.outputDir, { hint: 'Where to save all generated reports, logs, and records' })}
-        ${ConfigForm.radioGroup('transfer-mode', 'What to transfer', [
-          { value: 'full', label: 'Everything (full transfer)' },
-          { value: 'incremental', label: 'Only new & changed data' }
+        ${ConfigForm.radioGroup('transfer-mode', 'Transfer Mode', [
+          { value: 'full', label: 'Full Transfer (everything)' },
+          { value: 'incremental', label: 'Incremental (new & changed data only)' }
         ], t.mode)}
-        ${ConfigForm.checkbox('dry-run', 'Preview only (no changes)', m.dryRun, { hint: 'Simulates the migration so you can see what would happen without actually making changes' })}
-        ${ConfigForm.checkbox('skip-issue-meta', 'Skip updating issue details', m.skipIssueMetadataSync, { hint: "Don't update issue statuses and comments" })}
-        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip updating security hotspot details', m.skipHotspotMetadataSync, { hint: "Don't update security hotspot statuses and comments" })}
-        ${ConfigForm.checkbox('skip-qp-sync', 'Skip updating coding rules', m.skipQualityProfileSync, { hint: "Don't transfer quality profile configurations" })}
-        ${ConfigForm.checkbox('sync-branches', 'Include all code branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred' })}
-        ${ConfigForm.textField('exclude-branches', 'Exclude branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
-        ${ConfigForm.numberField('batch-size', 'Items per group', t.batchSize, { min: 1, max: 500, hint: 'How many items to process at once (1\u2013500)' })}
-        ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log' })}
-        ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis' })}
+        ${ConfigForm.checkbox('dry-run', 'Dry Run', m.dryRun, { hint: 'Extract data and generate mappings without actually migrating — preview what would happen. CLI flag: --dry-run' })}
+        ${ConfigForm.checkbox('skip-issue-meta', 'Skip Issue Metadata Sync', m.skipIssueMetadataSync, { hint: "Skip syncing issue statuses, comments, tags, and assignments. CLI flag: --skip-issue-metadata-sync" })}
+        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip Hotspot Metadata Sync', m.skipHotspotMetadataSync, { hint: "Skip syncing hotspot statuses and comments. CLI flag: --skip-hotspot-metadata-sync" })}
+        ${ConfigForm.checkbox('skip-qp-sync', 'Skip Quality Profile Sync', m.skipQualityProfileSync, { hint: "Skip syncing quality profile configurations. CLI flag: --skip-quality-profile-sync" })}
+        ${ConfigForm.checkbox('sync-branches', 'Sync All Branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred. Unchecking is equivalent to CLI flag: --skip-all-branch-sync' })}
+        ${ConfigForm.textField('exclude-branches', 'Exclude Branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
+        ${ConfigForm.numberField('batch-size', 'Batch Size', t.batchSize, { min: 1, max: 500, hint: 'How many items to process per batch (1\u2013500). Higher values are faster but use more memory' })}
+        ${ConfigForm.checkbox('verbose', 'Verbose', this.config._verbose || false, { hint: 'Enable verbose logging with extra technical details. CLI flag: --verbose' })}
+        ${ConfigForm.checkbox('wait-analysis', 'Wait', this.config._waitAnalysis || false, { hint: 'Wait for SonarCloud to complete its analysis before finishing. CLI flag: --wait' })}
       </div>
 
-      ${ConfigForm.collapsible('migrate-components', `${ConfigForm.icon('shield')} Choose What to Migrate (optional)`,
-        `<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to move, or leave all unchecked to move everything.</p>
+      ${ConfigForm.collapsible('migrate-components', `${ConfigForm.icon('shield')} Select Components (optional)`,
+        `<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific components to migrate, or leave all unchecked to migrate everything. Maps to CLI flag: --only</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}`
       )}
 

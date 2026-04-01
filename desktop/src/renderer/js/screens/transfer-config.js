@@ -108,17 +108,17 @@ window.TransferConfigScreen = {
         <p>Choose how the transfer should run</p>
       </div>
       <div class="card">
-        ${ConfigForm.radioGroup('transfer-mode', 'What to transfer', [
-          { value: 'full', label: 'Everything (full transfer)' },
-          { value: 'incremental', label: 'Only new & changed data' }
+        ${ConfigForm.radioGroup('transfer-mode', 'Transfer Mode', [
+          { value: 'full', label: 'Full Transfer (everything)' },
+          { value: 'incremental', label: 'Incremental (new & changed data only)' }
         ], t.mode)}
-        ${ConfigForm.checkbox('sync-branches', 'Include all code branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred' })}
-        ${ConfigForm.textField('exclude-branches', 'Exclude branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
-        ${ConfigForm.numberField('batch-size', 'Items per group', t.batchSize, { min: 1, max: 500, hint: 'How many items to process at once (1\u2013500). Higher = faster but uses more memory' })}
-        ${ConfigForm.checkbox('wait-analysis', 'Wait for SonarCloud to finish reviewing', this.config._waitAnalysis || false, { hint: 'Keep running until SonarCloud completes its analysis of the uploaded data' })}
-        ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log during transfer' })}
-        ${ConfigForm.checkbox('skip-issue-meta', 'Skip issue metadata sync', t.skipIssueMetadataSync || false, { hint: 'Skip syncing issue statuses, comments, tags, and assignments after upload' })}
-        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip hotspot metadata sync', t.skipHotspotMetadataSync || false, { hint: 'Skip syncing hotspot statuses and comments after upload' })}
+        ${ConfigForm.checkbox('sync-branches', 'Sync All Branches', t.syncAllBranches, { hint: 'When unchecked, only the main branch is transferred. Unchecking is equivalent to CLI flag: --skip-all-branch-sync' })}
+        ${ConfigForm.textField('exclude-branches', 'Exclude Branches', (t.excludeBranches || []).join(', '), { hint: 'Comma-separated branch names to skip (e.g. feature/old, release/legacy)' })}
+        ${ConfigForm.numberField('batch-size', 'Batch Size', t.batchSize, { min: 1, max: 500, hint: 'How many items to process per batch (1\u2013500). Higher values are faster but use more memory' })}
+        ${ConfigForm.checkbox('wait-analysis', 'Wait', this.config._waitAnalysis || false, { hint: 'Wait for SonarCloud to complete its analysis of the uploaded data before finishing. CLI flag: --wait' })}
+        ${ConfigForm.checkbox('verbose', 'Verbose', this.config._verbose || false, { hint: 'Enable verbose logging with extra technical details during transfer. CLI flag: --verbose' })}
+        ${ConfigForm.checkbox('skip-issue-meta', 'Skip Issue Metadata Sync', t.skipIssueMetadataSync || false, { hint: 'Skip syncing issue statuses, comments, tags, and assignments after upload. CLI flag: --skip-issue-metadata-sync' })}
+        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip Hotspot Metadata Sync', t.skipHotspotMetadataSync || false, { hint: 'Skip syncing hotspot statuses and comments after upload. CLI flag: --skip-hotspot-metadata-sync' })}
       </div>
 
       ${ConfigForm.collapsible('advanced-section', `${ConfigForm.icon('gear')} More Settings (Advanced)`, this.renderAdvancedHtml())}
@@ -159,27 +159,27 @@ window.TransferConfigScreen = {
       </div>
       <div class="card" style="margin-top:12px">
         <div class="card-header">Speed & Resources</div>
-        ${ConfigForm.checkbox('perf-autotune', 'Auto-optimize for this computer', perf.autoTune, { hint: 'Automatically adjust settings based on your hardware' })}
+        ${ConfigForm.checkbox('perf-autotune', 'Auto-Tune', perf.autoTune, { hint: 'Auto-detect hardware and set optimal performance values. CLI flag: --auto-tune' })}
         <div class="form-grid">
-          ${ConfigForm.numberField('perf-concurrency', 'Parallel tasks', perf.maxConcurrency, { min: 1, max: 128, hint: 'How many operations to run at the same time' })}
-          ${ConfigForm.numberField('perf-memory', 'Memory limit (MB)', perf.maxMemoryMB, { min: 0, max: 32768, hint: '0 = let the system decide' })}
+          ${ConfigForm.numberField('perf-concurrency', 'Concurrency', perf.maxConcurrency, { min: 1, max: 128, hint: 'Override max concurrency for I/O operations. CLI flag: --concurrency' })}
+          ${ConfigForm.numberField('perf-memory', 'Max Memory (MB)', perf.maxMemoryMB, { min: 0, max: 32768, hint: 'Max heap size in MB. 0 = let the system decide. CLI flag: --max-memory' })}
           ${ConfigForm.numberField('perf-source', 'Source file extraction concurrency', perf.sourceExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent source file fetches from SonarQube' })}
           ${ConfigForm.numberField('perf-hotspot', 'Hotspot extraction concurrency', perf.hotspotExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot detail fetches from SonarQube' })}
           ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
           ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
-          ${ConfigForm.numberField('perf-project', 'Project migration concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations' })}
-          ${ConfigForm.numberField('perf-verify', 'Project verification concurrency', perf.projectVerification?.concurrency ?? 3, { min: 1, max: 16, hint: 'Max concurrent project verifications' })}
+          ${ConfigForm.numberField('perf-project', 'Project Concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations. CLI flag: --project-concurrency' })}
+          ${ConfigForm.numberField('perf-verify', 'Verification Concurrency', perf.projectVerification?.concurrency ?? 3, { min: 1, max: 16, hint: 'Max concurrent project verifications' })}
         </div>
       </div>
       <div class="card" style="margin-top:12px">
         <div class="card-header">Progress Recovery</div>
-        ${ConfigForm.textField('cp-statefile', 'State file path', this.config.transfer.stateFile || './.cloudvoyager-state.json', { hint: 'Path to the file that tracks transfer progress between runs' })}
-        ${ConfigForm.checkbox('cp-enabled', 'Save progress checkpoints', cp.enabled, { hint: 'If interrupted, resume from where it stopped instead of starting over' })}
-        ${ConfigForm.checkbox('cp-cache', 'Keep downloaded data temporarily', cp.cacheExtractions, { hint: "Saves extracted data so it doesn't need to be re-downloaded on retry" })}
+        ${ConfigForm.textField('cp-statefile', 'State File Path', this.config.transfer.stateFile || './.cloudvoyager-state.json', { hint: 'Path to the file that tracks transfer progress between runs' })}
+        ${ConfigForm.checkbox('cp-enabled', 'Checkpoint Enabled', cp.enabled, { hint: 'Save progress checkpoints so that if interrupted, the transfer resumes from where it stopped' })}
+        ${ConfigForm.checkbox('cp-cache', 'Cache Extractions', cp.cacheExtractions, { hint: "Cache extracted data locally so it doesn't need to be re-downloaded on retry" })}
         <div class="form-grid">
-          ${ConfigForm.numberField('cp-maxage', 'Keep saved data for (days)', cp.cacheMaxAgeDays, { min: 1, hint: 'Automatically discard old saved data after this many days' })}
+          ${ConfigForm.numberField('cp-maxage', 'Cache Max Age (days)', cp.cacheMaxAgeDays, { min: 1, hint: 'Automatically discard old cached extraction data after this many days' })}
         </div>
-        ${ConfigForm.checkbox('cp-strict', 'Strict resume mode', cp.strictResume, { hint: 'Stop and warn if something changed since the last checkpoint (safer but stricter)' })}
+        ${ConfigForm.checkbox('cp-strict', 'Strict Resume', cp.strictResume, { hint: 'Stop and warn if something changed since the last checkpoint (safer but stricter)' })}
       </div>
     `;
   },
@@ -216,7 +216,7 @@ window.TransferConfigScreen = {
     const sc = this.config.sonarcloud;
     const t = this.config.transfer;
 
-    const modeLabel = t.mode === 'full' ? 'Everything (full transfer)' : 'Only new & changed data';
+    const modeLabel = t.mode === 'full' ? 'Full Transfer (everything)' : 'Incremental (new & changed data only)';
 
     container.innerHTML = `
       <div class="page-header">
@@ -255,10 +255,10 @@ window.TransferConfigScreen = {
           <button class="btn btn-sm btn-secondary" data-edit-step="2">Edit</button>
         </div>
         ${ConfigForm.summaryTable([
-          ['What to transfer', modeLabel],
+          ['Transfer Mode', modeLabel],
           ['Include all branches', t.syncAllBranches ? 'Yes' : 'No'],
           ['Excluded branches', (t.excludeBranches || []).join(', ') || 'None'],
-          ['Items per group', t.batchSize],
+          ['Batch Size', t.batchSize],
           ['Issue metadata sync', t.skipIssueMetadataSync ? 'Skipped' : 'Enabled'],
           ['Hotspot metadata sync', t.skipHotspotMetadataSync ? 'Skipped' : 'Enabled']
         ])}

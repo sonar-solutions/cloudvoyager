@@ -28,19 +28,19 @@ window.WelcomeScreen = {
         ${onboarding}
 
         <div class="command-cards">
-          <div class="command-card" data-command="transfer" tabindex="0" role="button" aria-label="Transfer one project">
+          <div class="command-card" data-command="transfer" tabindex="0" role="button" aria-label="Transfer" title="Transfer data from a single SonarQube project to SonarCloud. Supports checkpoint resume, branch sync, and issue/hotspot metadata sync. CLI equivalent: cloudvoyager transfer">
             <div class="card-icon">${ConfigForm.icon('box')}</div>
             <div>
-              <h3>Transfer One Project</h3>
-              <p>Move a single project from your SonarQube server to SonarCloud.</p>
+              <h3>Transfer</h3>
+              <p>Transfer data from a single SonarQube project to SonarCloud.</p>
             </div>
             <span class="card-arrow" aria-hidden="true">&#8250;</span>
           </div>
-          <div class="command-card" data-command="migrate" tabindex="0" role="button" aria-label="Move all projects and settings">
+          <div class="command-card" data-command="migrate" tabindex="0" role="button" aria-label="Migrate" title="Full migration from SonarQube to one or more SonarCloud organizations. Migrates projects, quality gates, quality profiles, permissions, permission templates, and portfolios. Supports dry-run mode and selective component migration. CLI equivalent: cloudvoyager migrate">
             <div class="card-icon">${ConfigForm.icon('globe')}</div>
             <div>
-              <h3>Move All Projects &amp; Settings</h3>
-              <p>Move all projects, coding rules, quality policies, permissions, and settings between organizations.</p>
+              <h3>Migrate</h3>
+              <p>Full migration from SonarQube to one or more SonarCloud organizations.</p>
             </div>
             <span class="card-arrow" aria-hidden="true">&#8250;</span>
           </div>
@@ -49,10 +49,10 @@ window.WelcomeScreen = {
         <div class="welcome-divider"><span class="divider-diamond"></span></div>
 
         <div class="secondary-actions">
-          <button class="secondary-action" data-command="verify">${ConfigForm.icon('check-circle')} Verify Migration Results</button>
-          <button class="secondary-action" data-command="sync-metadata">${ConfigForm.icon('sync')} Sync Settings &amp; Policies</button>
-          <button class="secondary-action" data-command="status">${ConfigForm.icon('chart')} Check Progress</button>
-          <button class="secondary-action" data-command="reset">${ConfigForm.icon('trash')} Clear Migration History</button>
+          <button class="secondary-action" data-command="verify" title="Verify migration completeness by comparing SonarQube and SonarCloud data. Generates detailed comparison reports for quality gates, quality profiles, permissions, and project data. CLI equivalent: cloudvoyager verify">${ConfigForm.icon('check-circle')} Verify</button>
+          <button class="secondary-action" data-command="sync-metadata" title="Sync issue and hotspot metadata (statuses, comments, tags, assignments) and quality profiles for already-migrated projects. CLI equivalent: cloudvoyager sync-metadata">${ConfigForm.icon('sync')} Sync Metadata</button>
+          <button class="secondary-action" data-command="status" title="Show current synchronization status including checkpoint progress and migration state. CLI equivalent: cloudvoyager status">${ConfigForm.icon('chart')} Status</button>
+          <button class="secondary-action" data-command="reset" title="Reset state and clear sync history, checkpoint journals, lock files, and extraction caches. This action cannot be undone. CLI equivalent: cloudvoyager reset">${ConfigForm.icon('trash')} Reset</button>
         </div>
       </div>
     `;
