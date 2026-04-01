@@ -226,7 +226,7 @@ Object.assign(window.MigrationGraph, {
       this.setNodeState(ids.issues, 'active');
       return true;
     }
-    if (/Issue sync:.*matched.*transitioned|Issue metadata sync complete/.test(line)) {
+    if (/Issue sync:.*matched|Issue sync — already completed|Issue metadata sync complete/.test(line)) {
       this.setNodeState(ids.issues, 'done');
       return true;
     }
@@ -234,7 +234,7 @@ Object.assign(window.MigrationGraph, {
       this.setNodeState(ids.hotspots, 'active');
       return true;
     }
-    if (/Hotspot sync:.*matched.*status changed|Hotspot metadata sync complete/.test(line)) {
+    if (/Hotspot sync:.*matched|Hotspot sync — already completed|Hotspot metadata sync complete/.test(line)) {
       this.setNodeState(ids.hotspots, 'done');
       return true;
     }
@@ -323,7 +323,7 @@ Object.assign(window.MigrationGraph, {
           this.setNodeState(ids.issues, 'active');
           return;
         }
-        if (/Issue sync:.*matched.*transitioned|Issue metadata sync complete/.test(line)) {
+        if (/Issue sync:.*matched|Issue sync — already completed|Issue metadata sync complete/.test(line)) {
           this.setNodeState(ids.issues, 'done');
           return;
         }
@@ -331,7 +331,7 @@ Object.assign(window.MigrationGraph, {
           this.setNodeState(ids.hotspots, 'active');
           return;
         }
-        if (/Hotspot sync:.*matched.*status changed|Hotspot metadata sync complete/.test(line)) {
+        if (/Hotspot sync:.*matched|Hotspot sync — already completed|Hotspot metadata sync complete/.test(line)) {
           this.setNodeState(ids.hotspots, 'done');
           return;
         }

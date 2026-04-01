@@ -134,7 +134,7 @@ The regression suite tests all `migrate`, `sync-metadata`, and `verify` commands
 
 Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) for step-by-step instructions.
 
-<!-- Updated: 2026-02-25 -->
+<!-- Updated: 2026-04-01 -->
 ## 📚 Documentation
 
 | Document | Description |
@@ -149,6 +149,7 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 | [Desktop App Guide](docs/desktop-app.md) | Installation, wizard walkthrough, and building from source |
 | [Verification](docs/verification.md) | Migration verification checks, pass/fail criteria, and report formats |
 | [Pseudocode Explanation](docs/pseudocode-explanation.md) | Every feature documented in pseudocode for technical review |
+| [Bespoke Algorithms](docs/bespoke-algorithms.md) | Custom algorithms: DAG graph renderer, date-window slicing, checkpoint journal, protobuf encoding |
 | [Contributing](CONTRIBUTING.md) | Architectural patterns, conventions, and contribution guidelines |
 | [Changelog](docs/CHANGELOG.md) | Release history and notable changes |
 

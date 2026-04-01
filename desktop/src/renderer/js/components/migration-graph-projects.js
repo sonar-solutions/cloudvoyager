@@ -94,7 +94,7 @@ Object.assign(window.MigrationGraph, {
     // Move portfolios to the far right, vertically centered
     const portfoliosNode = this._nodeById('portfolios');
     if (portfoliosNode) {
-      portfoliosNode.targetX = projectsNode.targetX + 560;
+      portfoliosNode.targetX = projectsNode.targetX + 720;
       portfoliosNode.targetY = projectsNode.targetY;
     }
 
