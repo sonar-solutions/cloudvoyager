@@ -156,11 +156,11 @@ window.SyncMetadataConfigScreen = {
 
       <div class="card">
         <div class="card-header">${ConfigForm.icon('gear')} Sync Options</div>
-        ${ConfigForm.checkbox('skip-issue-meta', 'Skip updating issue details', this.config._skipIssueSync, { hint: "Don't sync issue statuses, assignments, comments, and tags" })}
-        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip updating security hotspot details', this.config._skipHotspotSync, { hint: "Don't sync hotspot statuses and comments" })}
-        ${ConfigForm.checkbox('skip-qp-sync', 'Skip updating coding rules', this.config._skipQPSync, { hint: "Don't sync quality profile configurations" })}
-        ${ConfigForm.checkbox('skip-branches', 'Skip non-main branches', this.config._skipBranches, { hint: 'Only sync the main branch of each project' })}
-        ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log' })}
+        ${ConfigForm.checkbox('skip-issue-meta', 'Skip Issue Metadata Sync', this.config._skipIssueSync, { hint: "Skip syncing issue statuses, assignments, comments, and tags. CLI flag: --skip-issue-metadata-sync" })}
+        ${ConfigForm.checkbox('skip-hotspot-meta', 'Skip Hotspot Metadata Sync', this.config._skipHotspotSync, { hint: "Skip syncing hotspot statuses and comments. CLI flag: --skip-hotspot-metadata-sync" })}
+        ${ConfigForm.checkbox('skip-qp-sync', 'Skip Quality Profile Sync', this.config._skipQPSync, { hint: "Skip syncing quality profile configurations. CLI flag: --skip-quality-profile-sync" })}
+        ${ConfigForm.checkbox('skip-branches', 'Skip All Branch Sync', this.config._skipBranches, { hint: 'Only sync the main branch of each project. CLI flag: --skip-all-branch-sync' })}
+        ${ConfigForm.checkbox('verbose', 'Verbose', this.config._verbose || false, { hint: 'Enable verbose logging with extra technical details. CLI flag: --verbose' })}
       </div>
 
       ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }), true)}

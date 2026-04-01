@@ -134,15 +134,15 @@ window.VerifyConfigScreen = {
     const orgRows = orgs.map((o, i) => [`Organization ${i + 1}`, `${o.key} (${o.url})`]);
 
     const onlyComponents = [
-      { id: 'scan-data', label: 'Code Analysis Data' },
-      { id: 'scan-data-all-branches', label: 'Code Analysis (All Branches)' },
-      { id: 'portfolios', label: 'Portfolios (Project Collections)' },
-      { id: 'quality-gates', label: 'Quality Policies (Gates)' },
-      { id: 'quality-profiles', label: 'Coding Rules (Profiles)' },
+      { id: 'scan-data', label: 'Scan Data' },
+      { id: 'scan-data-all-branches', label: 'Scan Data (All Branches)' },
+      { id: 'portfolios', label: 'Portfolios' },
+      { id: 'quality-gates', label: 'Quality Gates' },
+      { id: 'quality-profiles', label: 'Quality Profiles' },
       { id: 'permission-templates', label: 'Permission Templates' },
       { id: 'permissions', label: 'Permissions' },
-      { id: 'issue-metadata', label: 'Issue Details' },
-      { id: 'hotspot-metadata', label: 'Security Hotspot Details' },
+      { id: 'issue-metadata', label: 'Issue Metadata' },
+      { id: 'hotspot-metadata', label: 'Hotspot Metadata' },
       { id: 'project-settings', label: 'Project Settings' }
     ];
 
@@ -166,13 +166,13 @@ window.VerifyConfigScreen = {
       </div>
 
       <div class="card">
-        <div class="card-header">${ConfigForm.icon('shield')} Choose What to Verify (optional)</div>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific items to verify, or leave all unchecked to verify everything.</p>
+        <div class="card-header">${ConfigForm.icon('shield')} Select Components (optional)</div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select specific components to verify, or leave all unchecked to verify everything. Maps to CLI flag: --only</p>
         ${onlyComponents.map(c => ConfigForm.checkbox(`only-${c.id}`, c.label, false)).join('')}
       </div>
 
       <div class="card">
-        ${ConfigForm.checkbox('verbose', 'Show detailed log output', this.config._verbose || false, { hint: 'Display extra technical details in the log' })}
+        ${ConfigForm.checkbox('verbose', 'Verbose', this.config._verbose || false, { hint: 'Enable verbose logging with extra technical details. CLI flag: --verbose' })}
       </div>
 
       ${ConfigForm.collapsible('advanced-section', 'More Settings (Advanced)', TransferConfigScreen.renderAdvancedHtml.call({ config: this.config }), true)}
