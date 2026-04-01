@@ -77,6 +77,7 @@ window.MigrationGraph = {
         ['groups', 'permissions'], ['groups', 'permTemplates'],
         ['qualityGates', 'projects'], ['qualityProfiles', 'projects'],
         ['permissions', 'projects'], ['permTemplates', 'projects'],
+        ['projects', 'portfolios'],
       ],
       colPositions: [0.06, 0.20, 0.36, 0.52, 0.92],
     },
@@ -380,7 +381,7 @@ window.MigrationGraph = {
       const parents = this.edges
         .filter(e => e.to === nodeId)
         .map(e => this._nodeById(e.from))
-        .filter(Boolean);
+        .filter(n => n && !n.isProjectNode);
       if (parents.length > 0 && parents.some(p => p.state === 'pending')) {
         if (!this._deferredActive) this._deferredActive = new Set();
         this._deferredActive.add(nodeId);

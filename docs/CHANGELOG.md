@@ -4,6 +4,22 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+## Desktop Migration Graph: Bug Fixes (2026-04-01)
+
+Fixed four bugs in the desktop migration graph visualization component that caused incorrect node positioning, missing edges, blocked node activation, and inconsistent progress parsing.
+
+All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
+
+### Bug Fixes
+
+- **Fixed:** Portfolios node overlapping with per-project Issues/Hotspots nodes in the migrate graph — moved the Portfolios node X position from `+560` to `+720` to eliminate the visual collision.
+- **Fixed:** Missing base edge from `projects → portfolios` in the migrate graph definition — the edge was absent, causing the graph to render portfolios as disconnected from the projects node.
+- **Fixed:** Portfolios node activation blocked by per-project config fanout edges — the dependency check was incorrectly counting project-specific child edges as unresolved dependencies. The check now excludes project nodes so the Portfolios node activates correctly when its real dependencies are met.
+- **Fixed:** Inconsistent issue/hotspot sync completion patterns in the fallback log parser — `_tryParseProjectSubPhase` and `_parseSyncMetadataLine` now match the prefixed parser patterns used elsewhere, resolving cases where sync completion was silently missed in fallback mode.
+
+---
+
 <!-- Updated: Mar 28, 2026 -->
 ## Search Slicer: Fix 10K Limit on Large Projects (2026-03-28)
 
