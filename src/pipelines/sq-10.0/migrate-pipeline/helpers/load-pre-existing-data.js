@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import logger from '../../../../shared/utils/logger.js';
 import { loadMappingCsvs } from '../../../../shared/mapping/csv-reader.js';
 
