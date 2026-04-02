@@ -14,6 +14,7 @@ This document describes custom, non-trivial algorithms implemented from scratch 
 4. [Protobuf Report Encoding](#4-protobuf-report-encoding)
 5. [Parallel Project Config Migration (All Pipelines)](#5-parallel-project-config-migration-all-pipelines)
 6. [Parallel Migrator Operations](#6-parallel-migrator-operations)
+7. [Worker Thread Parallelism for Issue & Hotspot Sync](#7-worker-thread-parallelism-for-issue--hotspot-sync)
 
 ---
 
@@ -280,6 +281,71 @@ All SonarCloud migrators now use `mapConcurrent` for concurrent API calls instea
 ### Implementation
 
 Applied across all 4 pipelines: `sq-9.9`, `sq-10.0`, `sq-10.4`, `sq-2025`.
+
+---
+
+## 7. Worker Thread Parallelism for Issue & Hotspot Sync
+
+<!-- <section-updated last-updated="2026-04-02T14:00:00Z" updated-by="Claude" /> -->
+
+Even with `mapConcurrent` at concurrency=50, all 50 in-flight HTTP requests share a single Node.js event loop for callback processing. This creates a bottleneck where the main thread spends most of its time scheduling I/O completions rather than dispatching new work. Worker threads solve this by giving each worker its own independent event loop.
+
+### Architecture
+
+```
+Main thread:
+  1. Match issue/hotspot pairs (rule + component + line)
+  2. Partition matchedPairs into N chunks (one per worker)
+  3. Spawn N worker threads via worker_threads module
+  4. Each worker:
+     a. Receives serializable config (URLs, tokens, strings)
+     b. Creates its own API client instances (fresh HTTP agents)
+     c. Runs mapConcurrent(chunk, syncOneItem, concurrencyPerWorker)
+     d. Posts stats back via parentPort.postMessage()
+  5. Main thread awaits all workers
+  6. Merge stats from all workers via mergeStats()
+  7. Return merged stats
+```
+
+### Why worker_threads
+
+Node.js has a single event loop — even with high concurrency, all HTTP response callbacks, JSON parsing, and promise resolution share one thread. On a machine with 8+ cores, 7 cores sit idle during I/O-heavy sync operations. Worker threads give each worker its own V8 isolate and event loop:
+
+- **8 workers x 50 concurrent per worker = 400 truly parallel in-flight API calls**
+- Each worker independently processes I/O callbacks without contending for the main event loop
+- CPU-bound work (JSON parsing, match-key construction) is distributed across cores
+
+### Config Knobs
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workerThreads.enabled` | boolean | `true` | Enable/disable worker thread parallelism |
+| `workerThreads.count` | integer | `0` (auto) | Number of workers. `0` = `os.cpus().length - 1` |
+| `workerThreads.concurrencyPerWorker` | integer | `50` | `mapConcurrent` concurrency inside each worker |
+| `workerThreads.threshold` | integer | `100` | Minimum matched pairs to trigger worker mode |
+
+### Fallback Behavior
+
+When worker threads are disabled or matched pairs fall below the threshold, the sync falls back to single-threaded `mapConcurrent` on the main thread — identical to pre-worker-thread behavior. This ensures small projects incur no thread-spawning overhead.
+
+### Data Serialization
+
+Workers cannot share object references with the main thread. The main thread serializes:
+- API config (URLs, tokens, organization keys) as plain strings
+- Matched pairs as JSON-serializable arrays
+- Maps (e.g., user mappings) as entries arrays, reconstructed inside the worker
+
+Each worker creates its own API client instances from the serialized config, with fresh HTTP connection pools. This avoids any shared-state issues between workers.
+
+### Stats Aggregation
+
+Each worker posts its stats object (matched, transitioned, assigned, commented, tagged, failed counts + failure detail arrays) back to the main thread via `parentPort.postMessage()`. The main thread uses `mergeStats()` to sum all numeric fields and concatenate all arrays (e.g., failed assignment details).
+
+### Implementation
+
+- `src/shared/utils/worker-pool/` — shared worker pool utility (partition, spawn, merge)
+- Worker scripts in each pipeline's issue-sync and hotspot-sync `helpers/` directories
+- Applied across all 4 pipelines: `sq-9.9`, `sq-10.0`, `sq-10.4`, `sq-2025`
 
 ---
 

@@ -5,7 +5,34 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 ---
 
 ## [Unreleased] — 2026-04-02
-<!-- <section-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
+<!-- <section-updated last-updated="2026-04-02T14:00:00Z" updated-by="Claude" /> -->
+
+### Phase B: Worker Thread Parallelism for Issue & Hotspot Sync
+
+<!-- <subsection-updated last-updated="2026-04-02T14:00:00Z" updated-by="Claude" /> -->
+
+Added `worker_threads` support to issue and hotspot metadata sync for true multi-core parallelism. Node.js's single event loop becomes a bottleneck when hundreds of API calls share one thread for callback processing — worker threads give each worker its own V8 isolate and event loop, enabling fully parallel I/O across all available CPU cores.
+
+**New shared utility:**
+- `src/shared/utils/worker-pool/` — partitions items, spawns worker threads, merges stats
+
+**Worker scripts added across all 4 pipelines** (sq-9.9, sq-10.0, sq-10.4, sq-2025):
+- Issue sync worker scripts in each pipeline's `issue-sync/helpers/` directory
+- Hotspot sync worker scripts in each pipeline's `hotspot-sync/helpers/` directory
+
+**New configuration** (under `performance.workerThreads`):
+- `workerThreads.enabled` (boolean, default `true`) — enable/disable worker thread parallelism
+- `workerThreads.count` (integer, default `0` = auto: `os.cpus().length - 1`) — number of worker threads
+- `workerThreads.concurrencyPerWorker` (integer, default `50`) — `mapConcurrent` concurrency per worker
+- `workerThreads.threshold` (integer, default `100`) — minimum matched pairs to trigger worker mode
+
+**Fallback behavior:** Below the threshold or when disabled, falls back to single-threaded `mapConcurrent` — identical to pre-worker-thread behavior. Small projects incur no thread-spawning overhead.
+
+**Performance projection:** On an 8-core machine, 7 workers x 50 concurrent per worker = **~350 truly parallel in-flight API calls**, compared to 50 max on a single event loop. Expected 5-7x throughput improvement for large projects with 1000+ issues/hotspots.
+
+**Data serialization:** Workers receive serializable config (URLs, tokens, strings) and create their own API client instances. Maps are serialized as entries arrays and reconstructed in workers. Each worker posts its stats object back via `parentPort.postMessage()`, and the main thread uses `mergeStats()` to sum numeric fields and concatenate arrays.
+
+---
 
 ### Fix: Migration Graph Display Lagging Behind Actual Progress
 
