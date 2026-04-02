@@ -19,7 +19,7 @@ export async function migrateOneOrganizationCore(assignment, extractedData, reso
   try { await scClient.testConnection(); orgResult.steps.push({ step: 'Connect to SonarCloud', status: 'success' }); }
   catch (error) { orgResult.steps.push({ step: 'Connect to SonarCloud', status: 'failed', error: error.message }); logger.error(`Failed to connect to SonarCloud org ${org.key}: ${error.message}`); return null; }
   const sqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token });
-  const { gateMapping, builtInProfileMapping } = await loadOrMigrateOrgWide(extractedData, scClient, sqClient, orgResult, results, ctx, org.key, migrationJournal);
+  const { gateMapping, builtInProfileMapping } = await loadOrMigrateOrgWide(extractedData, scClient, sqClient, orgResult, results, ctx, { orgKey: org.key, migrationJournal });
   const { projectKeyMap, projectKeyWarnings, projectPhase2Contexts } = await runProjectPhase(projects, org, scClient, gateMapping, extractedData, results, ctx, builtInProfileMapping);
   results.projectKeyWarnings.push(...projectKeyWarnings);
   return { projectKeyMap, orgPhase2Context: { org, projects, results, orgResult, orgStart, migrationJournal, projectPhase2Contexts } };
