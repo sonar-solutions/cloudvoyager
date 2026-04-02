@@ -2,7 +2,7 @@
 
 import { loadMigrateConfig } from '../../../shared/config/loader.js';
 import { detectAndRoute } from '../../../version-router.js';
-import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
+import { logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
 import logger from '../../../shared/utils/logger.js';
 import { applyMigrateOptions } from './apply-migrate-options.js';
 import { buildMigratePerfConfig } from './build-migrate-perf-config.js';
