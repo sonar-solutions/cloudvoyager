@@ -765,38 +765,54 @@ FUNCTION syncIssues(projectKey, sqIssues, scClient, options):
     IF scIssue:
       matchedPairs.PUSH({ sq: sqIssue, sc: scIssue })
 
-  // Step 4: Sync metadata for each matched pair (with concurrency limit)
-  FOR EACH { sq, sc } IN matchedPairs (CONCURRENT):
+  // Step 4: Worker thread path or single-thread fallback
+  // <!-- <subsection-updated last-updated="2026-04-02T14:00:00Z" updated-by="Claude" /> -->
+  IF workerThreads.enabled AND matchedPairs.length >= workerThreads.threshold:
+    workerCount = workerThreads.count OR (os.cpus().length - 1)
+    chunks = partitionItems(matchedPairs, workerCount)
 
-    // 4a. Replay status transitions from changelog
-    IF sqClient available:
-      changelog = sqClient.getIssueChangelog(sq.key)
-      FOR EACH statusChange IN changelog:
-        transition = mapChangelogDiffToTransition(statusChange.diffs)
-        // Maps: WONTFIX->'wontfix', FALSE-POSITIVE->'falsepositive',
-        //       CONFIRMED->'confirm', REOPENED->'reopen', ACCEPTED->'accept', etc.
-        IF transition:
-          scClient.transitionIssue(sc.key, transition)
+    FOR EACH chunk IN PARALLEL (worker_threads):
+      worker receives serializable config (URLs, tokens, org keys)
+      worker creates own API client from config
+      worker runs mapConcurrent(chunk, syncOneIssue, concurrencyPerWorker)
+      worker posts stats back via parentPort.postMessage()
 
-    // 4b. Sync assignment
-    IF sq.assignee AND sq.assignee != sc.assignee:
-      scClient.assignIssue(sc.key, sq.assignee)
+    stats = mergeStats(allWorkerStats)    // sum numerics, concat arrays
+    RETURN stats
 
-    // 4c. Sync comments
-    FOR EACH comment IN sq.comments:
-      scClient.addIssueComment(sc.key, formatComment(comment))
+  ELSE (fallback — single thread):
+    // Step 4 (single-thread): Sync metadata for each matched pair
+    FOR EACH { sq, sc } IN matchedPairs (CONCURRENT via mapConcurrent):
 
-    // 4d. Sync tags
-    IF sq.tags NOT EMPTY:
-      scClient.setIssueTags(sc.key, sq.tags)
+      // 4a. Replay status transitions from changelog
+      IF sqClient available:
+        changelog = sqClient.getIssueChangelog(sq.key)
+        FOR EACH statusChange IN changelog:
+          transition = mapChangelogDiffToTransition(statusChange.diffs)
+          // Maps: WONTFIX->'wontfix', FALSE-POSITIVE->'falsepositive',
+          //       CONFIRMED->'confirm', REOPENED->'reopen', ACCEPTED->'accept', etc.
+          IF transition:
+            scClient.transitionIssue(sc.key, transition)
 
-    // 4e. Mark as metadata-synchronized
-    scClient.setIssueTags(sc.key, [...existing, "metadata-synchronized"])
+      // 4b. Sync assignment
+      IF sq.assignee AND sq.assignee != sc.assignee:
+        scClient.assignIssue(sc.key, sq.assignee)
 
-    // 4f. Add source link back to SonarQube
-    scClient.addIssueComment(sc.key, "SonarQube Source: {sonarqubeUrl}/issues?id=...")
+      // 4c. Sync comments
+      FOR EACH comment IN sq.comments:
+        scClient.addIssueComment(sc.key, formatComment(comment))
 
-  RETURN { matched, transitioned, assigned, commented, tagged, failed }
+      // 4d. Sync tags
+      IF sq.tags NOT EMPTY:
+        scClient.setIssueTags(sc.key, sq.tags)
+
+      // 4e. Mark as metadata-synchronized
+      scClient.setIssueTags(sc.key, [...existing, "metadata-synchronized"])
+
+      // 4f. Add source link back to SonarQube
+      scClient.addIssueComment(sc.key, "SonarQube Source: {sonarqubeUrl}/issues?id=...")
+
+    RETURN { matched, transitioned, assigned, commented, tagged, failed }
 
 
 FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
@@ -807,21 +823,37 @@ FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
   // Step 2: Match (rule + component + line)
   matchedPairs = matchByKey(sqHotspots, scHotspots)
 
-  // Step 3: Sync each matched hotspot
-  FOR EACH { sq, sc } IN matchedPairs (CONCURRENT):
+  // Step 3: Worker thread path or single-thread fallback
+  // <!-- <subsection-updated last-updated="2026-04-02T14:00:00Z" updated-by="Claude" /> -->
+  IF workerThreads.enabled AND matchedPairs.length >= workerThreads.threshold:
+    workerCount = workerThreads.count OR (os.cpus().length - 1)
+    chunks = partitionItems(matchedPairs, workerCount)
 
-    // Status sync
-    IF sq.status != sc.status:
-      scClient.changeHotspotStatus(sc.key, mapStatus(sq.status), mapResolution(sq.resolution))
+    FOR EACH chunk IN PARALLEL (worker_threads):
+      worker receives serializable config (URLs, tokens, org keys)
+      worker creates own API client from config
+      worker runs mapConcurrent(chunk, syncOneHotspot, concurrencyPerWorker)
+      worker posts stats back via parentPort.postMessage()
 
-    // Comments sync
-    FOR EACH comment IN sq.comments:
-      scClient.addHotspotComment(sc.key, formatComment(comment))
+    stats = mergeStats(allWorkerStats)    // sum numerics, concat arrays
+    RETURN stats
 
-    // Source link
-    scClient.addHotspotComment(sc.key, "SonarQube Source: {url}")
+  ELSE (fallback — single thread):
+    // Step 3 (single-thread): Sync each matched hotspot
+    FOR EACH { sq, sc } IN matchedPairs (CONCURRENT via mapConcurrent):
 
-  RETURN { matched, statusChanged, commentAdded, failed }
+      // Status sync
+      IF sq.status != sc.status:
+        scClient.changeHotspotStatus(sc.key, mapStatus(sq.status), mapResolution(sq.resolution))
+
+      // Comments sync
+      FOR EACH comment IN sq.comments:
+        scClient.addHotspotComment(sc.key, formatComment(comment))
+
+      // Source link
+      scClient.addHotspotComment(sc.key, "SonarQube Source: {url}")
+
+    RETURN { matched, statusChanged, commentAdded, failed }
 ```
 
 ---
