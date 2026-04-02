@@ -5,7 +5,7 @@ import { migrateOrgWideResources } from './migrate-org-wide-resources.js';
 
 // -------- Load or Migrate Org-Wide Resources --------
 
-export async function loadOrMigrateOrgWide(extractedData, scClient, sqClient, orgResult, results, ctx, orgKey, migrationJournal) {
+export async function loadOrMigrateOrgWide(extractedData, scClient, sqClient, orgResult, results, ctx, { orgKey, migrationJournal } = {}) {
   const orgWideCachePath = join(ctx.outputDir, 'cache', `org-wide-mappings-${orgKey}.json`);
   if (migrationJournal?.isOrgWideCompleted(orgKey)) {
     logger.info(`Org-wide resources for ${orgKey} already completed — skipping`);
