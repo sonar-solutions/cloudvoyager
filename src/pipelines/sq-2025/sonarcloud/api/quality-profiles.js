@@ -7,3 +7,4 @@ export { setDefaultQualityProfile, addQualityProfileGroupPermission, addQualityP
 export { searchQualityProfiles } from './quality-profiles/index.js';
 export { getActiveRules } from './quality-profiles/index.js';
 export { getActiveRulesWithCleanCodeFields } from './quality-profiles/index.js';
+export { getAllRules } from './quality-profiles/helpers/get-all-rules.js';

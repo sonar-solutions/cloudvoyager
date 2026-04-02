@@ -15,6 +15,9 @@ export function getAutoTuneDefaults() {
     hotspotExtraction: { concurrency: cpuCount * 2 },
     issueSync: { concurrency: cpuCount },
     hotspotSync: { concurrency: Math.min(Math.max(Math.floor(cpuCount / 2), 3), 5) },
-    projectMigration: { concurrency: Math.max(1, Math.floor(cpuCount / 3)) }
+    projectMigration: { concurrency: Math.max(1, Math.floor(cpuCount / 3)) },
+    dateWindowSlicing: { concurrency: Math.min(cpuCount, 12) },
+    permissionSync: { concurrency: cpuCount },
+    settingsSync: { concurrency: cpuCount }
   };
 }

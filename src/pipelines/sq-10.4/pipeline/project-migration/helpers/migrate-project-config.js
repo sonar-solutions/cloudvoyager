@@ -24,9 +24,9 @@ export async function migrateProjectConfig(project, scProjectKey, projectSqClien
     if (recStep && lastStep && lastStep.status !== 'failed') await recStep(journalKey);
   }
 
-  // Settings, tags, links, new code defs, devops binding
-  await migrateProjectConfigSettings(project, scProjectKey, projectSqClient, projectScClient, extractedData, projectResult, onlyComponents, shouldRun, runGuardedStep);
-
-  // Quality gates, profiles, permissions
-  await migrateProjectConfigGates(scProjectKey, projectSqClient, projectScClient, gateMapping, projectResult, builtInProfileMapping, onlyComponents, shouldRun, runGuardedStep);
+  // Settings + gates run in parallel (fully independent)
+  await Promise.all([
+    migrateProjectConfigSettings(project, scProjectKey, projectSqClient, projectScClient, extractedData, projectResult, onlyComponents, shouldRun, runGuardedStep),
+    migrateProjectConfigGates(scProjectKey, projectSqClient, projectScClient, gateMapping, projectResult, builtInProfileMapping, onlyComponents, shouldRun, runGuardedStep),
+  ]);
 }

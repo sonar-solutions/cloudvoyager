@@ -16,7 +16,7 @@ export async function syncProjectIssues(projectResult, results, reportUploadOk, 
   try {
     logger.info(`[${projectKey}] Syncing issue metadata...`);
     const sqIssues = await projectSqClient.getIssuesWithComments();
-    const stats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient, userMappings: ctx.userMappings });
+    const stats = await syncIssues(scProjectKey, sqIssues, projectScClient, { concurrency: ctx.perfConfig.issueSync.concurrency, sqClient: projectSqClient, userMappings: ctx.userMappings, logPrefix: `[${projectKey}]` });
     logger.info(`[${projectKey}] Issue sync: ${stats.matched} matched, ${stats.transitioned} transitioned`);
     results.issueSyncStats.matched += stats.matched;
     results.issueSyncStats.transitioned += stats.transitioned;

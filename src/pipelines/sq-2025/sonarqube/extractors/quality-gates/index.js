@@ -1,4 +1,5 @@
 import logger from '../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../shared/utils/concurrency/index.js';
 import { extractQualityGateDetails } from './helpers/extract-quality-gate-details.js';
 
 // -------- Quality Gates Extraction --------
@@ -10,10 +11,9 @@ export async function extractQualityGates(client) {
   const defaultGate = gates.find(g => g.isDefault);
   logger.info(`Found ${gates.length} quality gates (default: ${defaultGate?.name || 'none'})`);
 
-  const detailed = [];
-  for (const gate of gates) {
-    detailed.push(await extractQualityGateDetails(client, gate));
-  }
+  const detailed = await mapConcurrent(
+    gates, (gate) => extractQualityGateDetails(client, gate), { concurrency: 5 }
+  );
   return detailed;
 }
 

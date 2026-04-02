@@ -151,6 +151,7 @@ window.MigrationGraph = {
     this._projectNodes = new Map();
     this._projectKeys = [];
     this._currentProjectKey = null;
+    this._maxProjectIdx = 0;
     this._nodeMap = new Map();
     this._orgNodeIds = new Set();
 
@@ -249,6 +250,7 @@ window.MigrationGraph = {
     this._projectNodes = new Map();
     this._projectKeys = [];
     this._currentProjectKey = null;
+    this._maxProjectIdx = 0;
     this._nodeMap = new Map();
     this._orgNodeIds = new Set();
   },

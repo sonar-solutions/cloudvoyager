@@ -1,7 +1,9 @@
 import logger from '../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 import { EnterpriseClient } from '../../../sonarcloud/enterprise-client.js';
 import { buildProjectUuidMap } from './helpers/build-project-uuid-map.js';
 import { resolvePortfolioProjects } from './helpers/resolve-portfolio-projects.js';
+import { applyOnePortfolio } from './helpers/apply-one-portfolio.js';
 
 // -------- Migrate Portfolios --------
 
@@ -17,24 +19,13 @@ export async function migratePortfolios(allPortfolios, projectKeyMapping, enterp
   const existingByName = new Map(existingPortfolios.map(p => [p.name, p]));
   const projectUuidMap = await buildProjectUuidMap(client, enterpriseId);
 
-  let created = 0;
-  let updated = 0;
-  for (const portfolio of allPortfolios) {
-    try {
-      const resolvedProjects = resolvePortfolioProjects(portfolio, projectKeyMapping, projectUuidMap);
-      const existing = existingByName.get(portfolio.name);
-      if (existing) {
-        if (existing.projects?.length === resolvedProjects.length && resolvedProjects.length === 0) { logger.info(`Portfolio "${portfolio.name}" already exists — skipping`); continue; }
-        await client.updatePortfolio(existing.id, { name: portfolio.name, description: portfolio.description || '', selection: 'projects', projects: resolvedProjects });
-        updated++;
-        logger.info(`Updated portfolio: ${portfolio.name} (${resolvedProjects.length} projects)`);
-      } else {
-        await client.createPortfolio({ name: portfolio.name, enterpriseId, description: portfolio.description || '', selection: 'projects', projects: resolvedProjects });
-        created++;
-        logger.info(`Created portfolio: ${portfolio.name} (${resolvedProjects.length} projects)`);
-      }
-    } catch (error) { logger.warn(`Failed to migrate portfolio "${portfolio.name}": ${error.message}`); }
-  }
+  const results = await mapConcurrent(allPortfolios, async (portfolio) => {
+    const resolvedProjects = resolvePortfolioProjects(portfolio, projectKeyMapping, projectUuidMap);
+    const existing = existingByName.get(portfolio.name);
+    return await applyOnePortfolio(client, portfolio, resolvedProjects, existing, enterpriseId);
+  }, { concurrency: 5, settled: true });
+  const created = results.filter(r => r.status === 'fulfilled' && r.value === 'created').length;
+  const updated = results.filter(r => r.status === 'fulfilled' && r.value === 'updated').length;
 
   logger.info(`Portfolio migration complete: ${created} created, ${updated} updated, ${allPortfolios.length - created - updated} skipped`);
   return created + updated;

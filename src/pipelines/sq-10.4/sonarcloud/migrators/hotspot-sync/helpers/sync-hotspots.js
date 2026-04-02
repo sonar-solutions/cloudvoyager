@@ -19,7 +19,7 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
   logger.info(`Matched ${matchedPairs.length} hotspots, syncing with concurrency=${concurrency}`);
 
   if (matchedPairs.length > 0) {
-    const progressLogger = createProgressLogger('Hotspot sync', matchedPairs.length);
+    const progressLogger = createProgressLogger(options.logPrefix ? `${options.logPrefix} Hotspot sync` : 'Hotspot sync', matchedPairs.length);
     await mapConcurrent(matchedPairs, (pair) => syncSingleHotspot(pair, client, stats, options), { concurrency, settled: true, onProgress: progressLogger });
   }
 

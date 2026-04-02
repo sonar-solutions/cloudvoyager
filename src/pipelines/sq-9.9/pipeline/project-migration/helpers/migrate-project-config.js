@@ -14,21 +14,23 @@ export async function migrateProjectConfig(project, scProjectKey, projectSqClien
   const shouldRun = (comp) => !onlyComponents || onlyComponents.includes(comp);
   const { isStepDone: stepDone, recordStep: recStep } = journal;
 
-  if (shouldRun('project-settings')) {
-    await Promise.all([
-      runGuardedStep(projectResult, 'Project settings', 'project_settings', stepDone, recStep, async () => { const s = await extractProjectSettings(projectSqClient, project.key); await migrateProjectSettings(scProjectKey, s, projectScClient); }),
-      runGuardedStep(projectResult, 'Project tags', 'project_tags', stepDone, recStep, async () => { const t = await extractProjectTags(projectSqClient); await migrateProjectTags(scProjectKey, t, projectScClient); }),
-      runGuardedStep(projectResult, 'Project links', 'project_links', stepDone, recStep, async () => { const l = await extractProjectLinks(projectSqClient, project.key); await migrateProjectLinks(scProjectKey, l, projectScClient); }),
-      runGuardedStep(projectResult, 'New code definitions', 'new_code_definitions', stepDone, recStep, async () => { const n = await extractNewCodePeriods(projectSqClient, project.key); return await migrateNewCodePeriods(scProjectKey, n, projectScClient); }),
-      runGuardedStep(projectResult, 'DevOps binding', 'devops_binding', stepDone, recStep, async () => { const b = extractedData.projectBindings.get(project.key); await migrateDevOpsBinding(scProjectKey, b, projectScClient); }),
-    ]);
-  } else if (onlyComponents) {
-    for (const step of ['Project settings', 'Project tags', 'Project links', 'New code definitions', 'DevOps binding']) {
-      projectResult.steps.push({ step, status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
-    }
-  }
-
+  // Settings + gates run in parallel (fully independent)
   await Promise.all([
+    (async () => {
+      if (shouldRun('project-settings')) {
+        await Promise.all([
+          runGuardedStep(projectResult, 'Project settings', 'project_settings', stepDone, recStep, async () => { const s = await extractProjectSettings(projectSqClient, project.key); await migrateProjectSettings(scProjectKey, s, projectScClient); }),
+          runGuardedStep(projectResult, 'Project tags', 'project_tags', stepDone, recStep, async () => { const t = await extractProjectTags(projectSqClient); await migrateProjectTags(scProjectKey, t, projectScClient); }),
+          runGuardedStep(projectResult, 'Project links', 'project_links', stepDone, recStep, async () => { const l = await extractProjectLinks(projectSqClient, project.key); await migrateProjectLinks(scProjectKey, l, projectScClient); }),
+          runGuardedStep(projectResult, 'New code definitions', 'new_code_definitions', stepDone, recStep, async () => { const n = await extractNewCodePeriods(projectSqClient, project.key); return await migrateNewCodePeriods(scProjectKey, n, projectScClient); }),
+          runGuardedStep(projectResult, 'DevOps binding', 'devops_binding', stepDone, recStep, async () => { const b = extractedData.projectBindings.get(project.key); await migrateDevOpsBinding(scProjectKey, b, projectScClient); }),
+        ]);
+      } else if (onlyComponents) {
+        for (const step of ['Project settings', 'Project tags', 'Project links', 'New code definitions', 'DevOps binding']) {
+          projectResult.steps.push({ step, status: 'skipped', detail: 'Not included in --only', durationMs: 0 });
+        }
+      }
+    })(),
     migrateGateIfNeeded(scProjectKey, projectSqClient, projectScClient, gateMapping, projectResult, onlyComponents, stepDone, recStep, shouldRun),
     migrateProfilesIfNeeded(scProjectKey, projectScClient, projectResult, builtInProfileMapping, onlyComponents, stepDone, recStep, shouldRun),
     migratePermsIfNeeded(project, scProjectKey, projectSqClient, projectScClient, projectResult, onlyComponents, stepDone, recStep, shouldRun),

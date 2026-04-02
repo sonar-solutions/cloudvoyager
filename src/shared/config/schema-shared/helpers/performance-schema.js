@@ -28,6 +28,18 @@ export const performanceSchema = {
     projectVerification: {
       type: 'object', additionalProperties: false,
       properties: { concurrency: { type: 'integer', minimum: 1, maximum: 16, default: 3, description: 'Max concurrent project verifications' } }
+    },
+    dateWindowSlicing: {
+      type: 'object', additionalProperties: false,
+      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 12, default: 6, description: 'Max concurrent date-window fetches when slicing large result sets (>10K items)' } }
+    },
+    permissionSync: {
+      type: 'object', additionalProperties: false,
+      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: 'Max concurrent permission API calls during migration' } }
+    },
+    settingsSync: {
+      type: 'object', additionalProperties: false,
+      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: 'Max concurrent project setting API calls during migration' } }
     }
   },
   additionalProperties: false

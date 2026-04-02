@@ -19,7 +19,7 @@ export async function syncProjectHotspots(projectResult, results, reportUploadOk
   try {
     logger.info(`[${projectKey}] Syncing hotspot metadata...`);
     const sqHotspots = await extractHotspots(projectSqClient, null, { concurrency: ctx.perfConfig.hotspotExtraction.concurrency });
-    const hotspotStats = await syncHotspots(scProjectKey, sqHotspots, projectScClient, { concurrency: ctx.perfConfig.hotspotSync.concurrency, sonarqubeUrl: projectSqClient.baseURL, sonarqubeProjectKey: projectSqClient.projectKey });
+    const hotspotStats = await syncHotspots(scProjectKey, sqHotspots, projectScClient, { concurrency: ctx.perfConfig.hotspotSync.concurrency, sonarqubeUrl: projectSqClient.baseURL, sonarqubeProjectKey: projectSqClient.projectKey, logPrefix: `[${projectKey}]` });
     logger.info(`[${projectKey}] Hotspot sync: ${hotspotStats.matched} matched, ${hotspotStats.statusChanged} status changed`);
     results.hotspotSyncStats.matched += hotspotStats.matched;
     results.hotspotSyncStats.statusChanged += hotspotStats.statusChanged;

@@ -29,7 +29,7 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
   await mapConcurrent(
     matchedPairs,
     async (pair) => syncOneHotspot(pair, client, options, stats),
-    { concurrency, settled: true, onProgress: createProgressLogger('Hotspot sync', matchedPairs.length) },
+    { concurrency, settled: true, onProgress: createProgressLogger(options.logPrefix ? `${options.logPrefix} Hotspot sync` : 'Hotspot sync', matchedPairs.length) },
   );
 
   logSyncSummary(stats);

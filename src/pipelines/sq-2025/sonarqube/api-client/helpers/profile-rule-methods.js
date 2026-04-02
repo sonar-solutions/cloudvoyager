@@ -14,4 +14,9 @@ export function attachProfileRuleMethods(inst) {
     logger.debug(`Fetching active rules for profile: ${profileKey}`);
     return await inst.getPaginated('/api/rules/search', { qprofile: profileKey, ps: 100 }, 'rules');
   };
+
+  inst.getAllRules = async () => {
+    logger.info('Fetching all SonarQube rules...');
+    return await inst.getPaginated('/api/rules/search', { ps: 500 }, 'rules');
+  };
 }

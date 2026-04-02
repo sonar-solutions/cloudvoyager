@@ -35,7 +35,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   await mapConcurrent(
     matchedPairs,
     async (pair) => syncOneIssue(pair, client, sqClient, userMappings, stats),
-    { concurrency, settled: true, onProgress: createProgressLogger('Issue sync', matchedPairs.length) },
+    { concurrency, settled: true, onProgress: createProgressLogger(options.logPrefix ? `${options.logPrefix} Issue sync` : 'Issue sync', matchedPairs.length) },
   );
 
   logSyncSummary(stats);

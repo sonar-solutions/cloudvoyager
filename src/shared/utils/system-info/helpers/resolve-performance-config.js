@@ -6,7 +6,9 @@ export function resolvePerformanceConfig(perfConfig = {}) {
     maxConcurrency: 64, maxMemoryMB: 8192,
     sourceExtraction: { concurrency: 50 }, hotspotExtraction: { concurrency: 50 },
     issueSync: { concurrency: 20 }, hotspotSync: { concurrency: 20 },
-    projectMigration: { concurrency: 8 }
+    projectMigration: { concurrency: 8 },
+    dateWindowSlicing: { concurrency: 6 }, permissionSync: { concurrency: 10 },
+    settingsSync: { concurrency: 10 }
   };
   return {
     autoTune: perfConfig.autoTune || false,
@@ -16,6 +18,9 @@ export function resolvePerformanceConfig(perfConfig = {}) {
     hotspotExtraction: { concurrency: perfConfig.hotspotExtraction?.concurrency || defaults.hotspotExtraction.concurrency },
     issueSync: { concurrency: perfConfig.issueSync?.concurrency || defaults.issueSync.concurrency },
     hotspotSync: { concurrency: perfConfig.hotspotSync?.concurrency || defaults.hotspotSync.concurrency },
-    projectMigration: { concurrency: perfConfig.projectMigration?.concurrency || defaults.projectMigration.concurrency }
+    projectMigration: { concurrency: perfConfig.projectMigration?.concurrency || defaults.projectMigration.concurrency },
+    dateWindowSlicing: { concurrency: perfConfig.dateWindowSlicing?.concurrency || defaults.dateWindowSlicing.concurrency },
+    permissionSync: { concurrency: perfConfig.permissionSync?.concurrency || defaults.permissionSync.concurrency },
+    settingsSync: { concurrency: perfConfig.settingsSync?.concurrency || defaults.settingsSync.concurrency }
   };
 }

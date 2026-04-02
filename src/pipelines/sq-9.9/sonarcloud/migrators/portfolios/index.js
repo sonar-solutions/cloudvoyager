@@ -1,4 +1,5 @@
 import logger from '../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 import { EnterpriseClient } from '../../enterprise-client.js';
 import { buildProjectUuidMap } from './helpers/build-project-uuid-map.js';
 import { resolvePortfolioProjects } from './helpers/resolve-portfolio-projects.js';
@@ -29,19 +30,18 @@ export async function migratePortfolios(allPortfolios, projectKeyMapping, enterp
   const existingByName = new Map(existingPortfolios.map(p => [p.name, p]));
   const projectUuidMap = await buildProjectUuidMap(client, enterpriseId);
 
-  let created = 0;
-  let updated = 0;
-  for (const portfolio of allPortfolios) {
+  const results = await mapConcurrent(allPortfolios, async (portfolio) => {
     try {
       const resolved = resolvePortfolioProjects(portfolio, projectKeyMapping, projectUuidMap);
       const existing = existingByName.get(portfolio.name);
-      const result = await applyPortfolio(client, portfolio, resolved, existing, enterpriseId);
-      if (result === 'created') created++;
-      else if (result === 'updated') updated++;
+      return await applyPortfolio(client, portfolio, resolved, existing, enterpriseId);
     } catch (error) {
       logger.warn(`Failed to migrate portfolio "${portfolio.name}": ${error.message}`);
+      return null;
     }
-  }
+  }, { concurrency: 5, settled: true });
+  const created = results.filter(r => r.status === 'fulfilled' && r.value === 'created').length;
+  const updated = results.filter(r => r.status === 'fulfilled' && r.value === 'updated').length;
 
   logger.info(`Portfolio migration complete: ${created} created, ${updated} updated, ${allPortfolios.length - created - updated} skipped`);
   return created + updated;

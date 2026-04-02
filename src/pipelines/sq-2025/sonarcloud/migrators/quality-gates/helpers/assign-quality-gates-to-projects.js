@@ -1,21 +1,22 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 
 // -------- Assign Quality Gates to Projects --------
 
 /** Assign quality gates to projects based on the gate mapping. */
 export async function assignQualityGatesToProjects(gateMapping, projectGateAssignments, client) {
-  for (const { projectKey, gateName } of projectGateAssignments) {
+  const validAssignments = projectGateAssignments.filter(({ gateName }) => {
     const scGateId = gateMapping.get(gateName);
-    if (!scGateId) {
-      logger.debug(`No SC gate mapping for SQ gate "${gateName}", skipping project ${projectKey}`);
-      continue;
-    }
+    if (!scGateId) { logger.debug(`No SC gate mapping for SQ gate "${gateName}", skipping`); return false; }
+    return true;
+  });
 
+  await mapConcurrent(validAssignments, async ({ projectKey, gateName }) => {
     try {
-      await client.assignQualityGateToProject(scGateId, projectKey);
+      await client.assignQualityGateToProject(gateMapping.get(gateName), projectKey);
       logger.debug(`Assigned gate to project ${projectKey}`);
     } catch (error) {
       logger.warn(`Failed to assign gate to project ${projectKey}: ${error.message}`);
     }
-  }
+  }, { concurrency: 10, settled: true });
 }

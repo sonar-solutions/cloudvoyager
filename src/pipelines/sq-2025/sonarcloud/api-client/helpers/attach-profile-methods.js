@@ -14,4 +14,5 @@ export function attachProfileMethods(inst, client, org, pk) {
   inst.getActiveRules = (profileKey) => qp.getActiveRules(client, org, profileKey);
   inst.getActiveRulesWithCleanCodeFields = (profileKey) => qp.getActiveRulesWithCleanCodeFields(client, org, profileKey);
   inst.addQualityProfileToProject = (l, q, projKey) => qp.addQualityProfileToProject(client, org, l, q, projKey);
+  inst.getAllRules = () => qp.getAllRules(client, org);
 }

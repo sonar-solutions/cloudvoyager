@@ -170,6 +170,7 @@ FUNCTION transferBranch(extractedData, branch, scConfig, scProfiles, scRepos, ..
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 ## 3. Migration Pipeline
 
 Migrates all projects across multiple SonarCloud organizations.
@@ -227,10 +228,10 @@ FUNCTION migrateAll(sonarqubeConfig, sonarcloudOrgs, migrateConfig, transferConf
 
   // --- Migrate Portfolios (Enterprise) ---
   IF enterpriseConfig exists:
-    migrateEnterprisePortfolios(portfolios, projectKeyMap)
+    migrateEnterprisePortfolios(portfolios, projectKeyMap)   // parallelized via mapConcurrent (concurrency 5)
 
   // --- Generate Reports ---
-  writeAllReports(results)   // JSON, Markdown, TXT, PDF (migration-report, executive-summary, performance-report)
+  writeAllReports(results)   // JSON + parallel Promise.all for Markdown, TXT, PDF (migration-report, executive-summary, performance-report)
   RETURN results
 
 
@@ -240,48 +241,36 @@ FUNCTION migrateOneOrganization(org, projects, extractedData, ...):
   scClient.testConnection()
 
   // --- Org-Wide Resources ---
+  // (groups, gates, profiles, templates, permissions all parallelized internally via mapConcurrent)
   migrateGroups(extractedData.groups, scClient)
-  migrateGlobalPermissions(extractedData.permissions, scClient)
-  gateMapping = migrateQualityGates(extractedData.qualityGates, scClient)
-  profileMapping = migrateQualityProfiles(extractedData.qualityProfiles, scClient)
-  migratePermissionTemplates(extractedData.permTemplates, scClient)
+  migrateGlobalPermissions(extractedData.permissions, scClient)        // flatMap + mapConcurrent (concurrency 10)
+  gateMapping = migrateQualityGates(extractedData.qualityGates, scClient)  // mapConcurrent (concurrency 5)
+  profileMapping = migrateQualityProfiles(extractedData.qualityProfiles, scClient) // chains: mapConcurrent across, sequential within (concurrency 5)
+  migratePermissionTemplates(extractedData.permTemplates, scClient)    // mapConcurrent (concurrency 5)
 
-  // --- Migrate Projects (11 steps per project) ---
+  // --- Migrate Projects (3 phases per project) ---
   FOR EACH project IN projects:
-    // 1. Upload scanner report (same as transfer pipeline)
+    // Phase 1: Upload scanner report (same as transfer pipeline)
     transferProject(sqConfig, scConfig(project), transferConfig, ...)
 
-    // 2. Sync issue metadata (status, comments, tags, assignments)
-    IF NOT skipIssueMetadataSync:
-      syncIssues(project, sqIssues, scClient, sqClient)
+    // Phase 1: Project config (all 8 steps run in PARALLEL via single Promise.all)
+    IF NOT skipProjectConfig:
+      PARALLEL:
+        migrateProjectSettings(project, scClient)    // internally: mapConcurrent (concurrency 10)
+        migrateProjectTags(project, scClient)
+        migrateProjectLinks(project, scClient)
+        migrateNewCodeDefinition(project, scClient)
+        migrateDevOpsBinding(project, scClient)
+        assignQualityGate(project, gateMapping, scClient)
+        assignQualityProfiles(project, profileMapping, scClient)
+        migrateProjectPermissions(project, scClient) // internally: flatMap + mapConcurrent (concurrency 10)
 
-    // 3. Sync hotspot metadata (status, comments)
-    IF NOT skipHotspotMetadataSync:
-      syncHotspots(project, sqHotspots, scClient)
-
-    // 4. Migrate project settings (non-inherited config values)
-    migrateProjectSettings(project, scClient)
-
-    // 5. Migrate project tags
-    migrateProjectTags(project, scClient)
-
-    // 6. Migrate project links (CI, docs, issue tracker URLs)
-    migrateProjectLinks(project, scClient)
-
-    // 7. Migrate new code period definition
-    migrateNewCodeDefinition(project, scClient)
-
-    // 8. Migrate DevOps binding (GitHub/GitLab/Azure/Bitbucket)
-    migrateDevOpsBinding(project, scClient)
-
-    // 9. Assign quality gate
-    assignQualityGate(project, gateMapping, scClient)
-
-    // 10. Assign quality profiles (per language)
-    assignQualityProfiles(project, profileMapping, scClient)
-
-    // 11. Set project-level permissions
-    migrateProjectPermissions(project, scClient)
+    // Phase 2: Metadata sync (issues + hotspots run in PARALLEL)
+    PARALLEL:
+      IF NOT skipIssueMetadataSync:
+        syncIssues(project, sqIssues, scClient, sqClient)
+      IF NOT skipHotspotMetadataSync:
+        syncHotspots(project, sqHotspots, scClient)
 ```
 
 ---
@@ -398,8 +387,11 @@ FUNCTION DataExtractor.extractAll():
     activeRules.APPEND(rules)
   DEDUPLICATE activeRules by repo:key
 
-  // Step 5: Issues
-  issues = sqClient.getIssues({ branch, createdAfter: state.lastSync })
+  // Step 5: Issues (date-window slicing for >10K projects)
+  // Build 12 equal-width date windows from epoch to now
+  // Fetch all 12 windows in parallel via mapConcurrent (concurrency configurable, default 6, max 12)
+  // Each window bisects if it still exceeds 10K results
+  issues = sqClient.getIssuesWithSlicing({ branch, createdAfter: state.lastSync })
   // Includes: key, rule, severity, status, message, textRange, flows,
   //           effort, author, tags, type, cleanCodeAttribute, impacts
 
@@ -834,20 +826,29 @@ FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 ## 11. Quality Gates Migration
 
 ```
 FUNCTION migrateQualityGates(extractedGates, scClient):
   gateMapping = new Map()    // gateName -> gateId
 
-  FOR EACH gate IN extractedGates:
+  // --- Extract gate details in parallel ---
+  gateDetails = mapConcurrent(extractedGates, gate => {
+    conditions = scClient.getQualityGateConditions(gate.id)
+    permissions = scClient.getQualityGatePermissions(gate.id)
+    RETURN { gate, conditions, permissions }
+  }, { concurrency: 5 })
+
+  // --- Create gates in parallel ---
+  mapConcurrent(gateDetails, ({ gate, conditions, permissions }) => {
     IF gate.isBuiltIn: SKIP    // SC has its own built-in gates
 
     // Create gate
     { id } = scClient.createQualityGate(gate.name)
 
     // Create conditions
-    FOR EACH condition IN gate.conditions:
+    FOR EACH condition IN conditions:
       scClient.createQualityGateCondition(id, condition.metric, condition.op, condition.error)
 
     // Set as default
@@ -855,19 +856,22 @@ FUNCTION migrateQualityGates(extractedGates, scClient):
       scClient.setDefaultQualityGate(id)
 
     // Set permissions
-    FOR EACH group IN gate.permissions WHERE group.selected:
+    FOR EACH group IN permissions WHERE group.selected:
       scClient.addGroupPermission(group.name, "gateadmin")
 
     gateMapping.SET(gate.name, id)
+  }, { concurrency: 5 })
 
   RETURN gateMapping
 
 
 FUNCTION assignQualityGatesToProjects(gateMapping, projectAssignments, scClient):
-  FOR EACH { projectKey, gateName } IN projectAssignments:
+  // Filter to assignments with valid gate mappings, then assign in parallel
+  validAssignments = projectAssignments.filter(({ gateName }) => gateMapping.HAS(gateName))
+  mapConcurrent(validAssignments, ({ projectKey, gateName }) => {
     gateId = gateMapping.GET(gateName)
-    IF gateId:
-      scClient.assignQualityGateToProject(gateId, projectKey)
+    scClient.assignQualityGateToProject(gateId, projectKey)
+  }, { concurrency: 10 })
 ```
 
 ---
@@ -910,11 +914,13 @@ FUNCTION migrateQualityProfiles(extractedProfiles, scClient):
   chains = buildInheritanceChains(customProfiles)
   // chains = [[parent, child, grandchild], ...]
   // Restore parents before children
+  // Chains parallelized across (concurrency 5), sequential within each chain
 
-  FOR EACH chain IN chains:
-    FOR EACH profile IN chain:
+  mapConcurrent(chains, chain => {
+    FOR EACH profile IN chain:       // sequential within chain (parent before child)
       scClient.restoreQualityProfile(profile.backupXml)
       profileMapping.SET(profile.name, profile)
+  }, { concurrency: 5 })
 
   // --- Restore built-in profiles as custom (with renamed suffix) ---
   FOR EACH profile IN builtInProfiles:
@@ -1040,6 +1046,7 @@ FUNCTION formatIssuesDeltaReport(issuesDeltaData):
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 ## 13. Permissions & Groups Migration
 
 ```
@@ -1052,15 +1059,21 @@ FUNCTION migrateGroups(extractedGroups, scClient):
 
 
 FUNCTION migrateGlobalPermissions(extractedPermissions, scClient):
-  FOR EACH permission IN extractedPermissions.global:
-    FOR EACH group IN permission.groups:
-      scClient.addGroupPermission(group.name, permission.key)
-    FOR EACH user IN permission.users:
-      scClient.addUserPermission(user.login, permission.key)
+  // Flatten N permissions × M groups/users into a single batch, then run in parallel
+  allGrants = extractedPermissions.global.flatMap(permission => [
+    ...permission.groups.map(g => ({ type: 'group', name: g.name, key: permission.key })),
+    ...permission.users.map(u => ({ type: 'user', login: u.login, key: permission.key }))
+  ])
+  mapConcurrent(allGrants, grant => {
+    IF grant.type == 'group':
+      scClient.addGroupPermission(grant.name, grant.key)
+    ELSE:
+      scClient.addUserPermission(grant.login, grant.key)
+  }, { concurrency: 10 })
 
 
 FUNCTION migratePermissionTemplates(extractedTemplates, scClient):
-  FOR EACH template IN extractedTemplates:
+  mapConcurrent(extractedTemplates, template => {
     scClient.createPermissionTemplate(template.name, template.description, template.projectKeyPattern)
 
     FOR EACH permission IN template.permissions:
@@ -1068,14 +1081,21 @@ FUNCTION migratePermissionTemplates(extractedTemplates, scClient):
         scClient.addGroupToTemplate(template.name, group.name, permission.key)
       FOR EACH user IN permission.users:
         scClient.addUserToTemplate(template.name, user.login, permission.key)
+  }, { concurrency: 5 })
 
 
 FUNCTION migrateProjectPermissions(project, scClient):
-  FOR EACH permission IN project.permissions:
-    FOR EACH group IN permission.groups:
-      scClient.addProjectGroupPermission(project.key, group.name, permission.key)
-    FOR EACH user IN permission.users:
-      scClient.addProjectUserPermission(project.key, user.login, permission.key)
+  // Flatten N permissions × M groups/users into a single batch, then run in parallel
+  allGrants = project.permissions.flatMap(permission => [
+    ...permission.groups.map(g => ({ type: 'group', name: g.name, key: permission.key })),
+    ...permission.users.map(u => ({ type: 'user', login: u.login, key: permission.key }))
+  ])
+  mapConcurrent(allGrants, grant => {
+    IF grant.type == 'group':
+      scClient.addProjectGroupPermission(project.key, grant.name, grant.key)
+    ELSE:
+      scClient.addProjectUserPermission(project.key, grant.login, grant.key)
+  }, { concurrency: 10 })
 ```
 
 ---
@@ -1305,20 +1325,38 @@ CONFIG SCHEMA:
     issueSync.concurrency:            integer
     hotspotSync.concurrency:          integer
     projectMigration.concurrency:     integer
+    dateWindowSlicing.concurrency:    integer (default: 6, max: 12)
+    permissionSync.concurrency:       integer (default: 10, max: 50)
+    settingsSync.concurrency:         integer (default: 10, max: 50)
 ```
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 ## 18. Performance Tuning
 
 ```
 PERFORMANCE FEATURES:
 
-  // Concurrency control
+  // Concurrency control — all sequential bottlenecks now use mapConcurrent
   - Source file extraction uses configurable concurrency (default: 10)
   - Issue/hotspot sync uses configurable concurrency (default: 5)
   - Project migration uses configurable concurrency (default: 3)
+  - Date-window slicing fetches 12 windows in parallel (configurable, default: 6, max: 12)
+  - Global/project permissions: flatMap + mapConcurrent (concurrency: 10, configurable max: 50)
+  - Project settings: mapConcurrent (concurrency: 10, configurable max: 50)
+  - Quality gate creation + detail extraction: mapConcurrent (concurrency: 5)
+  - Quality gate assignment to projects: filter + mapConcurrent (concurrency: 10)
+  - Permission template migration: mapConcurrent (concurrency: 5)
+  - Quality profile chains: mapConcurrent across chains, sequential within (concurrency: 5)
+  - Portfolio migration: mapConcurrent (concurrency: 5)
+  - Report generation: text + PDF via Promise.all
   - All concurrent operations use semaphore-style limiting
+
+  // New config knobs (under performance)
+  performance.dateWindowSlicing.concurrency   = 6     // max 12
+  performance.permissionSync.concurrency      = 10    // max 50
+  performance.settingsSync.concurrency        = 10    // max 50
 
   // Auto-tuning
   IF --auto-tune:

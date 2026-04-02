@@ -1,4 +1,5 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 
 // -------- Restore Profiles --------
 
@@ -15,14 +16,16 @@ export async function restoreOneProfile(profile, restored, profileMapping, clien
   }
 }
 
-/** Restore profiles in inheritance chain order. */
+/** Restore profiles in inheritance chain order (parallel across chains, sequential within). */
 export async function restoreProfileChains(chains, restored, profileMapping, client) {
-  for (const chain of chains) {
+  await mapConcurrent(chains, async (chain) => {
     for (const profile of chain) await restoreOneProfile(profile, restored, profileMapping, client);
-  }
+  }, { concurrency: 5 });
 }
 
 /** Restore any remaining custom profiles not already restored via chains. */
 export async function restoreRemainingProfiles(customProfiles, restored, profileMapping, client) {
-  for (const profile of customProfiles) await restoreOneProfile(profile, restored, profileMapping, client);
+  await mapConcurrent(customProfiles, async (profile) => {
+    await restoreOneProfile(profile, restored, profileMapping, client);
+  }, { concurrency: 5 });
 }

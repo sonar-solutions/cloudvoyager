@@ -1,3 +1,4 @@
+import { mapConcurrent } from '../../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 import { buildInheritanceChains } from '../../../../sonarqube/extractors/quality-profiles.js';
 import { restoreOneProfile } from './restore-one-profile.js';
 
@@ -6,8 +7,10 @@ import { restoreOneProfile } from './restore-one-profile.js';
 // Restore custom profiles in inheritance order, then any remaining.
 export async function restoreCustomProfiles(customProfiles, restored, profileMapping, client) {
   const chains = buildInheritanceChains(customProfiles);
-  for (const chain of chains) {
+  await mapConcurrent(chains, async (chain) => {
     for (const profile of chain) await restoreOneProfile(profile, restored, profileMapping, client);
-  }
-  for (const profile of customProfiles) await restoreOneProfile(profile, restored, profileMapping, client);
+  }, { concurrency: 5 });
+  await mapConcurrent(customProfiles, async (profile) => {
+    await restoreOneProfile(profile, restored, profileMapping, client);
+  }, { concurrency: 5 });
 }

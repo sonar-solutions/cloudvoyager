@@ -1,35 +1,32 @@
-// -------- Format Profile Section --------
+// -------- Format Rule Diff Tables --------
 
-/** Format a single language/profile comparison section as markdown. */
-export function formatProfileSection(langKey, diff) {
-  const lines = [
-    `## ${diff.sonarqubeProfile} → ${diff.sonarcloudProfile} (${langKey})\n`,
-    `SonarQube rules: **${diff.sonarqubeRuleCount}** | SonarCloud rules: **${diff.sonarcloudRuleCount}**\n`,
-  ];
+/** Format the onlyInSQ and onlyInSC rule lists as markdown tables. */
+export function formatRuleDiffTables(onlyInSQ, onlyInSC) {
+  const lines = [];
 
-  if (diff.missingRules.length > 0) {
-    lines.push(`### Rules missing from SonarCloud (${diff.missingRules.length}) — issues will disappear\n`);
-    lines.push('| Rule Key | Name | Type | Severity |');
-    lines.push('|----------|------|------|----------|');
-    for (const r of diff.missingRules) {
-      lines.push(`| \`${r.key}\` | ${r.name} | ${r.type} | ${r.severity} |`);
+  if (onlyInSQ.length > 0) {
+    lines.push(`## Rules Only in SonarQube (${onlyInSQ.length}) — not available in SonarCloud\n`);
+    lines.push('| Rule ID | Name | Language | Type | Severity |');
+    lines.push('|---------|------|----------|------|----------|');
+    for (const r of onlyInSQ) {
+      lines.push(`| \`${r.key}\` | ${r.name} | ${r.lang} | ${r.type} | ${r.severity} |`);
     }
     lines.push('');
   }
 
-  if (diff.addedRules.length > 0) {
-    lines.push(`### Rules added in SonarCloud (${diff.addedRules.length}) — new issues may appear\n`);
-    lines.push('| Rule Key | Name | Type | Severity |');
-    lines.push('|----------|------|------|----------|');
-    for (const r of diff.addedRules) {
-      lines.push(`| \`${r.key}\` | ${r.name} | ${r.type} | ${r.severity} |`);
+  if (onlyInSC.length > 0) {
+    lines.push(`## Rules Only in SonarCloud (${onlyInSC.length}) — not available in SonarQube\n`);
+    lines.push('| Rule ID | Name | Language | Type | Severity |');
+    lines.push('|---------|------|----------|------|----------|');
+    for (const r of onlyInSC) {
+      lines.push(`| \`${r.key}\` | ${r.name} | ${r.lang} | ${r.type} | ${r.severity} |`);
     }
     lines.push('');
   }
 
-  if (diff.missingRules.length === 0 && diff.addedRules.length === 0) {
-    lines.push('✅ Profiles are identical — no rule differences.\n');
+  if (onlyInSQ.length === 0 && onlyInSC.length === 0) {
+    lines.push('## All rules match perfectly — no differences found.\n');
   }
 
-  return lines.join('\n');
+  return lines;
 }

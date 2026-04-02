@@ -1,6 +1,6 @@
 # Bespoke Algorithms
 
-<!-- <doc-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+<!-- <doc-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 
 This document describes custom, non-trivial algorithms implemented from scratch within CloudVoyager — logic that required deliberate design decisions rather than off-the-shelf solutions.
 
@@ -12,41 +12,43 @@ This document describes custom, non-trivial algorithms implemented from scratch 
 2. [Migration Graph Visualization (Desktop DAG Renderer)](#2-migration-graph-visualization-desktop-dag-renderer)
 3. [Atomic Checkpoint Journal](#3-atomic-checkpoint-journal)
 4. [Protobuf Report Encoding](#4-protobuf-report-encoding)
+5. [Parallel Project Config Migration (All Pipelines)](#5-parallel-project-config-migration-all-pipelines)
+6. [Parallel Migrator Operations](#6-parallel-migrator-operations)
 
 ---
 
 ## 1. Date-Window Slicing (10K+ Issue Retrieval)
 
-<!-- <section-updated last-updated="2026-01-01T00:00:00Z" updated-by="Claude" /> -->
+<!-- <section-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000 items per query. Projects with large issue counts require the response window to be sliced by creation date and results stitched together.
 
 ### Algorithm
 
 ```
-fetchWithSlicing(projectKey, params):
+fetchWithSlicing(projectKey, params, { concurrency = 6 }):
   1. Probe the total count for the full date range
   2. If total <= 10,000 → return single fetch
-  3. Otherwise bisect the date window:
-     a. Split [startDate, endDate] at the midpoint
-     b. Recurse on each half
-     c. Merge and deduplicate results by issue key
-  4. Continue splitting until each window fits under 10,000
+  3. Otherwise:
+     a. Build 12 date windows spanning SonarQube epoch → now
+     b. Fetch ALL windows in parallel (mapConcurrent, concurrency = 6)
+     c. Within each window, if results > 10,000: recursively subdivide
+     d. Flatten and deduplicate all results by key
 ```
 
 ### Implementation
 
-`src/shared/utils/search-slicer/index.js` — orchestrator
-`src/shared/utils/search-slicer/helpers/bisect-window.js` — binary split
-`src/shared/utils/search-slicer/helpers/build-windows.js` — initial partition
+`src/shared/utils/search-slicer/index.js` — orchestrator (adds concurrency pass-through)
+`src/shared/utils/search-slicer/helpers/slice-by-creation-date.js` — parallel window dispatch
+`src/shared/utils/search-slicer/helpers/build-date-windows.js` — initial partition
 `src/shared/utils/search-slicer/helpers/fetch-window.js` — single window fetch
-`src/shared/utils/search-slicer/helpers/merge-results.js` — deduplication
+`src/shared/utils/search-slicer/helpers/deduplicate-results.js` — deduplication
 
 ---
 
 ## 2. Migration Graph Visualization (Desktop DAG Renderer)
 
-<!-- <section-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+<!-- <section-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
 
 The CloudVoyager Desktop execution screen renders a real-time animated DAG (directed acyclic graph) on an HTML5 Canvas. Nodes represent migration phases; edges show dependencies. Nodes transition from grey (pending) to amber (active) to green (done) as log lines stream in from the CLI backend.
 
@@ -89,6 +91,16 @@ projects → upload:<key> → config:<key> → issues:<key>
 
 All four nodes have `isProjectNode: true`.
 
+### Intra-Node Parallelization
+
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
+
+While the DAG topology remains unchanged, operations within individual nodes now execute concurrently:
+
+- **`config:<key>`** — project settings, gate assignment, profile assignment, and permissions all execute via concurrent `mapConcurrent` API calls
+- **`upload:<key>`** — date-window extraction (if >10K issues) now fetches windows in parallel
+- The DAG topology remains unchanged — parallelization is internal to each node
+
 ### Layout: Portfolios Node Positioning
 
 <!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
@@ -116,6 +128,34 @@ const parents = this.edges
 ```
 
 **Bug fix (2026-04-01):** Before this fix, the filter was `.filter(Boolean)` (no `isProjectNode` exclusion). Because `_addProjectBranch` adds a `config → portfolios` fanout edge, portfolios had per-project `config` nodes as parents. Those nodes start as `pending` and only advance as individual projects complete, so `portfolios` was permanently blocked from activating. Adding `.filter(n => n && !n.isProjectNode)` restricts the dependency check to org-level parents only, matching the intended graph semantics.
+
+### Counter Race Fix for Concurrent Projects
+
+<!-- <subsection-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
+
+With `projectMigration.concurrency > 1`, `--- Project N/M:` log lines can arrive out of order. The counter now tracks the maximum index seen and only updates when a higher index arrives, preventing the counter from regressing (e.g., showing "2/3" when "3/3" was already logged).
+
+```javascript
+const idxNum = parseInt(idx, 10);
+if (idxNum > this._maxProjectIdx) {
+  this._maxProjectIdx = idxNum;
+  this._setNodeCount('projects', idx + '/' + total);
+}
+```
+
+### Progress Log Parsing for Issue/Hotspot Sync
+
+<!-- <subsection-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
+
+Issue and hotspot sync modules now emit progress logs with a `[projectKey]` prefix (e.g., `[my-project] Issue sync: 280/1041 (27%)`). The graph parser recognizes these intermediate progress lines and keeps the corresponding Issues/Hotspots nodes in the `active` state, preventing the graph from appearing frozen during long sync operations:
+
+```javascript
+// In _parseProjectSubPhase — keeps node active during progress
+if (/Issue sync: \d+\/\d+/.test(line)) {
+  this.setNodeState(ids.issues, 'active');
+  return;
+}
+```
 
 ### Fallback Log Parser Completion Patterns
 
@@ -186,6 +226,60 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 ### Implementation
 
 `src/shared/state/checkpoint.js`
+
+---
+
+## 5. Parallel Project Config Migration (All Pipelines)
+
+<!-- <section-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
+
+`migrateProjectConfig` in all four pipelines orchestrates two independent sub-migration groups for each project:
+
+| Group | Steps | API touched | Depends on the other? |
+|---|---|---|---|
+| Settings block | Project settings, tags, links, new code periods, DevOps binding | `/api/settings/set`, `/api/project_links/create`, etc. | No |
+| Gates block | Quality gate assignment, quality profiles, permissions | `/api/qualitygates/select`, `/api/permissions/add_group`, etc. | No |
+
+Because neither group reads or writes state shared by the other, they are dispatched concurrently via `Promise.all`:
+
+```
+await Promise.all([
+  migrateProjectConfigSettings(...),   // 5 parallel sub-steps internally
+  migrateProjectConfigGates(...),      // 3 parallel sub-steps internally
+]);
+```
+
+### Implementation
+
+- `src/pipelines/sq-10.4/pipeline/project-migration/helpers/migrate-project-config.js`
+- `src/pipelines/sq-10.0/pipeline/project-migration/helpers/migrate-project-config.js`
+- `src/pipelines/sq-2025/pipeline/project-config-migrator/helpers/migrate-project-config.js`
+- `src/pipelines/sq-9.9/pipeline/project-migration/helpers/migrate-project-config.js`
+
+---
+
+## 6. Parallel Migrator Operations
+
+<!-- <section-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
+
+All SonarCloud migrators now use `mapConcurrent` for concurrent API calls instead of sequential `for...await` loops. Each operation uses `settled: true` mode so individual failures do not abort the batch.
+
+| Migrator | Before | After | Concurrency |
+|----------|--------|-------|-------------|
+| Global permissions | Nested `for group → for perm → await` (N×M sequential) | `flatMap` + `mapConcurrent` (single batch) | 10 |
+| Project permissions | Nested `for group → for perm → await` (N×M sequential) | `flatMap` + `mapConcurrent` (single batch) | 10 |
+| Project settings | `for setting → await` (50-200 sequential) | `mapConcurrent` | 10 |
+| Quality gates | `for gate → await create` (sequential) | `mapConcurrent` | 5 |
+| Gate assignments | `for project → await assign` (sequential) | filter + `mapConcurrent` | 10 |
+| Permission templates | `for template → await` (sequential) | `mapConcurrent` | 5 |
+| Quality profiles | `for chain → for profile → await` (nested sequential) | `mapConcurrent` across chains, sequential within | 5 |
+| Portfolios | `for portfolio → await` (sequential) | `mapConcurrent` | 5 |
+| Report generation | Sequential text then PDF | `Promise.all([text, pdf])` | 2 |
+| QG detail extraction | `for gate → await details` (sequential) | `mapConcurrent` | 5 |
+
+### Implementation
+
+Applied across all 4 pipelines: `sq-9.9`, `sq-10.0`, `sq-10.4`, `sq-2025`.
 
 ---
 

@@ -88,7 +88,11 @@ Object.assign(window.MigrationGraph, {
     m = line.match(/--- Project (\d+)\/(\d+): (\S+)/);
     if (m) {
       const [, idx, total, projectKey] = m;
-      this._setNodeCount('projects', idx + '/' + total);
+      const idxNum = parseInt(idx, 10);
+      if (idxNum > this._maxProjectIdx) {
+        this._maxProjectIdx = idxNum;
+        this._setNodeCount('projects', idx + '/' + total);
+      }
 
       // First time: activate projects node
       const projectsNode = this._nodeById('projects');
@@ -179,6 +183,11 @@ Object.assign(window.MigrationGraph, {
       this.setNodeState(ids.issues, 'active');
       return;
     }
+    // Issue sync progress — keep node visually active
+    if (/Issue sync: \d+\/\d+/.test(line)) {
+      this.setNodeState(ids.issues, 'active');
+      return;
+    }
     if (/Issue sync:.*matched|Issue sync — already completed/.test(line)) {
       this.setNodeState(ids.issues, 'done');
       return;
@@ -187,6 +196,11 @@ Object.assign(window.MigrationGraph, {
     // Hotspot sync
     if (/Syncing hotspot metadata/.test(line)) {
       this.setNodeState(ids.config, 'done'); // ensure config is done
+      this.setNodeState(ids.hotspots, 'active');
+      return;
+    }
+    // Hotspot sync progress — keep node visually active
+    if (/Hotspot sync: \d+\/\d+/.test(line)) {
       this.setNodeState(ids.hotspots, 'active');
       return;
     }
@@ -230,12 +244,20 @@ Object.assign(window.MigrationGraph, {
       this.setNodeState(ids.issues, 'done');
       return true;
     }
+    if (/Issue sync: \d+\/\d+/.test(line)) {
+      this.setNodeState(ids.issues, 'active');
+      return true;
+    }
     if (/Syncing hotspot metadata/.test(line)) {
       this.setNodeState(ids.hotspots, 'active');
       return true;
     }
     if (/Hotspot sync:.*matched|Hotspot sync — already completed|Hotspot metadata sync complete/.test(line)) {
       this.setNodeState(ids.hotspots, 'done');
+      return true;
+    }
+    if (/Hotspot sync: \d+\/\d+/.test(line)) {
+      this.setNodeState(ids.hotspots, 'active');
       return true;
     }
     if (/Project migration complete|Finished migrating project/.test(line)) {
@@ -295,7 +317,11 @@ Object.assign(window.MigrationGraph, {
     m = line.match(/--- Project (\d+)\/(\d+): (\S+)/);
     if (m) {
       const [, idx, total, projectKey] = m;
-      this._setNodeCount('projects', m[1] + '/' + m[2]);
+      const idxNum = parseInt(idx, 10);
+      if (idxNum > this._maxProjectIdx) {
+        this._maxProjectIdx = idxNum;
+        this._setNodeCount('projects', idx + '/' + total);
+      }
       this.setNodeState('projects', 'active');
 
       if (!this._projectNodes.has(projectKey)) {
@@ -357,12 +383,20 @@ Object.assign(window.MigrationGraph, {
       this.setNodeState(ids.issues, 'done');
       return;
     }
+    if (/Issue sync: \d+\/\d+/.test(line)) {
+      this.setNodeState(ids.issues, 'active');
+      return;
+    }
     if (/Syncing hotspot metadata/.test(line)) {
       this.setNodeState(ids.hotspots, 'active');
       return;
     }
     if (/Hotspot sync:.*matched|Hotspot sync — already completed/.test(line)) {
       this.setNodeState(ids.hotspots, 'done');
+      return;
+    }
+    if (/Hotspot sync: \d+\/\d+/.test(line)) {
+      this.setNodeState(ids.hotspots, 'active');
       return;
     }
   },

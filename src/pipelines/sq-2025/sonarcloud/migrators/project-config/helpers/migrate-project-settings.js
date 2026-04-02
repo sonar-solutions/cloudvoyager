@@ -1,12 +1,13 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 
 // -------- Migrate Project Settings --------
 
 /** Migrate non-inherited project settings to SonarCloud. */
-export async function migrateProjectSettings(projectKey, settings, client) {
+export async function migrateProjectSettings(projectKey, settings, client, { concurrency = 10 } = {}) {
   logger.info(`Migrating ${settings.length} project settings for ${projectKey}`);
 
-  for (const setting of settings) {
+  await mapConcurrent(settings, async (setting) => {
     try {
       if (setting.values && setting.values.length > 0) {
         // Multi-value setting: pass array so API layer uses repeated 'values' params
@@ -18,5 +19,5 @@ export async function migrateProjectSettings(projectKey, settings, client) {
     } catch (error) {
       logger.warn(`Failed to set setting ${setting.key} on ${projectKey}: ${error.message}`);
     }
-  }
+  }, { concurrency, settled: true });
 }

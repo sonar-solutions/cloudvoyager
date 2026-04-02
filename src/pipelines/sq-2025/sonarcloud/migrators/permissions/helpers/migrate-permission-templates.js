@@ -1,4 +1,5 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { mapConcurrent } from '../../../../../../shared/utils/concurrency/helpers/map-concurrent.js';
 import { migrateOneTemplate } from './migrate-one-template.js';
 import { applyDefaultTemplates } from './apply-default-templates.js';
 
@@ -11,9 +12,9 @@ export async function migratePermissionTemplates(templateData, client) {
 
   logger.info(`Migrating ${templates.length} permission templates`);
 
-  for (const template of templates) {
+  await mapConcurrent(templates, async (template) => {
     await migrateOneTemplate(template, templateMapping, client);
-  }
+  }, { concurrency: 5, settled: true });
 
   await applyDefaultTemplates(defaultTemplates, templateMapping, client);
 

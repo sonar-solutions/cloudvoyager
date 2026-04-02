@@ -10,6 +10,7 @@ import { handleDryRun } from './helpers/handle-dry-run.js';
 import { applyCsvAndMigrate } from './helpers/apply-csv-and-migrate.js';
 import { collectAssigneeData } from './helpers/collect-assignee-data.js';
 import { gatherIssuesDelta } from './helpers/gather-issues-delta.js';
+import { gatherRulesComparisonReport } from './helpers/gather-rules-comparison.js';
 
 // -------- Migrate All --------
 
@@ -36,6 +37,8 @@ export async function migrateAll(options) {
     await applyCsvAndMigrate(orgMapping, resourceMappings, extractedData, preExistingCsvs, results, ctx);
   } finally {
     results.endTime = new Date().toISOString();
+    try { await gatherRulesComparisonReport(results, ctx); }
+    catch (e) { logger.warn(`Rules comparison report failed: ${e.message}`); }
     try { await gatherIssuesDelta(results, ctx); }
     catch (e) { logger.warn(`Issues delta report failed: ${e.message}`); }
     try { await writeAllReports(results, join(outputDir, 'reports')); }

@@ -22,7 +22,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   stats.matched = matchedPairs.length;
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
   if (matchedPairs.length === 0) { logSyncSummary(stats); return stats; }
-  const progressLogger = createProgressLogger('Issue sync', matchedPairs.length);
+  const progressLogger = createProgressLogger(options.logPrefix ? `${options.logPrefix} Issue sync` : 'Issue sync', matchedPairs.length);
   await mapConcurrent(
     matchedPairs,
     async ({ sqIssue, scIssue }) => {

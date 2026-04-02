@@ -4,72 +4,97 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
-<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
-## sq-10.4: Multi-Value Setting Support in setProjectSetting (2026-04-02)
+## [Unreleased] — 2026-04-02
+<!-- <section-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
 
-`setProjectSetting` in the sq-10.4 SonarCloud project-config helper now handles multi-value settings correctly.
+### Fix: Migration Graph Display Lagging Behind Actual Progress
 
-Previously, the function accepted a single `value` string and always used SonarCloud's `value` param. SonarCloud requires multi-value settings (e.g. exclusion lists) to be submitted as repeated `values` params in the query string, which a plain `{ params: { value } }` object cannot express.
+<!-- <subsection-updated last-updated="2026-04-02T13:00:00Z" updated-by="Claude" /> -->
 
-### Change
+Fixed three bugs in the desktop migration graph that caused the graph to appear frozen or inaccurate during issue/hotspot metadata sync (Phase 2), even though the migration was progressing normally.
 
-- **Renamed:** `value` parameter → `valueOrValues` to reflect that either a string or an array is accepted.
-- **Added:** Array-detection branch that serialises the values via `URLSearchParams` with repeated `values` keys and appends them directly to the endpoint URL.
-- **Unchanged:** Single-value path continues to use `{ params: { key, value: valueOrValues, component } }` as before.
+**Bug 1 — Project counter race condition.** With `projectMigration.concurrency > 1`, the `--- Project N/M:` log lines could arrive out of order. The graph parser stored the *last* value seen, so if Project 3 logged before Project 2, the counter showed "2/3" instead of "3/3". Fixed by tracking the max index and only updating the counter when a higher index arrives.
 
-**Modified:** `src/pipelines/sq-10.4/sonarcloud/api/project-config/helpers/project-settings-api.js`
+**Bug 2 — Issue sync progress logs invisible to graph.** The `createProgressLogger` in issue-sync modules emitted lines like `Issue sync: 280/1041 (27%)` with no `[projectKey]` prefix. The graph parser only recognized `[projectKey] Syncing issue metadata...` (start) and `[projectKey] Issue sync: N matched` (done), so all intermediate progress was invisible. Fixed by:
+- Adding `logPrefix` option to `syncIssues`/`syncHotspots` across all 3 pipelines (sq-10.0, sq-10.4, sq-2025)
+- Callers now pass `logPrefix: \`[\${projectKey}]\`` so progress logs are prefixed
+- Graph parser now recognizes `Issue sync: N/M` and `Hotspot sync: N/M` patterns to keep nodes visually active
 
----
+**Bug 3 — Same issue for hotspot sync progress.** Same fix applied symmetrically for hotspot sync.
 
-## sq-2025: Fix multi-value project settings migration (2026-04-02)
+**Files changed:**
+- `desktop/src/renderer/js/components/migration-graph.js` — `_maxProjectIdx` field initialization
+- `desktop/src/renderer/js/components/migration-graph-parsers.js` — counter race fix + progress patterns in 5 parser methods
+- `src/pipelines/sq-10.0/sonarcloud/migrators/issue-sync/index.js` — `logPrefix` option
+- `src/pipelines/sq-10.0/sonarcloud/migrators/hotspot-sync/index.js` — `logPrefix` option
+- `src/pipelines/sq-10.0/pipeline/project-migration/helpers/sync-project-issues.js` — pass logPrefix
+- `src/pipelines/sq-10.0/pipeline/project-migration/helpers/sync-project-hotspots.js` — pass logPrefix
+- Same 4 files in sq-10.4 and sq-2025 pipelines
+- `src/pipelines/sq-2025/pipeline/project-migration/helpers/migrate-one-project-metadata/helpers/sync-issue-metadata.js` — pass logPrefix
+- `src/pipelines/sq-2025/pipeline/project-migration/helpers/migrate-one-project-metadata/helpers/sync-hotspot-metadata.js` — pass logPrefix
 
-Fixed a bug in `migrate-project-settings.js` (sq-2025 pipeline) where multi-value settings (`setting.values`) were incorrectly comma-joined into a single string before being passed to `client.setProjectSetting`. The SonarCloud API expects repeated `values` parameters (an array), not a comma-concatenated string.
+### Performance — Parallelization of Sequential Bottlenecks
 
-- **Fixed:** `setting.values` is now passed as a raw array to `client.setProjectSetting`, allowing the API layer to serialize it correctly as repeated params.
-- **Fixed:** Error catch block now logs at `logger.warn` instead of `logger.debug`, ensuring setting failures are visible in non-verbose runs.
-- **Refactored:** Removed the merged `const value = ...` expression — the `values` array and scalar `value` paths are now separate `if / else if` branches.
+Replaced 11 sequential `for...await` loops with concurrent `mapConcurrent` calls across all 4 pipelines (sq-9.9, sq-10.0, sq-10.4, sq-2025). Estimated **5-10x speedup** on large migrations.
 
-**File changed:** `src/pipelines/sq-2025/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+**Critical impact:**
+- Date-window slicing now fetches 12 windows in parallel (was sequential) — largest single speedup for projects with >10K issues
+- Global/project permissions: flattened N×M nested loops into single parallel batch (concurrency 10)
+- Project settings: 50-200 settings per project now applied concurrently (concurrency 10)
 
-Also fixed the underlying API helper (`set-project-setting.js`) to handle array values via `URLSearchParams` repeated `values` params — this is the SonarCloud API requirement for settings like `sonar.exclusions`.
+**Medium impact:**
+- Quality gate creation + project assignment parallelized (concurrency 5/10)
+- Portfolio migration parallelized (concurrency 5)
+- Permission template migration parallelized (concurrency 5)
+- Quality profile chains parallelized across chains, sequential within (concurrency 5)
 
-- **Changed:** `src/pipelines/sq-2025/sonarcloud/api/project-config/helpers/set-project-setting.js` — parameter renamed `value` → `valueOrValues`; when an array is passed, builds the query string with repeated `values` entries via `URLSearchParams`; scalar values continue to use the existing `{ params: { value } }` path.
+**Lower impact:**
+- Report generation: text and PDF reports now generated in parallel via Promise.all
+- Quality gate detail extraction parallelized across gates (concurrency 5)
 
----
-
-<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
-## sq-10.0: Fix multi-value project settings migration (2026-04-02)
-
-Fixed a bug in `migrate-project-settings.js` (sq-10.0 pipeline) where multi-value settings (`setting.values`) were incorrectly comma-joined into a single string before being passed to `client.setProjectSetting`. The SonarCloud API expects repeated `values` parameters (an array), not a comma-concatenated string.
-
-- **Fixed:** `setting.values` is now passed as a raw array to `client.setProjectSetting`, allowing the API layer to serialize it correctly as repeated params.
-- **Fixed:** Error catch block now logs at `logger.warn` instead of `logger.debug`, ensuring setting failures are visible in non-verbose runs.
-- **Refactored:** Removed the merged `const value = ...` expression — the `values` array and scalar `value` paths are now separate `if / else if` branches.
-
-**File changed:** `src/pipelines/sq-10.0/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
-
----
-
-<!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
-## sq-9.9: Multi-Value Project Settings Support (2026-04-02)
-
-Updated `setProjectSetting` in `src/pipelines/sq-9.9/sonarcloud/api/project-config/helpers/project-settings.js` to handle both single-value and multi-value settings.
-
-Previously the function accepted only a single `value` string and called `/api/settings/set` with a `value` param. It now accepts either a string or an array:
-
-- **Single value** — behaves as before: `{ params: { key, value, component } }`
-- **Array of values** — builds `URLSearchParams` with repeated `values` entries (SonarCloud API requirement for multi-value settings) and appends them to the URL: `/api/settings/set?key=...&component=...&values=...&values=...`
-
-- **Modified:** `src/pipelines/sq-9.9/sonarcloud/api/project-config/helpers/project-settings.js` — `setProjectSetting` now accepts `valueOrValues` (string or string[]) and branches on `Array.isArray`.
+**New config knobs** (under `performance`):
+- `dateWindowSlicing.concurrency` (default 6, max 12)
+- `permissionSync.concurrency` (default 10, max 50)
+- `settingsSync.concurrency` (default 10, max 50)
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-02T12:00:00Z" updated-by="Claude" /> -->
+## Fix: Parallelism bug in project config migration — all 4 pipelines (2026-04-02)
+
+`migrateProjectConfig` in all four pipelines (sq-9.9, sq-10.0, sq-10.4, sq-2025) previously awaited the "settings block" (project settings, tags, links, new code periods, DevOps binding) to completion before starting the "gates block" (quality gate, quality profiles, permissions). These two groups are fully independent — they touch different API endpoints with no shared state. Merged into a single `Promise.all` so all config steps start concurrently.
+
+- **Changed:** `src/pipelines/sq-9.9/pipeline/project-migration/helpers/migrate-project-config.js`
+- **Changed:** `src/pipelines/sq-10.0/pipeline/project-migration/helpers/migrate-project-config.js`
+- **Changed:** `src/pipelines/sq-10.4/pipeline/project-migration/helpers/migrate-project-config.js`
+- **Changed:** `src/pipelines/sq-2025/pipeline/project-config-migrator/helpers/migrate-project-config.js`
+
+---
+
 <!-- <subsection-updated last-updated="2026-04-02T00:00:00Z" updated-by="Claude" /> -->
-## Test Fix: migrateProjectSettings multi-value assertion updated (2026-04-02)
+## Fix: Project settings not migrated — multi-value encoding bug (Issue #95) (2026-04-02)
 
-Updated the unit test for `migrateProjectSettings` to reflect the corrected behavior where multi-value settings pass the array directly instead of joining values into a comma-separated string.
+Settings like `sonar.exclusions` were silently not migrating to SonarCloud. Two bugs combined to cause this:
 
-- **Changed:** `test/sonarcloud/migrators/migrators.test.js` — renamed test `'migrateProjectSettings joins values array'` to `'migrateProjectSettings passes values array directly for multi-value settings'`; changed assertion from `t.is(..., '**/*.test.js,**/*.spec.js')` to `t.deepEqual(..., ['**/*.test.js', '**/*.spec.js'])`
+**Bug 1 — Wrong HTTP parameter for multi-value settings.** The SonarCloud `/api/settings/set` endpoint requires `values=x&values=y` (repeated params) for array-type settings, but the code was comma-joining the array and sending it as a single `value=x,y` param. The API rejected these calls with a 400 error.
+
+**Bug 2 — Silent error suppression.** Failures were caught and logged only at `debug` level, so they were invisible in normal (non-verbose) runs. Upgraded to `logger.warn`.
+
+### Changes (all 4 pipelines)
+
+**API helpers** — `setProjectSetting` now accepts a string or array. When an array is passed, `URLSearchParams` is used to build repeated `values` query params:
+- `src/pipelines/sq-2025/sonarcloud/api/project-config/helpers/set-project-setting.js`
+- `src/pipelines/sq-10.4/sonarcloud/api/project-config/helpers/project-settings-api.js`
+- `src/pipelines/sq-9.9/sonarcloud/api/project-config/helpers/project-settings.js`
+- `src/pipelines/sq-10.0/sonarcloud/api/project-config/helpers/set-project-setting.js`
+
+**Migrators** — `setting.values` array is now passed directly (not joined); catch block upgraded to `logger.warn`:
+- `src/pipelines/sq-2025/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+- `src/pipelines/sq-10.4/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+- `src/pipelines/sq-9.9/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+- `src/pipelines/sq-10.0/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js`
+
+**Tests** — Updated assertion in `test/sonarcloud/migrators/migrators.test.js`: multi-value test now checks that the array is passed directly (not joined string).
 
 ---
 

@@ -22,7 +22,8 @@ const API_RESULT_LIMIT = 10000;
  * @returns {Promise<Array>} All results, deduplicated
  */
 export async function fetchWithSlicing(
-  probeTotalFn, getPaginatedFn, endpoint, params, dataKey
+  probeTotalFn, getPaginatedFn, endpoint, params, dataKey,
+  { concurrency } = {}
 ) {
   const total = await probeTotalFn(endpoint, params, dataKey);
 
@@ -35,6 +36,7 @@ export async function fetchWithSlicing(
   );
 
   return await sliceByCreationDate(
-    probeTotalFn, getPaginatedFn, endpoint, params, dataKey
+    probeTotalFn, getPaginatedFn, endpoint, params, dataKey,
+    { concurrency }
   );
 }
