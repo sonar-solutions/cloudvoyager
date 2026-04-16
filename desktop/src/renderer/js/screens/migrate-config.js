@@ -107,6 +107,10 @@ window.MigrateConfigScreen = {
     this.attachOrgHandlers(container);
     this._enterpriseValidated = false;
 
+    container.querySelector('#enterprise-key')?.addEventListener('input', () => {
+      this._enterpriseValidated = false;
+    });
+
     container.querySelector('#btn-validate-enterprise').addEventListener('click', async () => {
       await this._validateEnterpriseKey(container);
     });
