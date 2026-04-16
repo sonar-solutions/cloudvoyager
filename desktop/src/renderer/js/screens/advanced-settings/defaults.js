@@ -3,6 +3,9 @@
  */
 window.ADVANCED_DEFAULTS = {
 
+  // -------- SonarQube Cloud --------
+  sqcCustomUrl: '',
+
   // -------- Request Throttling --------
   rateLimit: {
     maxRetries: 3,
