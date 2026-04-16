@@ -5,8 +5,16 @@ import { migratePortfolios } from '../../../sonarcloud/migrators/portfolios.js';
 
 export async function migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx) {
   const enterpriseConfig = ctx.enterpriseConfig;
-  if (!enterpriseConfig?.key) { logger.info('No enterprise key configured — skipping portfolio migration'); return; }
   const allPortfolios = extractedData.portfolios || [];
+  if (!enterpriseConfig?.key) {
+    if (allPortfolios.length > 0) {
+      results.portfoliosSkipped = (results.portfoliosSkipped || 0) + allPortfolios.length;
+      logger.warn(`No enterprise key configured — skipping ${allPortfolios.length} portfolio(s)`);
+    } else {
+      logger.info('No enterprise key configured — skipping portfolio migration');
+    }
+    return;
+  }
   if (allPortfolios.length === 0) { logger.info('No portfolios to migrate'); return; }
   if (ctx.onlyComponents?.includes('portfolios')) {
     logger.warn('Note: --only portfolios requires that projects are already migrated to SonarCloud.');

@@ -5,12 +5,16 @@ import logger from '../../../../../shared/utils/logger.js';
 
 export async function migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx) {
   const enterpriseConfig = ctx.enterpriseConfig;
+  const allPortfolios = extractedData.portfolios || [];
   if (!enterpriseConfig?.key) {
-    logger.info('No enterprise key configured — skipping portfolio migration');
+    if (allPortfolios.length > 0) {
+      results.portfoliosSkipped = (results.portfoliosSkipped || 0) + allPortfolios.length;
+      logger.warn(`No enterprise key configured — skipping ${allPortfolios.length} portfolio(s)`);
+    } else {
+      logger.info('No enterprise key configured — skipping portfolio migration');
+    }
     return;
   }
-
-  const allPortfolios = extractedData.portfolios || [];
   if (allPortfolios.length === 0) { logger.info('No portfolios to migrate'); return; }
 
   if (ctx.onlyComponents?.includes('portfolios')) {

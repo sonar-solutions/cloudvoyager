@@ -7,8 +7,16 @@ import logger from '../../../../../shared/utils/logger.js';
  * Migrate portfolios at the enterprise level (after all orgs are migrated).
  */
 export async function migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx) {
-  if (!ctx.enterpriseConfig?.key) { logger.info('No enterprise key — skipping portfolio migration'); return; }
   const allPortfolios = extractedData.portfolios || [];
+  if (!ctx.enterpriseConfig?.key) {
+    if (allPortfolios.length > 0) {
+      results.portfoliosSkipped = (results.portfoliosSkipped || 0) + allPortfolios.length;
+      logger.warn(`No enterprise key configured — skipping ${allPortfolios.length} portfolio(s)`);
+    } else {
+      logger.info('No enterprise key — skipping portfolio migration');
+    }
+    return;
+  }
   if (allPortfolios.length === 0) { logger.info('No portfolios to migrate'); return; }
 
   if (ctx.onlyComponents?.includes('portfolios')) {

@@ -12,6 +12,7 @@ export function createEmptyResults() {
     qualityProfiles: 0,
     groups: 0,
     portfolios: 0,
+    portfoliosSkipped: 0,
     issueSyncStats: { matched: 0, transitioned: 0, assigned: 0, assignmentFailed: 0, failedAssignments: [] },
     hotspotSyncStats: { matched: 0, statusChanged: 0 },
     projectKeyWarnings: [],
