@@ -1133,10 +1133,10 @@ test('migrateProjectSettings sets settings with value field', async t => {
   await migrateProjectSettings('proj', settings, client);
 
   t.is(client.setProjectSetting.callCount, 1);
-  t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.coverage.exclusions', '**/*.test.js', 'proj']);
+  t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.coverage.exclusions', { value: '**/*.test.js' }, 'proj']);
 });
 
-test('migrateProjectSettings joins values array', async t => {
+test('migrateProjectSettings passes values array without joining', async t => {
   const client = mockClient();
   const settings = [
     { key: 'sonar.exclusions', values: ['**/*.test.js', '**/*.spec.js'] }
@@ -1145,19 +1145,99 @@ test('migrateProjectSettings joins values array', async t => {
   await migrateProjectSettings('proj', settings, client);
 
   t.is(client.setProjectSetting.callCount, 1);
-  t.is(client.setProjectSetting.firstCall.args[1], '**/*.test.js,**/*.spec.js');
+  t.deepEqual(client.setProjectSetting.firstCall.args, [
+    'sonar.exclusions',
+    { values: ['**/*.test.js', '**/*.spec.js'] },
+    'proj'
+  ]);
+});
+
+test('migrateProjectSettings passes fieldValues to API', async t => {
+  const client = mockClient();
+  const settings = [
+    { key: 'sonar.issue.enforce.multicriteria', fieldValues: [{ resourceKey: '**/*.js', ruleKey: 'squid:S001' }] }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 1);
+  t.deepEqual(client.setProjectSetting.firstCall.args, [
+    'sonar.issue.enforce.multicriteria',
+    { fieldValues: [{ resourceKey: '**/*.js', ruleKey: 'squid:S001' }] },
+    'proj'
+  ]);
+});
+
+test('migrateProjectSettings prefers value over values when both present', async t => {
+  const client = mockClient();
+  const settings = [
+    { key: 'sonar.mixed', value: 'scalar', values: ['a', 'b'] }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 1);
+  t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.mixed', { value: 'scalar' }, 'proj']);
+});
+
+test('migrateProjectSettings handles single-element values array', async t => {
+  const client = mockClient();
+  const settings = [
+    { key: 'sonar.exclusions', values: ['**/*.test.js'] }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 1);
+  t.deepEqual(client.setProjectSetting.firstCall.args, [
+    'sonar.exclusions',
+    { values: ['**/*.test.js'] },
+    'proj'
+  ]);
+});
+
+test('migrateProjectSettings handles boolean string values', async t => {
+  const client = mockClient();
+  const settings = [
+    { key: 'sonar.scm.disabled', value: 'false' },
+    { key: 'sonar.cpd.enabled', value: 'true' }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 2);
+  t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.scm.disabled', { value: 'false' }, 'proj']);
+  t.deepEqual(client.setProjectSetting.secondCall.args, ['sonar.cpd.enabled', { value: 'true' }, 'proj']);
 });
 
 test('migrateProjectSettings skips settings with no value', async t => {
   const client = mockClient();
   const settings = [
     { key: 'sonar.empty' },
-    { key: 'sonar.empty.values', values: [] }
+    { key: 'sonar.empty.values', values: [] },
+    { key: 'sonar.empty.fv', fieldValues: [] }
   ];
 
   await migrateProjectSettings('proj', settings, client);
 
   t.is(client.setProjectSetting.callCount, 0);
+});
+
+test('migrateProjectSettings continues after failure on one setting', async t => {
+  const client = mockClient({
+    setProjectSetting: sinon.stub()
+      .onFirstCall().rejects(new Error('fail'))
+      .onSecondCall().resolves({})
+  });
+  const settings = [
+    { key: 'sonar.bad', value: 'x' },
+    { key: 'sonar.good', value: 'y' }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 2);
+  t.deepEqual(client.setProjectSetting.secondCall.args, ['sonar.good', { value: 'y' }, 'proj']);
 });
 
 test('migrateProjectSettings handles setting failure gracefully', async t => {

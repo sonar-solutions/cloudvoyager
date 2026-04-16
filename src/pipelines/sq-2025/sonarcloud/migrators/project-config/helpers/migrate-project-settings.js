@@ -8,13 +8,18 @@ export async function migrateProjectSettings(projectKey, settings, client) {
 
   for (const setting of settings) {
     try {
-      const value = setting.value || (setting.values ? setting.values.join(',') : '');
-      if (value) {
-        await client.setProjectSetting(setting.key, value, projectKey);
-        logger.debug(`Set setting ${setting.key} on ${projectKey}`);
+      if (setting.value) {
+        await client.setProjectSetting(setting.key, { value: setting.value }, projectKey);
+      } else if (setting.values?.length) {
+        await client.setProjectSetting(setting.key, { values: setting.values }, projectKey);
+      } else if (setting.fieldValues?.length) {
+        await client.setProjectSetting(setting.key, { fieldValues: setting.fieldValues }, projectKey);
+      } else {
+        continue;
       }
+      logger.debug(`Set setting ${setting.key} on ${projectKey}`);
     } catch (error) {
-      logger.debug(`Failed to set setting ${setting.key} on ${projectKey}: ${error.message}`);
+      logger.warn(`Failed to set setting ${setting.key} on ${projectKey}: ${error.message}`);
     }
   }
 }
