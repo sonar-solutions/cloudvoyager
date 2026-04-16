@@ -6,7 +6,6 @@ import logger from './logger.js';
  *
  * @param {Array} portfolios - Portfolios extracted from the source SonarQube.
  * @param {object} results   - Mutable migration results object.
- * @returns {boolean} true if the enterprise key is missing (caller should return early).
  */
 export function handleMissingEnterpriseKey(portfolios, results) {
   if (portfolios.length > 0) {
