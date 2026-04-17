@@ -2196,6 +2196,130 @@ test('ProtobufEncoder.encodeAll: decodes multiple concatenated delimited issues'
 // this using esmock to make those dynamic imports resolve to modules with a
 // default export containing the proto text content.
 
+// ===========================================================================
+// GitHub Actions language migration (issue #88)
+// ===========================================================================
+
+import { isExternalIssue } from '../../src/pipelines/sq-10.4/protobuf/build-external-issues/helpers/is-external-issue.js';
+import { FALLBACK_SONARCLOUD_REPOS } from '../../src/shared/utils/fallback-repos/index.js';
+
+test('FALLBACK_SONARCLOUD_REPOS includes githubactions', t => {
+  t.true(FALLBACK_SONARCLOUD_REPOS.has('githubactions'));
+});
+
+test('isExternalIssue: githubactions rule is NOT external when using fallback repos', t => {
+  const issue = { rule: 'githubactions:S7631' };
+  const emptyRepos = new Set();
+
+  t.false(isExternalIssue(issue, emptyRepos));
+});
+
+test('isExternalIssue: githubactions rule is NOT external when sonarCloudRepos is null', t => {
+  const issue = { rule: 'githubactions:S7631' };
+
+  t.false(isExternalIssue(issue, null));
+});
+
+test('isExternalIssue: githubactions rule is NOT external when live repos include it', t => {
+  const issue = { rule: 'githubactions:S7631' };
+  const liveRepos = new Set(['javascript', 'githubactions']);
+
+  t.false(isExternalIssue(issue, liveRepos));
+});
+
+test('isExternalIssue: githubactions rule IS external when live repos omit it', t => {
+  const issue = { rule: 'githubactions:S7631' };
+  const liveRepos = new Set(['javascript']);
+
+  t.true(isExternalIssue(issue, liveRepos));
+});
+
+test('buildIssues: includes GitHub Actions issues (fallback repos)', t => {
+  const data = createExtractedData({
+    issues: [
+      {
+        key: 'ISSUE-GHA',
+        rule: 'githubactions:S7631',
+        component: 'my-project:src/index.js',
+        message: 'GitHub Actions issue',
+        severity: 'MAJOR',
+        textRange: { startLine: 1, endLine: 1, startOffset: 0, endOffset: 10 }
+      }
+    ]
+  });
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues.length, 1);
+  t.is(issues[0].ruleRepository, 'githubactions');
+  t.is(issues[0].ruleKey, 'S7631');
+  t.is(issues[0].msg, 'GitHub Actions issue');
+});
+
+test('buildIssues: includes GitHub Actions hotspot converted to issue', t => {
+  const data = createExtractedData({
+    issues: [
+      {
+        key: 'HOTSPOT-GHA',
+        rule: 'githubactions:S1234',
+        component: 'my-project:src/index.js',
+        message: 'GHA security hotspot',
+        severity: 'CRITICAL',
+        type: 'SECURITY_HOTSPOT',
+        textRange: { startLine: 5, endLine: 5, startOffset: 0, endOffset: 20 }
+      }
+    ]
+  });
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues.length, 1);
+  t.is(issues[0].ruleRepository, 'githubactions');
+  t.is(issues[0].ruleKey, 'S1234');
+});
+
+test('buildIssues: includes GitHub Actions issues alongside other language issues', t => {
+  const data = createExtractedData({
+    issues: [
+      {
+        key: 'ISSUE-JS',
+        rule: 'javascript:S1234',
+        component: 'my-project:src/index.js',
+        message: 'JS issue',
+        severity: 'MAJOR',
+        textRange: { startLine: 1, endLine: 1, startOffset: 0, endOffset: 10 }
+      },
+      {
+        key: 'ISSUE-GHA',
+        rule: 'githubactions:S7631',
+        component: 'my-project:src/index.js',
+        message: 'GHA issue',
+        severity: 'MINOR',
+        textRange: { startLine: 2, endLine: 2, startOffset: 0, endOffset: 10 }
+      }
+    ]
+  });
+  const builder = createProtobufBuilder(data, createSonarCloudConfig(), createSonarCloudProfiles());
+  builder.buildComponents();
+
+  const issuesByComponent = builder.buildIssues();
+  const indexJsRef = builder.componentRefMap.get('my-project:src/index.js');
+  const issues = issuesByComponent.get(indexJsRef);
+
+  t.is(issues.length, 2);
+  const ghaIssue = issues.find(i => i.ruleRepository === 'githubactions');
+  t.truthy(ghaIssue);
+  t.is(ghaIssue.ruleKey, 'S7631');
+});
+
 import esmock from 'esmock';
 import { readFileSync } from 'node:fs';
 import { dirname, join as pathJoin } from 'node:path';
