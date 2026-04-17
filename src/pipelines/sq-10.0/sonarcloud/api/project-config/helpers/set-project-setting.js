@@ -1,8 +1,10 @@
 // -------- Set Project Setting --------
 
 import logger from '../../../../../../shared/utils/logger.js';
+import { buildSettingsParams } from '../../../../../../shared/utils/settings-params.js';
 
-export async function setProjectSetting(client, key, value, component) {
+export async function setProjectSetting(client, key, { value, values, fieldValues } = {}, component) {
   logger.debug(`Setting ${key} on project ${component}`);
-  await client.post('/api/settings/set', null, { params: { key, value, component } });
+  const params = buildSettingsParams({ key, component, value, values, fieldValues });
+  await client.post(`/api/settings/set?${params.toString()}`, null);
 }

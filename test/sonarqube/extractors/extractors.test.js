@@ -724,6 +724,22 @@ test('extractProjectSettings filters non-inherited settings', async t => {
   t.is(result[0].key, 'sonar.coverage.exclusions');
 });
 
+test('extractProjectSettings preserves values array and fieldValues', async t => {
+  const client = mockClient({
+    getProjectSettings: sinon.stub().resolves([
+      { key: 'sonar.exclusions', values: ['**/*.test.js', '**/*.spec.js'], inherited: false },
+      { key: 'sonar.issue.enforce.multicriteria', fieldValues: [{ resourceKey: '**/*.js', ruleKey: 'squid:S001' }], inherited: false },
+      { key: 'sonar.global', value: 'x', inherited: true }
+    ])
+  });
+  const result = await extractProjectSettings(client);
+  t.is(result.length, 2);
+  t.deepEqual(result[0].values, ['**/*.test.js', '**/*.spec.js']);
+  t.deepEqual(result[0].fieldValues, []);
+  t.deepEqual(result[1].fieldValues, [{ resourceKey: '**/*.js', ruleKey: 'squid:S001' }]);
+  t.deepEqual(result[1].values, []);
+});
+
 // === project-tags.js ===
 test('extractProjectTags returns tags', async t => {
   const client = mockClient({
