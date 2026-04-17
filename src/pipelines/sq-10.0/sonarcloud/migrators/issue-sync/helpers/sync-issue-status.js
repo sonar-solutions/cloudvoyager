@@ -3,11 +3,11 @@ import { extractTransitionsFromChangelog, getFallbackTransition } from './transi
 
 // -------- Sync Issue Status --------
 
-export async function syncIssueStatus(scIssue, sqIssue, client, sqClient) {
+export async function syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog) {
   if (scIssue.status === sqIssue.status) return false;
   if (sqClient) {
     try {
-      const changelog = await sqClient.getIssueChangelog(sqIssue.key);
+      const changelog = preloadedChangelog ?? await sqClient.getIssueChangelog(sqIssue.key);
       const transitions = extractTransitionsFromChangelog(changelog);
       if (transitions.length === 0) return await applyFallbackTransition(scIssue, sqIssue, client);
       let applied = false;

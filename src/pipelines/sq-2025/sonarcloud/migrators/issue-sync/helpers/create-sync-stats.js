@@ -3,6 +3,7 @@
 /** Create a fresh stats object for issue sync tracking. */
 export function createSyncStats() {
   return {
+    filtered: 0,
     matched: 0,
     transitioned: 0,
     assigned: 0,

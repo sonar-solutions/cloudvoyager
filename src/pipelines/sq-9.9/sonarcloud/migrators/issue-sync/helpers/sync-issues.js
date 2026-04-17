@@ -1,5 +1,7 @@
 import logger from '../../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../../shared/utils/concurrency.js';
+import { fetchSqChangelogs } from '../../../../../../shared/utils/issue-sync/fetch-sq-changelogs.js';
+import { hasManualChanges } from '../../../../../../shared/utils/issue-sync/has-manual-changes.js';
 import { matchIssues } from './match-issues.js';
 import { createEmptyStats } from './create-empty-stats.js';
 import { logSyncStats } from './log-sync-stats.js';
@@ -15,10 +17,22 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const userMappings = options.userMappings || null;
   const stats = createEmptyStats();
 
-  const scIssues = await client.searchIssues(projectKey);
-  logger.info(`Found ${scIssues.length} SC issues, matching against ${sqIssues.length} SQ issues`);
+  let issuesToSync = sqIssues;
+  const changelogMap = new Map();
 
-  const matchedPairs = matchIssues(sqIssues, scIssues);
+  if (sqClient) {
+    const fetched = await fetchSqChangelogs(sqIssues, sqClient, concurrency);
+    for (const [k, v] of fetched) changelogMap.set(k, v);
+    const before = sqIssues.length;
+    issuesToSync = sqIssues.filter(issue => hasManualChanges(issue, changelogMap.get(issue.key) ?? []));
+    stats.filtered = before - issuesToSync.length;
+    logger.info(`Pre-filtered ${stats.filtered} issues with no manual changes; ${issuesToSync.length} remaining`);
+  }
+
+  const scIssues = await client.searchIssues(projectKey);
+  logger.info(`Found ${scIssues.length} SC issues, matching against ${issuesToSync.length} SQ issues`);
+
+  const matchedPairs = matchIssues(issuesToSync, scIssues);
   stats.matched = matchedPairs.length;
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
 
@@ -28,7 +42,8 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     matchedPairs,
     async ({ sqIssue, scIssue }) => {
       try {
-        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
+        const preloadedChangelog = changelogMap.get(sqIssue.key);
+        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
         if (transitioned) stats.transitioned++;
         await syncIssueAssignment(scIssue, sqIssue, client, stats, userMappings);
         await syncIssueCommentsAndTags(scIssue, sqIssue, client, stats, sqClient);
