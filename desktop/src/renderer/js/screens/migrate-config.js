@@ -16,12 +16,14 @@ window.MigrateConfigScreen = {
     const stored = await window.cloudvoyager.config.loadKey('migrateConfig');
     this.config = stored || {
       sonarqube: { url: '', token: '' },
-      sonarcloud: { enterprise: { key: '' }, organizations: [] },
+      sonarcloud: { organizations: [] },
       transfer: { mode: 'incremental', batchSize: 100, syncAllBranches: true, excludeBranches: [] },
       migrate: { outputDir: './migration-output', skipIssueMetadataSync: false, skipHotspotMetadataSync: false, skipQualityProfileSync: false, dryRun: false },
       rateLimit: { maxRetries: 3, baseDelay: 1000, minRequestInterval: 0 },
       performance: { autoTune: false, maxConcurrency: 64, maxMemoryMB: 8192 }
     };
+    const advancedConfig = await window.cloudvoyager.config.loadKey('advancedConfig');
+    this.allowNoEnterpriseKey = advancedConfig?.allowNoEnterpriseKey || false;
   },
 
   async render(container) {
@@ -77,6 +79,11 @@ window.MigrateConfigScreen = {
     });
 
     const enterprise = this.config.sonarcloud.enterprise || { key: '' };
+    const isRequired = !this.allowNoEnterpriseKey;
+    const headerLabel = isRequired ? 'Enterprise' : 'Enterprise (optional)';
+    const hintText = isRequired
+      ? 'Your SonarCloud enterprise key. The key will be validated before proceeding.'
+      : 'Optional. Without an enterprise key, portfolios will not be migrated.';
 
     container.innerHTML = `
       <div class="page-header">
@@ -84,8 +91,10 @@ window.MigrateConfigScreen = {
         <p>Add the SonarCloud organizations you want to migrate your data into</p>
       </div>
       <div class="card">
-        <div class="card-header">Enterprise (optional)</div>
-        ${ConfigForm.textField('enterprise-key', 'Enterprise Key', enterprise.key, { placeholder: 'my-enterprise', hint: 'Required for portfolio migration. Leave blank if not using enterprise features.' })}
+        <div class="card-header">${headerLabel}</div>
+        ${ConfigForm.textField('enterprise-key', 'Enterprise Key', enterprise.key, { placeholder: 'my-enterprise', required: isRequired, hint: hintText })}
+        <div id="enterprise-validation-status" style="margin-top:8px"></div>
+        <button class="btn btn-secondary btn-sm" id="btn-validate-enterprise" style="margin-top:8px">Validate Enterprise Key</button>
       </div>
       <div id="org-list">${orgsHtml}</div>
       <button class="add-org-btn" id="add-org">+ Add Organization</button>
@@ -96,20 +105,71 @@ window.MigrateConfigScreen = {
     `;
 
     this.attachOrgHandlers(container);
+    this._enterpriseValidated = false;
+
+    container.querySelector('#enterprise-key')?.addEventListener('input', () => {
+      this._enterpriseValidated = false;
+    });
+
+    container.querySelector('#btn-validate-enterprise').addEventListener('click', async () => {
+      await this._validateEnterpriseKey(container);
+    });
+
     container.querySelector('#add-org').addEventListener('click', () => {
       this.readOrgs(container);
       this.config.sonarcloud.organizations.push({ key: '', token: '', url: 'https://sonarcloud.io' });
       this.renderStep(container, 1);
     });
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 0));
-    container.querySelector('#btn-next').addEventListener('click', () => {
+    container.querySelector('#btn-next').addEventListener('click', async () => {
       const orgResult = ConfigForm.validateOrgs(container);
       if (!orgResult.valid) return;
       this.readOrgs(container);
       const ek = container.querySelector('#enterprise-key')?.value.trim() || '';
-      this.config.sonarcloud.enterprise = { key: ek };
+
+      if (isRequired && !ek) return;
+
+      if (ek && !this._enterpriseValidated) {
+        const valid = await this._validateEnterpriseKey(container);
+        if (!valid) return;
+      }
+
+      if (ek) {
+        this.config.sonarcloud.enterprise = { key: ek };
+      } else {
+        delete this.config.sonarcloud.enterprise;
+      }
       this.saveAndNext(container);
     });
+  },
+
+  async _validateEnterpriseKey(container) {
+    const ek = container.querySelector('#enterprise-key')?.value.trim() || '';
+    const statusEl = container.querySelector('#enterprise-validation-status');
+    if (!ek) {
+      statusEl.innerHTML = '<span style="color:var(--warning)">Please enter an enterprise key to validate.</span>';
+      this._enterpriseValidated = false;
+      return false;
+    }
+
+    this.readOrgs(container);
+    const firstOrg = (this.config.sonarcloud.organizations || [])[0];
+    if (!firstOrg?.token) {
+      statusEl.innerHTML = '<span style="color:var(--warning)">Add at least one organization with a token first.</span>';
+      this._enterpriseValidated = false;
+      return false;
+    }
+
+    statusEl.innerHTML = '<span style="color:var(--text-secondary)">Validating...</span>';
+    const result = await window.cloudvoyager.enterprise.validate(ek, firstOrg.token, firstOrg.url || 'https://sonarcloud.io');
+    if (result.valid) {
+      statusEl.innerHTML = '<span style="color:var(--success)">Enterprise key validated successfully.</span>';
+      this._enterpriseValidated = true;
+      return true;
+    }
+    statusEl.innerHTML = `<span style="color:var(--error)">${result.error}</span>`;
+    this._enterpriseValidated = false;
+    return false;
   },
 
   renderOrgEntry(org, index) {
@@ -262,7 +322,9 @@ window.MigrateConfigScreen = {
           <span>${ConfigForm.icon('cloud')} SonarCloud Organizations (${orgs.length})</span>
           <button class="btn btn-sm btn-secondary" data-edit-step="1">Edit</button>
         </div>
-        ${enterprise.key ? ConfigForm.summaryTable([['Enterprise Key', enterprise.key]]) : ''}
+        ${enterprise.key
+          ? ConfigForm.summaryTable([['Enterprise Key', enterprise.key]])
+          : `<p style="font-size:13px;color:var(--warning);margin:8px 0">No enterprise key provided — portfolios will not be migrated.</p>`}
         ${ConfigForm.summaryTable(orgRows)}
       </div>
 

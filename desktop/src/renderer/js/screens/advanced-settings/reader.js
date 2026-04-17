@@ -36,7 +36,8 @@ window.AdvancedSettingsReader = {
         cacheMaxAgeDays: numVal('cp-maxage', d.checkpoint.cacheMaxAgeDays),
         strictResume: chk('cp-strict') || false
       },
-      stateFile: val('cp-statefile') || d.stateFile
+      stateFile: val('cp-statefile') || d.stateFile,
+      allowNoEnterpriseKey: chk('allow-no-enterprise-key') || false
     };
   }
 };

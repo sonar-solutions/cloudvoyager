@@ -1,5 +1,6 @@
 import { migratePortfolios } from '../../../sonarcloud/migrators/portfolios.js';
 import logger from '../../../../../shared/utils/logger.js';
+import { handleMissingEnterpriseKey } from '../../../../../shared/utils/portfolio-skip.js';
 
 // -------- Main Logic --------
 
@@ -7,8 +8,8 @@ import logger from '../../../../../shared/utils/logger.js';
  * Migrate portfolios at the enterprise level (after all orgs are migrated).
  */
 export async function migrateEnterprisePortfolios(extractedData, mergedProjectKeyMap, results, ctx) {
-  if (!ctx.enterpriseConfig?.key) { logger.info('No enterprise key — skipping portfolio migration'); return; }
   const allPortfolios = extractedData.portfolios || [];
+  if (!ctx.enterpriseConfig?.key) { handleMissingEnterpriseKey(allPortfolios, results); return; }
   if (allPortfolios.length === 0) { logger.info('No portfolios to migrate'); return; }
 
   if (ctx.onlyComponents?.includes('portfolios')) {

@@ -31,6 +31,10 @@ export function logMigrationSummary(results, outputDir) {
     for (const { projectKey, detail } of ncpSkipped) logger.warn(`  ${projectKey}: ${detail}`);
   }
 
+  if (results.portfoliosSkipped > 0) {
+    logger.warn(`Portfolios NOT migrated: ${results.portfoliosSkipped} portfolio(s) found in source but skipped — no enterprise key was provided`);
+  }
+
   logger.info(`Output: ${outputDir}`);
   logger.info('========================');
 }

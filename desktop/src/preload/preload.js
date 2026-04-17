@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('cloudvoyager', {
       return () => ipcRenderer.removeListener('cli:exit', handler);
     }
   },
+  enterprise: {
+    validate: (key, token, url) => ipcRenderer.invoke('enterprise:validate', key, token, url)
+  },
   dialog: {
     selectFolder: () => ipcRenderer.invoke('dialog:select-folder'),
     selectFile: () => ipcRenderer.invoke('dialog:select-file')

@@ -139,6 +139,30 @@ function registerIpcHandlers(getMainWindow) {
     }
   });
 
+  // Enterprise key validation
+  ipcMain.handle('enterprise:validate', async (_event, key, token, url) => {
+    try {
+      const baseUrl = (url || 'https://sonarcloud.io').replace(/\/+$/, '');
+      const response = await fetch(`${baseUrl}/api/v2/enterprises?enterpriseKey=${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const enterprises = data.enterprises || [];
+        if (enterprises.some(e => e.key === key)) {
+          return { valid: true };
+        }
+        return { valid: false, error: 'Enterprise key not found. Check the key and try again.' };
+      }
+      if (response.status === 401 || response.status === 403) {
+        return { valid: false, error: 'Authentication failed. Ensure your organization token has access to this enterprise.' };
+      }
+      return { valid: false, error: `Unexpected response (HTTP ${response.status})` };
+    } catch (err) {
+      return { valid: false, error: err.message || 'Network error while validating enterprise key' };
+    }
+  });
+
   // CLI handlers
   ipcMain.handle('cli:run', (_event, command, args, configType, resumeRunDir) => {
     const allConfig = loadAll();

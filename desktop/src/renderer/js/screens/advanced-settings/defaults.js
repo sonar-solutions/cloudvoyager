@@ -31,5 +31,8 @@ window.ADVANCED_DEFAULTS = {
     strictResume: false
   },
 
-  stateFile: './.cloudvoyager-state.json'
+  stateFile: './.cloudvoyager-state.json',
+
+  // -------- Migration Behavior --------
+  allowNoEnterpriseKey: false
 };

@@ -19,6 +19,7 @@ window.AdvancedSettingsScreen = {
         <p>Fine-tune performance, throttling, and progress recovery</p>
       </div>
 
+      ${this.renderMigrationBehaviorCard()}
       ${this.renderThrottlingCard()}
       ${this.renderPerformanceCard()}
       ${this.renderRecoveryCard()}
@@ -34,6 +35,15 @@ window.AdvancedSettingsScreen = {
 
     ConfigForm.attachHandlers(container);
     this.attachEventListeners(container);
+  },
+
+  renderMigrationBehaviorCard() {
+    return `
+      <div class="card">
+        <div class="card-header">Migration Behavior</div>
+        ${ConfigForm.checkbox('allow-no-enterprise-key', 'Allow migration without enterprise key', this.config.allowNoEnterpriseKey || false, { hint: 'When enabled, the enterprise key becomes optional. Portfolios will not be migrated without an enterprise key. Intended for Sonar internal testing or team/free plan migrations.' })}
+      </div>
+    `;
   },
 
   renderThrottlingCard() {
