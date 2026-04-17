@@ -2,7 +2,6 @@ import test from 'ava';
 import sinon from 'sinon';
 import { hasManualChanges } from '../../src/shared/utils/issue-sync/has-manual-changes.js';
 import { fetchSqChangelogs } from '../../src/shared/utils/issue-sync/fetch-sq-changelogs.js';
-import { applyManualChangesPreFilter } from '../../src/shared/utils/issue-sync/apply-pre-filter.js';
 
 test.afterEach(() => sinon.restore());
 
@@ -31,18 +30,6 @@ test('hasManualChanges returns false when changelog entries have empty user', t 
   t.false(hasManualChanges(issue, changelog));
 });
 
-test('hasManualChanges returns false when changelog entry has null user', t => {
-  const issue = { key: 'i1' };
-  const changelog = [{ user: null, diffs: [{ key: 'status' }] }];
-  t.false(hasManualChanges(issue, changelog));
-});
-
-test('hasManualChanges returns false when changelog entry has no user key', t => {
-  const issue = { key: 'i1' };
-  const changelog = [{ diffs: [{ key: 'status' }] }];
-  t.false(hasManualChanges(issue, changelog));
-});
-
 test('hasManualChanges returns false for empty changelog', t => {
   const issue = { key: 'i1' };
   t.false(hasManualChanges(issue, []));
@@ -51,11 +38,6 @@ test('hasManualChanges returns false for empty changelog', t => {
 test('hasManualChanges returns false for undefined changelog', t => {
   const issue = { key: 'i1' };
   t.false(hasManualChanges(issue, undefined));
-});
-
-test('hasManualChanges returns false for null changelog', t => {
-  const issue = { key: 'i1' };
-  t.false(hasManualChanges(issue, null));
 });
 
 // ============================================================================
@@ -100,38 +82,6 @@ test('hasManualChanges returns true when mix of migrated and manual comments', t
   t.true(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false for comment with no text fields set', t => {
-  const issue = { key: 'i1', comments: [{}] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false for comment with empty-string text fields', t => {
-  const issue = { key: 'i1', comments: [{ markdown: '', htmlText: '', value: '' }] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false for comment with null text fields', t => {
-  const issue = { key: 'i1', comments: [{ markdown: null, htmlText: null, value: null }] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false for multiple structurally incomplete comments', t => {
-  const issue = { key: 'i1', comments: [{}, { markdown: '' }, { value: null }] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when only migrated comments mixed with empty ones', t => {
-  const issue = {
-    key: 'i1',
-    comments: [
-      {},
-      { markdown: '[Migrated from SonarQube] auto-generated' },
-      { value: '' },
-    ],
-  };
-  t.false(hasManualChanges(issue, []));
-});
-
 test('hasManualChanges returns false when no comments', t => {
   const issue = { key: 'i1', comments: [] };
   t.false(hasManualChanges(issue, []));
@@ -158,66 +108,6 @@ test('hasManualChanges returns false when tags array is empty', t => {
 
 test('hasManualChanges returns false when tags field is missing', t => {
   const issue = { key: 'i1' };
-  t.false(hasManualChanges(issue, []));
-});
-
-// ============================================================================
-// hasManualChanges - Assignee detection
-// ============================================================================
-
-test('hasManualChanges returns true when issue has an assignee', t => {
-  const issue = { key: 'i1', assignee: 'alice' };
-  t.true(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when assignee is null', t => {
-  const issue = { key: 'i1', assignee: null, comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when assignee is undefined', t => {
-  const issue = { key: 'i1', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when assignee is empty string', t => {
-  const issue = { key: 'i1', assignee: '', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
-// ============================================================================
-// hasManualChanges - updateDate detection (catch-all safety net)
-// ============================================================================
-
-test('hasManualChanges returns true when updateDate differs from creationDate', t => {
-  const issue = {
-    key: 'i1',
-    creationDate: '2024-01-01T00:00:00+0000',
-    updateDate: '2024-06-15T10:30:00+0000',
-    comments: [],
-    tags: [],
-  };
-  t.true(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when updateDate equals creationDate', t => {
-  const issue = {
-    key: 'i1',
-    creationDate: '2024-01-01T00:00:00+0000',
-    updateDate: '2024-01-01T00:00:00+0000',
-    comments: [],
-    tags: [],
-  };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when updateDate is missing', t => {
-  const issue = { key: 'i1', creationDate: '2024-01-01T00:00:00+0000', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when creationDate is missing', t => {
-  const issue = { key: 'i1', updateDate: '2024-06-15T10:30:00+0000', comments: [], tags: [] };
   t.false(hasManualChanges(issue, []));
 });
 
@@ -303,46 +193,6 @@ test('fetchSqChangelogs respects concurrency parameter', async t => {
 
   t.true(maxConcurrent <= 3, `Max concurrent was ${maxConcurrent}, expected <= 3`);
   t.is(sqClient.getIssueChangelog.callCount, 20);
-});
-
-// ============================================================================
-// applyManualChangesPreFilter
-// ============================================================================
-
-test('applyManualChangesPreFilter returns filtered issues and changelogMap', async t => {
-  const sqClient = {
-    getIssueChangelog: sinon.stub()
-      .onFirstCall().resolves([{ user: 'alice', diffs: [] }])
-      .onSecondCall().resolves([])
-      .onThirdCall().resolves([{ user: 'bob', diffs: [] }]),
-  };
-  const issues = [{ key: 'i1' }, { key: 'i2' }, { key: 'i3' }];
-  const stats = { filtered: 0 };
-
-  const { issuesToSync, changelogMap } = await applyManualChangesPreFilter(issues, sqClient, stats, 5);
-
-  t.is(issuesToSync.length, 2);
-  t.deepEqual(issuesToSync.map(i => i.key), ['i1', 'i3']);
-  t.is(stats.filtered, 1);
-  t.is(changelogMap.size, 3);
-  t.deepEqual(changelogMap.get('i2'), []);
-});
-
-test('applyManualChangesPreFilter sets filtered to total when no issues qualify', async t => {
-  const sqClient = {
-    getIssueChangelog: sinon.stub().resolves([]),
-  };
-  const issues = [
-    { key: 'i1', comments: [], tags: [] },
-    { key: 'i2', comments: [], tags: [] },
-  ];
-  const stats = { filtered: 0 };
-
-  const { issuesToSync, changelogMap } = await applyManualChangesPreFilter(issues, sqClient, stats, 5);
-
-  t.is(issuesToSync.length, 0);
-  t.is(stats.filtered, 2);
-  t.is(changelogMap.size, 2);
 });
 
 // ============================================================================

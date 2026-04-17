@@ -1,6 +1,7 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
-import { applyManualChangesPreFilter } from '../../../../../shared/utils/issue-sync/apply-pre-filter.js';
+import { fetchSqChangelogs } from '../../../../../shared/utils/issue-sync/fetch-sq-changelogs.js';
+import { hasManualChanges } from '../../../../../shared/utils/issue-sync/has-manual-changes.js';
 import { matchIssues } from './helpers/match-issues.js';
 import { syncOneIssue } from './helpers/sync-one-issue.js';
 import { createSyncStats } from './helpers/create-sync-stats.js';
@@ -23,11 +24,15 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const stats = createSyncStats();
 
   let issuesToSync = sqIssues;
-  let changelogMap = new Map();
+  const changelogMap = new Map();
 
   if (sqClient) {
-    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(sqIssues, sqClient, stats, concurrency));
-    if (issuesToSync.length === 0) { logSyncSummary(stats); return stats; }
+    const fetched = await fetchSqChangelogs(sqIssues, sqClient, concurrency);
+    for (const [k, v] of fetched) changelogMap.set(k, v);
+    const before = sqIssues.length;
+    issuesToSync = sqIssues.filter(issue => hasManualChanges(issue, changelogMap.get(issue.key) ?? []));
+    stats.filtered = before - issuesToSync.length;
+    logger.info(`Pre-filtered ${stats.filtered} issues with no manual changes; ${issuesToSync.length} remaining`);
   }
 
   const scIssues = await client.searchIssues(projectKey);
