@@ -1,7 +1,6 @@
 // -------- Transfer Command --------
 
 import logger, { enableFileLogging } from '../../shared/utils/logger.js';
-import { GracefulShutdownError } from '../../shared/utils/errors.js';
 import { ShutdownCoordinator } from '../../shared/utils/shutdown.js';
 import { handleTransferAction } from './helpers/handle-transfer-action.js';
 import { handleCommandError } from './helpers/handle-command-error.js';
