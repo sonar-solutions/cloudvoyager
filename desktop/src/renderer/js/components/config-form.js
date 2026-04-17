@@ -284,6 +284,15 @@ window.ConfigForm = {
   },
 
   /**
+   * Resolve a SonarQube Cloud instance radio value to a URL.
+   * A non-empty customUrl (from Advanced Settings) always takes precedence.
+   */
+  instanceToUrl(instance, customUrl) {
+    if (customUrl) return customUrl;
+    return instance === 'us' ? 'https://sonarqube.us' : 'https://sonarcloud.io';
+  },
+
+  /**
    * Attach event listeners for interactive form elements
    */
   attachHandlers(container) {
