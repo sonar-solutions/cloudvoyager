@@ -121,10 +121,11 @@ window.SyncMetadataConfigScreen = {
     const orgs = [];
     container.querySelectorAll('.org-entry').forEach((el) => {
       const i = el.dataset.orgIndex;
+      const instance = container.querySelector(`input[name="org-instance-${i}"]:checked`)?.value || 'eu';
       orgs.push({
         key: container.querySelector(`#org-key-${i}`)?.value.trim() || '',
         token: container.querySelector(`#org-token-${i}`)?.value.trim() || '',
-        url: container.querySelector(`#org-url-${i}`)?.value.trim() || 'https://sonarcloud.io'
+        url: instance === 'us' ? 'https://sonarqube.us' : 'https://sonarcloud.io'
       });
     });
     this.config.sonarcloud.organizations = orgs;

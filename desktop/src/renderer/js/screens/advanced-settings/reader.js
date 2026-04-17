@@ -14,6 +14,7 @@ window.AdvancedSettingsReader = {
     const d = window.ADVANCED_DEFAULTS;
 
     return {
+      sqcCustomUrl: (val('adv-sqc-url') || '').trim(),
       rateLimit: {
         maxRetries: numVal('rl-retries', d.rateLimit.maxRetries),
         baseDelay: numVal('rl-delay', d.rateLimit.baseDelay),

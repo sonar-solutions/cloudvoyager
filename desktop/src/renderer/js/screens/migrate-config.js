@@ -173,6 +173,7 @@ window.MigrateConfigScreen = {
   },
 
   renderOrgEntry(org, index) {
+    const instance = org.url === 'https://sonarqube.us' ? 'us' : 'eu';
     return `
       <div class="org-entry" data-org-index="${index}">
         <div class="org-entry-header">
@@ -183,7 +184,10 @@ window.MigrateConfigScreen = {
           ${ConfigForm.textField(`org-key-${index}`, 'Organization Key', org.key, { placeholder: 'my-org', required: true, hint: 'Your organization identifier in SonarCloud' })}
           ${ConfigForm.textField(`org-token-${index}`, 'Token', org.token, { type: 'password', required: true, hint: 'Authentication token for this organization' })}
         </div>
-        ${ConfigForm.textField(`org-url-${index}`, 'SonarCloud Address (URL)', org.url || 'https://sonarcloud.io', { hint: 'Leave as default unless you are using a staging or custom environment' })}
+        ${ConfigForm.radioGroup(`org-instance-${index}`, 'SonarQube Cloud Instance', [
+          { value: 'eu', label: 'EU (sonarcloud.io)' },
+          { value: 'us', label: 'US (sonarqube.us)' }
+        ], instance)}
       </div>
     `;
   },
@@ -204,10 +208,11 @@ window.MigrateConfigScreen = {
     const orgs = [];
     container.querySelectorAll('.org-entry').forEach((el) => {
       const i = el.dataset.orgIndex;
+      const instance = container.querySelector(`input[name="org-instance-${i}"]:checked`)?.value || 'eu';
       orgs.push({
         key: container.querySelector(`#org-key-${i}`)?.value.trim() || '',
         token: container.querySelector(`#org-token-${i}`)?.value.trim() || '',
-        url: container.querySelector(`#org-url-${i}`)?.value.trim() || 'https://sonarcloud.io'
+        url: instance === 'us' ? 'https://sonarqube.us' : 'https://sonarcloud.io'
       });
     });
     this.config.sonarcloud.organizations = orgs;

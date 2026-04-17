@@ -71,13 +71,17 @@ window.TransferConfigScreen = {
 
   renderSonarCloudStep(container) {
     const sc = this.config.sonarcloud;
+    const instance = sc.url === 'https://sonarqube.us' ? 'us' : 'eu';
     container.innerHTML = `
       <div class="page-header">
         <h2>${ConfigForm.icon('cloud')} SonarCloud Connection</h2>
         <p>Connect to your SonarCloud organization</p>
       </div>
       <div class="card">
-        ${ConfigForm.textField('sc-url', 'SonarCloud Address (URL)', sc.url, { placeholder: 'https://sonarcloud.io', hint: 'Leave as default unless you are using a staging or custom environment' })}
+        ${ConfigForm.radioGroup('sc-instance', 'SonarQube Cloud Instance', [
+          { value: 'eu', label: 'EU (sonarcloud.io)' },
+          { value: 'us', label: 'US (sonarqube.us)' }
+        ], instance)}
         ${ConfigForm.textField('sc-token', 'Authentication Token', sc.token, { type: 'password', placeholder: 'Token', required: true, hint: 'Generate this in SonarCloud under My Account > Security' })}
         ${ConfigForm.textField('sc-org', 'Organization Key', sc.organization, { placeholder: 'my-org', required: true, hint: 'Your organization identifier in SonarCloud' })}
         ${ConfigForm.textField('sc-project', 'Project Key', sc.projectKey, { placeholder: 'my-org_my-project', required: true, hint: 'The destination project key in SonarCloud' })}
@@ -89,10 +93,13 @@ window.TransferConfigScreen = {
     `;
     ConfigForm.attachHandlers(container);
     container.querySelector('#btn-back').addEventListener('click', () => this.renderStep(container, 0));
-    container.querySelector('#btn-next').addEventListener('click', () => {
+    container.querySelector('#btn-next').addEventListener('click', async () => {
       const result = ConfigForm.validate(container);
       if (!result.valid) return;
-      this.config.sonarcloud.url = container.querySelector('#sc-url').value.trim();
+      const selectedInstance = container.querySelector('input[name="sc-instance"]:checked')?.value || 'eu';
+      const adv = await window.cloudvoyager.config.loadKey('advancedConfig');
+      const customUrl = adv?.sqcCustomUrl?.trim();
+      this.config.sonarcloud.url = customUrl || (selectedInstance === 'us' ? 'https://sonarqube.us' : 'https://sonarcloud.io');
       this.config.sonarcloud.token = container.querySelector('#sc-token').value.trim();
       this.config.sonarcloud.organization = container.querySelector('#sc-org').value.trim();
       this.config.sonarcloud.projectKey = container.querySelector('#sc-project').value.trim();
