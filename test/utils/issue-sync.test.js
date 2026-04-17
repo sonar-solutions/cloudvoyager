@@ -112,6 +112,61 @@ test('hasManualChanges returns false when tags field is missing', t => {
 });
 
 // ============================================================================
+// hasManualChanges - Assignee detection
+// ============================================================================
+
+test('hasManualChanges returns true when issue has an assignee', t => {
+  const issue = { key: 'i1', assignee: 'alice' };
+  t.true(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges returns false when assignee is null', t => {
+  const issue = { key: 'i1', assignee: null, comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges returns false when assignee is undefined', t => {
+  const issue = { key: 'i1', comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+// ============================================================================
+// hasManualChanges - updateDate detection (catch-all safety net)
+// ============================================================================
+
+test('hasManualChanges returns true when updateDate differs from creationDate', t => {
+  const issue = {
+    key: 'i1',
+    creationDate: '2024-01-01T00:00:00+0000',
+    updateDate: '2024-06-15T10:30:00+0000',
+    comments: [],
+    tags: [],
+  };
+  t.true(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges returns false when updateDate equals creationDate', t => {
+  const issue = {
+    key: 'i1',
+    creationDate: '2024-01-01T00:00:00+0000',
+    updateDate: '2024-01-01T00:00:00+0000',
+    comments: [],
+    tags: [],
+  };
+  t.false(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges returns false when updateDate is missing', t => {
+  const issue = { key: 'i1', creationDate: '2024-01-01T00:00:00+0000', comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges returns false when creationDate is missing', t => {
+  const issue = { key: 'i1', updateDate: '2024-06-15T10:30:00+0000', comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+// ============================================================================
 // hasManualChanges - Combined scenarios
 // ============================================================================
 

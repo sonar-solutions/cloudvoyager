@@ -29,6 +29,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     issuesToSync = sqIssues.filter(issue => hasManualChanges(issue, changelogMap.get(issue.key) ?? []));
     stats.filtered = before - issuesToSync.length;
     logger.info(`Pre-filtered ${stats.filtered} issues with no manual changes; ${issuesToSync.length} remaining`);
+    if (issuesToSync.length === 0) { logSyncSummary(stats); return stats; }
   }
 
   const scIssues = await client.searchIssues(projectKey);
