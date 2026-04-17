@@ -42,6 +42,7 @@ window.AdvancedSettingsScreen = {
       <div class="card">
         <div class="card-header">SonarQube Cloud</div>
         ${ConfigForm.textField('adv-sqc-url', 'Custom SonarQube Cloud URL', this.config.sqcCustomUrl || '', { placeholder: 'https://sonarcloud.io', hint: 'Override the EU/US instance selection with a custom URL, e.g. for staging environments. Leave blank to use the standard EU/US selection.' })}
+        ${ConfigForm.checkbox('allow-no-enterprise-key', 'Allow migration without enterprise key', this.config.allowNoEnterpriseKey || false, { hint: 'When enabled, the enterprise key becomes optional. Portfolios will not be migrated without an enterprise key. Intended for team/free plan migrations.' })}
       </div>
     `;
   },

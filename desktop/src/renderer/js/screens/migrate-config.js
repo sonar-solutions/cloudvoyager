@@ -24,6 +24,7 @@ window.MigrateConfigScreen = {
     };
     const advancedConfig = await window.cloudvoyager.config.loadKey('advancedConfig');
     this.allowNoEnterpriseKey = advancedConfig?.allowNoEnterpriseKey || false;
+    this.sqcCustomUrl = advancedConfig?.sqcCustomUrl?.trim() || '';
   },
 
   async render(container) {
@@ -212,7 +213,7 @@ window.MigrateConfigScreen = {
       orgs.push({
         key: container.querySelector(`#org-key-${i}`)?.value.trim() || '',
         token: container.querySelector(`#org-token-${i}`)?.value.trim() || '',
-        url: instance === 'us' ? 'https://sonarqube.us' : 'https://sonarcloud.io'
+        url: ConfigForm.instanceToUrl(instance, this.sqcCustomUrl)
       });
     });
     this.config.sonarcloud.organizations = orgs;
