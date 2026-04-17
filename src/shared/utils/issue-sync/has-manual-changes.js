@@ -32,7 +32,7 @@ function hasManualComments(issue) {
   const comments = issue.comments || [];
   return comments.some(c => {
     const text = c.markdown || c.htmlText || c.value || '';
-    return !text.startsWith(MIGRATED_COMMENT_PREFIX);
+    return text.length > 0 && !text.startsWith(MIGRATED_COMMENT_PREFIX);
   });
 }
 
