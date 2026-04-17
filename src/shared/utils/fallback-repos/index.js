@@ -26,8 +26,7 @@ export const FALLBACK_SONARCLOUD_REPOS = new Set([
 
   // -------- IaC / config analyzers --------
   'docker', 'kubernetes', 'terraform',
-  // 'cloudformation', 'azureresourcemanager', 'githubactions',
-  'cloudformation', 'azureresourcemanager',
+  'cloudformation', 'azureresourcemanager', 'githubactions',
 
   // -------- Misc built-in repos --------
   'secrets', 'text', 'vb',
