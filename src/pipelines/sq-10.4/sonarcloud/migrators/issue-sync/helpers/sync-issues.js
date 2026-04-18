@@ -4,6 +4,7 @@ import { createSyncStats } from './create-sync-stats.js';
 import { logSyncStats } from './log-sync-stats.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../../shared/utils/concurrency.js';
 import { applyManualChangesPreFilter } from '../../../../../../shared/utils/issue-sync/apply-pre-filter.js';
+import { waitForScIndexing } from '../../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
 import logger from '../../../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
@@ -26,7 +27,14 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     if (issuesToSync.length === 0) { logSyncStats(stats); return stats; }
   }
 
-  const scIssues = await client.searchIssues(projectKey);
+  let scIssues = await client.searchIssues(projectKey);
+  if (scIssues.length === 0 && issuesToSync.length > 0) {
+    scIssues = await waitForScIndexing(
+      () => client.searchIssues(projectKey),
+      issuesToSync.length,
+      { label: 'issues', projectKey },
+    );
+  }
   logger.info(`Found ${scIssues.length} issues in SonarCloud, matching against ${issuesToSync.length} SonarQube issues`);
 
   const matchedPairs = matchIssues(issuesToSync, scIssues);

@@ -1,5 +1,6 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
+import { waitForScIndexing } from '../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
 import { matchHotspots } from './helpers/match-hotspots.js';
 import { syncSingleHotspot } from './helpers/sync-single-hotspot.js';
 import { createEmptyHotspotStats } from './helpers/create-empty-hotspot-stats.js';
@@ -15,7 +16,14 @@ export async function syncHotspots(projectKey, sqHotspots, client, options = {})
   const concurrency = options.concurrency || 3;
   const stats = createEmptyHotspotStats();
 
-  const scHotspots = await client.searchHotspots(projectKey);
+  let scHotspots = await client.searchHotspots(projectKey);
+  if (scHotspots.length === 0 && sqHotspots.length > 0) {
+    scHotspots = await waitForScIndexing(
+      () => client.searchHotspots(projectKey),
+      sqHotspots.length,
+      { label: 'hotspots', projectKey },
+    );
+  }
   logger.info(`Found ${scHotspots.length} hotspots in SonarCloud, matching against ${sqHotspots.length} SonarQube hotspots`);
 
   const matchedPairs = matchHotspots(scHotspots, sqHotspots);
