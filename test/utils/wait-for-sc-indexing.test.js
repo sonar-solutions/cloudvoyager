@@ -105,16 +105,49 @@ test('uses sensible defaults when no options provided', async t => {
 });
 
 // ============================================================================
-// fetchFn error propagation
+// Transient fetch errors are retried
 // ============================================================================
 
-test('propagates fetchFn errors to the caller', async t => {
+test('catches transient fetch errors and continues retrying', async t => {
+  const items = [{ key: 'i1' }];
+  const fetchFn = sinon.stub()
+    .onFirstCall().rejects(new Error('503 Service Unavailable'))
+    .onSecondCall().rejects(new Error('429 Too Many Requests'))
+    .onThirdCall().resolves(items);
+
+  const result = await waitForScIndexing(fetchFn, 10, {
+    maxRetries: 5, ...FAST,
+  });
+
+  t.deepEqual(result, items);
+  t.is(fetchFn.callCount, 3);
+});
+
+test('returns [] when all attempts fail with errors', async t => {
   const fetchFn = sinon.stub().rejects(new Error('Network failure'));
 
-  await t.throwsAsync(
-    () => waitForScIndexing(fetchFn, 10, { maxRetries: 2, ...FAST }),
-    { message: 'Network failure' },
-  );
+  const result = await waitForScIndexing(fetchFn, 10, {
+    maxRetries: 3, ...FAST,
+  });
+
+  t.deepEqual(result, []);
+  t.is(fetchFn.callCount, 3);
+});
+
+test('recovers from mix of errors and empty results', async t => {
+  const items = [{ key: 'i1' }];
+  const fetchFn = sinon.stub()
+    .onCall(0).resolves([])
+    .onCall(1).rejects(new Error('503'))
+    .onCall(2).resolves([])
+    .onCall(3).resolves(items);
+
+  const result = await waitForScIndexing(fetchFn, 10, {
+    maxRetries: 5, ...FAST,
+  });
+
+  t.deepEqual(result, items);
+  t.is(fetchFn.callCount, 4);
 });
 
 // ============================================================================

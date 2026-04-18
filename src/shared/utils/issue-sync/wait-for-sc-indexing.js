@@ -17,7 +17,13 @@ export async function waitForScIndexing(fetchFn, sqCount, options = {}) {
       await new Promise(resolve => setTimeout(resolve, delay));
       delay = Math.min(delay * 2, maxDelayMs);
     }
-    const items = await fetchFn();
+    let items;
+    try {
+      items = await fetchFn();
+    } catch (err) {
+      logger.warn(`[${projectKey}] SC ${label} fetch error on attempt ${attempt}/${maxRetries}: ${err.message}`);
+      items = [];
+    }
     if (items.length > 0) {
       if (attempt > 1) logger.info(`[${projectKey}] SC ${label} now available after ${attempt} attempts`);
       return items;
