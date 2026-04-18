@@ -8,9 +8,10 @@ import logger from '../../../../../../shared/utils/logger.js';
 /**
  * Sync all aspects of a single matched issue pair (status, assignment, comments, tags).
  */
-export async function syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats) {
+export async function syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats, changelogMap = new Map()) {
   try {
-    const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
+    const preloadedChangelog = changelogMap.get(sqIssue.key);
+    const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
     if (transitioned) stats.transitioned++;
 
     await syncIssueAssignment(sqIssue, scIssue, client, userMappings, stats);

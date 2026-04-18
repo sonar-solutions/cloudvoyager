@@ -8,9 +8,10 @@ import { addSourceLink } from './add-source-link.js';
 // -------- Sync One Issue --------
 
 /** Sync a single matched issue pair (status, assignment, comments, tags, source link). */
-export async function syncOneIssue({ sqIssue, scIssue }, client, sqClient, userMappings, stats) {
+export async function syncOneIssue({ sqIssue, scIssue }, client, sqClient, userMappings, stats, changelogMap = new Map()) {
   try {
-    const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
+    const preloadedChangelog = changelogMap.get(sqIssue.key);
+    const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
     if (transitioned) stats.transitioned++;
 
     await syncIssueAssignment(sqIssue, scIssue, client, userMappings, stats);

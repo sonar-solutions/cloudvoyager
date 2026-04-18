@@ -1,5 +1,6 @@
 import logger from '../../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../../shared/utils/concurrency.js';
+import { applyManualChangesPreFilter } from '../../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import { matchIssues } from './match-issues.js';
 import { createEmptyStats } from './create-empty-stats.js';
 import { logSyncStats } from './log-sync-stats.js';
@@ -15,10 +16,18 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const userMappings = options.userMappings || null;
   const stats = createEmptyStats();
 
-  const scIssues = await client.searchIssues(projectKey);
-  logger.info(`Found ${scIssues.length} SC issues, matching against ${sqIssues.length} SQ issues`);
+  let issuesToSync = sqIssues;
+  let changelogMap = new Map();
 
-  const matchedPairs = matchIssues(sqIssues, scIssues);
+  if (sqClient) {
+    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(sqIssues, sqClient, stats, concurrency));
+    if (issuesToSync.length === 0) { logSyncStats(stats); return stats; }
+  }
+
+  const scIssues = await client.searchIssues(projectKey);
+  logger.info(`Found ${scIssues.length} SC issues, matching against ${issuesToSync.length} SQ issues`);
+
+  const matchedPairs = matchIssues(issuesToSync, scIssues);
   stats.matched = matchedPairs.length;
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
 
@@ -28,7 +37,8 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     matchedPairs,
     async ({ sqIssue, scIssue }) => {
       try {
-        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
+        const preloadedChangelog = changelogMap.get(sqIssue.key);
+        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
         if (transitioned) stats.transitioned++;
         await syncIssueAssignment(scIssue, sqIssue, client, stats, userMappings);
         await syncIssueCommentsAndTags(scIssue, sqIssue, client, stats, sqClient);

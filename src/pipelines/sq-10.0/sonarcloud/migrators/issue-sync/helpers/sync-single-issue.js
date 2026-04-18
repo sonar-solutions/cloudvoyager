@@ -7,8 +7,9 @@ import { addSourceLink } from './add-source-link.js';
 
 // -------- Sync Single Issue --------
 
-export async function syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats) {
-  const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient);
+export async function syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats, changelogMap = new Map()) {
+  const preloadedChangelog = changelogMap.get(sqIssue.key);
+  const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
   if (transitioned) stats.transitioned++;
   await syncIssueAssignment(sqIssue, scIssue, client, userMappings, stats);
   await syncIssueComments(sqIssue, scIssue, client, stats);

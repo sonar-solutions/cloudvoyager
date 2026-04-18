@@ -1,5 +1,6 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
+import { applyManualChangesPreFilter } from '../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import { matchIssues } from './helpers/match-issues.js';
 import { syncSingleIssue } from './helpers/sync-single-issue.js';
 import { createEmptyStats } from './helpers/create-empty-stats.js';
@@ -16,9 +17,18 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const sqClient = options.sqClient || null;
   const userMappings = options.userMappings || null;
   const stats = createEmptyStats();
+
+  let issuesToSync = sqIssues;
+  let changelogMap = new Map();
+
+  if (sqClient) {
+    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(sqIssues, sqClient, stats, concurrency));
+    if (issuesToSync.length === 0) { logSyncSummary(stats); return stats; }
+  }
+
   const scIssues = await client.searchIssues(projectKey);
-  logger.info(`Found ${scIssues.length} issues in SonarCloud, matching against ${sqIssues.length} SonarQube issues`);
-  const matchedPairs = matchIssues(sqIssues, scIssues);
+  logger.info(`Found ${scIssues.length} issues in SonarCloud, matching against ${issuesToSync.length} SonarQube issues`);
+  const matchedPairs = matchIssues(issuesToSync, scIssues);
   stats.matched = matchedPairs.length;
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
   if (matchedPairs.length === 0) { logSyncSummary(stats); return stats; }
@@ -26,7 +36,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   await mapConcurrent(
     matchedPairs,
     async ({ sqIssue, scIssue }) => {
-      try { await syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats); }
+      try { await syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats, changelogMap); }
       catch (error) { stats.failed++; logger.debug(`Failed to sync issue ${sqIssue.key}: ${error.message}`); }
     },
     { concurrency, settled: true, onProgress: progressLogger },

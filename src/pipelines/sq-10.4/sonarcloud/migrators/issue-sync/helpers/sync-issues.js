@@ -3,12 +3,14 @@ import { syncSingleIssue } from './sync-single-issue.js';
 import { createSyncStats } from './create-sync-stats.js';
 import { logSyncStats } from './log-sync-stats.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../../shared/utils/concurrency.js';
+import { applyManualChangesPreFilter } from '../../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import logger from '../../../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
 
 /**
  * Sync issue statuses, assignments, comments, and tags from SQ to SC.
+ * Pre-filters SQ issues to only those with manual changes for efficiency.
  */
 export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const concurrency = options.concurrency || 5;
@@ -16,10 +18,18 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const userMappings = options.userMappings || null;
   const stats = createSyncStats();
 
-  const scIssues = await client.searchIssues(projectKey);
-  logger.info(`Found ${scIssues.length} issues in SonarCloud, matching against ${sqIssues.length} SonarQube issues`);
+  let issuesToSync = sqIssues;
+  let changelogMap = new Map();
 
-  const matchedPairs = matchIssues(sqIssues, scIssues);
+  if (sqClient) {
+    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(sqIssues, sqClient, stats, concurrency));
+    if (issuesToSync.length === 0) { logSyncStats(stats); return stats; }
+  }
+
+  const scIssues = await client.searchIssues(projectKey);
+  logger.info(`Found ${scIssues.length} issues in SonarCloud, matching against ${issuesToSync.length} SonarQube issues`);
+
+  const matchedPairs = matchIssues(issuesToSync, scIssues);
   stats.matched = matchedPairs.length;
   logger.info(`Matched ${matchedPairs.length} issues, syncing with concurrency=${concurrency}`);
 
@@ -27,7 +37,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
 
   await mapConcurrent(
     matchedPairs,
-    async ({ sqIssue, scIssue }) => syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats),
+    async ({ sqIssue, scIssue }) => syncSingleIssue(sqIssue, scIssue, client, sqClient, userMappings, stats, changelogMap),
     { concurrency, settled: true, onProgress: createProgressLogger('Issue sync', matchedPairs.length) },
   );
 

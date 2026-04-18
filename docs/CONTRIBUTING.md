@@ -225,6 +225,36 @@ const results = await mapConcurrent(items, async (item) => {
 - Use `settled: true` when partial failure is acceptable
 - Use `createProgressLogger()` for large batches
 
+### 8. Issue Sync Pre-Filter Pattern (`src/shared/utils/issue-sync/`)
+
+Issue sync across all four pipelines uses a **pre-filter optimization** (see [GitHub #90](https://github.com/sonar-solutions/cloudvoyager/issues/90)) modeled after the [`sonar-findings-sync` algorithm](https://github.com/okorach/sonar-tools/blob/0be16b23d1eb9a374fc3cbbcb1c10242df0631a3/sonar/syncer.py#L564).
+
+**Problem:** The naive approach matches and syncs *all* SQ issues against SC issues. For projects with 100K issues, this means ~100K API calls and hours of runtime, even though only ~1-2% of issues typically have manual changes.
+
+**Solution:** Before matching, batch-fetch SQ changelogs and filter to only issues with "manual changes":
+
+```
+sqIssues (100K) → fetchSqChangelogs() → hasManualChanges() filter → ~1-2K issues → matchIssues() → syncOneIssue()
+```
+
+An issue is considered to have **manual changes** if any of:
+1. Its changelog has at least one entry with a non-empty `user` field (human actor, not system)
+2. It has comments not prefixed with `[Migrated from SonarQube]` (manual, not auto-generated)
+3. It has custom tags (`tags` array is non-empty)
+
+**Shared utilities:**
+- `fetchSqChangelogs(sqIssues, sqClient, concurrency)` — batch-fetches changelogs via `mapConcurrent`, returns `Map<issueKey, changelog[]>`
+- `hasManualChanges(issue, changelog)` — pure function, returns `boolean`
+
+The pre-fetched changelogs are passed through to `syncIssueStatus` via a `changelogMap` to avoid redundant per-issue changelog API calls.
+
+**Performance test:** `test/utils/issue-sync.test.js` includes regression tests that verify the filter ratio stays within tolerance (<=10% of issues pass through) and that filtering 50K issues completes in <1 second.
+
+**Rules:**
+- Always pass `changelogMap` through from orchestrator to per-issue sync functions
+- The `preloadedChangelog` parameter in `syncIssueStatus` uses `??` (nullish coalescing) so it falls back to fetching if the caller doesn't provide preloaded data
+- The `stats.filtered` counter tracks how many issues were skipped by the pre-filter
+
 ---
 
 ## Conventions
