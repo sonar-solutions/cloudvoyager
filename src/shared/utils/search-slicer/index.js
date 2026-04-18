@@ -7,6 +7,38 @@ import { sliceByCreationDate } from './helpers/slice-by-creation-date.js';
 
 const API_RESULT_LIMIT = 10000;
 
+// -------- HTTP Paginators Factory --------
+
+/**
+ * Create the probeTotal / getPaginated function pair for a given HTTP client.
+ * Centralises the pagination logic so each pipeline's search-issues.js
+ * does not need to duplicate it.
+ */
+export function createHttpPaginators(client) {
+  const probeTotalFn = async (endpoint, params) => {
+    const response = await client.get(endpoint, { params: { ...params, ps: 1, p: 1 } });
+    return response.data.paging?.total ?? 0;
+  };
+
+  const getPaginatedFn = async (endpoint, params, dataKey) => {
+    let allResults = [];
+    let page = 1;
+    const pageSize = 500;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const response = await client.get(endpoint, { params: { ...params, ps: pageSize, p: page } });
+      const items = response.data[dataKey] || [];
+      allResults = allResults.concat(items);
+      const total = response.data.paging?.total || 0;
+      if (page * pageSize >= total || items.length < pageSize) break;
+      page++;
+    }
+    return allResults;
+  };
+
+  return { probeTotalFn, getPaginatedFn };
+}
+
 // -------- Main Logic --------
 
 /**
