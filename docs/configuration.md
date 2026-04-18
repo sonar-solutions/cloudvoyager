@@ -148,8 +148,8 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 |--------|----------|-------------|
 | `organizations[].key` | Yes | SonarCloud organization key |
 | `organizations[].token` | Yes | SonarCloud API token for this org |
-| `organizations[].url` | No | SonarCloud server URL (default: `https://sonarcloud.io`) |
-| `enterprise.key` | For portfolio migration | SonarCloud enterprise key (required only for portfolio migration via V2 API) |
+| `organizations[].url` | No | SonarCloud server URL. Use `https://sonarcloud.io` (EU, default) or `https://sonarqube.us` (US). In the Desktop app an EU/US radio button sets this automatically. |
+| `enterprise.key` | Optional | SonarCloud enterprise key. Required only for portfolio migration via V2 API. If absent, portfolio migration is gracefully skipped and the migration continues normally. |
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Transfer Settings

@@ -54,7 +54,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | Step | Description |
 |------|-------------|
 | 1. SonarQube Connection | Enter URL and token for the source SonarQube instance |
-| 2. SonarCloud Connection | Enter URL, token, organization, and project key for the target |
+| 2. SonarCloud Connection | Enter URL, token, organization, and project key for the target. An **EU / US radio button** selects the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
 | 3. Transfer Settings | Choose transfer mode (full/incremental), batch size, branch options. The "More Settings (Advanced)" section is collapsed by default (click the gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the transfer |
 
@@ -63,7 +63,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | Step | Description |
 |------|-------------|
 | 1. SonarQube Connection | Enter URL and admin token for the source SonarQube instance |
-| 2. SonarCloud Organizations | Add or remove target SonarCloud organizations with their tokens |
+| 2. SonarCloud Organizations | Add or remove target SonarCloud organizations with their tokens. Each organization entry includes an **EU / US radio button** to select the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
 | 3. Migration Settings | Configure output directory, dry run, included/excluded projects. The "Choose What to Migrate" and "More Settings (Advanced)" sections are collapsed by default to reduce clutter (click the shield or gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the full migration |
 
@@ -116,6 +116,7 @@ The progress bar layout divides 0-100% across pipeline phases (e.g., for migrate
 - Window size and position are remembered across restarts
 - Migration run history (last 50 entries) is stored for quick access to past reports
 - Theme preference (dark/light/system) is persisted
+- **Advanced Settings** include a **SonarQube Cloud** card with a `Custom SonarQube Cloud URL` field (`sqcCustomUrl`). Leave blank to use the standard EU/US selection; set it to a custom base URL (e.g. `https://staging.sonarcloud.io`) for non-standard environments.
 - Config is stored in the platform-specific user data directory:
 
 | Platform | Location |
