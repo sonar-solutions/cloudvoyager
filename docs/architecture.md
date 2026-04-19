@@ -66,15 +66,21 @@ src/
     │   ├── progress.js                 # Checkpoint progress display and ETA
     │   ├── prompt.js                   # Interactive user prompts (confirmation dialogs)
     │   ├── version.js                  # SonarQube version parsing and comparison
-    │   ├── search-slicer/             # Date-window slicing for 10K+ issue retrieval
+    │   ├── portfolio-skip.js           # handleMissingEnterpriseKey — graceful portfolio skip when enterprise key absent
+    │   ├── search-slicer/             # Date-window slicing for 10K+ issue retrieval (SQ & SC)
     │   │   ├── index.js                # fetchWithSlicing orchestrator
     │   │   ├── helpers/
     │   │   │   ├── bisect-window.js    # Binary-split a date window
     │   │   │   ├── build-windows.js    # Initial window partitioning
     │   │   │   ├── fetch-window.js     # Fetch issues within a single window
     │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
+    │   ├── issue-sync/                # Shared issue sync utilities
+    │   │   ├── has-manual-changes.js   # Detects human-authored changes on an SQ issue
+    │   │   ├── fetch-sq-changelogs.js  # Batch-fetches SQ changelogs concurrently
+    │   │   ├── apply-pre-filter.js     # Applies hasManualChanges pre-filter; sets stats.filtered
+    │   │   └── wait-for-sc-indexing.js # Retries SC fetch until analysis is indexed (Issue #91)
     │   └── fallback-repos/
-    │       └── index.js                # 43 known SonarCloud rule repositories (fallback set)
+    │       └── index.js                # 44 known SonarCloud rule repositories (fallback set)
     └── verification/                  # Migration verification
         ├── verify-pipeline.js          # Verification orchestrator (read-only comparison)
         ├── checkers/                   # Per-check verification modules

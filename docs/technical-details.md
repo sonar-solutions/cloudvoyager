@@ -1,6 +1,140 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Mar 26, 2026 (search slicing for 10K+ issues, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
+<!-- Last updated: Apr 18, 2026 (issue sync pre-filter optimization, SC indexing wait, SonarCloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
+
+<!-- Updated: Apr 18, 2026 -->
+## 🗺️ Main Flow Sequence Diagram
+
+The diagram below shows the high-level flows for the four main commands. The **➕** markers reference the drill-down prompts in the table that follows — paste any prompt into a new chat (with this codebase in context) to generate a detailed diagram for that subsystem.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant CLI as CLI (src/index.js)
+    participant VR as VersionRouter
+    participant SQ as SonarQube
+    participant SC as SonarCloud
+    participant FS as File System
+
+    rect rgb(30, 50, 80)
+        Note over User,FS: transfer command
+        User->>CLI: cloudvoyager transfer -c config.json
+        CLI->>VR: GET /api/system/status
+        VR-->>CLI: pipeline = sq-{version}
+        CLI->>FS: acquire lock + load checkpoint journal
+        CLI->>SQ: test connection
+        CLI->>SC: test connection
+
+        Note over CLI,SQ: ➕A  Extract — 13 phases, checkpoint-guarded
+        CLI->>SQ: extract metadata / components / rules / issues
+        CLI->>SQ: extract hotspots / measures / sources / duplications
+        CLI->>SQ: extract changesets / symbols / syntax highlighting
+        SQ-->>CLI: extracted data (gzipped cache per phase)
+
+        Note over CLI: ➕B  Build & encode protobuf report
+        CLI->>CLI: build Issue / ExternalIssue / AdHocRule messages
+        CLI->>CLI: build Measure / Component / Changeset messages
+        CLI->>CLI: zip → scanner-report.zip
+
+        Note over CLI,SC: ➕C  Upload & CE retry
+        CLI->>SC: POST /api/ce/submit (scanner-report.zip)
+        SC-->>CLI: CE task ID (or timeout → poll /api/ce/activity)
+
+        Note over CLI,SC: ➕D  Issue & hotspot metadata sync
+        CLI->>SQ: fetch issues + changelogs (sliced for >10K)
+        CLI->>CLI: applyManualChangesPreFilter
+        CLI->>SC: waitForScIndexing (retry if SC not yet indexed)
+        CLI->>SC: match + replay transitions / assignee / comments / tags
+        CLI->>SC: sync hotspot statuses + comments
+
+        CLI->>FS: release lock + update state file
+        CLI-->>User: Transfer complete
+    end
+
+    rect rgb(30, 60, 50)
+        Note over User,FS: migrate command
+        User->>CLI: cloudvoyager migrate -c migrate-config.json
+        CLI->>VR: GET /api/system/status
+        VR-->>CLI: pipeline = sq-{version}
+        CLI->>SQ: extract projects / gates / profiles / groups
+        CLI->>SQ: extract permissions / templates / portfolios / webhooks
+        SQ-->>CLI: server-wide data (parallel Promise.all)
+
+        Note over CLI,FS: ➕E  Org mapping + dry-run CSVs
+        CLI->>CLI: map projects → orgs by DevOps binding
+        CLI->>FS: write 9 CSV types + server info JSON
+        CLI->>FS: load / create MigrationJournal
+
+        loop For each org (concurrent)
+            CLI->>SC: create groups + global permissions
+            CLI->>SC: create quality gates
+            Note over CLI,SC: ➕F  Quality profile migration
+            CLI->>SC: restore profiles + write quality-profile-diff.json
+            CLI->>SC: create permission templates
+
+            loop For each project
+                CLI->>CLI: resolve project key
+                Note over CLI: run transfer pipeline (➕A–D)
+                CLI->>SC: set settings / tags / links / new-code periods
+                CLI->>SC: set DevOps binding / gate / profiles / permissions
+                CLI->>FS: mark project done in MigrationJournal
+            end
+
+            CLI->>SC: create portfolios + assign projects
+        end
+
+        CLI->>FS: write migration reports (JSON + MD + PDF)
+        CLI-->>User: Migration complete
+    end
+
+    rect rgb(60, 40, 70)
+        Note over User,FS: verify command
+        User->>CLI: cloudvoyager verify -c migrate-config.json
+        CLI->>SQ: fetch projects + build org mappings
+
+        loop For each org
+            CLI->>SC: verify gates / profiles / groups / permissions
+            loop For each project
+                CLI->>SQ: fetch issues / hotspots / measures / branches
+                CLI->>SC: fetch same data
+                CLI->>CLI: diff by rule+file+line, statuses, assignments
+                CLI->>CLI: diff measures / branches / settings / permissions
+            end
+        end
+
+        CLI->>FS: write verification reports (JSON + MD + PDF)
+        CLI-->>User: Verification complete
+    end
+
+    rect rgb(60, 50, 30)
+        Note over User,FS: sync-metadata command
+        User->>CLI: cloudvoyager sync-metadata -c migrate-config.json
+        CLI->>VR: GET /api/system/status
+        VR-->>CLI: pipeline = sq-{version}
+
+        loop For each org → each project
+            CLI->>SQ: fetch issues + changelogs (sliced for >10K)
+            CLI->>CLI: applyManualChangesPreFilter
+            CLI->>SC: waitForScIndexing (retry if 0 results)
+            CLI->>SC: replay transitions / assignees / comments / tags
+            CLI->>SC: sync hotspot statuses + comments
+        end
+
+        CLI-->>User: Metadata sync complete
+    end
+```
+
+**Drill-down prompts** — paste into a new chat with this repo in context:
+
+| # | Subsystem | Prompt |
+|---|-----------|--------|
+| ➕A | Extraction pipeline | `Generate a mermaid sequence diagram showing the 13-phase checkpoint-aware extraction pipeline in CloudVoyager in detail` |
+| ➕B | Protobuf encoding | `Generate a mermaid sequence diagram showing how CloudVoyager builds and encodes a scanner report ZIP using protobuf messages` |
+| ➕C | CE submission retry | `Generate a mermaid sequence diagram showing the CE submission retry mechanism in CloudVoyager including fallback polling` |
+| ➕D | Issue sync | `Generate a mermaid sequence diagram showing the full issue sync pipeline in CloudVoyager including pre-filter, SC indexing wait, and changelog replay` |
+| ➕E | Org mapping / CSVs | `Generate a mermaid sequence diagram showing how CloudVoyager maps SonarQube projects to SonarCloud organizations and generates dry-run CSV files` |
+| ➕F | Quality profiles | `Generate a mermaid sequence diagram for CloudVoyager quality profile migration including backup XML, rename of built-in profiles, and diff report` |
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📡 Protobuf Encoding
@@ -145,16 +279,18 @@ SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results re
 
 The slicing is transparent to callers — `issues-hotspots.js` in each pipeline calls `fetchWithSlicing`, which falls back to a normal paginated fetch when the total is under 10,000.
 
-**Applies to SonarQube only.** The slicing workaround targets SonarQube's `/api/issues/search` and `/api/hotspots/search` endpoints, which enforce the 10K cap. SonarCloud's issue search endpoints use simple pagination without slicing — the 10K cap does not apply in practice on the SonarCloud side.
+**Applies to both SonarQube and SonarCloud.** The slicing workaround targets SonarQube's `/api/issues/search` and `/api/hotspots/search` endpoints, which enforce the 10K cap. The same `fetchWithSlicing` mechanism is also applied to SonarCloud's issue search during **issue sync** (i.e., when fetching SC issues to match against SQ issues). This prevents data loss on large SonarCloud organizations that have >10,000 issues per project.
 
 **Both commands use it:**
 - `transfer` — calls `getIssuesWithComments()` via `fetch-and-sync-issues.js`, which invokes `fetchWithSlicing` under the hood.
 - `migrate` — calls `getIssuesWithComments()` via `sync-issue-metadata.js` → `sync-project-issues.js`, using the same `fetchWithSlicing` function.
 
-<!-- Updated: Mar 26, 2026 -->
+<!-- Updated: Apr 18, 2026 -->
 ## 🔄 Fallback Rule Repositories
 
-External-issue detection depends on knowing which rule repositories exist in SonarCloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 43 known SonarCloud repositories (`src/shared/utils/fallback-repos/index.js`).
+External-issue detection depends on knowing which rule repositories exist in SonarCloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 44 known SonarCloud repositories (`src/shared/utils/fallback-repos/index.js`).
+
+The fallback set includes the `githubactions` IaC analyzer (previously omitted by accident; added back in the Apr 2026 release). Without it, GitHub Actions rules were incorrectly treated as external issues.
 
 **Retry strategy for `getRuleRepositories()`:**
 1. Attempt the API call.
@@ -197,15 +333,43 @@ Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSo
 - `impacts` array — `Impact` messages with `softwareQuality` and `severity` fields
 - `defaultImpacts` — on `AdHocRule` messages
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Apr 18, 2026 -->
 ## 🔄 Issue Sync
 
-The `migrate` command syncs issue metadata after the scanner report is uploaded. For each issue in SonarQube, it:
-1. Searches for a matching issue in SonarCloud by rule, component, and line number
-2. Fetches the SonarQube issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.)
-3. Sets the assignee (supports user mapping from SQ login to SC login)
-4. Copies comments
-5. Sets tags
+The `migrate` command syncs issue metadata after the scanner report is uploaded. The sync pipeline runs in several stages:
+
+1. **Pre-filter** — Batch-fetches SQ changelogs for all issues and discards any issue that has no human-authored changes (see below). This avoids redundant API calls to SonarCloud for issues that are still in their pristine `OPEN` state.
+2. **Wait for SC indexing** — If SonarCloud returns 0 issues immediately after a first-time upload, the syncer retries with exponential backoff (initial delay 10 s, max 60 s, up to 10 attempts) until the CE analysis is fully indexed. This handles the race condition introduced by Issue #91 where the analysis report was uploaded but SonarCloud hadn't yet indexed its issues.
+3. **Match** — Searches for a matching issue in SonarCloud by rule, component, and line number.
+4. **Replay changelog** — Fetches the SonarQube issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.).
+5. **Assignee** — Sets the assignee (supports user mapping from SQ login to SC login).
+6. **Comments** — Copies comments, skipping any that begin with `[Migrated from SonarQube]` to avoid double-migration.
+7. **Tags** — Sets tags.
+
+### Pre-filter: `hasManualChanges` (`src/shared/utils/issue-sync/`)
+
+Before touching SonarCloud, the syncer applies a pre-filter that only keeps issues with human-authored changes:
+
+| Check | Condition |
+|-------|-----------|
+| Human changelog entry | At least one changelog entry with a non-empty `user` field |
+| Manual comments | At least one comment not prefixed with `[Migrated from SonarQube]` |
+| Custom tags | `issue.tags` array is non-empty |
+| Manual assignee | `issue.assignee` is set |
+| Updated after creation | `updateDate !== creationDate` (catch-all safety net) |
+
+The pre-filter is implemented across three shared utilities:
+- `fetch-sq-changelogs.js` — concurrently batch-fetches changelogs for all SQ issues
+- `has-manual-changes.js` — pure function; returns `true` if any of the above conditions holds
+- `apply-pre-filter.js` — orchestrates the above two and sets `stats.filtered` with the skipped count
+
+### Wait for SC Indexing: `waitForScIndexing`
+
+`src/shared/utils/issue-sync/wait-for-sc-indexing.js` wraps any SC fetch call with retry logic:
+- **Trigger**: SC returns 0 results but there are SQ items that need syncing
+- **Backoff**: starts at `initialDelayMs` (default 10 s), doubles each attempt, capped at `maxDelayMs` (default 60 s)
+- **Max attempts**: 10 (configurable via `options.maxRetries`)
+- **Transient errors**: fetch errors during a retry are caught and logged; the function returns `[]` after exhausting all retries
 
 **SonarQube version differences**:
 - SQ 9.9 statuses: `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
@@ -426,6 +590,23 @@ The `csv-entity-filters.js` module in `src/shared/mapping/` provides dry-run CSV
 | `applyUserMappingsCsv` | User mappings | SonarQube Login + SonarCloud Login + Include |
 
 All filters use the `Include` column from the CSV (default: `yes`). Setting `Include=no` excludes the entity from migration.
+
+<!-- Updated: Apr 18, 2026 -->
+## 🌐 SonarQube Cloud Instance Selection
+
+CloudVoyager supports both the EU (`https://sonarcloud.io`) and US (`https://sonarqube.us`) SonarQube Cloud instances. In the **Desktop app** each organization entry shows an EU / US radio button. In the **CLI config** set `organizations[].url` (or `sonarcloud.url` for single-project configs) to the appropriate base URL.
+
+For non-standard environments (e.g. staging), the Desktop app's **Advanced Settings** exposes a `sqcCustomUrl` field that overrides the EU/US selection with a fully custom base URL. Leave it blank to use the standard EU or US endpoint.
+
+<!-- Updated: Apr 18, 2026 -->
+## 🔑 Enterprise Key & Portfolio Skipping
+
+The SonarCloud enterprise key (`sonarcloud.enterprise.key`) is **optional** — its absence no longer aborts the migration. When the key is missing, portfolio migration is gracefully skipped via `handleMissingEnterpriseKey()` (`src/shared/utils/portfolio-skip.js`):
+
+- If portfolios were extracted from SonarQube, a `WARN` log is emitted and `results.portfoliosSkipped` is incremented.
+- If no portfolios exist, an `INFO` log is emitted and migration proceeds normally.
+
+The `portfoliosSkipped` count is included in the migration summary and migration reports.
 
 <!-- Updated: Mar 25, 2026 -->
 ## ⚠️ Error Hierarchy
