@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdirSync, rmSync, copyFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -70,6 +70,7 @@ function bunCompile(sourceFile, outDir, binaryName, target) {
  */
 async function esbuildBundle(entryPoint, distDir) {
   const esbuild = await import('esbuild');
+  const { version } = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'));
   await esbuild.build({
     entryPoints: [entryPoint],
     outfile: join(distDir, 'cli.cjs'),
@@ -81,7 +82,7 @@ async function esbuildBundle(entryPoint, distDir) {
     minify: true,
     treeShaking: true,
     loader: { '.proto': 'text' },
-    define: { 'import.meta.url': 'importMetaUrl' },
+    define: { 'import.meta.url': 'importMetaUrl', '__APP_VERSION__': JSON.stringify(version) },
     banner: {
       js: 'const importMetaUrl = require("url").pathToFileURL(__filename).href;',
     },
