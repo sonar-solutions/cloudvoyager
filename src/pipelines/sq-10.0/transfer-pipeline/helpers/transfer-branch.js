@@ -3,6 +3,8 @@ import { ProtobufBuilder } from '../../protobuf/builder.js';
 import { ProtobufEncoder } from '../../protobuf/encoder.js';
 import { ReportUploader } from '../../sonarcloud/uploader.js';
 import { computeBranchStats } from './compute-branch-stats.js';
+import { transferBranchBatched } from './transfer-branch-batched.js';
+import { shouldBatch } from '../../../../shared/utils/batch-distributor.js';
 
 // -------- Transfer Single Branch --------
 
@@ -10,6 +12,15 @@ import { computeBranchStats } from './compute-branch-stats.js';
  * Build, encode, and upload a single branch report to SonarCloud.
  */
 export async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
+  if (shouldBatch(extractedData)) {
+    const ceTask = await transferBranchBatched({
+      extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
+      referenceBranchName, sonarCloudClient, label, isMainBranch,
+      sonarCloudRepos, ruleEnrichmentMap,
+    });
+    return { stats: computeBranchStats(extractedData), ceTask };
+  }
+
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
     sonarCloudBranchName: branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap,

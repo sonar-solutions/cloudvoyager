@@ -1,5 +1,7 @@
 import { buildProtobufMessages, encodeMessages } from './helpers/build-and-encode.js';
 import { uploadReport } from './helpers/upload-report.js';
+import { transferBatched } from './helpers/transfer-batched.js';
+import { shouldBatch } from '../../../../../shared/utils/batch-distributor.js';
 
 // -------- Branch Transfer --------
 
@@ -11,6 +13,15 @@ export async function transferBranch(options) {
     isMainBranch = false, sonarCloudRepos = new Set(),
     ruleEnrichmentMap = new Map(),
   } = options;
+
+  if (shouldBatch(extractedData)) {
+    const ceTask = await transferBatched({
+      extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
+      referenceBranchName, sonarCloudClient, label, isMainBranch,
+      sonarCloudRepos, ruleEnrichmentMap,
+    });
+    return { stats: computeBranchStats(extractedData), ceTask };
+  }
 
   const messages = buildProtobufMessages(extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, label);
   const encodedReport = await encodeMessages(messages, label);
