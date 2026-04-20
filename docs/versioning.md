@@ -16,6 +16,10 @@ package.json  →  "version" field  (root of repo)
 
 Every workflow reads the version from this file. The version-bump workflow writes to this file. All downstream release artifacts (CLI binaries, desktop apps, GitHub Release tags) derive their version from it.
 
+The CLI (`src/index.js`) reads the version dynamically rather than hardcoding it:
+- **Production builds**: esbuild injects the version at build time via `define: { '__APP_VERSION__': ... }` in `scripts/build.js`
+- **Dev mode** (`node src/index.js`): falls back to reading `package.json` directly via `createRequire`
+
 ---
 
 <!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
@@ -25,11 +29,11 @@ Every workflow reads the version from this file. The version-bump workflow write
 |----------|------|------------|
 | **Root package.json** | `package.json` | `version-bump.yml` (automatic) |
 | **Root package-lock.json** | `package-lock.json` | `version-bump.yml` (automatic, via `npm version`) |
-| **CLI `--version` flag** | `src/index.js` (line 20, hardcoded) | `version-bump.yml` (automatic, via `sed`) |
+| **CLI `--version` flag** | `src/index.js` (dynamic, from `package.json`) | Automatic — reads `package.json` at build/runtime |
 | **Desktop app version** | `desktop/package.json` | `version-bump.yml` (automatic, via `npm version`) |
 | **Desktop lock file** | `desktop/package-lock.json` | `version-bump.yml` (automatic, via `npm version`) |
 
-All five locations are updated automatically by the version-bump workflow.
+The package.json files are updated automatically by the version-bump workflow. The CLI version is derived at build time (no manual update needed).
 
 ---
 
@@ -60,8 +64,8 @@ The workflow (`.github/workflows/version-bump.yml`) compares the milestone title
 1. Reads the milestone title from the merged PR
 2. Reads the current version from `package.json`
 3. Computes the new version using the logic above
-4. Runs `npm version <NEW_VERSION> --no-git-tag-version`
-5. Commits `package.json` and `package-lock.json` with message: `chore: bump version to <NEW_VERSION>`
+4. Runs `npm version <NEW_VERSION> --no-git-tag-version` (root and desktop)
+5. Commits `package.json`, `package-lock.json`, `desktop/package.json`, and `desktop/package-lock.json` with message: `chore: bump version to <NEW_VERSION>`
 6. Pushes the commit to `main`
 
 ---
