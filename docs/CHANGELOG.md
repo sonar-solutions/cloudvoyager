@@ -4,6 +4,28 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-20T00:00:00Z" updated-by="Claude" /> -->
+## Issue Batching: Distribute Large Issue Sets Across Multiple Dates (2026-04-20)
+
+Projects with more than 5,000 issues per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.
+
+### New Feature
+
+- **Issue batch distribution** — When a branch has >5,000 issues, they are split into batches of 5,000 and uploaded as separate scanner reports with backdated analysis dates (going backwards from today, one day per batch). The final batch carries the original date and full project data.
+- **Shared utility** — `src/shared/utils/batch-distributor/` provides four pure-function helpers: `shouldBatch`, `computeBatchPlan`, `computeBatchDate`, `createBatchExtractedData`.
+- **All 4 pipeline versions updated** — sq-9.9, sq-10.0, sq-10.4, and sq-2025 all integrate the batch distributor via a `shouldBatch` gate in `transferBranch`.
+- **Upload size optimization** — Non-final batches strip `sources`, `changesets`, and `duplications` to minimize upload payload. `components` and `activeRules` are preserved for issue resolution.
+- **Unique SCM revision per batch** — Each batch uses `randomBytes(20).toString('hex')` to generate a unique `scmRevisionId`, preventing CE deduplication across batches.
+
+### Design Notes
+
+- Batch size is hardcoded at 5,000 (50% safety margin under the 10K ES visualization limit)
+- Batches are submitted oldest-first and always wait for CE completion before the next batch
+- Branch-level stats are computed from the original (unbatched) data for accuracy
+- No changes to the protobuf builder, encoder, or packager — batching operates at the `extractedData` level
+
+---
+
 <!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
 ## Desktop Migration Graph: Bug Fixes (2026-04-01)
 

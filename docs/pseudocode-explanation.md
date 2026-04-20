@@ -152,6 +152,10 @@ FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, perf
 
 FUNCTION transferBranch(extractedData, branch, scConfig, scProfiles, scRepos, ...):
 
+  // --- Batch Gate ---
+  IF shouldBatch(extractedData):    // issues.length > 5000
+    RETURN transferBranchBatched(extractedData, branch, scConfig, ...)
+
   // Step 1: Build protobuf messages from extracted data
   builder = new ProtobufBuilder(extractedData, scConfig, scProfiles, options)
   messages = builder.buildAll()
@@ -165,7 +169,25 @@ FUNCTION transferBranch(extractedData, branch, scConfig, scProfiles, scRepos, ..
   uploader = new ReportUploader(scClient)
   ceTask = uploader.upload(encodedReport, metadata)
 
-  RETURN { stats, ceTask }
+  RETURN { stats: computeBranchStats(extractedData), ceTask }
+
+
+FUNCTION transferBranchBatched(extractedData, branch, scConfig, ...):
+
+  // Split issues into batches of 5,000 with backdated analysis dates
+  plan = computeBatchPlan(extractedData.issues.length)
+  baseDate = extractedData.metadata.extractedAt
+
+  FOR EACH batch IN plan:
+    batchDate = computeBatchDate(baseDate, batch.batchIndex, plan.length)
+    batchScmId = randomBytes(20).toString('hex')
+    batchData = createBatchExtractedData(extractedData, batch, batchDate, batchScmId)
+
+    // Build, encode, upload — wait for CE completion before next batch
+    ceTask = buildEncodeUpload(batchData, { wait: true })
+
+  // Stats use ORIGINAL data (all issues), not any single batch
+  RETURN { stats: computeBranchStats(extractedData), ceTask: lastCeTask }
 ```
 
 ---

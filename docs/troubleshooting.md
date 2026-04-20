@@ -614,6 +614,35 @@ The search slicer algorithm:
 
 ---
 
+<!-- Updated: Apr 20, 2026 -->
+## 📦 Issue Batching (Multiple Scanner Reports Per Branch)
+
+When a branch has more than 5,000 issues, CloudVoyager automatically splits them into batches of 5,000 and submits each batch as a separate scanner report with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding issues.
+
+### Why am I seeing multiple uploads for one branch?
+
+**Expected behavior (v1.3+).** If a branch has more than 5,000 issues, CloudVoyager logs:
+
+```
+Splitting 20590 issues into 5 batches of up to 5,000
+```
+
+Each batch is uploaded sequentially (the tool waits for CE completion before sending the next batch). The final batch carries the original analysis date and full project data (sources, changesets, duplications). Earlier batches are backdated by one day each and carry only issues + components + active rules.
+
+### Upload interrupted mid-batch
+
+If a transfer is interrupted between batches, re-run the same command. The branch status stays `started` in the checkpoint journal, so all batches will be re-uploaded from the beginning. This is safe — each batch uses a unique `scmRevisionId`, so CE will not reject them as duplicates.
+
+### Issue counts look correct in the API but not in the UI
+
+This is the exact problem batching solves. Without batching, all issues share one `analysis_date` and SonarCloud's Elasticsearch only visualizes the first 10K per date bucket. If you migrated before v1.3 and have this problem, re-transfer the affected projects — the batch distributor will split the issues automatically.
+
+### Can I change the batch size?
+
+The batch size is hardcoded at 5,000 (50% safety margin under the 10K ES limit). It is not configurable.
+
+---
+
 ## 🔌 Third-Party Issues Not Appearing in SonarCloud
 
 External (third-party) issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft, ABAP) may be silently dropped if the rule-repository detection fails.

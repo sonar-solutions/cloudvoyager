@@ -12,6 +12,7 @@ This document describes custom, non-trivial algorithms implemented from scratch 
 2. [Migration Graph Visualization (Desktop DAG Renderer)](#2-migration-graph-visualization-desktop-dag-renderer)
 3. [Atomic Checkpoint Journal](#3-atomic-checkpoint-journal)
 4. [Protobuf Report Encoding](#4-protobuf-report-encoding)
+5. [Issue Batch Distribution (Upload-Side 10K Mitigation)](#5-issue-batch-distribution-upload-side-10k-mitigation)
 
 ---
 
@@ -186,6 +187,74 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 ### Implementation
 
 `src/shared/state/checkpoint.js`
+
+---
+
+## 5. Issue Batch Distribution (Upload-Side 10K Mitigation)
+
+<!-- <section-updated last-updated="2026-04-20T00:00:00Z" updated-by="Claude" /> -->
+
+SonarCloud's Elasticsearch visualization layer caps results at 10,000 per date bucket. When CloudVoyager migrates a branch with tens of thousands of issues, they all land on a single `analysis_date`, making only the first 10K visible in the UI. The batch distributor splits issues across multiple scanner reports with distinct dates.
+
+### Algorithm
+
+```
+transferBranchBatched(extractedData, opts):
+  IF extractedData.issues.length <= 5000:
+    RETURN normal single-report path
+
+  plan = computeBatchPlan(extractedData.issues.length)
+  // plan = [{startIndex, endIndex, batchIndex, isLast}, ...]
+  // batchCount = ceil(totalIssues / 5000)
+
+  baseDate = extractedData.metadata.extractedAt
+
+  FOR EACH batch IN plan:
+    // Last batch gets baseDate; earlier batches are backdated
+    batchDate = baseDate - (plan.length - 1 - batch.batchIndex) days
+
+    // Unique SCM revision prevents CE deduplication
+    batchScmId = randomBytes(20).toString('hex')
+
+    // Shallow clone with sliced issues + overridden metadata
+    batchData = clone(extractedData)
+    batchData.issues = extractedData.issues[batch.startIndex..batch.endIndex]
+    batchData.metadata.extractedAt = batchDate
+    batchData.metadata.scmRevisionId = batchScmId
+
+    // Strip heavy payloads from non-final batches
+    IF NOT batch.isLast:
+      batchData.sources = []
+      batchData.changesets = empty Map
+      batchData.duplications = empty Map
+
+    // Build, encode, upload — MUST wait for CE completion
+    ceTask = buildEncodeUpload(batchData, { wait: true })
+
+  RETURN lastCeTask
+```
+
+### Key Invariants
+
+- **Batch size = 5,000 (constant)** — 50% safety margin under the 10K ES limit
+- **Oldest batch submitted first** — the final (newest) batch carries full project data (sources, changesets, duplications)
+- **Sequential upload with wait** — CE processes reports per-project sequentially; concurrent uploads would race
+- **Unique `scmRevisionId` per batch** — without this, CE deduplicates and rejects subsequent batches
+- **Stats from original data** — branch stats are computed from the full `extractedData`, not any single batch
+
+### Implementation
+
+```
+src/shared/utils/batch-distributor/
+  index.js                                  — Re-exports all helpers
+  helpers/
+    should-batch.js                         — Gate: issues.length > 5000
+    compute-batch-plan.js                   — Returns [{startIndex, endIndex, batchIndex, isLast}]
+    compute-batch-date.js                   — Backdates: baseDate - N days
+    create-batch-extracted-data.js          — Shallow clone with sliced issues + metadata override
+```
+
+Each pipeline version has a `*-batched.js` file that wraps the pipeline-specific build→encode→upload in the batch loop.
 
 ---
 
