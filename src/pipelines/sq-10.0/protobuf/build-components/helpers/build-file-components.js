@@ -15,7 +15,7 @@ export function buildFileComponents(builder, componentsMap, sanitizeLang) {
 
     const ref = builder.getComponentRef(comp.key);
     const info = sourceInfo.get(comp.key);
-    const lineCount = info.lineCount || Number.parseInt(comp.measures.find(m => m.metric === 'lines')?.value) || 0;
+    const lineCount = info.lineCount || Number.parseInt((comp.measures || []).find(m => m.metric === 'lines')?.value) || 0;
 
     componentsMap.set(comp.key, {
       ref,

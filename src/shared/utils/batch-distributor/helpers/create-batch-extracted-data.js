@@ -21,10 +21,13 @@ export function createBatchExtractedData(originalData, batchDescriptor, batchDat
   };
 
   // Non-final batches: strip heavy payload that only the latest analysis needs
+  // Final batch: clone sources to avoid shared reference mutation
   if (!batchDescriptor.isLast) {
     batch.sources = [];
     batch.changesets = new Map();
     batch.duplications = new Map();
+  } else {
+    batch.sources = [...originalData.sources];
   }
 
   return batch;

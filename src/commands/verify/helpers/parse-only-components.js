@@ -1,12 +1,7 @@
 // -------- Parse Only Components --------
 
 import logger from '../../../shared/utils/logger.js';
-
-const VALID_ONLY_COMPONENTS = [
-  'scan-data', 'scan-data-all-branches', 'portfolios', 'quality-gates',
-  'quality-profiles', 'permission-templates', 'permissions',
-  'issue-metadata', 'hotspot-metadata', 'project-settings'
-];
+import { VALID_ONLY_COMPONENTS } from '../../migrate/helpers/valid-only-components.js';
 
 export function parseOnlyComponents(options) {
   if (!options.only) return null;

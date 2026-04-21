@@ -12,5 +12,6 @@ export function buildMatchKey(issue) {
   const filePath = component.includes(':') ? component.split(':').pop() : component;
   const line = issue.line || issue.textRange?.startLine || 0;
   if (!rule || !filePath) return null;
-  return `${rule}|${filePath}|${line}`;
+  const msgHint = (issue.message || '').slice(0, 50);
+  return `${rule}|${filePath}|${line}|${msgHint}`;
 }

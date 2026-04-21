@@ -6,6 +6,6 @@ export async function doCompleteStep(withLock, journal, orgKey, projKey, step, s
     if (!project) return;
     if (!project.completedSteps) project.completedSteps = [];
     if (!project.completedSteps.includes(step)) project.completedSteps.push(step);
-    await self.save();
+    await self._saveUnsafe();
   });
 }
