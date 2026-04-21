@@ -5,6 +5,6 @@ export async function doMarkProjectCompleted(withLock, journal, orgKey, projKey,
     if (!journal.organizations[orgKey]?.projects?.[projKey]) return;
     journal.organizations[orgKey].projects[projKey].status = 'completed';
     journal.organizations[orgKey].projects[projKey].completedAt = new Date().toISOString();
-    await self.save();
+    await self._saveUnsafe();
   });
 }

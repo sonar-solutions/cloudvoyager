@@ -10,7 +10,7 @@ import { ReportUploader } from '../../sonarcloud/uploader.js';
 export async function transferBranchBatched(opts) {
   const { extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
     referenceBranchName, sonarCloudClient, label, isMainBranch,
-    sonarCloudRepos, ruleEnrichmentMap } = opts;
+    sonarCloudRepos, ruleEnrichmentMap, wait = true } = opts;
 
   const plan = computeBatchPlan(extractedData.issues.length);
   const baseDate = extractedData.metadata.extractedAt;
@@ -35,7 +35,7 @@ export async function transferBranchBatched(opts) {
       version: '1.0.0', ...(!isMainBranch && branchName ? { branchName } : {}),
     };
 
-    lastCeTask = await uploader.uploadAndWait(encodedReport, metadata);
+    lastCeTask = wait ? await uploader.uploadAndWait(encodedReport, metadata) : await uploader.upload(encodedReport, metadata);
     logger.info(`[${batchLabel}] CE task completed: ${lastCeTask.id}`);
   }
 

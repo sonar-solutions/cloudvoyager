@@ -4,6 +4,49 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Issue #98: Additional Bug Fixes from Deep Code Review (2026-04-22)
+<!-- updated: 2026-04-22_02:45:00 -->
+
+Applied all fixes from the deep codebase audit (5 critical, 16 warnings, 9 info). Zero new test failures introduced.
+
+### Critical Fixes
+
+- **CR-01**: Shutdown coordinator now unregisters original handler before cleanup, preventing force-exit during state writes
+- **CR-02**: Atomic save reordered: write temp first (primary still exists), then backup, then rename
+- **CR-03**: StateTracker now uses `createWriteLock()` consistent with CheckpointJournal and MigrationJournal
+- **CR-04**: `shouldBatch()` uses optional chaining to handle undefined `issues` array
+- **CR-05**: test-connection validates `pipelineId` against allowlist before dynamic import
+
+### Warning Fixes
+
+- **WR-01**: `enableFileLogging` sanitizes `commandName` to prevent path traversal in log filenames
+- **WR-02**: `loadMigrateConfig` adds defensive `throw error` after `handleConfigLoadError`
+- **WR-03**: `validateMigrateSchema` compiles Ajv schema once at module scope
+- **WR-04/05**: Search slicer windows no longer overlap (offset by +1ms)
+- **WR-06**: `mapConcurrent` bounds-checks index after increment
+- **WR-08**: `normalizeStatus` handles SQ 10.4+ `ACCEPTED` resolution
+- **WR-09**: `computeBatchDate` validates date input
+- **WR-10**: `createBatchExtractedData` clones `sources` array for final batch
+- **WR-11**: `buildMatchKey` includes message prefix to disambiguate same-line issues
+- **WR-12**: Both batched transfer files now pass through caller's `wait` parameter
+- **WR-13**: Checkpoint and MigrationJournal `save()` now acquires write lock; internal `_saveUnsafe()` used within existing lock blocks
+- **WR-14**: `ISSUE_BATCH_SIZE` exported from single source (`should-batch.js`)
+- **WR-15**: `parseEffortToMinutes` handles day-level durations (`3d` → 1440 min)
+- **WR-16**: `buildFileComponents` guards against undefined `comp.measures`
+
+### Info Fixes
+
+- **IN-01**: `API_RESULT_LIMIT` extracted to shared `constants.js`
+- **IN-02**: Removed unused `stateDir` variable in `createProgressTracker`
+- **IN-03/04**: Removed redundant `existsSync` checks (ENOENT already caught)
+- **IN-09**: `parse-only-components.js` imports `VALID_ONLY_COMPONENTS` from shared location
+
+### Files Changed (35)
+
+See git diff for full list. Key areas: state management, shutdown, batch-distributor, search-slicer, verification, config loading, protobuf encoding, pipeline transfer.
+
+---
+
 ## Code Review: Deep Codebase Audit (2026-04-22)
 <!-- updated: 2026-04-22_12:30:00 -->
 

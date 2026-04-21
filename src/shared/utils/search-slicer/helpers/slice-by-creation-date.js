@@ -7,7 +7,8 @@ import { buildDateWindows } from './build-date-windows.js';
 
 // -------- Constants --------
 
-const API_RESULT_LIMIT = 10000;
+import { API_RESULT_LIMIT } from './constants.js';
+
 const INITIAL_WINDOW_COUNT = 12;
 // SonarQube was open-sourced in 2007; no issues can predate this epoch.
 // Use +0000 format — SonarQube rejects ISO milliseconds (.000Z).

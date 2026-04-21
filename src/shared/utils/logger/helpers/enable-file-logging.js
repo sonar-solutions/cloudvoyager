@@ -18,13 +18,14 @@ export function enableFileLogging(commandName) {
   const existing = logger.transports.filter(t => t instanceof winston.transports.File);
   for (const t of existing) logger.remove(t);
 
+  const safeName = commandName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const fileFormat = combine(timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), logFormat);
 
-  const rawLogPath = path.join(logsDir, `cloudvoyager-${commandName}-${ts}.log`);
-  const infoLogPath = path.join(logsDir, `cloudvoyager-${commandName}-${ts}.info.log`);
-  const warnLogPath = path.join(logsDir, `cloudvoyager-${commandName}-${ts}.warn.log`);
-  const errorLogPath = path.join(logsDir, `cloudvoyager-${commandName}-${ts}.error.log`);
+  const rawLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.log`);
+  const infoLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.info.log`);
+  const warnLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.warn.log`);
+  const errorLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.error.log`);
 
   logger.add(new winston.transports.File({
     filename: rawLogPath, level: 'debug',

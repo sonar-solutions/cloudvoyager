@@ -5,7 +5,7 @@ import { sliceByCreationDate } from './helpers/slice-by-creation-date.js';
 
 // -------- Constants --------
 
-const API_RESULT_LIMIT = 10000;
+import { API_RESULT_LIMIT } from './helpers/constants.js';
 
 // -------- HTTP Paginators Factory --------
 

@@ -9,6 +9,7 @@ export async function mapConcurrent(items, fn, { concurrency = 8, settled = fals
   async function worker() {
     while (nextIndex < items.length && !aborted) {
       const index = nextIndex++;
+      if (index >= items.length) break;
       try {
         const result = await fn(items[index], index);
         completed++;

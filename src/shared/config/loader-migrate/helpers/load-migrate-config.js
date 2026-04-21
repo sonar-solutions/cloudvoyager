@@ -18,5 +18,6 @@ export async function loadMigrateConfig(configPath) {
     return config;
   } catch (error) {
     handleConfigLoadError(error, configPath);
+    throw error;
   }
 }
