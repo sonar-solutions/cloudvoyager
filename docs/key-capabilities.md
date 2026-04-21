@@ -878,7 +878,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 - **`--dry-run`** — Execute extraction and mapping without writing to SonarCloud
 - **`--verbose`** — Debug-level logging for troubleshooting
 
-<!-- updated: 2026-04-22_02:05:00 -->
+<!-- updated: 2026-04-22_11:10:00 -->
 ### Logging
 
 Winston-based logging with:
@@ -887,16 +887,16 @@ Winston-based logging with:
 - Structured timestamps and log formatting
 - `--verbose` flag sets level to `debug`
 
-**Automatic file logging** — Every command (`migrate`, `transfer`, `verify`, `sync-metadata`) writes three log files to `migration-output/logs/`:
+**Automatic per-run log folders** — Every command (`migrate`, `transfer`, `verify`, `sync-metadata`) creates a timestamped subfolder under `migration-output/logs/` (e.g., `migration-output/logs/2026-04-22T03-01-00-123Z/`), making it easy to find and compare logs across different runs. Within each run folder, four log files are written:
 
 | File | Contents |
 |------|----------|
-| `cloudvoyager-{cmd}-{timestamp}.log` | All log levels (raw/unfiltered) |
-| `cloudvoyager-{cmd}-{timestamp}.info.log` | Only `info` level entries |
-| `cloudvoyager-{cmd}-{timestamp}.warn.log` | Only `warn` level entries |
-| `cloudvoyager-{cmd}-{timestamp}.error.log` | Only `error` level entries |
+| `cloudvoyager-{cmd}.log` | All log levels (raw/unfiltered) |
+| `cloudvoyager-{cmd}.info.log` | Only `info` level entries |
+| `cloudvoyager-{cmd}.warn.log` | Only `warn` level entries |
+| `cloudvoyager-{cmd}.error.log` | Only `error` level entries |
 
-The filtered logs make it easy to triage issues without searching through thousands of info-level lines.
+The filtered logs make it easy to triage issues without searching through thousands of info-level lines. The `logs/` subdirectory is preserved during output directory cleanup so logs accumulate across runs.
 
 ---
 

@@ -1,6 +1,6 @@
 // -------- Transfer Command --------
 
-import logger, { enableFileLogging } from '../../shared/utils/logger.js';
+import logger from '../../shared/utils/logger.js';
 import { ShutdownCoordinator } from '../../shared/utils/shutdown.js';
 import { handleTransferAction } from './helpers/handle-transfer-action.js';
 import { handleCommandError } from './helpers/handle-command-error.js';
@@ -30,7 +30,6 @@ export function registerTransferCommand(program) {
 
       try {
         if (options.verbose) logger.level = 'debug';
-        enableFileLogging('transfer');
         await handleTransferAction(options, shutdownCoordinator);
         logger.info('=== Transfer completed successfully ===');
         process.exit(0);
