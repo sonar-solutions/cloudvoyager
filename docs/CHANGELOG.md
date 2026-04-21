@@ -4,6 +4,26 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix: Duplicate Log Folders on Heap Respawn (2026-04-22)
+<!-- updated: 2026-04-22_11:22:00 -->
+
+`enableFileLogging` was called in each command handler **before** `ensureHeapSize` in the action handler. When the process respawned for more heap memory, the child process called `enableFileLogging` again, creating a second per-run log folder. The initial process's folder contained only startup messages; all real logs went to the child's folder.
+
+**Fix:** Moved `enableFileLogging` from the 4 command handlers (`migrate`, `verify`, `transfer`, `sync-metadata`) into their respective action handlers, immediately after `ensureHeapSize`. Since `ensureHeapSize` either respawns (never returns) or returns normally, `enableFileLogging` now runs exactly once — in the process that does the actual work.
+
+### Files Changed (8)
+
+- `src/commands/migrate/index.js` — removed `enableFileLogging` call
+- `src/commands/migrate/helpers/handle-migrate-action.js` — added `enableFileLogging` after `ensureHeapSize`
+- `src/commands/verify/index.js` — removed `enableFileLogging` call
+- `src/commands/verify/helpers/handle-verify-action.js` — added `enableFileLogging` after `ensureHeapSize`
+- `src/commands/transfer/index.js` — removed `enableFileLogging` call
+- `src/commands/transfer/helpers/handle-transfer-action.js` — added `enableFileLogging` after `ensureHeapSize`
+- `src/commands/sync-metadata/index.js` — removed `enableFileLogging` call
+- `src/commands/sync-metadata/helpers/handle-sync-metadata-action.js` — added `enableFileLogging` after `ensureHeapSize`
+
+---
+
 ## Issue #98: Additional Bug Fixes from Deep Code Review (2026-04-22)
 <!-- updated: 2026-04-22_02:45:00 -->
 
