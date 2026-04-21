@@ -4,7 +4,7 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
-<!-- <subsection-updated last-updated="2026-04-20T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
 ## Issue Batching: Distribute Large Issue Sets Across Multiple Dates (2026-04-20)
 
 Projects with more than 5,000 issues per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.

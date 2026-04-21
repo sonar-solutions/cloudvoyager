@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Apr 18, 2026 (issue sync pre-filter optimization, SC indexing wait, SonarCloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
+<!-- Last updated: Apr 21, 2026 (issue batching 5K per date bucket, issue sync pre-filter optimization, SC indexing wait, SonarCloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
 
 <!-- Updated: Apr 18, 2026 -->
 ## 🗺️ Main Flow Sequence Diagram

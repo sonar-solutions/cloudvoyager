@@ -1,6 +1,6 @@
 # Verification
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Apr 21, 2026 -->
 
 After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube or SonarCloud.
 

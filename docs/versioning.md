@@ -1,5 +1,5 @@
 # Versioning
-<!-- <section-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
+<!-- <section-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
 
 How CloudVoyager versions are managed, bumped, and released.
 

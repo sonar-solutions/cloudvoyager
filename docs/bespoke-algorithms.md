@@ -1,6 +1,6 @@
 # Bespoke Algorithms
 
-<!-- <doc-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+<!-- <doc-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
 
 This document describes custom, non-trivial algorithms implemented from scratch within CloudVoyager — logic that required deliberate design decisions rather than off-the-shelf solutions.
 

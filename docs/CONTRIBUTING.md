@@ -1,4 +1,5 @@
 # Contributing to CloudVoyager
+<!-- Last updated: 2026-04-21 -->
 
 This guide documents the architectural patterns and conventions of the CloudVoyager codebase. Contributors must follow these patterns to maintain consistency and prevent regressions.
 

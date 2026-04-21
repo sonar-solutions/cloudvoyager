@@ -1,8 +1,8 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 26, 2026 -->
+<!-- Last updated: Apr 21, 2026 -->
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
 
 CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
@@ -74,6 +74,13 @@ src/
     │   │   │   ├── build-windows.js    # Initial window partitioning
     │   │   │   ├── fetch-window.js     # Fetch issues within a single window
     │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
+    │   ├── batch-distributor/         # Issue batching for upload (5K per date bucket)
+    │   │   ├── index.js                # shouldBatch + createBatchExtractedData orchestrator
+    │   │   ├── helpers/
+    │   │   │   ├── should-batch.js     # Predicate: issues.length > 5000
+    │   │   │   ├── compute-batch-plan.js # Returns batch descriptors with start/end indices
+    │   │   │   ├── compute-batch-date.js # Computes backdated ISO date per batch
+    │   │   │   └── create-batch-extracted-data.js # Shallow-clones extracted data with sliced issues
     │   ├── issue-sync/                # Shared issue sync utilities
     │   │   ├── has-manual-changes.js   # Detects human-authored changes on an SQ issue
     │   │   ├── fetch-sq-changelogs.js  # Batch-fetches SQ changelogs concurrently
@@ -123,8 +130,8 @@ sq-{version}/
 │               └── fetch-and-sync-hotspots.js  # Fetches SQ hotspots, syncs to SC
 ├── transfer-branch.js                # Re-export → transfer-branch/index.js
 ├── transfer-branch/
-│   ├── index.js
-│   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, ...
+│   ├── index.js                       # Orchestrates per-branch transfer; gates to batched path when issues > 5K
+│   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, transfer-branch-batched, ...
 ├── migrate-pipeline.js               # Re-export → migrate-pipeline/index.js
 ├── migrate-pipeline/
 │   ├── index.js                       # Full multi-org migration orchestrator
