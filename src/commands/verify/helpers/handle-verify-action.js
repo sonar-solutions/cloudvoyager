@@ -3,7 +3,7 @@
 import { loadMigrateConfig } from '../../../shared/config/loader.js';
 import { verifyAll } from '../../../shared/verification/verify-pipeline.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
-import logger from '../../../shared/utils/logger.js';
+import logger, { enableFileLogging } from '../../../shared/utils/logger.js';
 import { parseOnlyComponents } from './parse-only-components.js';
 
 export async function handleVerifyAction(options) {
@@ -21,6 +21,7 @@ export async function handleVerifyAction(options) {
     ...(options.maxMemory && { maxMemoryMB: options.maxMemory })
   });
   ensureHeapSize(perfConfig.maxMemoryMB);
+  enableFileLogging('verify');
   logSystemInfo(perfConfig);
 
   const results = await verifyAll({

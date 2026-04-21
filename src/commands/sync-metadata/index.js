@@ -1,6 +1,6 @@
 // -------- Sync Metadata Command --------
 
-import logger, { enableFileLogging } from '../../shared/utils/logger.js';
+import logger from '../../shared/utils/logger.js';
 import { ShutdownCoordinator } from '../../shared/utils/shutdown.js';
 import { handleSyncMetadataAction } from './helpers/handle-sync-metadata-action.js';
 import { handleCommandError } from '../transfer/helpers/handle-command-error.js';
@@ -28,7 +28,6 @@ export function registerSyncMetadataCommand(program) {
 
       try {
         if (options.verbose) logger.level = 'debug';
-        enableFileLogging('sync-metadata');
         logger.info('=== CloudVoyager - Issue & Hotspot Metadata Sync ===');
         await handleSyncMetadataAction(options, shutdownCoordinator);
         logger.info('=== Metadata sync completed successfully ===');
