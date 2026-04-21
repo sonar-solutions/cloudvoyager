@@ -1,6 +1,7 @@
 // -------- PDF Hotspot Detail Sections --------
 
 import { h, truncate, smallTable } from './pdf-table-utils.js';
+import { buildCommentMismatches, buildUnsyncableAssignments } from './hotspot-extra-details.js';
 
 /**
  * Build hotspot-related detail PDF nodes.

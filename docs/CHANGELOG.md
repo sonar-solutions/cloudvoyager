@@ -4,6 +4,23 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+<!-- <subsection-updated last-updated="2026-04-22T00:00:00Z" updated-by="Claude" /> -->
+## Bug Fixes: Missing Imports in Verification Report Generators (2026-04-22)
+<!-- updated: 2026-04-22_00:42:00 -->
+
+Fixed several missing import bugs that caused the `verify` command's report generation to fail, and a quoting bug in the build script.
+
+### Bug Fixes
+
+- **Fixed:** `formatUnmatchedSqIssues is not defined` — Added missing imports in `src/shared/verification/reports/markdown-sections/helpers/issue-details.js` for functions from `issue-list-details.js` and `issue-attr-details.js`.
+- **Fixed:** `formatHotspotCommentMismatches is not defined` — Added missing imports in `src/shared/verification/reports/markdown-sections/helpers/hotspot-details.js` for functions from `hotspot-comment-details.js`.
+- **Fixed:** `e is not a function` (PDF generation) — `buildProjectResults` in `src/shared/verification/reports/format-pdf/index.js` was called without the required `statusCell` callback. Added inline `statusCell` helper.
+- **Fixed:** `buildUnmatchedSq is not defined` (PDF generation) — Added missing imports in `src/shared/verification/reports/pdf-sections/helpers/issue-details.js` for functions from `issue-list-details.js` and `issue-attr-details.js`.
+- **Fixed:** `buildCommentMismatches is not defined` (PDF hotspot) — Added missing imports in `src/shared/verification/reports/pdf-sections/helpers/hotspot-details.js` for functions from `hotspot-extra-details.js`.
+- **Fixed:** Build script path quoting — Quoted the SEA config path in `scripts/build.js` to support project directories with spaces.
+
+---
+
 <!-- <subsection-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
 ## Issue Batching: Distribute Large Issue Sets Across Multiple Dates (2026-04-20)
 
