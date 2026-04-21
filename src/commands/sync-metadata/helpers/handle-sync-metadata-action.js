@@ -3,7 +3,7 @@
 import { loadMigrateConfig } from '../../../shared/config/loader.js';
 import { detectAndRoute } from '../../../version-router.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
-import logger from '../../../shared/utils/logger.js';
+import logger, { enableFileLogging } from '../../../shared/utils/logger.js';
 
 export async function handleSyncMetadataAction(options, shutdownCoordinator) {
   const config = await loadMigrateConfig(options.config);
@@ -22,6 +22,7 @@ export async function handleSyncMetadataAction(options, shutdownCoordinator) {
     ...(options.maxMemory && { maxMemoryMB: options.maxMemory })
   });
   ensureHeapSize(perfConfig.maxMemoryMB);
+  enableFileLogging('sync-metadata');
   logSystemInfo(perfConfig);
 
   migrateConfig.dryRun = false;
