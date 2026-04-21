@@ -1,6 +1,6 @@
 // -------- Migrate Command --------
 
-import logger, { enableFileLogging } from '../../shared/utils/logger.js';
+import logger from '../../shared/utils/logger.js';
 import { ShutdownCoordinator } from '../../shared/utils/shutdown.js';
 import { handleMigrateAction } from './helpers/handle-migrate-action.js';
 import { handleCommandError } from '../transfer/helpers/handle-command-error.js';
@@ -36,7 +36,6 @@ export function registerMigrateCommand(program) {
 
       try {
         if (options.verbose) logger.level = 'debug';
-        enableFileLogging('migrate');
         logger.info('=== CloudVoyager - Full Organization Migration ===');
         await handleMigrateAction(options, shutdownCoordinator);
         logger.info('=== Migration completed successfully ===');

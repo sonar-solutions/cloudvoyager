@@ -4,7 +4,7 @@ import { loadConfig, requireProjectKeys } from '../../../shared/config/loader.js
 import { detectAndRoute } from '../../../version-router.js';
 import { resolvePerformanceConfig, logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
 import { ProgressTracker } from '../../../shared/utils/progress.js';
-import logger from '../../../shared/utils/logger.js';
+import logger, { enableFileLogging } from '../../../shared/utils/logger.js';
 
 export async function handleTransferAction(options, shutdownCoordinator) {
   const config = await loadConfig(options.config);
@@ -30,6 +30,7 @@ export async function handleTransferAction(options, shutdownCoordinator) {
     ...(options.maxMemory && { maxMemoryMB: options.maxMemory }),
   });
   ensureHeapSize(perfConfig.maxMemoryMB);
+  enableFileLogging('transfer');
   logSystemInfo(perfConfig);
 
   const { transferProject, pipelineId } = await detectAndRoute(config.sonarqube);

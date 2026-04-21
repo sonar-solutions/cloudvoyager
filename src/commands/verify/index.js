@@ -1,6 +1,6 @@
 // -------- Verify Command --------
 
-import logger, { enableFileLogging } from '../../shared/utils/logger.js';
+import logger from '../../shared/utils/logger.js';
 import { CloudVoyagerError } from '../../shared/utils/errors.js';
 import { handleVerifyAction } from './helpers/handle-verify-action.js';
 
@@ -22,7 +22,6 @@ export function registerVerifyCommand(program) {
     .action(async (options) => {
       try {
         if (options.verbose) logger.level = 'debug';
-        enableFileLogging('verify');
         logger.info('=== CloudVoyager - Migration Verification ===');
         await handleVerifyAction(options);
         logger.info('=== Verification completed successfully — all checks passed ===');

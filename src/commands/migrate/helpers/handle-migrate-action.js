@@ -3,7 +3,7 @@
 import { loadMigrateConfig } from '../../../shared/config/loader.js';
 import { detectAndRoute } from '../../../version-router.js';
 import { logSystemInfo, ensureHeapSize } from '../../../shared/utils/concurrency.js';
-import logger from '../../../shared/utils/logger.js';
+import logger, { enableFileLogging } from '../../../shared/utils/logger.js';
 import { applyMigrateOptions } from './apply-migrate-options.js';
 import { buildMigratePerfConfig } from './build-migrate-perf-config.js';
 
@@ -16,6 +16,7 @@ export async function handleMigrateAction(options, shutdownCoordinator) {
 
   const perfConfig = buildMigratePerfConfig(config, options);
   ensureHeapSize(perfConfig.maxMemoryMB);
+  enableFileLogging('migrate');
   logSystemInfo(perfConfig);
 
   const { migrateAll, pipelineId } = await detectAndRoute(config.sonarqube);
