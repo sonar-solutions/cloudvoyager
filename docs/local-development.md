@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Mar 26, 2026 — updated build pipeline, testing, CI/CD details, SonarCloud scanning -->
+<!-- Last updated: Apr 21, 2026 — updated build pipeline, testing, CI/CD details, SonarCloud scanning -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 

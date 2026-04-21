@@ -1,6 +1,8 @@
 // -------- PDF Issue Detail Sections --------
 
 import { h, truncate, smallTable } from './pdf-table-utils.js';
+import { buildUnmatchedSq, buildScOnly, buildStatusMismatches, buildHistoryMismatches } from './issue-list-details.js';
+import { buildAssignmentMismatches, buildCommentMismatches, buildTagMismatches, buildUnsyncableTypes, buildUnsyncableSeverity } from './issue-attr-details.js';
 
 /**
  * Build issue-related detail PDF nodes.

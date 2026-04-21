@@ -22,7 +22,7 @@ export async function migrateNewCodePeriods(projectKey, newCodeData, client) {
 
   try {
     for (const setting of settings.values) {
-      await client.setProjectSetting(setting.key, setting.value, projectKey);
+      await client.setProjectSetting(setting.key, { value: setting.value }, projectKey);
     }
   } catch (error) {
     logger.warn(`Failed to set new code definition for ${projectKey}: ${error.message}`);

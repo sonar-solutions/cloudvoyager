@@ -1,8 +1,8 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Mar 26, 2026 -->
+<!-- Last updated: Apr 21, 2026 -->
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
 
 CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
@@ -74,6 +74,13 @@ src/
     │   │   │   ├── build-windows.js    # Initial window partitioning
     │   │   │   ├── fetch-window.js     # Fetch issues within a single window
     │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
+    │   ├── batch-distributor/         # Issue batching for upload (5K per date bucket)
+    │   │   ├── index.js                # shouldBatch + createBatchExtractedData orchestrator
+    │   │   ├── helpers/
+    │   │   │   ├── should-batch.js     # Predicate: issues.length > 5000
+    │   │   │   ├── compute-batch-plan.js # Returns batch descriptors with start/end indices
+    │   │   │   ├── compute-batch-date.js # Computes backdated ISO date per batch
+    │   │   │   └── create-batch-extracted-data.js # Shallow-clones extracted data with sliced issues
     │   ├── issue-sync/                # Shared issue sync utilities
     │   │   ├── has-manual-changes.js   # Detects human-authored changes on an SQ issue
     │   │   ├── fetch-sq-changelogs.js  # Batch-fetches SQ changelogs concurrently
@@ -123,8 +130,8 @@ sq-{version}/
 │               └── fetch-and-sync-hotspots.js  # Fetches SQ hotspots, syncs to SC
 ├── transfer-branch.js                # Re-export → transfer-branch/index.js
 ├── transfer-branch/
-│   ├── index.js
-│   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, ...
+│   ├── index.js                       # Orchestrates per-branch transfer; gates to batched path when issues > 5K
+│   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, transfer-branch-batched, ...
 ├── migrate-pipeline.js               # Re-export → migrate-pipeline/index.js
 ├── migrate-pipeline/
 │   ├── index.js                       # Full multi-org migration orchestrator
@@ -241,6 +248,22 @@ sq-{version}/
 
 **404 JS files** across the sq-10.4 pipeline, all ≤50 lines. Classes converted to factory functions (`createSonarQubeClient`, `createSonarCloudClient`, `createProtobufBuilder`, `createDataExtractor`) with thin class wrappers for backward compatibility.
 
+<!-- Updated: 2026-04-22_14:30:00 -->
+### Shared Utilities — Batch Distributor
+
+The **batch-distributor** (`src/shared/utils/batch-distributor/`) is a shared utility that splits large issue sets across multiple scanner report uploads to work around SonarCloud's Elasticsearch 10K-per-date-bucket visualization limit. Without batching, branches with more than 10,000 issues on a single analysis date would have issues hidden in the SonarCloud UI.
+
+It exposes four pure-function helpers:
+
+| Function | Purpose |
+|----------|---------|
+| `shouldBatch(extractedData)` | Predicate — returns `true` when `issues.length > 5000` |
+| `computeBatchPlan(totalIssues)` | Returns an array of batch descriptors, each with `startIndex`, `endIndex`, `batchIndex`, and `isLast` |
+| `computeBatchDate(baseDateISO, batchIndex, totalBatches)` | Computes a backdated ISO date string per batch, stepping one day back per batch from the base date |
+| `createBatchExtractedData(originalData, batchDescriptor, batchDate, batchScmRevisionId)` | Shallow-clones the extracted data with a sliced issues array and overridden metadata; non-final batches strip sources, changesets, and duplications to reduce upload size |
+
+**Integration:** All four pipeline versions (`sq-9.9`, `sq-10.0`, `sq-10.4`, `sq-2025`) integrate via a `shouldBatch` gate in `transferBranch`. When a branch has more than 5,000 issues, `transferBranch` computes a batch plan and uploads each batch as a separate scanner report with a unique backdated analysis date and `scmRevisionId`. Only the final batch includes sources, changesets, and duplications.
+
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing
 
@@ -348,7 +371,7 @@ Uses `shared/verification/verify-pipeline.js`:
      - Verify quality gate and profile assignments
      - Verify project settings, tags, links, new code periods, DevOps bindings
      - Verify project permissions
-5. **Portfolio check** — reference verification (SQ only)
+5. **Portfolio check** — reference-only verification (always skipped; requires Enterprise API access that is not available). SonarQube portfolios are listed in the report for manual reference but no SonarCloud comparison is performed.
 6. **Generate reports** — JSON, Markdown, PDF, and console summary
 
 <!-- Updated: Mar 25, 2026 -->

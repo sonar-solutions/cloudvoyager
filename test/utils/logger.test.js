@@ -33,40 +33,39 @@ import { enableFileLogging } from '../../src/shared/utils/logger.js';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-test.serial('enableFileLogging creates log directory and adds file transport', t => {
+test.serial('enableFileLogging creates log directory and adds 3 file transports', t => {
   const logsDir = join(process.cwd(), 'migration-output', 'logs');
 
-  // Remove logs dir if it exists so we exercise the mkdir path (lines 56-57)
   if (existsSync(logsDir)) {
     rmSync(logsDir, { recursive: true });
   }
 
   const initialTransportCount = logger.transports.length;
-  const logFilePath = enableFileLogging('test-cmd');
+  const result = enableFileLogging('test-cmd');
 
-  t.truthy(logFilePath);
-  t.true(typeof logFilePath === 'string');
-  t.true(logFilePath.includes('cloudvoyager-test-cmd-'));
-  t.true(logFilePath.endsWith('.log'));
+  t.truthy(result);
+  t.true(typeof result === 'object');
+  t.true(result.rawLogPath.includes('cloudvoyager-test-cmd-'));
+  t.true(result.rawLogPath.endsWith('.log'));
+  t.true(result.infoLogPath.endsWith('.info.log'));
+  t.true(result.warnLogPath.endsWith('.warn.log'));
+  t.true(result.errorLogPath.endsWith('.error.log'));
   t.true(existsSync(logsDir));
-  t.true(logger.transports.length > initialTransportCount);
+  t.is(logger.transports.length, initialTransportCount + 4);
 
-  // Clean up: remove the transport we just added
-  const addedTransport = logger.transports.find(
-    tr => tr.constructor.name === 'File' && tr.filename === logFilePath
-  );
-  if (addedTransport) logger.remove(addedTransport);
+  const fileTransports = logger.transports.filter(tr => tr.constructor.name === 'File');
+  for (const ft of fileTransports) logger.remove(ft);
 });
 
 test.serial('enableFileLogging with custom command name prefix', t => {
-  const logFilePath = enableFileLogging('migrate');
+  const result = enableFileLogging('migrate');
 
-  t.true(logFilePath.includes('cloudvoyager-migrate-'));
-  t.true(logFilePath.endsWith('.log'));
+  t.true(result.rawLogPath.includes('cloudvoyager-migrate-'));
+  t.true(result.rawLogPath.endsWith('.log'));
+  t.true(result.infoLogPath.includes('cloudvoyager-migrate-'));
+  t.true(result.warnLogPath.includes('cloudvoyager-migrate-'));
+  t.true(result.errorLogPath.includes('cloudvoyager-migrate-'));
 
-  // Clean up: remove the transport we just added
-  const addedTransport = logger.transports.find(
-    tr => tr.constructor.name === 'File' && tr.filename === logFilePath
-  );
-  if (addedTransport) logger.remove(addedTransport);
+  const fileTransports = logger.transports.filter(tr => tr.constructor.name === 'File');
+  for (const ft of fileTransports) logger.remove(ft);
 });

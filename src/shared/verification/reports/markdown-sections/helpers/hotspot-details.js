@@ -1,4 +1,5 @@
 // -------- Hotspot Detail Sections --------
+import { formatHotspotCommentMismatches, formatUnsyncableAssignments } from './hotspot-comment-details.js';
 
 /**
  * Format hotspot-related detail sections.

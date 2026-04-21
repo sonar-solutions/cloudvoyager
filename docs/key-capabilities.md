@@ -1,6 +1,6 @@
 # CloudVoyager — Key Capabilities
 
-<!-- Last updated: Mar 26, 2026 -->
+<!-- Last updated: Apr 22, 2026 -->
 
 A comprehensive overview of CloudVoyager's engineering, architecture, and capabilities for techno-functional leadership review.
 
@@ -35,6 +35,7 @@ A comprehensive overview of CloudVoyager's engineering, architecture, and capabi
 24. [Desktop Application (Electron GUI)](#24-desktop-application-electron-gui)
 25. [Pipeline Modularization](#25-pipeline-modularization)
 26. [Desktop App Progress Tracking](#26-desktop-app-progress-tracking)
+27. [Issue Batch Distribution](#27-issue-batch-distribution)
 
 ---
 
@@ -215,6 +216,10 @@ The report is submitted to SonarCloud's CE endpoint as a multipart form upload w
 ### Duplicate Detection via SCM Revision
 
 Each report includes an `scm_revision_id` (git commit hash) in its metadata. SonarCloud uses this to detect and reject duplicate submissions, preventing accidental data duplication across multiple migration runs.
+
+### Issue Batching for Large Projects
+
+When a branch has more than 5,000 issues, CloudVoyager automatically splits the issues into batches of 5,000 and submits each batch as a separate scanner report with a distinct `analysis_date` going backwards from today. This prevents hitting SonarCloud's Elasticsearch visualization limit of 10K results per date bucket, ensuring all migrated issues are visible in the UI. The batching is transparent to the caller — `transferBranch` automatically detects when batching is needed and routes accordingly. Non-final batches strip sources, changesets, and duplications to minimize upload size, while keeping components and active rules for issue resolution. Each batch uses a unique `scmRevisionId` to prevent CE deduplication.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Branch Name Resolution
@@ -769,12 +774,12 @@ The checkpoint system consists of five cooperating components:
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- updated: 2026-04-22_14:30:00 -->
 ## 18. Comprehensive Reporting Suite
 
-The migration pipeline generates reports in **6 formats** across **3 report types**:
+The migration pipeline generates reports in **6 formats** across **3 report types**. Both the `migrate` and `verify` commands produce reports in JSON, Markdown, and PDF formats.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- updated: 2026-04-22_14:30:00 -->
 ### Report Types
 
 | Report | Purpose | Audience |
@@ -873,7 +878,7 @@ Performance and rate-limit schemas are shared across all configuration types, en
 - **`--dry-run`** — Execute extraction and mapping without writing to SonarCloud
 - **`--verbose`** — Debug-level logging for troubleshooting
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- updated: 2026-04-22_02:05:00 -->
 ### Logging
 
 Winston-based logging with:
@@ -881,6 +886,17 @@ Winston-based logging with:
 - Optional file output via `LOG_FILE` environment variable
 - Structured timestamps and log formatting
 - `--verbose` flag sets level to `debug`
+
+**Automatic file logging** — Every command (`migrate`, `transfer`, `verify`, `sync-metadata`) writes three log files to `migration-output/logs/`:
+
+| File | Contents |
+|------|----------|
+| `cloudvoyager-{cmd}-{timestamp}.log` | All log levels (raw/unfiltered) |
+| `cloudvoyager-{cmd}-{timestamp}.info.log` | Only `info` level entries |
+| `cloudvoyager-{cmd}-{timestamp}.warn.log` | Only `warn` level entries |
+| `cloudvoyager-{cmd}-{timestamp}.error.log` | Only `error` level entries |
+
+The filtered logs make it easy to triage issues without searching through thousands of info-level lines.
 
 ---
 
@@ -1000,6 +1016,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 | Zero-dependency concurrency | Avoid bloat; the custom implementation is ~80 lines and covers all use cases |
 | Dual packaging backends (SEA + Bun) | Node.js SEA for stability (default), Bun compile as experimental alternative for faster builds |
 | Inline proto schemas | Eliminate runtime file I/O dependencies for standalone binary compatibility |
+| Issue batching (5K per date bucket) | Splits large issue sets across multiple scanner reports with backdated `analysis_date` values to stay under SonarCloud's ES 10K visualization limit |
 | Builder-encoder separation | Clean architecture; business logic in builders, serialization in encoder |
 | Non-fatal extraction | Maximize migration completeness even when individual items fail |
 | Settled-mode concurrency | Partial success is better than total failure for large-scale operations |
@@ -1012,7 +1029,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 1. **No existing tool does this.** CloudVoyager is the first to reverse-engineer SonarScanner's protobuf protocol and reconstruct it programmatically.
 2. **Zero source code access required.** The migration operates entirely at the API level — no repository cloning, no build systems, no CI/CD integration needed.
 3. **Complete fidelity.** Issues, hotspots, measures, quality gates, quality profiles, permissions, groups, templates, portfolios, settings, tags, links, bindings, and new code periods are all preserved.
-4. **Handles projects with 10,000+ issues.** SonarQube caps `/api/issues/search` at 10K results; CloudVoyager automatically detects this and uses date-window bisection (search slicing) to retrieve every issue without data loss.
+4. **Handles projects with 10,000+ issues.** SonarQube caps `/api/issues/search` at 10K results; CloudVoyager automatically detects this and uses date-window bisection (search slicing) to retrieve every issue without data loss. On the upload side, issues are batched into groups of 5,000 with distinct `analysis_date` values to stay under SonarCloud's Elasticsearch visualization limit.
 5. **Robust external issue detection.** Third-party plugin issues are reliably detected even when the SonarCloud rule-repository API is unreachable, using a built-in fallback set of 43 known repositories with retry and exponential backoff.
 6. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
 7. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
@@ -1095,6 +1112,65 @@ Renders a pixel-art whale sprite that moves across the screen as progress advanc
 - Typewriter effect for phase labels
 - Dark/light theme support with distinct color palettes
 - Completion state: green trail, animation stops on spout frame
+
+---
+
+<!-- updated: 2026-04-22_14:30:00 -->
+## 27. Issue Batch Distribution
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### The Problem
+
+SonarCloud's Elasticsearch-backed UI has a visualization limit that hides issues when more than 10,000 exist in a single date bucket. For large projects migrated in a single scanner report, this means a significant portion of issues become invisible in the SonarCloud interface despite being successfully ingested.
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### The Solution
+
+CloudVoyager automatically detects when a branch has more than 5,000 issues and splits them into batches of 5,000, submitting each batch as a separate scanner report. This is implemented in `src/shared/utils/batch-distributor/` as four cooperating modules:
+
+| Module | Purpose |
+|--------|---------|
+| `should-batch.js` | Threshold check — returns `true` when `extractedData.issues.length > 5000` |
+| `compute-batch-plan.js` | Divides the total issue count into batch descriptors with `startIndex`, `endIndex`, `batchIndex`, and `isLast` flag |
+| `compute-batch-date.js` | Assigns each batch a distinct `analysis_date` by going backwards from the base date — one day per batch, so the earliest batch gets the oldest date |
+| `create-batch-extracted-data.js` | Creates a shallow clone of the extracted data for each batch with sliced issues, overridden metadata, and payload stripping for non-final batches |
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### Batch Date Assignment
+
+Each batch receives a backdated `analysis_date` calculated as:
+
+```
+daysBack = totalBatches - 1 - batchIndex
+batchDate = baseDate - daysBack days
+```
+
+For example, with 15,000 issues and a base date of 2026-04-22, three batches are created:
+- **Batch 0** (issues 0–4999): `analysis_date = 2026-04-20`
+- **Batch 1** (issues 5000–9999): `analysis_date = 2026-04-21`
+- **Batch 2** (issues 10000–14999): `analysis_date = 2026-04-22` (original date, final batch)
+
+This ensures each batch lands in a separate Elasticsearch date bucket, keeping every batch under the 10K visualization threshold.
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### Payload Optimization
+
+Non-final batches strip heavy payload data that only the latest analysis needs:
+- **Sources** — set to empty array
+- **Changesets** — set to empty Map
+- **Duplications** — set to empty Map
+
+Components and active rules are retained in all batches so that issues can be resolved against their component references. Only the final batch carries the full project data (sources, changesets, duplications) alongside the original analysis date.
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### Deduplication Prevention
+
+Each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')`. This prevents SonarCloud's Compute Engine from rejecting batches as duplicate submissions, since CE uses the SCM revision to detect re-uploads.
+
+<!-- updated: 2026-04-22_14:30:00 -->
+### Submission Order
+
+Batches are submitted oldest-first (lowest `batchIndex` first). Each batch waits for its CE task to complete before the next batch is submitted, ensuring SonarCloud processes them in chronological order. The batching is transparent to the caller — `transferBranch` automatically detects when batching is needed and routes accordingly.
 
 ---
 

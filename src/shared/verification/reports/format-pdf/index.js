@@ -16,7 +16,11 @@ export async function generateVerificationPdf(results) {
   content.push(...buildHeader(results));
   content.push(...buildSummaryTable(results));
   content.push(...buildOrgResults(results));
-  content.push(...buildProjectResults(results));
+  const statusCell = (status) => {
+    const styleMap = { pass: 'statusPass', fail: 'statusFail', skipped: 'statusSkip', error: 'statusWarn' };
+    return { text: (status || '').toUpperCase(), style: styleMap[status] || 'tableCell' };
+  };
+  content.push(...buildProjectResults(results, statusCell));
 
   return generatePdfBuffer(buildDocDefinition(content));
 }

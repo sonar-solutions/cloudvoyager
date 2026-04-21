@@ -1,6 +1,6 @@
 # Verification
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- Updated: Apr 21, 2026 -->
 
 After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube or SonarCloud.
 
@@ -373,6 +373,24 @@ SQ may have plugins that add languages not available in SC (e.g., MuleSoft's `mu
 | Duplication (`duplicated_lines_density`, `duplicated_blocks`, `duplicated_lines`) | Skipped — SC recalculates with its own CPD engine |
 | Line counts (`lines`, `ncloc`) | 1% tolerance — different scanner implementations count lines slightly differently |
 | SQ-only metrics (`statements`, `functions`, `classes`, `coverage`, `line_coverage`) | Informational only — SC may not report these |
+
+### Batch-Distributed Issues and Multiple Analysis Dates
+<!-- updated: 2026-04-22_14:30:00 -->
+
+When a branch has more than 5,000 issues, the migration uses **batch distribution** to split those issues into chunks of up to 5,000 and assigns each chunk a separate `analysis_date` (computed by stepping backwards one day per batch from the original analysis date). This means a single branch that had one analysis in SonarQube may appear in SonarCloud with issues spread across multiple `analysis_date` values.
+
+**This is expected behavior, not a verification failure.** The batch distribution is a migration-time strategy to stay within SonarCloud's import limits and does not affect the correctness of the migrated data.
+
+The verification pipeline compares **total issue counts and attributes** (rule, file, line, status, comments, tags, etc.) across the entire branch — it does not compare per-date counts. As a result, batch distribution should never cause false verification failures. If verification reports an issue-count mismatch, the cause is not the batching itself but a genuine migration gap.
+
+For reference, the batching logic lives in `src/shared/utils/batch-distributor/` and works as follows:
+
+| Concept | Detail |
+|---------|--------|
+| **Threshold** | Batching triggers when a branch has > 5,000 issues |
+| **Chunk size** | Each batch contains up to 5,000 issues |
+| **Date assignment** | Each batch receives a unique date, counting backwards from the original analysis date (batch 0 = oldest, last batch = original date) |
+| **Batch plan** | `computeBatchPlan(totalIssues)` returns an array of `{ startIndex, endIndex, batchIndex, isLast }` descriptors |
 
 ### Tag Differences on Issues
 

@@ -1,8 +1,9 @@
 // -------- Create PDF Printer --------
 import PdfPrinterModule from 'pdfmake/js/Printer.js';
-import vfs from 'pdfmake/build/vfs_fonts.js';
+import vfsModule from 'pdfmake/build/vfs_fonts.js';
 
-const PdfPrinter = PdfPrinterModule.default;
+const PdfPrinter = typeof PdfPrinterModule === 'function' ? PdfPrinterModule : (PdfPrinterModule.default || PdfPrinterModule);
+const vfs = vfsModule.pdfMake?.vfs || vfsModule;
 
 function createVirtualFs(vfsData) {
   return {
