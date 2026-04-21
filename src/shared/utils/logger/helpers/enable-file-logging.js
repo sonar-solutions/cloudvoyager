@@ -12,20 +12,20 @@ function filterByLevel(level) {
 }
 
 export function enableFileLogging(commandName) {
-  const logsDir = path.resolve('migration-output', 'logs');
-  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const runDir = path.resolve('migration-output', 'logs', ts);
+  if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
 
   const existing = logger.transports.filter(t => t instanceof winston.transports.File);
   for (const t of existing) logger.remove(t);
 
   const safeName = commandName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const fileFormat = combine(timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), logFormat);
 
-  const rawLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.log`);
-  const infoLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.info.log`);
-  const warnLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.warn.log`);
-  const errorLogPath = path.join(logsDir, `cloudvoyager-${safeName}-${ts}.error.log`);
+  const rawLogPath = path.join(runDir, `cloudvoyager-${safeName}.log`);
+  const infoLogPath = path.join(runDir, `cloudvoyager-${safeName}.info.log`);
+  const warnLogPath = path.join(runDir, `cloudvoyager-${safeName}.warn.log`);
+  const errorLogPath = path.join(runDir, `cloudvoyager-${safeName}.error.log`);
 
   logger.add(new winston.transports.File({
     filename: rawLogPath, level: 'debug',
@@ -47,7 +47,7 @@ export function enableFileLogging(commandName) {
     format: combine(filterByLevel('error'), fileFormat)
   }));
 
-  logger.info(`Logs directory: ${logsDir}`);
+  logger.info(`Logs directory: ${runDir}`);
   logger.info(`  Raw logs:   ${rawLogPath}`);
   logger.info(`  Info logs:  ${infoLogPath}`);
   logger.info(`  Warn logs:  ${warnLogPath}`);

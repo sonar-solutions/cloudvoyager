@@ -45,7 +45,7 @@ test.serial('enableFileLogging creates log directory and adds 3 file transports'
 
   t.truthy(result);
   t.true(typeof result === 'object');
-  t.true(result.rawLogPath.includes('cloudvoyager-test-cmd-'));
+  t.true(result.rawLogPath.includes('cloudvoyager-test-cmd'));
   t.true(result.rawLogPath.endsWith('.log'));
   t.true(result.infoLogPath.endsWith('.info.log'));
   t.true(result.warnLogPath.endsWith('.warn.log'));
@@ -60,11 +60,11 @@ test.serial('enableFileLogging creates log directory and adds 3 file transports'
 test.serial('enableFileLogging with custom command name prefix', t => {
   const result = enableFileLogging('migrate');
 
-  t.true(result.rawLogPath.includes('cloudvoyager-migrate-'));
+  t.true(result.rawLogPath.includes('cloudvoyager-migrate'));
   t.true(result.rawLogPath.endsWith('.log'));
-  t.true(result.infoLogPath.includes('cloudvoyager-migrate-'));
-  t.true(result.warnLogPath.includes('cloudvoyager-migrate-'));
-  t.true(result.errorLogPath.includes('cloudvoyager-migrate-'));
+  t.true(result.infoLogPath.includes('cloudvoyager-migrate'));
+  t.true(result.warnLogPath.includes('cloudvoyager-migrate'));
+  t.true(result.errorLogPath.includes('cloudvoyager-migrate'));
 
   const fileTransports = logger.transports.filter(tr => tr.constructor.name === 'File');
   for (const ft of fileTransports) logger.remove(ft);
