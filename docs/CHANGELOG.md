@@ -4,6 +4,55 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Code Review: Deep Codebase Audit (2026-04-22)
+<!-- updated: 2026-04-22_12:30:00 -->
+
+Full codebase review of 95 files across shared utilities, state management, pipelines, protobuf encoding, verification, and CLI commands. Findings documented in `REVIEW.md` at project root.
+
+### Summary
+
+- **5 Critical** — Crash/data-loss risks: atomic-save ordering, missing write lock on StateTracker, null crash in `shouldBatch`, shutdown corruption, path traversal in test-connection
+- **16 Warnings** — Incorrect behavior: overlapping search slicer windows, `mapConcurrent` abort race, missing `ACCEPTED` status normalization (SQ 10.4+), match key collisions in verification, bypassed write locks, silent effort truncation, missing null guards
+- **9 Info** — Duplicate constants, unused vars, missing tests, copy-paste across pipeline versions
+
+### Key Files Flagged
+
+- `src/shared/state/storage/helpers/atomic-save.js` — Crash-vulnerable save ordering
+- `src/shared/state/tracker/index.js` — No write lock for concurrent access
+- `src/shared/utils/batch-distributor/helpers/should-batch.js` — Null crash on all pipelines
+- `src/shared/utils/shutdown/helpers/create-shutdown-coordinator.js` — Force-exit during cleanup
+- `src/shared/utils/search-slicer/helpers/build-date-windows.js` — Overlapping boundaries
+- `src/shared/verification/checkers/issues/helpers/normalize-status.js` — Missing SQ 10.4+ status
+
+---
+
+## Feature: 4-Tier Log File Output (2026-04-22)
+<!-- updated: 2026-04-22_02:35:00 -->
+
+Every command now writes four separate log files to `migration-output/logs/`:
+
+- **`cloudvoyager-{cmd}-{timestamp}.log`** — Raw/unfiltered (all levels including debug)
+- **`cloudvoyager-{cmd}-{timestamp}.info.log`** — Only `info` entries
+- **`cloudvoyager-{cmd}-{timestamp}.warn.log`** — Only `warn` entries
+- **`cloudvoyager-{cmd}-{timestamp}.error.log`** — Only `error` entries
+
+This makes it easy to triage warnings and errors without searching through thousands of info-level lines.
+
+### Bug Fix: Logs preserved during output directory cleanup
+
+Previously, a fresh (non-resume) migration would `rm -rf` the entire `migration-output/` directory, deleting log files that were created moments earlier by `enableFileLogging`. All 4 pipeline versions now skip the `logs/` subdirectory during cleanup so logs accumulate across runs.
+
+### Files Changed
+
+- `src/shared/utils/logger/helpers/enable-file-logging.js`
+- `test/utils/logger.test.js`
+- `src/pipelines/sq-2025/migrate-pipeline/helpers/handle-resume-prompt.js`
+- `src/pipelines/sq-10.4/migrate-pipeline/helpers/prepare-output-dir.js`
+- `src/pipelines/sq-10.0/migrate-pipeline/helpers/prepare-output-dir.js`
+- `src/pipelines/sq-9.9/migrate-pipeline/helpers/setup-output-dirs.js`
+
+---
+
 ## Bug Fix: New Code Definitions Migration Fails with 400 Error (2026-04-22)
 <!-- updated: 2026-04-22_14:00:00 -->
 
