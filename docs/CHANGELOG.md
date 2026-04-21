@@ -4,6 +4,28 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix: New Code Definitions Migration Fails with 400 Error (2026-04-22)
+<!-- updated: 2026-04-22_14:00:00 -->
+
+Fixed a bug where the "New code definitions" migration step failed with `SonarCloud API error (400): Either 'value', 'values' or 'fieldValues' must be provided`.
+
+### Root Cause
+
+`migrateNewCodePeriods` called `client.setProjectSetting(setting.key, setting.value, projectKey)`, passing a raw string as the second argument. The `setProjectSetting` function expects an object with destructured properties `{ value, values, fieldValues }`. The raw string was destructured into an empty object, so none of the required parameters were included in the API request.
+
+### Fix
+
+Changed the call to `client.setProjectSetting(setting.key, { value: setting.value }, projectKey)` in all 4 pipeline versions.
+
+### Files Changed
+
+- `src/pipelines/sq-9.9/sonarcloud/migrators/project-config/helpers/migrate-new-code-periods.js`
+- `src/pipelines/sq-10.0/sonarcloud/migrators/project-config/helpers/migrate-new-code-periods.js`
+- `src/pipelines/sq-10.4/sonarcloud/migrators/project-config/helpers/migrate-new-code-periods.js`
+- `src/pipelines/sq-2025/sonarcloud/migrators/project-config/helpers/migrate-new-code-periods.js`
+
+---
+
 <!-- <subsection-updated last-updated="2026-04-22T00:00:00Z" updated-by="Claude" /> -->
 ## Bug Fixes: Missing Imports in Verification Report Generators (2026-04-22)
 <!-- updated: 2026-04-22_00:42:00 -->

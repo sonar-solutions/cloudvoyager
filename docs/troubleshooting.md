@@ -417,8 +417,10 @@ You can also sync just one type of metadata at a time:
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- updated: 2026-04-22_14:30:00 -->
 ## ✅ Verification Reports
+
+> **Import bug fixes (v1.3):** Earlier versions had missing imports in `issue-details.js`, `hotspot-details.js`, and `format-pdf/index.js` that could cause report generation to fail with `ReferenceError` or produce incomplete output. These have been fixed in v1.3. If you encountered report generation errors on a prior version, upgrade and re-run `verify`.
 
 After migration, use the `verify` command to generate a detailed pass/fail comparison of SonarQube vs SonarCloud data:
 
@@ -583,10 +585,12 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 
 ---
 
-<!-- Updated: Mar 28, 2026 -->
+<!-- updated: 2026-04-22_14:30:00 -->
 ## 📊 Projects with 10,000+ Issues
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
+
+> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **batch distributor** handles uploading >5K issues to SonarCloud by splitting them into multiple scanner reports with distinct `analysis_date` values, preventing the Elasticsearch visualization limit (10K per date bucket) from hiding issues in the UI. Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud.
 
 ### Error: `10001th result asked`
 
@@ -614,10 +618,12 @@ The search slicer algorithm:
 
 ---
 
-<!-- Updated: Apr 20, 2026 -->
+<!-- updated: 2026-04-22_14:30:00 -->
 ## 📦 Issue Batching (Multiple Scanner Reports Per Branch)
 
 When a branch has more than 5,000 issues, CloudVoyager automatically splits them into batches of 5,000 and submits each batch as a separate scanner report with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding issues.
+
+> **This is automatic and transparent.** Batching is a built-in feature of the upload pipeline, not a workaround. Users do not need to enable it, configure it, or take any special action. The batch distributor detects when a branch exceeds 5,000 issues and handles the splitting, date assignment, and sequential upload internally.
 
 ### Why am I seeing multiple uploads for one branch?
 
@@ -629,9 +635,10 @@ Splitting 20590 issues into 5 batches of up to 5,000
 
 Each batch is uploaded sequentially (the tool waits for CE completion before sending the next batch). The final batch carries the original analysis date and full project data (sources, changesets, duplications). Earlier batches are backdated by one day each and carry only issues + components + active rules.
 
+<!-- updated: 2026-04-22_14:30:00 -->
 ### Upload interrupted mid-batch
 
-If a transfer is interrupted between batches, re-run the same command. The branch status stays `started` in the checkpoint journal, so all batches will be re-uploaded from the beginning. This is safe — each batch uses a unique `scmRevisionId`, so CE will not reject them as duplicates.
+If a transfer is interrupted between batches, re-run the same command. The checkpoint journal tracks batch progress and the branch status stays `started`, so the migration can be safely resumed. All batches for that branch will be re-uploaded from the beginning. This is safe -- each batch uses a unique `scmRevisionId`, so SonarCloud's CE will not reject them as duplicates. No data is lost or corrupted by the interruption.
 
 ### Issue counts look correct in the API but not in the UI
 

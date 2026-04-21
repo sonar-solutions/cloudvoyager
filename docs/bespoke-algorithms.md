@@ -192,17 +192,28 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ## 5. Issue Batch Distribution (Upload-Side 10K Mitigation)
 
-<!-- <section-updated last-updated="2026-04-20T00:00:00Z" updated-by="Claude" /> -->
+<!-- updated: 2026-04-22_14:30:00 -->
+<!-- <section-updated last-updated="2026-04-22T14:30:00Z" updated-by="Claude" /> -->
 
-SonarCloud's Elasticsearch visualization layer caps results at 10,000 per date bucket. When CloudVoyager migrates a branch with tens of thousands of issues, they all land on a single `analysis_date`, making only the first 10K visible in the UI. The batch distributor splits issues across multiple scanner reports with distinct dates.
+### Problem
+
+SonarCloud's Elasticsearch visualization layer caps results at **10,000 issues per date bucket**. When CloudVoyager migrates a branch, the scanner report is uploaded with a single `analysis_date` (the `extractedAt` timestamp from the source SonarQube instance). If the branch carries more than 10K issues, only the first 10,000 are visible in the SonarCloud UI — the rest silently disappear from the Issues tab. This is an ES index-time bucketing limitation, not an API pagination issue, so it cannot be solved client-side.
+
+The batch distributor solves this by splitting the issues across multiple scanner report uploads, each assigned a **distinct analysis date**, so no single date bucket exceeds the ES cap.
 
 ### Algorithm
 
 ```
-transferBranchBatched(extractedData, opts):
-  IF extractedData.issues.length <= 5000:
-    RETURN normal single-report path
+transferBranch(extractedData, opts):
+  // --- shouldBatch gate (in each pipeline's transfer-branch.js) ---
+  IF shouldBatch(extractedData):        // i.e. issues.length > 5000
+    ceTask = transferBranchBatched(extractedData, opts)
+    RETURN { stats: computeBranchStats(extractedData), ceTask }
 
+  // Otherwise: normal single-report path
+  ...
+
+transferBranchBatched(extractedData, opts):
   plan = computeBatchPlan(extractedData.issues.length)
   // plan = [{startIndex, endIndex, batchIndex, isLast}, ...]
   // batchCount = ceil(totalIssues / 5000)
@@ -228,7 +239,7 @@ transferBranchBatched(extractedData, opts):
       batchData.changesets = empty Map
       batchData.duplications = empty Map
 
-    // Build, encode, upload — MUST wait for CE completion
+    // Build protobuf, encode, upload — MUST wait for CE completion
     ceTask = buildEncodeUpload(batchData, { wait: true })
 
   RETURN lastCeTask
@@ -236,11 +247,26 @@ transferBranchBatched(extractedData, opts):
 
 ### Key Invariants
 
-- **Batch size = 5,000 (constant)** — 50% safety margin under the 10K ES limit
-- **Oldest batch submitted first** — the final (newest) batch carries full project data (sources, changesets, duplications)
-- **Sequential upload with wait** — CE processes reports per-project sequentially; concurrent uploads would race
-- **Unique `scmRevisionId` per batch** — without this, CE deduplicates and rejects subsequent batches
-- **Stats from original data** — branch stats are computed from the full `extractedData`, not any single batch
+- **Batch size = 5,000 (constant)** — 50% safety margin under the 10K ES limit.
+- **`shouldBatch` gate** — `transferBranch` checks `issues.length > 5000` before entering the batch path; projects at or below the threshold take the normal single-report path with zero overhead.
+- **Oldest batch submitted first** — batch 0 gets the most-backdated date; the final (newest) batch carries the original `extractedAt` date and full project data (sources, changesets, duplications).
+- **Non-final batches are lightweight** — `sources`, `changesets`, and `duplications` are stripped (set to empty arrays/maps) to reduce upload size. Only the last batch carries these heavy payloads, since SonarCloud keeps only the latest analysis's source snapshots.
+- **Sequential upload with wait** — each batch calls `uploadAndWait` before the next begins. CE processes reports per-project sequentially; concurrent uploads would race and produce indeterminate results.
+- **Unique `scmRevisionId` per batch** — generated via `randomBytes(20).toString('hex')`. Without a unique revision, CE deduplicates and silently rejects subsequent batches for the same branch.
+- **Stats computed from original data** — `computeBranchStats` runs on the full `extractedData` (before slicing), not on any single batch, ensuring accurate totals.
+
+### Pipeline Integration
+
+Each pipeline version (sq-9.9, sq-10.0, sq-10.4, sq-2025) has a `transfer-branch.js` that imports `shouldBatch` from the shared batch-distributor module. The flow is:
+
+```
+transfer-branch.js
+  └── shouldBatch(extractedData)?
+        ├── YES → transfer-branch-batched.js (batch loop)
+        └── NO  → normal single-report build → encode → upload
+```
+
+The `*-batched.js` file in each pipeline wraps that pipeline's specific `ProtobufBuilder` / `ProtobufEncoder` / `ReportUploader` classes inside the batch loop. The shared utilities (`computeBatchPlan`, `computeBatchDate`, `createBatchExtractedData`) are pipeline-agnostic.
 
 ### Implementation
 
@@ -252,9 +278,11 @@ src/shared/utils/batch-distributor/
     compute-batch-plan.js                   — Returns [{startIndex, endIndex, batchIndex, isLast}]
     compute-batch-date.js                   — Backdates: baseDate - N days
     create-batch-extracted-data.js          — Shallow clone with sliced issues + metadata override
-```
 
-Each pipeline version has a `*-batched.js` file that wraps the pipeline-specific build→encode→upload in the batch loop.
+src/pipelines/<version>/transfer-pipeline/helpers/
+  transfer-branch.js                        — shouldBatch gate, delegates to batched or single path
+  transfer-branch-batched.js                — Batch loop: build → encode → uploadAndWait per batch
+```
 
 ---
 
