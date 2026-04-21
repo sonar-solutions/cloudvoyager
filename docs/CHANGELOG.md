@@ -69,15 +69,17 @@ Full codebase review of 95 files across shared utilities, state management, pipe
 
 ---
 
-## Feature: 4-Tier Log File Output (2026-04-22)
-<!-- updated: 2026-04-22_02:35:00 -->
+## Feature: Per-Run Log Folders (2026-04-22)
+<!-- updated: 2026-04-22_03:01:00 -->
 
-Every command now writes four separate log files to `migration-output/logs/`:
+Each migration run now creates a **timestamped subfolder** under `migration-output/logs/`, e.g. `migration-output/logs/2026-04-22T03-01-00-123Z/`. This makes it easy to find and compare logs across different runs.
 
-- **`cloudvoyager-{cmd}-{timestamp}.log`** — Raw/unfiltered (all levels including debug)
-- **`cloudvoyager-{cmd}-{timestamp}.info.log`** — Only `info` entries
-- **`cloudvoyager-{cmd}-{timestamp}.warn.log`** — Only `warn` entries
-- **`cloudvoyager-{cmd}-{timestamp}.error.log`** — Only `error` entries
+Within each run folder, four log files are written:
+
+- **`cloudvoyager-{cmd}.log`** — Raw/unfiltered (all levels including debug)
+- **`cloudvoyager-{cmd}.info.log`** — Only `info` entries
+- **`cloudvoyager-{cmd}.warn.log`** — Only `warn` entries
+- **`cloudvoyager-{cmd}.error.log`** — Only `error` entries
 
 This makes it easy to triage warnings and errors without searching through thousands of info-level lines.
 
