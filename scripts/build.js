@@ -134,7 +134,7 @@ function seaPackage(distDir, binDir, overridePlatform) {
   writeFileSync(seaConfigPath, JSON.stringify(seaConfig, null, 2));
 
   console.log('Generating SEA blob...');
-  execSync(`node --experimental-sea-config ${seaConfigPath}`, {
+  execSync(`node --experimental-sea-config "${seaConfigPath}"`, {
     cwd: rootDir,
     stdio: 'inherit',
   });

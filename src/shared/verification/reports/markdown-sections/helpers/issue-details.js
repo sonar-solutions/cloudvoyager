@@ -1,4 +1,6 @@
 // -------- Issue Detail Sections --------
+import { formatUnmatchedSqIssues, formatScOnlyIssues, formatStatusMismatches, formatHistoryMismatches } from './issue-list-details.js';
+import { formatAssignmentMismatches, formatCommentMismatches, formatTagMismatches, formatUnsyncableTypeChanges, formatUnsyncableSeverityChanges } from './issue-attr-details.js';
 
 /**
  * Format issue-related detail sections.
