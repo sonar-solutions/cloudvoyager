@@ -42,9 +42,11 @@ export async function fetchWindow(
     probeTotalFn, getPaginatedFn, endpoint,
     params, dataKey, { start: window.start, end: midpoint }, limit
   );
+
+  const rightStart = new Date(new Date(midpoint).getTime() + 1).toISOString().replace(/\.\d{3}Z$/, '+0000');
   const rightResults = await fetchWindow(
     probeTotalFn, getPaginatedFn, endpoint,
-    params, dataKey, { start: midpoint, end: window.end }, limit
+    params, dataKey, { start: rightStart, end: window.end }, limit
   );
 
   return deduplicateResults([...leftResults, ...rightResults]);

@@ -13,6 +13,6 @@ export async function doSeedOrganizations(withLock, journal, orgAssignments, sel
         }
       }
     }
-    await self.save();
+    await self._saveUnsafe();
   });
 }

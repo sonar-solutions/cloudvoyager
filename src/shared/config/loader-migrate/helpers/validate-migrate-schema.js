@@ -6,9 +6,9 @@ import { ValidationError } from '../../../utils/errors.js';
 
 const ajv = new Ajv({ allErrors: true, useDefaults: true });
 addFormats(ajv);
+const migrateValidate = ajv.compile(migrateConfigSchema);
 
 export function validateMigrateSchema(config) {
-  const migrateValidate = ajv.compile(migrateConfigSchema);
   const valid = migrateValidate(config);
   if (!valid) {
     const errors = migrateValidate.errors.map(err => `${err.instancePath} ${err.message}`);

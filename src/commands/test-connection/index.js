@@ -19,6 +19,11 @@ export function registerTestCommand(program) {
         const { pipelineId, parsedVersion } = await detectAndRoute(config.sonarqube);
         logger.info(`SonarQube version: ${parsedVersion.raw} → pipeline: ${pipelineId}`);
 
+        const VALID_PIPELINES = new Set(['sq-9.9', 'sq-10.0', 'sq-10.4', 'sq-2025']);
+        if (!VALID_PIPELINES.has(pipelineId)) {
+          throw new Error(`Unsupported pipeline: ${pipelineId}`);
+        }
+
         const { SonarQubeClient } = await import(`../../pipelines/${pipelineId}/sonarqube/api-client.js`);
         const { SonarCloudClient } = await import(`../../pipelines/${pipelineId}/sonarcloud/api-client.js`);
 

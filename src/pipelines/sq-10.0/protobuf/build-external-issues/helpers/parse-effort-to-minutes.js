@@ -8,8 +8,10 @@ export function parseEffortToMinutes(effort) {
   if (typeof effort === 'number') return effort;
 
   let minutes = 0;
+  const dayMatch = effort.match(/(\d+)d/);
   const hourMatch = effort.match(/(\d+)h/);
   const minMatch = effort.match(/(\d+)min/);
+  if (dayMatch) minutes += Number.parseInt(dayMatch[1], 10) * 480;
   if (hourMatch) minutes += Number.parseInt(hourMatch[1], 10) * 60;
   if (minMatch) minutes += Number.parseInt(minMatch[1], 10);
   return minutes;

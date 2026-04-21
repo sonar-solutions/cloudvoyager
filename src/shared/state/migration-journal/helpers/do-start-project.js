@@ -10,6 +10,6 @@ export async function doStartProject(withLock, journal, orgKey, projKey, self) {
       startedAt: new Date().toISOString(),
       completedSteps: [],
     };
-    await self.save();
+    await self._saveUnsafe();
   });
 }

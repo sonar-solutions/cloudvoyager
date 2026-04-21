@@ -7,6 +7,7 @@
 export function normalizeStatus(status, resolution) {
   const normalizedResolution = resolution ? resolution.replaceAll('-', '_') : resolution;
   if (normalizedResolution === 'FALSE_POSITIVE') return 'FALSE_POSITIVE';
+  if (normalizedResolution === 'ACCEPTED') return 'WONTFIX';
   if (normalizedResolution === 'WONTFIX') return 'WONTFIX';
   if (normalizedResolution === 'FIXED') return 'FIXED';
   return status || 'OPEN';

@@ -16,16 +16,7 @@ export async function atomicSave(filePath, state) {
     logger.debug(`Saving state to: ${filePath}`);
     checkDiskSpace(filePath);
 
-    // Backup current file before overwriting
-    if (existsSync(filePath)) {
-      try {
-        await rename(filePath, `${filePath}.backup`);
-      } catch (err) {
-        logger.debug(`Could not create backup: ${err.message}`);
-      }
-    }
-
-    // Write to temp, fsync, rename
+    // Write new content to temp file first (primary still exists as crash-safe fallback)
     const tmpPath = `${filePath}.tmp`;
     const content = JSON.stringify(state, null, 2);
     const fd = await open(tmpPath, 'w');
@@ -35,6 +26,17 @@ export async function atomicSave(filePath, state) {
     } finally {
       await fd.close();
     }
+
+    // Backup current file (primary still exists at this point if we crash)
+    if (existsSync(filePath)) {
+      try {
+        await rename(filePath, `${filePath}.backup`);
+      } catch (err) {
+        logger.debug(`Could not create backup: ${err.message}`);
+      }
+    }
+
+    // Atomically replace primary with verified temp
     await rename(tmpPath, filePath);
 
     logger.info(`Saved state to ${filePath}`);

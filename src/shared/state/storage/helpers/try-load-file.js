@@ -1,7 +1,6 @@
 // -------- Try Load JSON File --------
 
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import logger from '../../../utils/logger.js';
 import { StateError } from '../../../utils/errors.js';
 
@@ -12,7 +11,6 @@ import { StateError } from '../../../utils/errors.js';
  */
 export async function tryLoadFile(filePath) {
   try {
-    if (!existsSync(filePath)) return null;
     logger.debug(`Loading state from: ${filePath}`);
     const content = await readFile(filePath, 'utf-8');
     if (!content.trim()) return null;

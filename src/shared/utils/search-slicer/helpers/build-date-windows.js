@@ -9,7 +9,7 @@ export function buildDateWindows(startDate, endDate, count) {
   const windows = [];
 
   for (let i = 0; i < count; i++) {
-    const windowStart = formatSonarQubeDate(start + step * i);
+    const windowStart = formatSonarQubeDate(i === 0 ? start : start + step * i + 1);
     const windowEnd = formatSonarQubeDate(Math.min(start + step * (i + 1), end));
     windows.push({ start: windowStart, end: windowEnd });
   }

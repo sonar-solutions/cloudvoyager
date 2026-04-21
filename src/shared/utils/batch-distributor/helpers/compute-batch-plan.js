@@ -1,6 +1,6 @@
 // -------- Compute Batch Plan --------
 
-const ISSUE_BATCH_SIZE = 5000;
+import { ISSUE_BATCH_SIZE } from './should-batch.js';
 
 /** Compute batch descriptors for splitting issues into chunks. */
 export function computeBatchPlan(totalIssues) {
