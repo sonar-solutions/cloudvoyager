@@ -23,7 +23,7 @@ export async function extractBranch(extractor, branch, mainData) {
   const measures = await extractMeasures(extractor.client, metricKeys, branch);
   const sources = await extractBranchSources(extractor, branch);
   const duplications = await extractBranchDuplications(extractor, branch, components);
-  const scmData = await extractBranchScm(extractor, branch, sourceFilesList, components);
+  const scmData = await extractBranchScm(extractor, branch, sourceFilesList, components, issues);
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   logger.info(`  [${branch}] Branch extraction completed in ${duration}s — ${issues.length} issues, ${components.length} components, ${sources.length} sources`);

@@ -36,7 +36,7 @@ export async function extractAll(extractor) {
   data.sources = await extractSources(extractor.client, null, maxFiles, { concurrency: conc });
   const dupConc = extractor.performanceConfig.sourceExtraction?.concurrency || 5;
   data.duplications = await extractDuplications(extractor.client, data.components, null, { concurrency: dupConc });
-  data.changesets = await extractChangesets(extractor.client, sourceFilesList, data.components);
+  data.changesets = await extractChangesets(extractor.client, sourceFilesList, data.components, data.issues);
   data.symbols = await extractSymbols(extractor.client, sourceFilesList);
   data.syntaxHighlightings = await extractSyntaxHighlighting(extractor.client, sourceFilesList);
   logger.info(`Data extraction completed in ${((Date.now() - startTime) / 1000).toFixed(2)}s`);

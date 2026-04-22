@@ -8,7 +8,7 @@ import logger from '../../../../../../../shared/utils/logger.js';
 /** Steps 8-10: Extract changesets, symbols, and syntax highlighting. */
 export async function extractScmAndHighlighting(ext, data) {
   logger.info('Step 8/10: Extracting changesets...');
-  data.changesets = await extractChangesets(ext.client, data._sourceFilesList, data.components);
+  data.changesets = await extractChangesets(ext.client, data._sourceFilesList, data.components, data.issues);
 
   logger.info('Step 9/10: Extracting symbols...');
   data.symbols = await extractSymbols(ext.client, data._sourceFilesList);

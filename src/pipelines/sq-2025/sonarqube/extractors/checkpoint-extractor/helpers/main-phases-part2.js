@@ -20,7 +20,7 @@ export function buildMainPhasesPart2(extractor, ctx, maxFiles, sourceConcurrency
       fn: async () => { ctx.duplications = await extractDuplications(extractor.client, ctx.components, null, { concurrency: dupConcurrency }); return ctx.duplications; },
       restore: (d) => { ctx.duplications = d; } },
     { name: 'extract:changesets', label: 'Step 8: Extracting changesets',
-      fn: async () => { ctx.changesets = await extractChangesets(extractor.client, ctx.sourceFilesList, ctx.components); return ctx.changesets; },
+      fn: async () => { ctx.changesets = await extractChangesets(extractor.client, ctx.sourceFilesList, ctx.components, ctx.issues); return ctx.changesets; },
       restore: (d) => { ctx.changesets = d; } },
     { name: 'extract:symbols', label: 'Step 9: Extracting symbols',
       fn: async () => { ctx.symbols = await extractSymbols(extractor.client, ctx.sourceFilesList); return ctx.symbols; },

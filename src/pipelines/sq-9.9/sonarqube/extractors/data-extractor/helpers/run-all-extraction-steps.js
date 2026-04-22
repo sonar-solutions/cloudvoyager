@@ -42,7 +42,7 @@ export async function runAllExtractionSteps(extractor, data) {
   data.duplications = await extractDuplications(client, data.components, null, {
     concurrency: performanceConfig.sourceExtraction?.concurrency || 5,
   });
-  data.changesets = await extractChangesets(client, sourceFilesList, data.components);
+  data.changesets = await extractChangesets(client, sourceFilesList, data.components, data.issues);
   data.symbols = await extractSymbols(client, sourceFilesList);
   data.syntaxHighlightings = await extractSyntaxHighlighting(client, sourceFilesList);
 }

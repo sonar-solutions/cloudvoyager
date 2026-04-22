@@ -31,7 +31,7 @@ export async function extractBranchData(extractor, branch, metricKeys) {
     logger.info(`  [${branch}] Added ${hotspotIssues.length} hotspots (total: ${issues.length})`);
   }
 
-  const sourceData = await extractBranchSourceData(extractor, branch, metricKeys, components, sourceFilesList);
+  const sourceData = await extractBranchSourceData(extractor, branch, metricKeys, components, sourceFilesList, issues);
 
   return { components, issues, ...sourceData };
 }

@@ -30,7 +30,7 @@ export async function extractBranch(extractor, branch, mainData) {
   const sources = await extractSources(extractor.client, branch, maxFiles, { concurrency: srcConc });
   const dupConc = extractor.performanceConfig.sourceExtraction?.concurrency || 5;
   const duplications = await extractDuplications(extractor.client, components, branch, { concurrency: dupConc });
-  const changesets = await extractChangesets(extractor.client, sourceFilesList, components);
+  const changesets = await extractChangesets(extractor.client, sourceFilesList, components, issues);
   const symbols = await extractSymbols(extractor.client, sourceFilesList);
   const syntaxHighlightings = await extractSyntaxHighlighting(extractor.client, sourceFilesList);
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);

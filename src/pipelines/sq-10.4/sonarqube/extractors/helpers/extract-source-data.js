@@ -33,7 +33,7 @@ export async function extractSourceData(extractor, data, sourceFilesList) {
   data.duplications = await extractDuplications(extractor.client, data.components, null, { concurrency: dupConc });
 
   logger.info('Step 8/10: Extracting changesets...');
-  data.changesets = await extractChangesets(extractor.client, sourceFilesList, data.components);
+  data.changesets = await extractChangesets(extractor.client, sourceFilesList, data.components, data.issues);
 
   logger.info('Step 9/10: Extracting symbols...');
   data.symbols = await extractSymbols(extractor.client, sourceFilesList);

@@ -18,7 +18,7 @@ import { extractDuplications } from '../duplications.js';
  * @param {Array} sourceFilesList - Source files list
  * @returns {Promise<object>} Source data fields
  */
-export async function extractBranchSourceData(extractor, branch, metricKeys, components, sourceFilesList) {
+export async function extractBranchSourceData(extractor, branch, metricKeys, components, sourceFilesList, issues = []) {
   const maxFiles = Math.max(0, Number.parseInt(process.env.MAX_SOURCE_FILES || '0', 10) || 0);
   const srcConc = extractor.performanceConfig.sourceExtraction?.concurrency || 10;
   const dupConc = extractor.performanceConfig.sourceExtraction?.concurrency || 5;
@@ -33,7 +33,7 @@ export async function extractBranchSourceData(extractor, branch, metricKeys, com
   const duplications = await extractDuplications(extractor.client, components, branch, { concurrency: dupConc });
 
   logger.info(`  [${branch}] Extracting changesets...`);
-  const changesets = await extractChangesets(extractor.client, sourceFilesList, components);
+  const changesets = await extractChangesets(extractor.client, sourceFilesList, components, issues);
 
   logger.info(`  [${branch}] Extracting symbols...`);
   const symbols = await extractSymbols(extractor.client, sourceFilesList);
