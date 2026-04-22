@@ -53,6 +53,7 @@ config.json
 **/*.md
 !README.md
 !CHANGELOG.md
+!CLAUDE.md
 !docs/**/*.md
 debug/
 proto/

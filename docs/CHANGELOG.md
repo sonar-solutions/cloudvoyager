@@ -4,6 +4,78 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fixes: Migration Log Analysis — Round 2 (2026-04-22)
+<!-- updated: 2026-04-22_10:23:00 -->
+
+Two additional bugs found by re-running migration after Round 1 fixes and analysing `migration-output/logs/2026-04-22T01-49-13-947Z/` logs.
+
+### 4. CE "newer report already processed" crashes migration resume (all 4 pipelines)
+
+On resume, the checkpoint extractor restores the cached `scmRevisionId` from the first run. If SonarCloud already processed a newer report (e.g. from a previous partial migration), the CE task fails with "a newer report has already been processed" and the entire project is marked failed. This is incorrect — the project already has analysis data on SonarCloud.
+
+**Fix:** In `waitForAnalysis()`, detect the "a newer report has already been processed" error message and treat it as a success (log a warning instead of throwing). Applied to all 4 pipelines.
+
+### 5. PDF `PdfPrinter` missing `urlResolver` parameter (pdfmake 0.3.x API)
+
+The `PdfPrinter` constructor in pdfmake 0.3.x requires three parameters: `(fontDescriptors, virtualfs, urlResolver)`. The code only passed two, leaving `this.urlResolver` as `undefined`. When `createPdfKitDocument()` called `this.resolveUrls()`, it crashed with `Cannot read properties of undefined (reading 'resolve')`. The VFS object was also missing `writeFileSync()` which `URLResolver` requires.
+
+**Fix:** Import `URLResolver` from `pdfmake/js/URLResolver.js`, create an instance with the virtual FS, and pass it as the third parameter. Added no-op `writeFileSync()` to the virtual FS object.
+
+### Files Changed (5)
+
+- `src/pipelines/sq-9.9/sonarcloud/api-client/helpers/wait-for-analysis.js` — handle "newer report" as success
+- `src/pipelines/sq-10.0/sonarcloud/api-client/helpers/ce-methods.js` — handle "newer report" as success
+- `src/pipelines/sq-10.4/sonarcloud/api-client/helpers/ce-methods.js` — handle "newer report" as success
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/ce-task-methods.js` — handle "newer report" as success
+- `src/shared/reports/pdf-helpers/helpers/create-printer.js` — added `URLResolver`, `writeFileSync`, 3-arg constructor
+
+### Verification
+
+Re-ran migration after fixes: **3/3 projects succeeded, 0 failed, 0 errors in error log.** All 3 PDF reports generated successfully. angular-framework (previously failing) migrated completely including 1,642 issues synced and 409 hotspots synced.
+
+---
+
+## Bug Fixes: Migration Log Analysis — Round 1 (2026-04-22)
+<!-- updated: 2026-04-22_18:00:00 -->
+
+Three bugs found by analysing `migration-output/logs/2026-04-22T01-14-10-349Z/` logs.
+
+### 1. Hotspot comment API parameter name wrong (all 4 pipelines)
+
+`addHotspotComment()` sent `{ hotspot, text }` to `/api/hotspots/add_comment`, but SonarCloud expects the parameter name `comment`, not `text`. Every hotspot comment/source-link/metadata-marker call returned `400: The 'comment' parameter is missing`.
+
+**Fix:** Changed `params: { hotspot, text }` to `params: { hotspot, comment: text }` in all 4 pipeline versions.
+
+### 2. PDF report generation crash (VFS data resolution)
+
+`create-printer.js` resolved `vfsModule.pdfMake?.vfs || vfsModule` for the font VFS data, but `pdfmake/build/vfs_fonts.js` exports `{ default: { 'Roboto-Regular.ttf': '...', ... } }`. The `pdfMake?.vfs` path returns `undefined`, and `vfsModule` itself is the ES module wrapper — not the font data.
+
+**Fix:** Added `vfsModule.default` fallback: `vfsModule.pdfMake?.vfs || vfsModule.default || vfsModule`.
+
+### 3. CE analysis failure reason lost in error logs
+
+When a project's CE analysis failed, `recordProjectOutcome()` logged only step names (e.g. `Upload scanner report`) but not the error message. Additionally, `waitForAnalysis()` didn't fall back to `task.errorType` when `task.errorMessage` was absent, producing generic "Unknown error" messages.
+
+**Fix:** `recordProjectOutcome()` now includes the error detail in the log message. `waitForAnalysis()` now falls back to `task.errorType` and includes the CE task ID for manual investigation.
+
+### Files Changed (14)
+
+- `src/pipelines/sq-9.9/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-10.0/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-10.4/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-2025/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/shared/reports/pdf-helpers/helpers/create-printer.js` — added `vfsModule.default` fallback
+- `src/pipelines/sq-9.9/sonarcloud/api-client/helpers/wait-for-analysis.js` — improved error message
+- `src/pipelines/sq-10.0/sonarcloud/api-client/helpers/ce-methods.js` — improved error message
+- `src/pipelines/sq-10.4/sonarcloud/api-client/helpers/ce-methods.js` — improved error message
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/ce-task-methods.js` — improved error message
+- `src/pipelines/sq-9.9/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-10.0/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-10.4/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-2025/pipeline/results/helpers/record-project-outcome.js` — log error details
+
+---
+
 ## Bug Fix: Duplicate Log Folders on Heap Respawn (2026-04-22)
 <!-- updated: 2026-04-22_11:22:00 -->
 
