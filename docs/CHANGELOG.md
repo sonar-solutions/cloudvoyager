@@ -4,6 +4,27 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Design Review: Desktop App UX (2026-04-22)
+<!-- updated: 2026-04-22_20:00:00 -->
+
+/plan-design-review completed on the CloudVoyager desktop Electron app. Initial score: 5/10, final: 7/10. Key decisions: (1) Collapse settings Step 3 to show only mode selection by default, addresses issues #61/#63/#64/#67/#68. (2) Per-item status for execution + connection test (partial failure visibility). (3) Completion summary card with migration stats (victory moment). (4) Bundle custom typeface (Inter or Geist). (5) Mandatory pre-flight validation before Start, addresses issue #72. (6) Fix color contrast on glassmorphic cards for WCAG compliance. Deferred: first-time user flow, results empty state, PREVIOUS RUN warning (#87), light theme polish.
+
+---
+
+## CEO Review: Regression Testing Architecture Upgrade (2026-04-22)
+<!-- updated: 2026-04-22_19:30:00 -->
+
+/plan-ceo-review completed on the regression testing design. Key decisions: (1) Ephemeral SQ Docker containers per test job replace persistent test instances, eliminating stale test data risk. (2) All 4 SQ versions tested (9.9, 10.0, 10.4, 2025.1) = 76 matrix jobs. (3) Workflow integrated into existing regression.yml orchestrator. (4) SQC target keys namespaced with cv-regression-* prefix. (5) Budget unlimited: largest runners, max JVM for sonar-scanner. (6) sqc-us-region moved to Phase 2 (requires new secrets). Outside voice (Claude subagent) ran, 8 findings, 5 actioned.
+
+---
+
+## Design: Matrix-Based Regression Testing (2026-04-22)
+<!-- updated: 2026-04-22_19:00:00 -->
+
+Design document approved for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube/SonarCloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
+
+---
+
 ## Bug Fixes: Migration Log Analysis — Round 2 (2026-04-22)
 <!-- updated: 2026-04-22_10:23:00 -->
 
