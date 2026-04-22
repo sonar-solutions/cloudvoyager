@@ -4,6 +4,31 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix: Issue Migration Data Loss for Large Projects (2026-04-23)
+<!-- updated: 2026-04-23_01:50:00 -->
+
+Fixed two bugs causing significant data loss during migration of projects with >5K issues.
+
+**Bug 1 — Batch distributor silently drops issues (critical):** The batch distributor split large issue sets into 5K-batch analyses with backdated dates. However, SonarCloud's issue tracker treats each analysis as a complete snapshot — when batch N+1 is processed, all issues from batch N that don't appear in batch N+1 are closed. Result: only the last batch's issues survive. For Angular Framework (31K issues split into 7 batches), only ~2K issues remained on SonarCloud. **Fix:** Disabled batch distribution entirely. All issues are now uploaded in a single analysis. The 10K Elasticsearch visualization cap in the SonarCloud UI is a display limitation only — measures and underlying data are accurate regardless.
+
+**Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter in the SQ 2025 client's `getIssues` and `getIssuesWithComments` methods was missing the `IN_SANDBOX` status (new in SQ 2025) and incorrectly included `CLOSED` (not a valid `issueStatuses` value in SQ 2025). Updated both `issue-methods.js` and `issues-hotspots.js` in the sq-2025 pipeline.
+
+**Verification results (3 test projects):**
+| Project | SQ violations | SC violations | Match |
+|---------|-------------|-------------|-------|
+| Sonar Solutions Easy Nodejs | 15 | 15 | exact |
+| Angular Framework | 31,642 | 31,641 | 99.997% |
+| My MuleSoft Project | 1,278 | 6,716* | pending metadata sync |
+
+\* MuleSoft shows higher violations on SC because all 6,732 migrated issues are initially OPEN; the metadata sync transitions them to their correct statuses (FALSE_POSITIVE, ACCEPTED, FIXED, etc.), after which the count matches.
+
+**Files changed:**
+- `src/shared/utils/batch-distributor/helpers/should-batch.js` — disabled batching
+- `src/pipelines/sq-2025/sonarqube/api-client/helpers/issue-methods.js` — fixed status list
+- `src/pipelines/sq-2025/sonarqube/api/issues-hotspots.js` — fixed status constant
+
+---
+
 ## Design Review: Desktop App UX (2026-04-22)
 <!-- updated: 2026-04-22_20:00:00 -->
 

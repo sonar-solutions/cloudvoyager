@@ -12,7 +12,7 @@ export function buildFileComponents(builder, componentsMap, sanitizeLang) {
     if (comp.qualifier === 'FIL' && sourceKeys.has(comp.key)) {
       const ref = builder.getComponentRef(comp.key);
       const info = sourceInfo.get(comp.key);
-      const lineCount = info.lineCount || Number.parseInt(comp.measures.find(m => m.metric === 'lines')?.value) || 0;
+      const lineCount = info.lineCount || Number.parseInt(comp.measures?.find(m => m.metric === 'lines')?.value) || 0;
       componentsMap.set(comp.key, {
         ref, type: 4, language: sanitizeLang(comp.language || info.language),
         lines: lineCount, status: 3, projectRelativePath: comp.path || comp.name,
