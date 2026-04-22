@@ -29,7 +29,12 @@ export function buildCeMethods(client, projectKey) {
         logger.debug(`Analysis status: ${task.status}`);
         if (task.status === 'SUCCESS') { logger.info('Analysis completed successfully'); return task; }
         if (task.status === 'FAILED' || task.status === 'CANCELED') {
-          throw new SonarCloudAPIError(`Analysis ${task.status.toLowerCase()}: ${task.errorMessage || 'Unknown error'}`);
+          const reason = task.errorMessage || task.errorType || 'Unknown error (check SonarCloud CE task ' + ceTaskId + ')';
+          if (reason.includes('a newer report has already been processed')) {
+            logger.warn(`Analysis rejected (newer report exists) — treating as success for migration resume`);
+            return task;
+          }
+          throw new SonarCloudAPIError(`Analysis ${task.status.toLowerCase()}: ${reason}`);
         }
         if (Date.now() - startTime > maxWaitMs) throw new SonarCloudAPIError(`Analysis timeout after ${maxWaitSeconds} seconds`);
         await new Promise(resolve => setTimeout(resolve, pollInterval));

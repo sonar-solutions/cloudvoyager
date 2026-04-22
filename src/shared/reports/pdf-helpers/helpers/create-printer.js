@@ -1,14 +1,17 @@
 // -------- Create PDF Printer --------
 import PdfPrinterModule from 'pdfmake/js/Printer.js';
+import URLResolverModule from 'pdfmake/js/URLResolver.js';
 import vfsModule from 'pdfmake/build/vfs_fonts.js';
 
 const PdfPrinter = typeof PdfPrinterModule === 'function' ? PdfPrinterModule : (PdfPrinterModule.default || PdfPrinterModule);
-const vfs = vfsModule.pdfMake?.vfs || vfsModule;
+const URLResolver = typeof URLResolverModule === 'function' ? URLResolverModule : (URLResolverModule.default || URLResolverModule);
+const vfs = vfsModule.pdfMake?.vfs || vfsModule.default || vfsModule;
 
 function createVirtualFs(vfsData) {
   return {
     existsSync(path) { return path.split('/').pop() in vfsData; },
     readFileSync(path) { return Buffer.from(vfsData[path.split('/').pop()], 'base64'); },
+    writeFileSync() {},
   };
 }
 
@@ -19,5 +22,7 @@ export function createPrinter() {
       italics: 'Roboto-Italic.ttf', bolditalics: 'Roboto-MediumItalic.ttf',
     }
   };
-  return new PdfPrinter(fonts, createVirtualFs(vfs));
+  const virtualFs = createVirtualFs(vfs);
+  const urlResolver = new URLResolver(virtualFs);
+  return new PdfPrinter(fonts, virtualFs, urlResolver);
 }

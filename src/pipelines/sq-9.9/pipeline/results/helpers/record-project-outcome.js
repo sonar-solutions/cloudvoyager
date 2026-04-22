@@ -13,6 +13,6 @@ export function recordProjectOutcome(project, projectResult, results) {
   } else if (projectResult.status === 'partial') {
     logger.warn(`Project ${project.key} partially migrated (${failedSteps.length} step(s) failed: ${failedSteps.map(s => s.step).join(', ')})`);
   } else {
-    logger.error(`Project ${project.key} FAILED (${failedSteps.length} step(s) failed: ${failedSteps.map(s => s.step).join(', ')})`);
+    logger.error(`Project ${project.key} FAILED (${failedSteps.length} step(s) failed: ${failedSteps.map(s => `${s.step}: ${s.error || 'no details'}`).join('; ')})`);
   }
 }

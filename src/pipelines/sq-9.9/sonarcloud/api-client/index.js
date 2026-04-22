@@ -1,6 +1,7 @@
 import { createAxiosClient } from './helpers/create-axios-client.js';
 import { attachRetryInterceptor } from './helpers/attach-retry-interceptor.js';
 import * as core from './helpers/core-methods.js';
+import { handleError } from './helpers/handle-error.js';
 import * as analysis from './helpers/wait-for-analysis.js';
 import { bindQueryMethods } from './helpers/bind-query-methods.js';
 import { bindDelegateMethods } from './helpers/delegate-methods.js';
@@ -16,7 +17,7 @@ export function createSonarCloudClient(config) {
 
   return {
     ...ctx,
-    handleError: (err) => core.handleError(err, baseURL),
+    handleError: (err) => handleError(err, baseURL),
     testConnection: () => core.testConnection(ctx),
     projectExists: () => core.projectExists(ctx),
     isProjectKeyTakenGlobally: (pk) => core.isProjectKeyTakenGlobally(ctx, pk),

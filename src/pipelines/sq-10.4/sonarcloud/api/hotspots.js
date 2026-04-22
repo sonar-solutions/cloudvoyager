@@ -44,6 +44,6 @@ export async function addHotspotComment(client, hotspot, text) {
   logger.debug(`Adding comment to hotspot ${hotspot}`);
 
   await client.post('/api/hotspots/add_comment', null, {
-    params: { hotspot, text }
+    params: { hotspot, comment: text }
   });
 }

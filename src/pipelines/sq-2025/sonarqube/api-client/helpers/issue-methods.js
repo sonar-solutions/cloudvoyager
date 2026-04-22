@@ -4,18 +4,20 @@ import { probeTotal } from './probe-total.js';
 
 // -------- Issue Methods --------
 
+const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED,IN_SANDBOX';
+
 /** Attach issue and duplication methods to the client instance. */
 export function attachIssueMethods(inst) {
   const probeFn = (ep, params, dk) => probeTotal(inst.client, ep, params, dk);
 
   inst.getIssues = async (filters = {}) => {
-    const params = { componentKeys: inst.projectKey, issueStatuses: 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED', ...filters };
+    const params = { componentKeys: inst.projectKey, issueStatuses: ISSUE_STATUSES, ...filters };
     logger.info(`Fetching issues for project: ${inst.projectKey}`);
     return await fetchWithSlicing(probeFn, inst.getPaginated.bind(inst), '/api/issues/search', params, 'issues');
   };
 
   inst.getIssuesWithComments = async (filters = {}) => {
-    const params = { componentKeys: inst.projectKey, additionalFields: 'comments', issueStatuses: 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED', ...filters };
+    const params = { componentKeys: inst.projectKey, additionalFields: 'comments', issueStatuses: ISSUE_STATUSES, ...filters };
     logger.info(`Fetching issues with comments for project: ${inst.projectKey}`);
     return await fetchWithSlicing(probeFn, inst.getPaginated.bind(inst), '/api/issues/search', params, 'issues');
   };

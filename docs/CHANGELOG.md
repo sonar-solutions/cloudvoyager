@@ -4,6 +4,124 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Bug Fix: Issue Migration Data Loss for Large Projects (2026-04-23)
+<!-- updated: 2026-04-23_01:50:00 -->
+
+Fixed two bugs causing significant data loss during migration of projects with >5K issues.
+
+**Bug 1 — Batch distributor silently drops issues (critical):** The batch distributor split large issue sets into 5K-batch analyses with backdated dates. However, SonarCloud's issue tracker treats each analysis as a complete snapshot — when batch N+1 is processed, all issues from batch N that don't appear in batch N+1 are closed. Result: only the last batch's issues survive. For Angular Framework (31K issues split into 7 batches), only ~2K issues remained on SonarCloud. **Fix:** Disabled batch distribution entirely. All issues are now uploaded in a single analysis. The 10K Elasticsearch visualization cap in the SonarCloud UI is a display limitation only — measures and underlying data are accurate regardless.
+
+**Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter in the SQ 2025 client's `getIssues` and `getIssuesWithComments` methods was missing the `IN_SANDBOX` status (new in SQ 2025) and incorrectly included `CLOSED` (not a valid `issueStatuses` value in SQ 2025). Updated both `issue-methods.js` and `issues-hotspots.js` in the sq-2025 pipeline.
+
+**Verification results (3 test projects):**
+| Project | SQ violations | SC violations | Match |
+|---------|-------------|-------------|-------|
+| Sonar Solutions Easy Nodejs | 15 | 15 | exact |
+| Angular Framework | 31,642 | 31,641 | 99.997% |
+| My MuleSoft Project | 1,278 | 6,716* | pending metadata sync |
+
+\* MuleSoft shows higher violations on SC because all 6,732 migrated issues are initially OPEN; the metadata sync transitions them to their correct statuses (FALSE_POSITIVE, ACCEPTED, FIXED, etc.), after which the count matches.
+
+**Files changed:**
+- `src/shared/utils/batch-distributor/helpers/should-batch.js` — disabled batching
+- `src/pipelines/sq-2025/sonarqube/api-client/helpers/issue-methods.js` — fixed status list
+- `src/pipelines/sq-2025/sonarqube/api/issues-hotspots.js` — fixed status constant
+
+---
+
+## Design Review: Desktop App UX (2026-04-22)
+<!-- updated: 2026-04-22_20:00:00 -->
+
+/plan-design-review completed on the CloudVoyager desktop Electron app. Initial score: 5/10, final: 7/10. Key decisions: (1) Collapse settings Step 3 to show only mode selection by default, addresses issues #61/#63/#64/#67/#68. (2) Per-item status for execution + connection test (partial failure visibility). (3) Completion summary card with migration stats (victory moment). (4) Bundle custom typeface (Inter or Geist). (5) Mandatory pre-flight validation before Start, addresses issue #72. (6) Fix color contrast on glassmorphic cards for WCAG compliance. Deferred: first-time user flow, results empty state, PREVIOUS RUN warning (#87), light theme polish.
+
+---
+
+## CEO Review: Regression Testing Architecture Upgrade (2026-04-22)
+<!-- updated: 2026-04-22_19:30:00 -->
+
+/plan-ceo-review completed on the regression testing design. Key decisions: (1) Ephemeral SQ Docker containers per test job replace persistent test instances, eliminating stale test data risk. (2) All 4 SQ versions tested (9.9, 10.0, 10.4, 2025.1) = 76 matrix jobs. (3) Workflow integrated into existing regression.yml orchestrator. (4) SQC target keys namespaced with cv-regression-* prefix. (5) Budget unlimited: largest runners, max JVM for sonar-scanner. (6) sqc-us-region moved to Phase 2 (requires new secrets). Outside voice (Claude subagent) ran, 8 findings, 5 actioned.
+
+---
+
+## Design: Matrix-Based Regression Testing (2026-04-22)
+<!-- updated: 2026-04-22_19:00:00 -->
+
+Design document approved for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube/SonarCloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
+
+---
+
+## Bug Fixes: Migration Log Analysis — Round 2 (2026-04-22)
+<!-- updated: 2026-04-22_10:23:00 -->
+
+Two additional bugs found by re-running migration after Round 1 fixes and analysing `migration-output/logs/2026-04-22T01-49-13-947Z/` logs.
+
+### 4. CE "newer report already processed" crashes migration resume (all 4 pipelines)
+
+On resume, the checkpoint extractor restores the cached `scmRevisionId` from the first run. If SonarCloud already processed a newer report (e.g. from a previous partial migration), the CE task fails with "a newer report has already been processed" and the entire project is marked failed. This is incorrect — the project already has analysis data on SonarCloud.
+
+**Fix:** In `waitForAnalysis()`, detect the "a newer report has already been processed" error message and treat it as a success (log a warning instead of throwing). Applied to all 4 pipelines.
+
+### 5. PDF `PdfPrinter` missing `urlResolver` parameter (pdfmake 0.3.x API)
+
+The `PdfPrinter` constructor in pdfmake 0.3.x requires three parameters: `(fontDescriptors, virtualfs, urlResolver)`. The code only passed two, leaving `this.urlResolver` as `undefined`. When `createPdfKitDocument()` called `this.resolveUrls()`, it crashed with `Cannot read properties of undefined (reading 'resolve')`. The VFS object was also missing `writeFileSync()` which `URLResolver` requires.
+
+**Fix:** Import `URLResolver` from `pdfmake/js/URLResolver.js`, create an instance with the virtual FS, and pass it as the third parameter. Added no-op `writeFileSync()` to the virtual FS object.
+
+### Files Changed (5)
+
+- `src/pipelines/sq-9.9/sonarcloud/api-client/helpers/wait-for-analysis.js` — handle "newer report" as success
+- `src/pipelines/sq-10.0/sonarcloud/api-client/helpers/ce-methods.js` — handle "newer report" as success
+- `src/pipelines/sq-10.4/sonarcloud/api-client/helpers/ce-methods.js` — handle "newer report" as success
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/ce-task-methods.js` — handle "newer report" as success
+- `src/shared/reports/pdf-helpers/helpers/create-printer.js` — added `URLResolver`, `writeFileSync`, 3-arg constructor
+
+### Verification
+
+Re-ran migration after fixes: **3/3 projects succeeded, 0 failed, 0 errors in error log.** All 3 PDF reports generated successfully. angular-framework (previously failing) migrated completely including 1,642 issues synced and 409 hotspots synced.
+
+---
+
+## Bug Fixes: Migration Log Analysis — Round 1 (2026-04-22)
+<!-- updated: 2026-04-22_18:00:00 -->
+
+Three bugs found by analysing `migration-output/logs/2026-04-22T01-14-10-349Z/` logs.
+
+### 1. Hotspot comment API parameter name wrong (all 4 pipelines)
+
+`addHotspotComment()` sent `{ hotspot, text }` to `/api/hotspots/add_comment`, but SonarCloud expects the parameter name `comment`, not `text`. Every hotspot comment/source-link/metadata-marker call returned `400: The 'comment' parameter is missing`.
+
+**Fix:** Changed `params: { hotspot, text }` to `params: { hotspot, comment: text }` in all 4 pipeline versions.
+
+### 2. PDF report generation crash (VFS data resolution)
+
+`create-printer.js` resolved `vfsModule.pdfMake?.vfs || vfsModule` for the font VFS data, but `pdfmake/build/vfs_fonts.js` exports `{ default: { 'Roboto-Regular.ttf': '...', ... } }`. The `pdfMake?.vfs` path returns `undefined`, and `vfsModule` itself is the ES module wrapper — not the font data.
+
+**Fix:** Added `vfsModule.default` fallback: `vfsModule.pdfMake?.vfs || vfsModule.default || vfsModule`.
+
+### 3. CE analysis failure reason lost in error logs
+
+When a project's CE analysis failed, `recordProjectOutcome()` logged only step names (e.g. `Upload scanner report`) but not the error message. Additionally, `waitForAnalysis()` didn't fall back to `task.errorType` when `task.errorMessage` was absent, producing generic "Unknown error" messages.
+
+**Fix:** `recordProjectOutcome()` now includes the error detail in the log message. `waitForAnalysis()` now falls back to `task.errorType` and includes the CE task ID for manual investigation.
+
+### Files Changed (14)
+
+- `src/pipelines/sq-9.9/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-10.0/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-10.4/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/pipelines/sq-2025/sonarcloud/api/hotspots.js` — `text` → `comment: text`
+- `src/shared/reports/pdf-helpers/helpers/create-printer.js` — added `vfsModule.default` fallback
+- `src/pipelines/sq-9.9/sonarcloud/api-client/helpers/wait-for-analysis.js` — improved error message
+- `src/pipelines/sq-10.0/sonarcloud/api-client/helpers/ce-methods.js` — improved error message
+- `src/pipelines/sq-10.4/sonarcloud/api-client/helpers/ce-methods.js` — improved error message
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/ce-task-methods.js` — improved error message
+- `src/pipelines/sq-9.9/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-10.0/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-10.4/pipeline/results/helpers/record-project-outcome.js` — log error details
+- `src/pipelines/sq-2025/pipeline/results/helpers/record-project-outcome.js` — log error details
+
+---
+
 ## Bug Fix: Duplicate Log Folders on Heap Respawn (2026-04-22)
 <!-- updated: 2026-04-22_11:22:00 -->
 
