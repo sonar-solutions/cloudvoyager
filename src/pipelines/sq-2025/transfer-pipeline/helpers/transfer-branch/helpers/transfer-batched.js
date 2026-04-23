@@ -12,6 +12,11 @@ export async function transferBatched(opts) {
     referenceBranchName, sonarCloudClient, label, isMainBranch,
     sonarCloudRepos, ruleEnrichmentMap } = opts;
 
+  // Sort issues by component key so cumulative batches add issues from NEW
+  // files each time. This prevents the CE's fuzzy issue tracker from matching
+  // new issues with existing ones on the same files.
+  extractedData.issues.sort((a, b) => (a.component || '').localeCompare(b.component || ''));
+
   const plan = computeBatchPlan(extractedData.issues.length);
   const baseDate = extractedData.metadata.extractedAt;
 

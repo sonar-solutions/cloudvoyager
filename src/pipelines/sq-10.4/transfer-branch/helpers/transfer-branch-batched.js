@@ -12,6 +12,8 @@ export async function transferBranchBatched(opts) {
     referenceBranchName, sonarCloudClient, label, isMainBranch,
     sonarCloudRepos, ruleEnrichmentMap, wait = true } = opts;
 
+  extractedData.issues.sort((a, b) => (a.component || '').localeCompare(b.component || ''));
+
   const plan = computeBatchPlan(extractedData.issues.length);
   const baseDate = extractedData.metadata.extractedAt;
 

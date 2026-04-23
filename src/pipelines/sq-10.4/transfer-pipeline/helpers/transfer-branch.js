@@ -3,7 +3,7 @@ import { ProtobufEncoder } from '../../protobuf/encoder.js';
 import { ReportUploader } from '../../sonarcloud/uploader.js';
 import { computeBranchStats } from './compute-branch-stats.js';
 import { transferBranchBatched } from './transfer-branch-batched.js';
-import { shouldBatch } from '../../../../shared/utils/batch-distributor.js';
+import { shouldBatch, backdateChangesets } from '../../../../shared/utils/batch-distributor.js';
 import logger from '../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
@@ -20,6 +20,8 @@ export async function transferBranch({ extractedData, sonarcloudConfig, sonarClo
     });
     return { stats: computeBranchStats(extractedData), ceTask };
   }
+
+  backdateChangesets(extractedData);
 
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {

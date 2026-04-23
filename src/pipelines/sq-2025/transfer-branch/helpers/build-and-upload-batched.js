@@ -8,6 +8,9 @@ import logger from '../../../../shared/utils/logger.js';
 /** Split issues into batches and upload each as a separate scanner report. */
 export async function buildAndUploadBatched(opts) {
   const { extractedData, label } = opts;
+
+  extractedData.issues.sort((a, b) => (a.component || '').localeCompare(b.component || ''));
+
   const plan = computeBatchPlan(extractedData.issues.length);
   const baseDate = extractedData.metadata.extractedAt;
 
