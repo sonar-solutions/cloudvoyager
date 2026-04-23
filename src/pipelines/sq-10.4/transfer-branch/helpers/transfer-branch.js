@@ -2,7 +2,7 @@ import { buildAndEncodeReport } from './build-and-encode-report.js';
 import { uploadReport } from './upload-report.js';
 import { computeBranchStats } from './compute-branch-stats.js';
 import { transferBranchBatched } from './transfer-branch-batched.js';
-import { shouldBatch } from '../../../../shared/utils/batch-distributor.js';
+import { shouldBatch, backdateChangesets } from '../../../../shared/utils/batch-distributor.js';
 
 // -------- Main Logic --------
 
@@ -16,6 +16,8 @@ export async function transferBranch({ extractedData, sonarcloudConfig, sonarClo
     });
     return { stats: computeBranchStats(extractedData), ceTask };
   }
+
+  backdateChangesets(extractedData);
 
   const encodedReport = await buildAndEncodeReport({
     extractedData, sonarcloudConfig, sonarCloudProfiles,

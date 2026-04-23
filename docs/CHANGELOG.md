@@ -4,28 +4,36 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
-## Bug Fix: Issue Migration Data Loss for Large Projects (2026-04-23)
-<!-- updated: 2026-04-23_01:50:00 -->
+## Bug Fix: Issue Migration Data Loss + SCM Date-Bucket Distribution (2026-04-23)
+<!-- updated: 2026-04-23_13:15:00 -->
 
-Fixed two bugs causing significant data loss during migration of projects with >5K issues.
+Fixed issue migration data loss and implemented SCM-based date-bucket distribution to work around SonarCloud's 10K Elasticsearch visualization cap.
 
-**Bug 1 — Batch distributor silently drops issues (critical):** The batch distributor split large issue sets into 5K-batch analyses with backdated dates. However, SonarCloud's issue tracker treats each analysis as a complete snapshot — when batch N+1 is processed, all issues from batch N that don't appear in batch N+1 are closed. Result: only the last batch's issues survive. For Angular Framework (31K issues split into 7 batches), only ~2K issues remained on SonarCloud. **Fix:** Disabled batch distribution entirely. All issues are now uploaded in a single analysis. The 10K Elasticsearch visualization cap in the SonarCloud UI is a display limitation only — measures and underlying data are accurate regardless.
+**Bug 1 — Batch distributor silently drops issues (critical):** The old batch distributor split large issue sets into separate 5K-batch analyses. SonarCloud's issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed. Only the last batch's issues survived. **Fix:** Disabled multi-analysis batching. All issues now upload in a single analysis.
 
-**Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter in the SQ 2025 client's `getIssues` and `getIssuesWithComments` methods was missing the `IN_SANDBOX` status (new in SQ 2025) and incorrectly included `CLOSED` (not a valid `issueStatuses` value in SQ 2025). Updated both `issue-methods.js` and `issues-hotspots.js` in the sq-2025 pipeline.
+**Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter was missing `IN_SANDBOX` (new in SQ 2025) and incorrectly included `CLOSED`. Fixed in both `issue-methods.js` and `issues-hotspots.js`.
 
-**Verification results (3 test projects):**
-| Project | SQ violations | SC violations | Match |
-|---------|-------------|-------------|-------|
-| Sonar Solutions Easy Nodejs | 15 | 15 | exact |
-| Angular Framework | 31,642 | 31,641 | 99.997% |
-| My MuleSoft Project | 1,278 | 6,716* | pending metadata sync |
+**Feature — SCM date-bucket distribution:** SonarCloud's UI caps the issues list at 10K per creation-date bucket. To work around this, issues are sorted by file and grouped into ≤5K-issue batches. Each batch's files have their SCM changeset blame dates set to a different date (30 days apart). The CE uses SCM blame dates to set creation dates for new issues, spreading them across multiple date buckets within a single analysis.
 
-\* MuleSoft shows higher violations on SC because all 6,732 migrated issues are initially OPEN; the metadata sync transitions them to their correct statuses (FALSE_POSITIVE, ACCEPTED, FIXED, etc.), after which the count matches.
+**Verification results (Angular Framework — 31,642 issues):**
+| Date Bucket | Issues |
+|-------------|--------|
+| Oct 2025 | 4,854 |
+| Nov 2025 | 4,816 |
+| Dec 2025 | 4,959 |
+| Jan 2026 | 4,767 |
+| Feb 2026 | 4,921 |
+| Mar 2026 | 4,958 |
+| Apr 2026 | 2,366 |
+| **Total** | **31,641** (SQ: 31,642) |
 
 **Files changed:**
-- `src/shared/utils/batch-distributor/helpers/should-batch.js` — disabled batching
+- `src/shared/utils/batch-distributor/helpers/should-batch.js` — disabled multi-analysis batching
+- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — new: SCM date-bucket distribution
+- `src/shared/utils/batch-distributor/helpers/compute-batch-date.js` — 30-day spacing between batches
 - `src/pipelines/sq-2025/sonarqube/api-client/helpers/issue-methods.js` — fixed status list
 - `src/pipelines/sq-2025/sonarqube/api/issues-hotspots.js` — fixed status constant
+- All 6 pipeline `transfer-branch` entry points — call `backdateChangesets` before protobuf build
 
 ---
 
