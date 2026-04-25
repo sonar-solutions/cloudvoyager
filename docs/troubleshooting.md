@@ -590,7 +590,7 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
 
-> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **batch distributor** handles uploading >5K issues to SonarCloud by splitting them into multiple scanner reports with distinct `analysis_date` values, preventing the Elasticsearch visualization limit (10K per date bucket) from hiding issues in the UI. Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud.
+> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **SCM date-bucket distribution** (`backdateChangesets()`) handles uploading >5K issues to SonarCloud by modifying SCM changeset blame dates within a single analysis, so the CE assigns different creation dates to different groups of issues. This prevents the Elasticsearch visualization limit (10K per date bucket) from hiding issues in the UI. Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud.
 
 ### Error: `10001th result asked`
 
@@ -618,31 +618,29 @@ The search slicer algorithm:
 
 ---
 
-<!-- updated: 2026-04-22_14:30:00 -->
-## 📦 Issue Batching (Multiple Scanner Reports Per Branch)
+<!-- updated: 2026-04-23_14:46:00 -->
+## 📦 SCM Date-Bucket Distribution (Large Issue Sets)
 
-When a branch has more than 5,000 issues, CloudVoyager automatically splits them into batches of 5,000 and submits each batch as a separate scanner report with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding issues.
+When a branch has more than 5,000 issues, CloudVoyager automatically modifies SCM changeset blame dates so the CE assigns different creation dates to different groups of issues. This spreads issues across multiple date buckets within a **single analysis**, preventing SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding issues.
 
-> **This is automatic and transparent.** Batching is a built-in feature of the upload pipeline, not a workaround. Users do not need to enable it, configure it, or take any special action. The batch distributor detects when a branch exceeds 5,000 issues and handles the splitting, date assignment, and sequential upload internally.
+> **This is automatic and transparent.** `backdateChangesets()` is called before every protobuf build and is a no-op for branches with ≤5K issues. Users do not need to enable it or take any special action.
 
-### Why am I seeing multiple uploads for one branch?
+> **Note:** An earlier version used multi-analysis batching (separate scanner report uploads per batch). This was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are **closed**, causing silent data loss.
 
-**Expected behavior (v1.3+).** If a branch has more than 5,000 issues, CloudVoyager logs:
+### Why do I see issues spread across multiple dates?
+
+**Expected behavior.** If a branch has more than 5,000 issues, CloudVoyager logs:
 
 ```
-Splitting 20590 issues into 5 batches of up to 5,000
+Backdating SCM data: 31641 issues → 7 date buckets of ≤5000
+Modified SCM data for 2847 files across 7 date buckets
 ```
 
-Each batch is uploaded sequentially (the tool waits for CE completion before sending the next batch). The final batch carries the original analysis date and full project data (sources, changesets, duplications). Earlier batches are backdated by one day each and carry only issues + components + active rules.
-
-<!-- updated: 2026-04-22_14:30:00 -->
-### Upload interrupted mid-batch
-
-If a transfer is interrupted between batches, re-run the same command. The checkpoint journal tracks batch progress and the branch status stays `started`, so the migration can be safely resumed. All batches for that branch will be re-uploaded from the beginning. This is safe -- each batch uses a unique `scmRevisionId`, so SonarCloud's CE will not reject them as duplicates. No data is lost or corrupted by the interruption.
+Issues are grouped by file into ≤5K batches. Each batch's files have their SCM blame dates set to a different month (30 days apart). The CE uses SCM blame dates to assign issue creation dates, so issues land in separate date buckets. The last batch keeps the original dates.
 
 ### Issue counts look correct in the API but not in the UI
 
-This is the exact problem batching solves. Without batching, all issues share one `analysis_date` and SonarCloud's Elasticsearch only visualizes the first 10K per date bucket. If you migrated before v1.3 and have this problem, re-transfer the affected projects — the batch distributor will split the issues automatically.
+This is the exact problem SCM date-bucket distribution solves. Without it, all issues share one creation date and SonarCloud's Elasticsearch only visualizes the first 10K per date bucket. Re-transfer the affected projects — `backdateChangesets()` will spread the issues automatically.
 
 ### Can I change the batch size?
 

@@ -1,0 +1,131 @@
+name: Regression - Bug Fix Scenarios
+
+on:
+  workflow_call:
+
+concurrency:
+  group: regression-bug-fixes-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bug-fix-scenarios:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        scenario:
+          - name: large-project-10k-plus
+            issues: '#53, #94, #98'
+            command: migrate
+          - name: github-actions-language
+            issues: '#88'
+            command: migrate
+          - name: external-analyzers
+            issues: '#56, #82'
+            command: migrate
+          - name: issue-sync-first-migration
+            issues: '#91'
+            command: migrate
+          - name: kill-and-continue
+            issues: '#15, #57'
+            command: migrate
+        sq_version:
+          - id: '9.9'
+            secret_key: '9_9'
+          - id: '10.0'
+            secret_key: '10_0'
+          - id: '10.4'
+            secret_key: '10_4'
+          - id: '2025.1'
+            secret_key: '2025_1'
+
+    env:
+      SCENARIO: ${{ matrix.scenario.name }}
+      SQ_VERSION: ${{ matrix.sq_version.id }}
+      SQC_TARGET_KEY: cv-regression-${{ matrix.scenario.name }}-sq${{ matrix.sq_version.secret_key }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore dependencies
+        uses: ./.github/actions/restore-deps
+
+      - name: Setup ephemeral SonarQube
+        id: sq-setup
+        uses: ./.github/actions/setup-sonarqube
+        with:
+          sq-version: ${{ matrix.sq_version.id }}
+          sq-license-key: ${{ secrets[format('SONARQUBE_{0}_LICENSE_KEY', matrix.sq_version.secret_key)] }}
+
+      - name: Generate config
+        uses: ./.github/actions/generate-config
+        env:
+          SONARQUBE_URL: ${{ steps.sq-setup.outputs.sq-url }}
+          SONARQUBE_TOKEN: ${{ steps.sq-setup.outputs.sq-token }}
+          SONARCLOUD_URL: ${{ secrets.SONARCLOUD_URL }}
+          SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONARCLOUD_ORG_KEY: ${{ secrets.SONARCLOUD_ORG_KEY }}
+          SONARCLOUD_ENTERPRISE_KEY: ${{ secrets.SONARCLOUD_ENTERPRISE_KEY }}
+
+      - name: Patch config with target key
+        shell: bash
+        run: node test/regression/helpers/patch-config.js "$SQC_TARGET_KEY" "${{ steps.sq-setup.outputs.sq-url }}" "${{ steps.sq-setup.outputs.sq-token }}"
+
+      - name: Cleanup SQC target project
+        shell: bash
+        run: node test/regression/helpers/cleanup-project.js "$SQC_TARGET_KEY"
+
+      - name: Enrich test data - Add issue comments
+        if: success()
+        run: node test/regression/enrichment/add-issue-comments.js
+        env:
+          SQ_PROJECT_KEY: angular
+
+      - name: Enrich test data - Change issue statuses
+        if: success()
+        run: node test/regression/enrichment/change-issue-status.js
+        env:
+          SQ_PROJECT_KEY: angular
+
+      - name: Enrich test data - Add hotspot data
+        if: success()
+        run: node test/regression/enrichment/add-hotspot-data.js
+        env:
+          SQ_PROJECT_KEY: angular
+
+      - name: Run migration
+        if: matrix.scenario.name != 'kill-and-continue'
+        run: npm run ${{ matrix.scenario.command }} -- -c migrate-config.json --verbose
+
+      - name: Run migration (kill-and-continue)
+        if: matrix.scenario.name == 'kill-and-continue'
+        shell: bash
+        run: |
+          timeout --signal=SIGTERM 60s npm run migrate -- -c migrate-config.json --verbose || true
+          echo "Resuming after SIGTERM..."
+          npm run migrate -- -c migrate-config.json --verbose
+
+      - name: Assert results
+        run: node test/regression/assert-${{ matrix.scenario.name }}.js --config migrate-config.json
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-logs-${{ matrix.scenario.name }}-sq${{ matrix.sq_version.secret_key }}
+          path: migration-output/logs/
+          retention-days: 7
+
+      - name: Teardown containers
+        if: always()
+        shell: bash
+        run: |
+          docker stop sonarqube sq-postgres 2>/dev/null || true
+          docker rm sonarqube sq-postgres 2>/dev/null || true

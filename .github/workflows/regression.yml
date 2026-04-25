@@ -27,6 +27,11 @@ jobs:
     uses: ./.github/workflows/regression-verify.yml
     secrets: inherit
 
+  bug-fixes:
+    needs: [setup, lint]
+    uses: ./.github/workflows/regression-bug-fixes.yml
+    secrets: inherit
+
   summary:
-    needs: [migrate, sync-metadata, verify]
+    needs: [migrate, sync-metadata, verify, bug-fixes]
     uses: ./.github/workflows/regression-summary.yml
