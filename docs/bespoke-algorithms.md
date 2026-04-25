@@ -190,109 +190,92 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ---
 
-## 5. SCM Date-Bucket Distribution (Upload-Side 10K Mitigation)
+## 5. Accurate Issue Creation Date Backdating
 
-<!-- updated: 2026-04-23_14:46:00 -->
+<!-- updated: 2026-04-25_18:00:00 -->
+<!-- <section-updated last-updated="2026-04-25T18:00:00Z" updated-by="Claude" /> -->
 
 ### Problem
 
-SonarCloud's Elasticsearch visualization layer caps results at **10,000 issues per date bucket**. When CloudVoyager migrates a branch, the scanner report is uploaded with a single `analysis_date`. If the branch carries more than 10K issues, only the first 10,000 are visible in the SonarCloud UI — the rest silently disappear from the Issues tab. This is an ES index-time bucketing limitation, not an API pagination issue, so it cannot be solved client-side.
+SonarCloud's Compute Engine assigns creation dates to NEW issues from SCM blame data. Each file's changeset protobuf has `changesets[]` (array of `{revision, author, date}`) and `changesetIndexByLine[]` (maps each line to a changeset index). The CE takes **MAX(date)** across an issue's `textRange.startLine..endLine` to determine its creation date.
 
-### Why Multi-Analysis Batching Failed
-
-The original approach split issues across multiple scanner report uploads with distinct analysis dates. This failed because SonarCloud's CE issue tracker treats each analysis as a **complete snapshot** — issues from prior analyses not present in the current one are **closed**. Only the last batch's issues survived, silently destroying all prior batches' data.
-
-### Current Solution: Single-Analysis SCM Backdating
-
-All issues are uploaded in a **single analysis**. The CE assigns issue creation dates from SCM blame data, so by modifying the changeset blame dates per file, we control which date bucket each issue lands in — all within one report.
+Without backdating, all issues in a migrated project would get the same creation date (the extraction timestamp). The goal is **1:1 accuracy** — each issue's creation date in SonarCloud should match its original `creationDate` from SonarQube. A 5K-per-day safety split handles rare cases where a single calendar day has >5K issues (SonarCloud's ES visualization cap is 10K per date bucket).
 
 ### Algorithm
 
 ```
 backdateChangesets(extractedData):
   issues = extractedData.issues
-  IF issues.length <= 5000: RETURN   // no-op for small projects
+  fallbackDate = extractedData.metadata.extractedAt || Date.now()
 
-  baseDate = extractedData.metadata.extractedAt
+  // Phase 0: Safety split for oversized dates
+  effectiveDates = Map<issueKey, dateMs>()
+  dateGroups = group issues by creationDate (truncated to calendar day)
+  FOR EACH (day, dayIssues) WHERE dayIssues.length > 5000:
+    sort dayIssues by component
+    subBatches = groupFilesIntoBatches(dayIssues, 5000)  // no file splitting
+    FOR EACH subBatch (except last):
+      syntheticDate = day - (totalBatches - 1 - batchIdx) * 1 day
+      FOR EACH issue IN subBatch:
+        effectiveDates.set(issue.key, syntheticDate)
+    // Last sub-batch keeps original date
 
-  // Sort issues by file so files are contiguous
-  issues.sort(by component key)
+  // Phase 1: Per-file, per-line date map
+  fileLineDates = Map<componentKey, Map<line(1-indexed), oldestDateMs>>
+  FOR EACH issue:
+    dateMs = effectiveDates[issue.key] ?? parse(issue.creationDate) ?? fallbackDate
+    startLine = issue.textRange?.startLine || issue.line || 0
+    endLine = issue.textRange?.endLine || startLine
+    IF startLine <= 0: SKIP  // file-level issue
+    FOR ln = startLine TO endLine:
+      IF !fileLineDates[component][ln] OR dateMs < existing:
+        fileLineDates[component][ln] = dateMs  // OLDEST wins
 
-  // Group files into batches of ≤5K issues (no file splitting)
-  fileBatches = buildFileBatches(issues)
-  IF fileBatches.length <= 1: RETURN
-
-  // Backdate ALL lines of each file in non-final batches
-  FOR EACH batch (except last):
-    batchDate = computeBatchDate(baseDate, batchIdx, totalBatches)
-    FOR EACH file IN batch:
-      changeset = extractedData.changesets.get(file)
-      changeset.changesets = [{ revision: batchRevision, author: stub, date: batchDate }]
-      changeset.changesetIndexByLine.fill(0)  // all lines → single backdated entry
-
-  // Last batch keeps original dates (untouched)
+  // Phase 2: Rebuild changesets per file
+  FOR EACH (compKey, lineDateMap) IN fileLineDates:
+    cs = extractedData.changesets.get(compKey)
+    IF !cs OR lineCount == 0: CONTINUE
+    uniqueDates = sorted unique values from lineDateMap
+    cs.changesets = one {revision, author, date} per unique date
+    FOR EACH line i (0..lineCount-1):
+      IF lineDateMap has (i+1): newIndexByLine[i] = dateToIndex[lineDateMap[i+1]]
+      ELSE: newIndexByLine[i] = 0  // oldest date (safe default)
+    cs.changesetIndexByLine = newIndexByLine
 ```
 
-### Critical Insight: Full-File Backdating
+### Why "Oldest Wins" for Overlapping Lines
 
-Setting only individual issue lines is **insufficient**. The CE uses the MAX of SCM dates across an issue's line range — surrounding lines with the current date override any backdated line. The solution sets **every line** of each file to the batch date, ensuring the CE has no newer line to fall back on.
+The CE takes MAX across a multi-line issue's range:
+- **Older issue**: all its lines ≤ its date → MAX = its date (correct)
+- **Newer issue**: overlapping lines have older date, but non-overlapping lines have its correct date → MAX = correct date (correct)
+- **Exception**: newer issue entirely contained within older issue's range → inherits older date (unavoidable CE MAX limitation — rare for real code issues)
+
+Non-issue lines default to the file's oldest issue date to prevent accidental MAX inflation for any multi-line issue spanning them.
 
 ### Key Invariants
 
-- **Batch size = 5,000 (constant)** — 50% safety margin under the 10K ES limit.
-- **Single analysis** — all issues uploaded in one report, preserving data integrity. No CE issue tracker conflicts.
-- **File-level granularity** — all lines of a file share the same batch date. Files are never split across batches.
-- **30-day spacing** — batches are spaced 30 days apart (via `computeBatchDate`) for clear separation in the SonarCloud UI date facet.
-- **Last batch untouched** — the final batch keeps original SCM dates; only earlier batches are backdated.
-- **`shouldBatch` always returns false** — multi-analysis batching is permanently disabled. `backdateChangesets()` is called unconditionally before protobuf build; it no-ops when issues ≤ 5K.
-
-### Example
-
-A branch with 31,641 issues extracted on 2026-04-23:
-
-| Batch | Files | Issues | SCM Blame Date |
-|-------|-------|--------|----------------|
-| 1/7 | Files A–F | ~4,854 | Oct 2025 |
-| 2/7 | Files G–K | ~4,816 | Nov 2025 |
-| 3/7 | Files L–P | ~4,959 | Dec 2025 |
-| 4/7 | Files Q–T | ~4,767 | Jan 2026 |
-| 5/7 | Files U–W | ~4,921 | Feb 2026 |
-| 6/7 | Files X–Y | ~4,958 | Mar 2026 |
-| 7/7 | Files Z+ | ~2,366 | Apr 2026 (original) |
+- **All projects are backdated** — no early return for small projects. Every project gets accurate dates.
+- **Per-line granularity** — each line in a file can have a different date, enabling multiple issues with different creation dates in the same file.
+- **Safety split threshold = 5,000** — matches the `ISSUE_BATCH_SIZE` constant. Days exceeding this get sub-grouped with 1-day spacing.
+- **No file splitting** — the safety split groups whole files into sub-batches; a file's issues are never split across different synthetic dates.
+- **Fallback chain** — `effectiveDates[key]` → `parse(issue.creationDate)` → `extractedAt` → `Date.now()`.
+- **Files with no issues unchanged** — only files appearing in `fileLineDates` get their changesets rewritten; others keep their original stub.
 
 ### Pipeline Integration
 
-All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function is a no-op for projects with ≤5K issues.
-
-```
-transfer-branch.js
-  └── backdateChangesets(extractedData)   // mutates SCM dates in-place
-  └── buildProtobufMessages(extractedData)
-  └── encodeAndUpload(messages)
-```
-
-### Implementation Files
-
-| File | Role |
-|------|------|
-| `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` | Core: sorts issues by file, groups into batches, backdates all lines per file |
-| `src/shared/utils/batch-distributor/helpers/should-batch.js` | Exports `ISSUE_BATCH_SIZE` constant; `shouldBatch()` always returns false (multi-analysis disabled) |
-| `src/shared/utils/batch-distributor/helpers/compute-batch-date.js` | Computes backdated ISO date per batch (30-day spacing) |
+All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before the protobuf build step. No signature change — the function mutates `extractedData.changesets` in place.
 
 ### Implementation
 
 ```
-src/shared/utils/batch-distributor/
-  index.js                                  — Re-exports all helpers
-  helpers/
-    should-batch.js                         — Gate: issues.length > 5000
-    compute-batch-plan.js                   — Returns [{startIndex, endIndex, batchIndex, isLast}]
-    compute-batch-date.js                   — Backdates: baseDate - N days
-    create-batch-extracted-data.js          — Shallow clone with sliced issues + metadata override
+src/shared/utils/batch-distributor/helpers/
+  backdate-changesets.js  — Per-line date backdating from issue.creationDate
+  should-batch.js         — ISSUE_BATCH_SIZE constant (5000); shouldBatch() returns false
 
-src/pipelines/<version>/transfer-pipeline/helpers/
-  transfer-branch.js                        — shouldBatch gate, delegates to batched or single path
-  transfer-branch-batched.js                — Batch loop: build → encode → uploadAndWait per batch
+Legacy files (unchanged, no longer used by backdateChangesets):
+  compute-batch-plan.js   — Returns batch descriptors with start/end indices
+  compute-batch-date.js   — Computes 30-day-spaced backdated dates
+  create-batch-extracted-data.js — Shallow clone with sliced issues
 ```
 
 ---

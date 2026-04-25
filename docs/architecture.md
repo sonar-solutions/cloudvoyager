@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Apr 23, 2026 -->
+<!-- Last updated: Apr 21, 2026 -->
 
 <!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
@@ -74,14 +74,14 @@ src/
     │   │   │   ├── build-windows.js    # Initial window partitioning
     │   │   │   ├── fetch-window.js     # Fetch issues within a single window
     │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
-    │   ├── batch-distributor/         # SCM date-bucket distribution (5K per date bucket)
-    │   │   ├── index.js                # Re-exports all batch-distributor helpers
+    │   ├── batch-distributor/         # SCM date backdating for accurate issue creation dates
+    │   │   ├── index.js                # Re-exports all helpers
     │   │   ├── helpers/
-    │   │   │   ├── backdate-changesets.js # Core: modifies SCM blame dates to spread issue creation dates
-    │   │   │   ├── should-batch.js     # ISSUE_BATCH_SIZE constant; shouldBatch() always returns false
-    │   │   │   ├── compute-batch-plan.js # Returns batch descriptors (legacy, multi-analysis path)
-    │   │   │   ├── compute-batch-date.js # Computes backdated ISO date per batch (30-day spacing)
-    │   │   │   └── create-batch-extracted-data.js # Shallow-clones extracted data (legacy)
+    │   │   │   ├── should-batch.js     # ISSUE_BATCH_SIZE constant (5000); shouldBatch() returns false
+    │   │   │   ├── backdate-changesets.js # Per-line date backdating from issue.creationDate
+    │   │   │   ├── compute-batch-plan.js # (legacy) Returns batch descriptors with start/end indices
+    │   │   │   ├── compute-batch-date.js # (legacy) Computes backdated ISO date per batch
+    │   │   │   └── create-batch-extracted-data.js # (legacy) Shallow-clones extracted data with sliced issues
     │   ├── issue-sync/                # Shared issue sync utilities
     │   │   ├── has-manual-changes.js   # Detects human-authored changes on an SQ issue
     │   │   ├── fetch-sq-changelogs.js  # Batch-fetches SQ changelogs concurrently
@@ -131,7 +131,7 @@ sq-{version}/
 │               └── fetch-and-sync-hotspots.js  # Fetches SQ hotspots, syncs to SC
 ├── transfer-branch.js                # Re-export → transfer-branch/index.js
 ├── transfer-branch/
-│   ├── index.js                       # Orchestrates per-branch transfer; calls backdateChangesets() before protobuf build
+│   ├── index.js                       # Orchestrates per-branch transfer; gates to batched path when issues > 5K
 │   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, transfer-branch-batched, ...
 ├── migrate-pipeline.js               # Re-export → migrate-pipeline/index.js
 ├── migrate-pipeline/
@@ -249,24 +249,25 @@ sq-{version}/
 
 **404 JS files** across the sq-10.4 pipeline, all ≤50 lines. Classes converted to factory functions (`createSonarQubeClient`, `createSonarCloudClient`, `createProtobufBuilder`, `createDataExtractor`) with thin class wrappers for backward compatibility.
 
-<!-- Updated: 2026-04-23_14:46:00 -->
-### Shared Utilities — SCM Date-Bucket Distribution
+<!-- Updated: 2026-04-25_18:00:00 -->
+### Shared Utilities — SCM Date Backdating
 
-The **batch-distributor** (`src/shared/utils/batch-distributor/`) works around SonarCloud's Elasticsearch 10K-per-date-bucket visualization limit. When a branch has more than 5K issues, `backdateChangesets()` modifies SCM changeset blame dates within a **single analysis** so the CE assigns different creation dates to different groups of issues, spreading them across multiple date buckets.
+The **batch-distributor** (`src/shared/utils/batch-distributor/`) preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report.
 
-> **Note:** Multi-analysis batching (separate scanner report uploads) was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed.
+The primary function is `backdateChangesets(extractedData)`, which:
 
-Key helpers:
+1. **Safety-splits** any calendar day with >5K issues into sub-groups with 1-day-spaced synthetic dates
+2. **Maps** each issue's `creationDate` to its `textRange` lines (oldest date wins for overlapping lines)
+3. **Rebuilds** each file's changeset with one entry per unique date, and `changesetIndexByLine` pointing each line to the correct date
 
 | Function | Purpose |
 |----------|---------|
-| `backdateChangesets(extractedData)` | Core: sorts issues by file, groups files into ≤5K batches, sets ALL lines of each file to the batch date. No-op when issues ≤ 5K. |
-| `shouldBatch(extractedData)` | Always returns `false` (multi-analysis batching disabled). Exports `ISSUE_BATCH_SIZE` constant. |
-| `computeBatchDate(baseDateISO, batchIndex, totalBatches)` | Computes a backdated ISO date per batch with 30-day spacing |
-| `computeBatchPlan(totalIssues)` | Legacy: returns batch descriptors (used by disabled multi-analysis path) |
-| `createBatchExtractedData(...)` | Legacy: shallow-clones extracted data (used by disabled multi-analysis path) |
+| `backdateChangesets(extractedData)` | Per-line date backdating from `issue.creationDate` — mutates `extractedData.changesets` in place |
+| `shouldBatch(extractedData)` | Returns `false` (multi-analysis batching disabled); exports `ISSUE_BATCH_SIZE` constant (5000) |
 
-**Integration:** All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function mutates `extractedData.changesets` in place.
+Legacy helpers (`computeBatchPlan`, `computeBatchDate`, `createBatchExtractedData`) remain in the module but are no longer used by `backdateChangesets`.
+
+**Integration:** All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before the protobuf build step. The function handles all project sizes — no gate or threshold for activation.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing
@@ -588,65 +589,6 @@ desktop/
 The renderer uses vanilla HTML/CSS/JS with no build step. Security follows Electron best practices: `contextIsolation: true`, `nodeIntegration: false`, all Node.js access via `contextBridge`, CSP headers, path traversal guards, and HTML escaping.
 
 > **New desktop components:** `progress-parser.js` parses CLI log output to compute real-time progress percentages and ETA for all three pipeline types (migrate, transfer, verify). `whale-animator.js` renders a pixel-art whale sprite animation with starfield, cloud parallax, and typewriter phase labels during execution.
-
-## Regression Testing Architecture
-<!-- updated: 2026-04-25_10:00:00 -->
-
-Regression tests live in `test/regression/` and validate the full migration pipeline end-to-end against ephemeral SonarQube instances.
-
-### Directory Structure
-
-```
-test/regression/
-├── helpers/               # Shared test utilities (SQC client wrappers, retry/backoff)
-├── enrichment/            # Scripts that seed SQ with realistic test data
-│   ├── add-comments.js     # Add issue/hotspot comments
-│   ├── change-statuses.js  # Transition issue/hotspot statuses
-│   └── add-hotspot-data.js # Create hotspot review entries
-├── assert-migrate.js      # Assertions for migrate command output
-├── assert-sync-metadata.js # Assertions for sync-metadata command output
-├── assert-verify.js       # Assertions for verify command output
-└── sample-projects/       # Angular and other sample codebases scanned during CI
-```
-
-### Ephemeral SQ Docker Architecture
-
-Each CI job provisions a disposable environment — no shared state between jobs:
-
-```
-┌─────────────────────────────────────────────────────┐
-│  GitHub Actions Runner                              │
-│                                                     │
-│  ┌──────────────┐   ┌──────────────┐                │
-│  │  SonarQube   │   │  PostgreSQL  │                │
-│  │  Enterprise  │◄──┤  (Docker)    │                │
-│  │  (Docker)    │   └──────────────┘                │
-│  └──────┬───────┘                                   │
-│         │                                           │
-│  1. Scan Angular sample project                     │
-│  2. Run enrichment scripts (comments, statuses,     │
-│     hotspot data)                                   │
-│  3. Run CloudVoyager migrate/sync/verify            │
-│  4. Run assertion scripts against SonarCloud        │
-└─────────────────────────────────────────────────────┘
-```
-
-### CI Matrix
-
-Phase 1 scenarios are tested across all 4 supported SonarQube versions (9.9, 10.0, 10.4, 2025.1), producing **5 scenarios × 4 SQ versions = 20 matrix jobs**. Each job is independent and runs in parallel with `fail-fast: false`.
-
-### Private CI Repository
-
-Sensitive workflows (secrets, license keys, Docker credentials) run in a private repository (`sonar-solutions/cloudvoyager-ci`). This repo:
-- Syncs from the public repo automatically every 15 minutes
-- Hosts the regression workflow files and encrypted secrets
-- Reports status back to the public repo via commit statuses
-
-### Assertion and Enrichment Details
-
-**Assertion scripts** use the shared SonarCloud API client (`helpers/`) with built-in retry and exponential backoff to account for eventual consistency in SonarCloud's CE pipeline. Each `assert-*.js` script validates command-specific invariants (issue counts, status mappings, hotspot states, metadata parity).
-
-**Enrichment scripts** run after the initial SonarQube scan but before migration, seeding the SQ instance with realistic data that exercises metadata sync paths: issue comments, status transitions (confirm, false-positive, won't-fix), and hotspot review entries with assigned reviewers.
 
 ## 📚 Further Reading
 

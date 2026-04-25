@@ -4,6 +4,25 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Accurate Issue Creation Date Backdating (2026-04-25)
+<!-- updated: 2026-04-25_18:00:00 -->
+
+Rewrote `backdateChangesets()` to preserve each issue's original SonarQube creation date in SonarCloud, replacing the previous arbitrary 30-day-spaced bucket approach.
+
+**Problem:** The previous implementation grouped files into ≤5K-issue batches and assigned arbitrary dates (30 days apart). While this spread issues across SonarCloud's 10K ES visualization cap, the resulting issue creation dates were wrong — they didn't match the original SonarQube dates.
+
+**Solution:** Each issue's `creationDate` from SonarQube is now used to set the SCM changeset blame date for its specific lines. The CE takes MAX(date) across an issue's `textRange` lines, so per-line dating with "oldest wins" for overlapping lines preserves accurate creation dates. A safety split pre-assigns synthetic dates when a single calendar day has >5K issues (1-day spacing between sub-groups).
+
+**Algorithm (3 phases):**
+1. **Phase 0 — Safety split:** Count issues per calendar day. If any day exceeds 5K, sub-group its issues (by file, no file splitting) into ≤5K batches with 1-day-spaced synthetic dates.
+2. **Phase 1 — Per-line date map:** For each issue, map its `textRange` lines to its effective creation date. Oldest date wins when lines overlap (prevents CE MAX inflation).
+3. **Phase 2 — Rebuild changesets:** For each file with issues, create one changeset entry per unique date. Non-issue lines default to the file's oldest date. Files with no issues keep their original stub changeset.
+
+**Files changed:**
+- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — complete rewrite with per-line dating
+
+---
+
 ## Regression Testing System — Phase 1 (2026-04-25)
 <!-- updated: 2026-04-25_10:00:00 -->
 
@@ -40,24 +59,12 @@ Fixed issue migration data loss and implemented SCM-based date-bucket distributi
 
 **Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter was missing `IN_SANDBOX` (new in SQ 2025) and incorrectly included `CLOSED`. Fixed in both `issue-methods.js` and `issues-hotspots.js`.
 
-**Feature — SCM date-bucket distribution:** SonarCloud's UI caps the issues list at 10K per creation-date bucket. To work around this, issues are sorted by file and grouped into ≤5K-issue batches. Each batch's files have their SCM changeset blame dates set to a different date (30 days apart). The CE uses SCM blame dates to set creation dates for new issues, spreading them across multiple date buckets within a single analysis.
-
-**Verification results (Angular Framework — 31,642 issues):**
-| Date Bucket | Issues |
-|-------------|--------|
-| Oct 2025 | 4,854 |
-| Nov 2025 | 4,816 |
-| Dec 2025 | 4,959 |
-| Jan 2026 | 4,767 |
-| Feb 2026 | 4,921 |
-| Mar 2026 | 4,958 |
-| Apr 2026 | 2,366 |
-| **Total** | **31,641** (SQ: 31,642) |
+**Feature — SCM date-bucket distribution:** Replaced in v1.3.1 by accurate per-issue creation date backdating (see entry above).
 
 **Files changed:**
 - `src/shared/utils/batch-distributor/helpers/should-batch.js` — disabled multi-analysis batching
-- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — new: SCM date-bucket distribution
-- `src/shared/utils/batch-distributor/helpers/compute-batch-date.js` — 30-day spacing between batches
+- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — SCM date-bucket distribution (superseded by v1.3.1 rewrite)
+- `src/shared/utils/batch-distributor/helpers/compute-batch-date.js` — 30-day spacing between batches (no longer used by backdateChangesets)
 - `src/pipelines/sq-2025/sonarqube/api-client/helpers/issue-methods.js` — fixed status list
 - `src/pipelines/sq-2025/sonarqube/api/issues-hotspots.js` — fixed status constant
 - All 6 pipeline `transfer-branch` entry points — call `backdateChangesets` before protobuf build

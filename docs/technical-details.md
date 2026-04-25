@@ -34,14 +34,14 @@ sequenceDiagram
 
         Note over CLI: ➕B  Build & encode protobuf report
 
-        Note over CLI: ➕B2  SCM date-bucket distribution (if >5K issues)
-        CLI->>CLI: backdateChangesets(extractedData) — spreads SCM blame dates across 30-day buckets
-        CLI->>CLI: build Issue / ExternalIssue / AdHocRule messages
-        CLI->>CLI: build Measure / Component / Changeset messages
-        CLI->>CLI: zip → scanner-report.zip
+        Note over CLI: backdateChangesets() — rewrite SCM blame dates per-line from issue.creationDate
+        else single upload
+            CLI->>CLI: build Issue / ExternalIssue / AdHocRule messages
+            CLI->>CLI: build Measure / Component / Changeset messages
+            CLI->>CLI: zip → scanner-report.zip
 
-        Note over CLI,SC: ➕C  Upload & CE retry
-        CLI->>SC: POST /api/ce/submit (scanner-report.zip)
+            Note over CLI,SC: ➕C  Upload & CE retry
+            CLI->>SC: POST /api/ce/submit (scanner-report.zip)
             SC-->>CLI: CE task ID (or timeout → poll /api/ce/activity)
         end
 
@@ -139,7 +139,7 @@ sequenceDiagram
 | ➕D | Issue sync | `Generate a mermaid sequence diagram showing the full issue sync pipeline in CloudVoyager including pre-filter, SC indexing wait, and changelog replay` |
 | ➕E | Org mapping / CSVs | `Generate a mermaid sequence diagram showing how CloudVoyager maps SonarQube projects to SonarCloud organizations and generates dry-run CSV files` |
 | ➕F | Quality profiles | `Generate a mermaid sequence diagram for CloudVoyager quality profile migration including backup XML, rename of built-in profiles, and diff report` |
-| ➕G | SCM date-bucket distribution | `Generate a mermaid sequence diagram showing how CloudVoyager backdateChangesets() modifies SCM blame dates within a single analysis to spread issues across ≤5K date buckets` |
+| ➕G | Batch distribution | `Generate a mermaid sequence diagram showing how CloudVoyager batch-distributor splits large issue sets into ≤5K batches with backdated analysis dates and sequential CE uploads` |
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📡 Protobuf Encoding
@@ -229,7 +229,7 @@ Components use a flat structure - all files are direct children of the project c
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
-**SCM date-bucket distribution**: When a branch has >5,000 issues, `backdateChangesets()` modifies SCM changeset blame dates within a single analysis so the CE assigns different creation dates to different groups of issues. See [SCM Date-Bucket Distribution](#-scm-date-bucket-distribution-5k-per-date-bucket) for details.
+**Batch uploads**: When issue batching is active (>5,000 issues), each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')` instead of the original git commit hash. This prevents the SonarCloud CE from deduplicating successive batch uploads as identical reports. See [Issue Batching for Upload](#-issue-batching-for-upload-5k-per-date-bucket) for details.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🌿 Branch Sync
@@ -259,65 +259,42 @@ The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
-<!-- updated: 2026-04-23_14:46:00 -->
-## 📦 SCM Date-Bucket Distribution (5K Per Date Bucket)
+<!-- updated: 2026-04-25_18:00:00 -->
+## 📦 Accurate Issue Creation Date Backdating
 
-SonarCloud's Elasticsearch caps **visualization** at 10,000 issues per date bucket. When a branch has more than 10K issues, only the first 10,000 are visible in the UI — even though all issues exist in the database.
+SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backdateChangesets()` rewrites each file's changeset protobuf so that the CE assigns each issue its original SonarQube creation date.
 
-**Solution:** `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` modifies SCM changeset blame dates within a **single analysis** so the CE assigns different creation dates to different groups of issues, spreading them across multiple date buckets.
+**How it works:** The function reads each issue's `creationDate` field (preserved from SonarQube extraction) and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range, so using "oldest wins" for overlapping lines ensures accurate dates. A safety split handles days with >5K issues.
 
-> **Note:** The original multi-analysis batching approach (splitting issues across separate scanner report uploads) was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not present in the current one are closed. Only single-analysis SCM backdating preserves all issues.
+### Algorithm (3 Phases)
 
-### Algorithm
-
-1. **Gate** — if `issues.length <= 5000`, no-op (no backdating needed)
-2. **Sort** — issues sorted by component key so files are contiguous
-3. **Group** — `buildFileBatches()` walks sorted issues, grouping files into batches of ≤5K issues. Files are never split across batches.
-4. **Backdate** — for each batch (except the last), ALL lines of each file have their changeset replaced with a single entry at the batch date. `computeBatchDate()` spaces batches 30 days apart going backwards from the extraction date.
-5. **Last batch untouched** — keeps original SCM dates
-
-### Why Full-File Backdating
-
-Setting only individual issue lines is insufficient. The CE uses the **MAX** of SCM dates across an issue's line range — surrounding lines with the current date override any backdated line. Setting **every line** of each file ensures the CE has no newer line to fall back on.
-
-### Example
-
-A branch with 31,641 issues extracted on 2026-04-23:
-
-| Batch | Issues | SCM Blame Date | CE Creation Date |
-|-------|--------|----------------|-----------------|
-| 1/7 | ~4,854 | Oct 2025 | Oct 2025 |
-| 2/7 | ~4,816 | Nov 2025 | Nov 2025 |
-| 3/7 | ~4,959 | Dec 2025 | Dec 2025 |
-| 4/7 | ~4,767 | Jan 2026 | Jan 2026 |
-| 5/7 | ~4,921 | Feb 2026 | Feb 2026 |
-| 6/7 | ~4,958 | Mar 2026 | Mar 2026 |
-| 7/7 | ~2,366 | Apr 2026 (original) | Apr 2026 |
+1. **Phase 0 — Safety split:** Group issues by calendar day. For any day exceeding 5,000 issues, sort by component and sub-group into ≤5K batches with 1-day-spaced synthetic dates (no file splitting).
+2. **Phase 1 — Per-line date map:** For each issue, map its `textRange.startLine..endLine` to its effective creation date. Oldest date wins when lines overlap. File-level issues (line=0/null) are skipped.
+3. **Phase 2 — Rebuild changesets:** For each file with issues, create one changeset entry per unique date. `changesetIndexByLine[i]` points to the date for line `i+1`, or to the oldest date (index 0) for non-issue lines. Files with no issues keep their original stub.
 
 ### Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Batch size = 5,000 (hardcoded) | 50% safety margin under ES 10K visualization limit |
-| Single analysis (not multi-analysis) | CE issue tracker closes issues from prior analyses not in current one |
-| Full-file line backdating | CE uses MAX of SCM dates across issue line range; partial backdating is overridden |
-| 30-day spacing between batches | Clear separation in SonarCloud UI date facet |
-| File-level granularity (no file splitting) | Simpler, avoids partial-file changeset complexity |
-| Last batch keeps original dates | Most recent issues appear at the correct time |
+| Per-line dating (not per-file) | Enables multiple issues with different creation dates in the same file |
+| Oldest date wins for overlapping lines | CE takes MAX across line range — older date on shared lines doesn't inflate newer issues that have their own non-overlapping lines |
+| Non-issue lines get oldest date | Prevents accidental MAX inflation for multi-line issues spanning non-issue lines |
+| Safety split at 5,000/day | 50% margin under SonarCloud's 10K ES visualization cap per date bucket |
+| No file splitting in safety split | A file's issues stay together on the same synthetic date |
+| All projects backdated | No early return for small projects — every project gets accurate dates |
 
 ### Helper Files (`src/shared/utils/batch-distributor/helpers/`)
 
 | File | Role |
 |------|------|
-| `backdate-changesets.js` | Core: sorts issues, groups files into batches, backdates all lines per file |
-| `should-batch.js` | Exports `ISSUE_BATCH_SIZE` constant; `shouldBatch()` always returns false (multi-analysis disabled) |
-| `compute-batch-date.js` | Computes backdated ISO date per batch (30-day spacing) |
-| `compute-batch-plan.js` | Returns batch descriptors (legacy, used by disabled multi-analysis path) |
-| `create-batch-extracted-data.js` | Shallow-clones extracted data (legacy, used by disabled multi-analysis path) |
+| `backdate-changesets.js` | Per-line date backdating from `issue.creationDate` (complete rewrite) |
+| `should-batch.js` | `ISSUE_BATCH_SIZE` constant (5000); `shouldBatch()` returns false |
+
+Legacy files (unchanged, no longer used by `backdateChangesets`): `compute-batch-plan.js`, `compute-batch-date.js`, `create-batch-extracted-data.js`.
 
 ### Pipeline Integration
 
-All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function mutates `extractedData.changesets` in place and is a no-op for projects with ≤5K issues.
+All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before the protobuf build step. The function mutates `extractedData.changesets` in place — no signature change.
 
 <!-- Updated: Mar 28, 2026 -->
 ## 🔍 Search Slicing for 10K+ Issues
@@ -698,44 +675,6 @@ All errors extend `CloudVoyagerError` base class (11 classes total):
 ## 🛑 Graceful Shutdown
 
 SIGINT/SIGTERM triggers registered cleanup handlers (journal save, lock release) then exits with code 0. A second signal forces immediate exit. The `shutdownCheck()` callback is passed through the pipeline for interrupt safety, allowing long-running operations to check for pending shutdown.
-
-## Ephemeral SonarQube Container Architecture (Regression Testing)
-<!-- updated: 2026-04-25_10:00:00 -->
-
-Each regression test CI job provisions a disposable SonarQube Enterprise environment from scratch, runs the CloudVoyager pipeline against it, asserts outcomes, and tears everything down. No shared state survives between jobs.
-
-### Per-Job Lifecycle
-
-```
-Job starts → PostgreSQL container → SQ Enterprise container → Health check → License inject → Token create → Enrichment → Migration → Assertion → Teardown
-```
-
-### Container Provisioning
-
-- Each CI job spins up **two containers**: a PostgreSQL container (backing store) and a SonarQube Enterprise container (version-specific, e.g. `sonarqube:10.4-enterprise`).
-- Both containers communicate via a Docker **user-defined bridge network** (`sq-net`), which provides DNS-based service discovery between the database and SonarQube.
-
-### Startup & Health Check
-
-- SonarQube startup takes **30–90 seconds** depending on the version and runner hardware.
-- The setup script polls `GET /api/system/status` in a loop until the response payload contains `"status": "UP"`, indicating the instance is fully operational and ready to accept API calls.
-
-### License Injection
-
-- The SonarQube Enterprise license key is injected via `POST /api/editions/set_license` immediately after the health check passes.
-- The license key is a CI secret, masked in logs via GitHub Actions' `::add-mask::` directive to prevent accidental exposure.
-
-### Admin Token Generation
-
-- An admin API token is created via `POST /api/user_tokens/generate` so that CloudVoyager can authenticate against the ephemeral SonarQube instance using bearer token auth rather than basic auth.
-
-### Project Key Namespacing
-
-- SQC target project keys use the `cv-regression-{scenario}-{sq-version}` namespace (e.g. `cv-regression-large-project-10.4`) to prevent collision with existing regression workflows that may target the same SonarCloud organization.
-
-### Composite Action
-
-The `setup-sonarqube` composite action (`.github/actions/setup-sonarqube/action.yml`) encapsulates the entire provisioning sequence — container creation, networking, health polling, license injection, and token generation — as a reusable building block for all regression test jobs.
 
 ## 📚 Further Reading
 

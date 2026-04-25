@@ -585,12 +585,12 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 
 ---
 
-<!-- updated: 2026-04-22_14:30:00 -->
+<!-- updated: 2026-04-25_18:00:00 -->
 ## 📊 Projects with 10,000+ Issues
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
 
-> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **SCM date-bucket distribution** (`backdateChangesets()`) handles uploading >5K issues to SonarCloud by modifying SCM changeset blame dates within a single analysis, so the CE assigns different creation dates to different groups of issues. This prevents the Elasticsearch visualization limit (10K per date bucket) from hiding issues in the UI. Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud.
+> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **SCM date backdating** (`backdateChangesets`) preserves each issue's original SonarQube creation date in SonarCloud by writing per-line blame dates into the changeset protobuf. A safety split ensures no single calendar day exceeds 5K issues (50% margin under the 10K ES visualization cap). Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud with accurate historical creation dates.
 
 ### Error: `10001th result asked`
 
@@ -618,33 +618,28 @@ The search slicer algorithm:
 
 ---
 
-<!-- updated: 2026-04-23_14:46:00 -->
-## 📦 SCM Date-Bucket Distribution (Large Issue Sets)
+<!-- updated: 2026-04-25_18:00:00 -->
+## 📦 Issue Creation Date Accuracy
 
-When a branch has more than 5,000 issues, CloudVoyager automatically modifies SCM changeset blame dates so the CE assigns different creation dates to different groups of issues. This spreads issues across multiple date buckets within a **single analysis**, preventing SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding issues.
+CloudVoyager preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report. This is automatic and transparent — no user configuration needed.
 
-> **This is automatic and transparent.** `backdateChangesets()` is called before every protobuf build and is a no-op for branches with ≤5K issues. Users do not need to enable it or take any special action.
+> **How it works (v1.3.1+):** `backdateChangesets()` reads each issue's `creationDate` field from SonarQube and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range to determine its creation date, so per-line dating with "oldest wins" for overlapping lines preserves accurate dates. A safety split handles calendar days with >5K issues.
 
-> **Note:** An earlier version used multi-analysis batching (separate scanner report uploads per batch). This was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are **closed**, causing silent data loss.
+### Issue creation dates don't match SonarQube
 
-### Why do I see issues spread across multiple dates?
-
-**Expected behavior.** If a branch has more than 5,000 issues, CloudVoyager logs:
-
-```
-Backdating SCM data: 31641 issues → 7 date buckets of ≤5000
-Modified SCM data for 2847 files across 7 date buckets
-```
-
-Issues are grouped by file into ≤5K batches. Each batch's files have their SCM blame dates set to a different month (30 days apart). The CE uses SCM blame dates to assign issue creation dates, so issues land in separate date buckets. The last batch keeps the original dates.
+Check that the migration was run with v1.3.1+. Earlier versions used arbitrary 30-day-spaced batch dates instead of original creation dates. Re-transfer affected projects to get accurate dates.
 
 ### Issue counts look correct in the API but not in the UI
 
-This is the exact problem SCM date-bucket distribution solves. Without it, all issues share one creation date and SonarCloud's Elasticsearch only visualizes the first 10K per date bucket. Re-transfer the affected projects — `backdateChangesets()` will spread the issues automatically.
+SonarCloud's Elasticsearch caps visualization at 10K per date bucket. With accurate creation dates, issues are naturally distributed across their original dates. The safety split ensures no single day exceeds 5K issues. If you see this problem, verify the migration used v1.3.1+.
 
-### Can I change the batch size?
+### Warning: "N issues on DATE exceed 5K cap"
 
-The batch size is hardcoded at 5,000 (50% safety margin under the 10K ES limit). It is not configurable.
+**Expected behavior.** This means a single calendar day had more than 5,000 issues with the same creation date. The safety split automatically sub-groups them into ≤5K batches with 1-day-spaced synthetic dates. The sub-groups will appear as separate adjacent dates in SonarCloud's creation date facet.
+
+### Can I change the safety split threshold?
+
+The threshold is hardcoded at 5,000 (50% safety margin under the 10K ES visualization limit). It is not configurable.
 
 ---
 
