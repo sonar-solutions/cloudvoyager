@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-<!-- Last updated: Apr 21, 2026 -->
+<!-- Last updated: Apr 23, 2026 -->
 
 <!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
@@ -74,13 +74,14 @@ src/
     │   │   │   ├── build-windows.js    # Initial window partitioning
     │   │   │   ├── fetch-window.js     # Fetch issues within a single window
     │   │   │   └── merge-results.js    # Deduplicate and merge sliced results
-    │   ├── batch-distributor/         # Issue batching for upload (5K per date bucket)
-    │   │   ├── index.js                # shouldBatch + createBatchExtractedData orchestrator
+    │   ├── batch-distributor/         # SCM date-bucket distribution (5K per date bucket)
+    │   │   ├── index.js                # Re-exports all batch-distributor helpers
     │   │   ├── helpers/
-    │   │   │   ├── should-batch.js     # Predicate: issues.length > 5000
-    │   │   │   ├── compute-batch-plan.js # Returns batch descriptors with start/end indices
-    │   │   │   ├── compute-batch-date.js # Computes backdated ISO date per batch
-    │   │   │   └── create-batch-extracted-data.js # Shallow-clones extracted data with sliced issues
+    │   │   │   ├── backdate-changesets.js # Core: modifies SCM blame dates to spread issue creation dates
+    │   │   │   ├── should-batch.js     # ISSUE_BATCH_SIZE constant; shouldBatch() always returns false
+    │   │   │   ├── compute-batch-plan.js # Returns batch descriptors (legacy, multi-analysis path)
+    │   │   │   ├── compute-batch-date.js # Computes backdated ISO date per batch (30-day spacing)
+    │   │   │   └── create-batch-extracted-data.js # Shallow-clones extracted data (legacy)
     │   ├── issue-sync/                # Shared issue sync utilities
     │   │   ├── has-manual-changes.js   # Detects human-authored changes on an SQ issue
     │   │   ├── fetch-sq-changelogs.js  # Batch-fetches SQ changelogs concurrently
@@ -130,7 +131,7 @@ sq-{version}/
 │               └── fetch-and-sync-hotspots.js  # Fetches SQ hotspots, syncs to SC
 ├── transfer-branch.js                # Re-export → transfer-branch/index.js
 ├── transfer-branch/
-│   ├── index.js                       # Orchestrates per-branch transfer; gates to batched path when issues > 5K
+│   ├── index.js                       # Orchestrates per-branch transfer; calls backdateChangesets() before protobuf build
 │   └── helpers/                       # build-and-encode-report, upload-report, compute-branch-stats, transfer-branch-batched, ...
 ├── migrate-pipeline.js               # Re-export → migrate-pipeline/index.js
 ├── migrate-pipeline/
@@ -248,21 +249,24 @@ sq-{version}/
 
 **404 JS files** across the sq-10.4 pipeline, all ≤50 lines. Classes converted to factory functions (`createSonarQubeClient`, `createSonarCloudClient`, `createProtobufBuilder`, `createDataExtractor`) with thin class wrappers for backward compatibility.
 
-<!-- Updated: 2026-04-22_14:30:00 -->
-### Shared Utilities — Batch Distributor
+<!-- Updated: 2026-04-23_14:46:00 -->
+### Shared Utilities — SCM Date-Bucket Distribution
 
-The **batch-distributor** (`src/shared/utils/batch-distributor/`) is a shared utility that splits large issue sets across multiple scanner report uploads to work around SonarCloud's Elasticsearch 10K-per-date-bucket visualization limit. Without batching, branches with more than 10,000 issues on a single analysis date would have issues hidden in the SonarCloud UI.
+The **batch-distributor** (`src/shared/utils/batch-distributor/`) works around SonarCloud's Elasticsearch 10K-per-date-bucket visualization limit. When a branch has more than 5K issues, `backdateChangesets()` modifies SCM changeset blame dates within a **single analysis** so the CE assigns different creation dates to different groups of issues, spreading them across multiple date buckets.
 
-It exposes four pure-function helpers:
+> **Note:** Multi-analysis batching (separate scanner report uploads) was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed.
+
+Key helpers:
 
 | Function | Purpose |
 |----------|---------|
-| `shouldBatch(extractedData)` | Predicate — returns `true` when `issues.length > 5000` |
-| `computeBatchPlan(totalIssues)` | Returns an array of batch descriptors, each with `startIndex`, `endIndex`, `batchIndex`, and `isLast` |
-| `computeBatchDate(baseDateISO, batchIndex, totalBatches)` | Computes a backdated ISO date string per batch, stepping one day back per batch from the base date |
-| `createBatchExtractedData(originalData, batchDescriptor, batchDate, batchScmRevisionId)` | Shallow-clones the extracted data with a sliced issues array and overridden metadata; non-final batches strip sources, changesets, and duplications to reduce upload size |
+| `backdateChangesets(extractedData)` | Core: sorts issues by file, groups files into ≤5K batches, sets ALL lines of each file to the batch date. No-op when issues ≤ 5K. |
+| `shouldBatch(extractedData)` | Always returns `false` (multi-analysis batching disabled). Exports `ISSUE_BATCH_SIZE` constant. |
+| `computeBatchDate(baseDateISO, batchIndex, totalBatches)` | Computes a backdated ISO date per batch with 30-day spacing |
+| `computeBatchPlan(totalIssues)` | Legacy: returns batch descriptors (used by disabled multi-analysis path) |
+| `createBatchExtractedData(...)` | Legacy: shallow-clones extracted data (used by disabled multi-analysis path) |
 
-**Integration:** All four pipeline versions (`sq-9.9`, `sq-10.0`, `sq-10.4`, `sq-2025`) integrate via a `shouldBatch` gate in `transferBranch`. When a branch has more than 5,000 issues, `transferBranch` computes a batch plan and uploads each batch as a separate scanner report with a unique backdated analysis date and `scmRevisionId`. Only the final batch includes sources, changesets, and duplications.
+**Integration:** All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function mutates `extractedData.changesets` in place.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing

@@ -34,24 +34,14 @@ sequenceDiagram
 
         Note over CLI: ➕B  Build & encode protobuf report
 
-        alt issues > 5,000 (batch distribution)
-            CLI->>CLI: shouldBatch() → true
-            CLI->>CLI: computeBatchPlan(totalIssues) → N batches of ≤5,000
-            loop For each batch (oldest first)
-                CLI->>CLI: computeBatchDate() → backdated analysis_date
-                CLI->>CLI: createBatchExtractedData() (slice issues, unique scmRevisionId)
-                CLI->>CLI: build protobuf messages + zip → scanner-report.zip
-                Note over CLI,SC: ➕C  Upload & CE retry (per batch)
-                CLI->>SC: POST /api/ce/submit (batch scanner-report.zip)
-                SC-->>CLI: CE task ID → wait for completion before next batch
-            end
-        else issues ≤ 5,000 (single upload)
-            CLI->>CLI: build Issue / ExternalIssue / AdHocRule messages
-            CLI->>CLI: build Measure / Component / Changeset messages
-            CLI->>CLI: zip → scanner-report.zip
+        Note over CLI: ➕B2  SCM date-bucket distribution (if >5K issues)
+        CLI->>CLI: backdateChangesets(extractedData) — spreads SCM blame dates across 30-day buckets
+        CLI->>CLI: build Issue / ExternalIssue / AdHocRule messages
+        CLI->>CLI: build Measure / Component / Changeset messages
+        CLI->>CLI: zip → scanner-report.zip
 
-            Note over CLI,SC: ➕C  Upload & CE retry
-            CLI->>SC: POST /api/ce/submit (scanner-report.zip)
+        Note over CLI,SC: ➕C  Upload & CE retry
+        CLI->>SC: POST /api/ce/submit (scanner-report.zip)
             SC-->>CLI: CE task ID (or timeout → poll /api/ce/activity)
         end
 
@@ -149,7 +139,7 @@ sequenceDiagram
 | ➕D | Issue sync | `Generate a mermaid sequence diagram showing the full issue sync pipeline in CloudVoyager including pre-filter, SC indexing wait, and changelog replay` |
 | ➕E | Org mapping / CSVs | `Generate a mermaid sequence diagram showing how CloudVoyager maps SonarQube projects to SonarCloud organizations and generates dry-run CSV files` |
 | ➕F | Quality profiles | `Generate a mermaid sequence diagram for CloudVoyager quality profile migration including backup XML, rename of built-in profiles, and diff report` |
-| ➕G | Batch distribution | `Generate a mermaid sequence diagram showing how CloudVoyager batch-distributor splits large issue sets into ≤5K batches with backdated analysis dates and sequential CE uploads` |
+| ➕G | SCM date-bucket distribution | `Generate a mermaid sequence diagram showing how CloudVoyager backdateChangesets() modifies SCM blame dates within a single analysis to spread issues across ≤5K date buckets` |
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📡 Protobuf Encoding
@@ -239,7 +229,7 @@ Components use a flat structure - all files are direct children of the project c
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
-**Batch uploads**: When issue batching is active (>5,000 issues), each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')` instead of the original git commit hash. This prevents the SonarCloud CE from deduplicating successive batch uploads as identical reports. See [Issue Batching for Upload](#-issue-batching-for-upload-5k-per-date-bucket) for details.
+**SCM date-bucket distribution**: When a branch has >5,000 issues, `backdateChangesets()` modifies SCM changeset blame dates within a single analysis so the CE assigns different creation dates to different groups of issues. See [SCM Date-Bucket Distribution](#-scm-date-bucket-distribution-5k-per-date-bucket) for details.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🌿 Branch Sync
@@ -269,67 +259,65 @@ The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
-<!-- updated: 2026-04-22_14:30:00 -->
-## 📦 Issue Batching for Upload (5K Per Date Bucket)
+<!-- updated: 2026-04-23_14:46:00 -->
+## 📦 SCM Date-Bucket Distribution (5K Per Date Bucket)
 
-SonarCloud's Elasticsearch caps **visualization** at 10,000 results per date bucket. When a branch has more than 5,000 issues, submitting them all in a single scanner report (with one `analysis_date`) means only 10K are visible — even though all issues exist in the database.
+SonarCloud's Elasticsearch caps **visualization** at 10,000 issues per date bucket. When a branch has more than 10K issues, only the first 10,000 are visible in the UI — even though all issues exist in the database.
 
-**Solution:** `src/shared/utils/batch-distributor/` splits large issue sets into batches of up to 5,000, each submitted as a separate scanner report with a distinct `analysis_date` going backwards from today.
+**Solution:** `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` modifies SCM changeset blame dates within a **single analysis** so the CE assigns different creation dates to different groups of issues, spreading them across multiple date buckets.
+
+> **Note:** The original multi-analysis batching approach (splitting issues across separate scanner report uploads) was abandoned because SonarCloud's CE issue tracker treats each analysis as a complete snapshot — issues from prior analyses not present in the current one are closed. Only single-analysis SCM backdating preserves all issues.
 
 ### Algorithm
 
-1. **Gate** — `should-batch.js`: if `extractedData.issues.length > 5000`, batching activates
-2. **Plan** — `compute-batch-plan.js`: `batchCount = ceil(totalIssues / 5000)`, returns `[{startIndex, endIndex, batchIndex, isLast}]`
-3. **Date** — `compute-batch-date.js`: last batch (newest) gets the original date; earlier batches are backdated one day each (`baseDate - (totalBatches - 1 - batchIndex)` days)
-4. **Clone** — `create-batch-extracted-data.js`: shallow-clones `extractedData` with sliced `issues` array, overridden `metadata.extractedAt` and unique `metadata.scmRevisionId` (via `randomBytes(20)`)
-5. **Trim** — Non-final batches strip `sources`, `changesets`, and `duplications` (set to `[]` / `new Map()`) to reduce upload size. `components` and `activeRules` are kept for issue resolution.
-6. **Upload** — Each batch is built, encoded, and uploaded sequentially with `wait: true` (CE must complete before the next batch)
+1. **Gate** — if `issues.length <= 5000`, no-op (no backdating needed)
+2. **Sort** — issues sorted by component key so files are contiguous
+3. **Group** — `buildFileBatches()` walks sorted issues, grouping files into batches of ≤5K issues. Files are never split across batches.
+4. **Backdate** — for each batch (except the last), ALL lines of each file have their changeset replaced with a single entry at the batch date. `computeBatchDate()` spaces batches 30 days apart going backwards from the extraction date.
+5. **Last batch untouched** — keeps original SCM dates
+
+### Why Full-File Backdating
+
+Setting only individual issue lines is insufficient. The CE uses the **MAX** of SCM dates across an issue's line range — surrounding lines with the current date override any backdated line. Setting **every line** of each file ensures the CE has no newer line to fall back on.
 
 ### Example
 
-A branch with 20,590 issues on 2026-05-12:
+A branch with 31,641 issues extracted on 2026-04-23:
 
-| Batch | Issues | analysis_date | Submitted |
-|-------|--------|---------------|-----------|
-| 1/5 | 1–5,000 | 2026-05-08 | First (oldest) |
-| 2/5 | 5,001–10,000 | 2026-05-09 | |
-| 3/5 | 10,001–15,000 | 2026-05-10 | |
-| 4/5 | 15,001–20,000 | 2026-05-11 | |
-| 5/5 | 20,001–20,590 | 2026-05-12 | Last (newest, carries full project data) |
-
-### Backdating Strategy
-<!-- updated: 2026-04-22_14:30:00 -->
-
-Each batch needs a distinct `analysis_date` so that SonarCloud's Elasticsearch distributes issues across separate date buckets (each bucket can display up to 10K results). The dates are computed by `computeBatchDate()` going **backwards from the original date**:
-
-- The **final batch** (highest index, newest) keeps the **original `analysis_date`** from the extraction. This ensures the latest analysis in SonarCloud carries the full project data (sources, changesets, duplications) and represents the "current" state.
-- **Earlier batches** are backdated by one calendar day each: `originalDate - (totalBatches - 1 - batchIndex)` days. Batch 0 (first submitted) gets the oldest date; batch N-1 (last submitted) gets the original date.
-
-This means for 5 batches with an original date of 2026-05-12, the dates are 2026-05-08, 2026-05-09, 2026-05-10, 2026-05-11, 2026-05-12. The sequential submission (oldest first) ensures SonarCloud's analysis timeline reads chronologically.
+| Batch | Issues | SCM Blame Date | CE Creation Date |
+|-------|--------|----------------|-----------------|
+| 1/7 | ~4,854 | Oct 2025 | Oct 2025 |
+| 2/7 | ~4,816 | Nov 2025 | Nov 2025 |
+| 3/7 | ~4,959 | Dec 2025 | Dec 2025 |
+| 4/7 | ~4,767 | Jan 2026 | Jan 2026 |
+| 5/7 | ~4,921 | Feb 2026 | Feb 2026 |
+| 6/7 | ~4,958 | Mar 2026 | Mar 2026 |
+| 7/7 | ~2,366 | Apr 2026 (original) | Apr 2026 |
 
 ### Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | Batch size = 5,000 (hardcoded) | 50% safety margin under ES 10K visualization limit |
-| Submit oldest batch first | Final (newest) analysis carries full project data for UI display |
-| Strip sources from non-final batches | Biggest payload reduction; components stay for issue resolution |
-| Unique `scmRevisionId` per batch | Prevents CE deduplication across batches — each batch uses `randomBytes(20).toString('hex')` |
-| Always wait between batches | CE processes reports sequentially per project; avoids race conditions |
-| Backdate one day per batch | Distributes issues across separate ES date buckets; final batch retains the real date |
+| Single analysis (not multi-analysis) | CE issue tracker closes issues from prior analyses not in current one |
+| Full-file line backdating | CE uses MAX of SCM dates across issue line range; partial backdating is overridden |
+| 30-day spacing between batches | Clear separation in SonarCloud UI date facet |
+| File-level granularity (no file splitting) | Simpler, avoids partial-file changeset complexity |
+| Last batch keeps original dates | Most recent issues appear at the correct time |
 
 ### Helper Files (`src/shared/utils/batch-distributor/helpers/`)
 
 | File | Role |
 |------|------|
-| `should-batch.js` | Predicate: `issues.length > 5000` |
-| `compute-batch-plan.js` | Returns batch descriptors with start/end indices |
-| `compute-batch-date.js` | Computes backdated ISO date per batch |
-| `create-batch-extracted-data.js` | Shallow-clones extracted data with sliced issues + overridden metadata |
+| `backdate-changesets.js` | Core: sorts issues, groups files into batches, backdates all lines per file |
+| `should-batch.js` | Exports `ISSUE_BATCH_SIZE` constant; `shouldBatch()` always returns false (multi-analysis disabled) |
+| `compute-batch-date.js` | Computes backdated ISO date per batch (30-day spacing) |
+| `compute-batch-plan.js` | Returns batch descriptors (legacy, used by disabled multi-analysis path) |
+| `create-batch-extracted-data.js` | Shallow-clones extracted data (legacy, used by disabled multi-analysis path) |
 
 ### Pipeline Integration
 
-All 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025) integrate batching via a `shouldBatch` gate in the `transferBranch` entry point. Each pipeline has a `*-batched.js` sibling file containing the batch loop. The batching is transparent to callers — `transferBranch` automatically routes to the batched path when issues exceed 5,000.
+All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function mutates `extractedData.changesets` in place and is a no-op for projects with ≤5K issues.
 
 <!-- Updated: Mar 28, 2026 -->
 ## 🔍 Search Slicing for 10K+ Issues

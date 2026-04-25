@@ -190,83 +190,94 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ---
 
-## 5. Issue Batch Distribution (Upload-Side 10K Mitigation)
+## 5. SCM Date-Bucket Distribution (Upload-Side 10K Mitigation)
 
-<!-- updated: 2026-04-22_14:30:00 -->
-<!-- <section-updated last-updated="2026-04-22T14:30:00Z" updated-by="Claude" /> -->
+<!-- updated: 2026-04-23_14:46:00 -->
 
 ### Problem
 
-SonarCloud's Elasticsearch visualization layer caps results at **10,000 issues per date bucket**. When CloudVoyager migrates a branch, the scanner report is uploaded with a single `analysis_date` (the `extractedAt` timestamp from the source SonarQube instance). If the branch carries more than 10K issues, only the first 10,000 are visible in the SonarCloud UI — the rest silently disappear from the Issues tab. This is an ES index-time bucketing limitation, not an API pagination issue, so it cannot be solved client-side.
+SonarCloud's Elasticsearch visualization layer caps results at **10,000 issues per date bucket**. When CloudVoyager migrates a branch, the scanner report is uploaded with a single `analysis_date`. If the branch carries more than 10K issues, only the first 10,000 are visible in the SonarCloud UI — the rest silently disappear from the Issues tab. This is an ES index-time bucketing limitation, not an API pagination issue, so it cannot be solved client-side.
 
-The batch distributor solves this by splitting the issues across multiple scanner report uploads, each assigned a **distinct analysis date**, so no single date bucket exceeds the ES cap.
+### Why Multi-Analysis Batching Failed
+
+The original approach split issues across multiple scanner report uploads with distinct analysis dates. This failed because SonarCloud's CE issue tracker treats each analysis as a **complete snapshot** — issues from prior analyses not present in the current one are **closed**. Only the last batch's issues survived, silently destroying all prior batches' data.
+
+### Current Solution: Single-Analysis SCM Backdating
+
+All issues are uploaded in a **single analysis**. The CE assigns issue creation dates from SCM blame data, so by modifying the changeset blame dates per file, we control which date bucket each issue lands in — all within one report.
 
 ### Algorithm
 
 ```
-transferBranch(extractedData, opts):
-  // --- shouldBatch gate (in each pipeline's transfer-branch.js) ---
-  IF shouldBatch(extractedData):        // i.e. issues.length > 5000
-    ceTask = transferBranchBatched(extractedData, opts)
-    RETURN { stats: computeBranchStats(extractedData), ceTask }
-
-  // Otherwise: normal single-report path
-  ...
-
-transferBranchBatched(extractedData, opts):
-  plan = computeBatchPlan(extractedData.issues.length)
-  // plan = [{startIndex, endIndex, batchIndex, isLast}, ...]
-  // batchCount = ceil(totalIssues / 5000)
+backdateChangesets(extractedData):
+  issues = extractedData.issues
+  IF issues.length <= 5000: RETURN   // no-op for small projects
 
   baseDate = extractedData.metadata.extractedAt
 
-  FOR EACH batch IN plan:
-    // Last batch gets baseDate; earlier batches are backdated
-    batchDate = baseDate - (plan.length - 1 - batch.batchIndex) days
+  // Sort issues by file so files are contiguous
+  issues.sort(by component key)
 
-    // Unique SCM revision prevents CE deduplication
-    batchScmId = randomBytes(20).toString('hex')
+  // Group files into batches of ≤5K issues (no file splitting)
+  fileBatches = buildFileBatches(issues)
+  IF fileBatches.length <= 1: RETURN
 
-    // Shallow clone with sliced issues + overridden metadata
-    batchData = clone(extractedData)
-    batchData.issues = extractedData.issues[batch.startIndex..batch.endIndex]
-    batchData.metadata.extractedAt = batchDate
-    batchData.metadata.scmRevisionId = batchScmId
+  // Backdate ALL lines of each file in non-final batches
+  FOR EACH batch (except last):
+    batchDate = computeBatchDate(baseDate, batchIdx, totalBatches)
+    FOR EACH file IN batch:
+      changeset = extractedData.changesets.get(file)
+      changeset.changesets = [{ revision: batchRevision, author: stub, date: batchDate }]
+      changeset.changesetIndexByLine.fill(0)  // all lines → single backdated entry
 
-    // Strip heavy payloads from non-final batches
-    IF NOT batch.isLast:
-      batchData.sources = []
-      batchData.changesets = empty Map
-      batchData.duplications = empty Map
-
-    // Build protobuf, encode, upload — MUST wait for CE completion
-    ceTask = buildEncodeUpload(batchData, { wait: true })
-
-  RETURN lastCeTask
+  // Last batch keeps original dates (untouched)
 ```
+
+### Critical Insight: Full-File Backdating
+
+Setting only individual issue lines is **insufficient**. The CE uses the MAX of SCM dates across an issue's line range — surrounding lines with the current date override any backdated line. The solution sets **every line** of each file to the batch date, ensuring the CE has no newer line to fall back on.
 
 ### Key Invariants
 
 - **Batch size = 5,000 (constant)** — 50% safety margin under the 10K ES limit.
-- **`shouldBatch` gate** — `transferBranch` checks `issues.length > 5000` before entering the batch path; projects at or below the threshold take the normal single-report path with zero overhead.
-- **Oldest batch submitted first** — batch 0 gets the most-backdated date; the final (newest) batch carries the original `extractedAt` date and full project data (sources, changesets, duplications).
-- **Non-final batches are lightweight** — `sources`, `changesets`, and `duplications` are stripped (set to empty arrays/maps) to reduce upload size. Only the last batch carries these heavy payloads, since SonarCloud keeps only the latest analysis's source snapshots.
-- **Sequential upload with wait** — each batch calls `uploadAndWait` before the next begins. CE processes reports per-project sequentially; concurrent uploads would race and produce indeterminate results.
-- **Unique `scmRevisionId` per batch** — generated via `randomBytes(20).toString('hex')`. Without a unique revision, CE deduplicates and silently rejects subsequent batches for the same branch.
-- **Stats computed from original data** — `computeBranchStats` runs on the full `extractedData` (before slicing), not on any single batch, ensuring accurate totals.
+- **Single analysis** — all issues uploaded in one report, preserving data integrity. No CE issue tracker conflicts.
+- **File-level granularity** — all lines of a file share the same batch date. Files are never split across batches.
+- **30-day spacing** — batches are spaced 30 days apart (via `computeBatchDate`) for clear separation in the SonarCloud UI date facet.
+- **Last batch untouched** — the final batch keeps original SCM dates; only earlier batches are backdated.
+- **`shouldBatch` always returns false** — multi-analysis batching is permanently disabled. `backdateChangesets()` is called unconditionally before protobuf build; it no-ops when issues ≤ 5K.
+
+### Example
+
+A branch with 31,641 issues extracted on 2026-04-23:
+
+| Batch | Files | Issues | SCM Blame Date |
+|-------|-------|--------|----------------|
+| 1/7 | Files A–F | ~4,854 | Oct 2025 |
+| 2/7 | Files G–K | ~4,816 | Nov 2025 |
+| 3/7 | Files L–P | ~4,959 | Dec 2025 |
+| 4/7 | Files Q–T | ~4,767 | Jan 2026 |
+| 5/7 | Files U–W | ~4,921 | Feb 2026 |
+| 6/7 | Files X–Y | ~4,958 | Mar 2026 |
+| 7/7 | Files Z+ | ~2,366 | Apr 2026 (original) |
 
 ### Pipeline Integration
 
-Each pipeline version (sq-9.9, sq-10.0, sq-10.4, sq-2025) has a `transfer-branch.js` that imports `shouldBatch` from the shared batch-distributor module. The flow is:
+All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before `buildProtobufMessages()`. The function is a no-op for projects with ≤5K issues.
 
 ```
 transfer-branch.js
-  └── shouldBatch(extractedData)?
-        ├── YES → transfer-branch-batched.js (batch loop)
-        └── NO  → normal single-report build → encode → upload
+  └── backdateChangesets(extractedData)   // mutates SCM dates in-place
+  └── buildProtobufMessages(extractedData)
+  └── encodeAndUpload(messages)
 ```
 
-The `*-batched.js` file in each pipeline wraps that pipeline's specific `ProtobufBuilder` / `ProtobufEncoder` / `ReportUploader` classes inside the batch loop. The shared utilities (`computeBatchPlan`, `computeBatchDate`, `createBatchExtractedData`) are pipeline-agnostic.
+### Implementation Files
+
+| File | Role |
+|------|------|
+| `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` | Core: sorts issues by file, groups into batches, backdates all lines per file |
+| `src/shared/utils/batch-distributor/helpers/should-batch.js` | Exports `ISSUE_BATCH_SIZE` constant; `shouldBatch()` always returns false (multi-analysis disabled) |
+| `src/shared/utils/batch-distributor/helpers/compute-batch-date.js` | Computes backdated ISO date per batch (30-day spacing) |
 
 ### Implementation
 
