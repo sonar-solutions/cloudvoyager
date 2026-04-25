@@ -4,6 +4,33 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Regression Testing System — Phase 1 (2026-04-25)
+<!-- updated: 2026-04-25_10:00:00 -->
+
+Built and shipped the regression testing system for CloudVoyager. 5 bug-fix scenarios tested across all 4 SonarQube versions (9.9, 10.0, 10.4, 2025.1) = 20 matrix jobs.
+
+**Architecture:** Each CI job spins up an ephemeral SonarQube Enterprise Docker container with PostgreSQL. Test data is enriched with issue comments, status changes, and hotspot metadata via SQ API. CloudVoyager runs the migration to SonarCloud, then assertion scripts verify each previously-fixed bug hasn't regressed.
+
+**Phase 1 scenarios:**
+
+| Scenario | Issues | What it tests |
+|----------|--------|---------------|
+| `large-project-10k-plus` | #53, #94, #98 | >10K issues migrate with correct SCM date-bucket distribution |
+| `github-actions-language` | #88 | GitHub Actions language issues appear in SQC |
+| `external-analyzers` | #56, #82 | Pylint/Ruff external analyzer rules migrate |
+| `issue-sync-first-migration` | #91 | Issue sync triggers on first migration run |
+| `kill-and-continue` | #15, #57 | SIGTERM + resume produces no duplicates |
+
+**Security:** Sensitive workflows (regression tests + SonarCloud scanning) moved to private repo `sonar-solutions/cloudvoyager-ci`. Public repo has no access to SQ Enterprise license keys or SonarCloud tokens. Private repo syncs from public every 15 minutes.
+
+**Code review:** 5 parallel AI review agents found 10 P1s, 8 P2s, 4 P3s — all fixed before commit.
+
+**Files added (22):** `.github/actions/setup-sonarqube/`, `.github/workflows/regression-bug-fixes.yml`, `test/regression/` (helpers, enrichment scripts, 5 assertion scripts, sample projects)
+
+**PR:** [#127](https://github.com/sonar-solutions/cloudvoyager/pull/127)
+
+---
+
 ## Bug Fix: Issue Migration Data Loss + SCM Date-Bucket Distribution (2026-04-23)
 <!-- updated: 2026-04-23_13:15:00 -->
 

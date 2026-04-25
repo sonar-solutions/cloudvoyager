@@ -1,5 +1,7 @@
 # Design Review: Matrix-Based Regression Testing for All Fixed Issues
-<!-- updated: 2026-04-22_19:00:00 -->
+<!-- updated: 2026-04-25_10:00:00 -->
+
+> **Implementation Status: SHIPPED (Phase 1)** — PR [#127](https://github.com/sonar-solutions/cloudvoyager/pull/127). 22 files, 1,309 lines. 5 scenarios x 4 SQ versions. Sensitive CI moved to private repo `sonar-solutions/cloudvoyager-ci`.
 
 **Document reviewed:** `joshua.quek-main-design-20260422-184500.md`
 **Review date:** 2026-04-22

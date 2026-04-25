@@ -589,6 +589,65 @@ The renderer uses vanilla HTML/CSS/JS with no build step. Security follows Elect
 
 > **New desktop components:** `progress-parser.js` parses CLI log output to compute real-time progress percentages and ETA for all three pipeline types (migrate, transfer, verify). `whale-animator.js` renders a pixel-art whale sprite animation with starfield, cloud parallax, and typewriter phase labels during execution.
 
+## Regression Testing Architecture
+<!-- updated: 2026-04-25_10:00:00 -->
+
+Regression tests live in `test/regression/` and validate the full migration pipeline end-to-end against ephemeral SonarQube instances.
+
+### Directory Structure
+
+```
+test/regression/
+├── helpers/               # Shared test utilities (SQC client wrappers, retry/backoff)
+├── enrichment/            # Scripts that seed SQ with realistic test data
+│   ├── add-comments.js     # Add issue/hotspot comments
+│   ├── change-statuses.js  # Transition issue/hotspot statuses
+│   └── add-hotspot-data.js # Create hotspot review entries
+├── assert-migrate.js      # Assertions for migrate command output
+├── assert-sync-metadata.js # Assertions for sync-metadata command output
+├── assert-verify.js       # Assertions for verify command output
+└── sample-projects/       # Angular and other sample codebases scanned during CI
+```
+
+### Ephemeral SQ Docker Architecture
+
+Each CI job provisions a disposable environment — no shared state between jobs:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  GitHub Actions Runner                              │
+│                                                     │
+│  ┌──────────────┐   ┌──────────────┐                │
+│  │  SonarQube   │   │  PostgreSQL  │                │
+│  │  Enterprise  │◄──┤  (Docker)    │                │
+│  │  (Docker)    │   └──────────────┘                │
+│  └──────┬───────┘                                   │
+│         │                                           │
+│  1. Scan Angular sample project                     │
+│  2. Run enrichment scripts (comments, statuses,     │
+│     hotspot data)                                   │
+│  3. Run CloudVoyager migrate/sync/verify            │
+│  4. Run assertion scripts against SonarCloud        │
+└─────────────────────────────────────────────────────┘
+```
+
+### CI Matrix
+
+Phase 1 scenarios are tested across all 4 supported SonarQube versions (9.9, 10.0, 10.4, 2025.1), producing **5 scenarios × 4 SQ versions = 20 matrix jobs**. Each job is independent and runs in parallel with `fail-fast: false`.
+
+### Private CI Repository
+
+Sensitive workflows (secrets, license keys, Docker credentials) run in a private repository (`sonar-solutions/cloudvoyager-ci`). This repo:
+- Syncs from the public repo automatically every 15 minutes
+- Hosts the regression workflow files and encrypted secrets
+- Reports status back to the public repo via commit statuses
+
+### Assertion and Enrichment Details
+
+**Assertion scripts** use the shared SonarCloud API client (`helpers/`) with built-in retry and exponential backoff to account for eventual consistency in SonarCloud's CE pipeline. Each `assert-*.js` script validates command-specific invariants (issue counts, status mappings, hotspot states, metadata parity).
+
+**Enrichment scripts** run after the initial SonarQube scan but before migration, seeding the SQ instance with realistic data that exercises metadata sync paths: issue comments, status transitions (confirm, false-positive, won't-fix), and hotspot review entries with assigned reviewers.
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
