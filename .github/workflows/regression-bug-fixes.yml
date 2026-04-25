@@ -1,7 +1,10 @@
 name: Regression - Bug Fix Scenarios
+# This workflow runs in the PRIVATE repo (sonar-solutions/cloudvoyager-ci).
+# It is disabled here to keep secrets out of public CI logs.
+# To run locally: use the private repo or workflow_dispatch with secrets.
 
 on:
-  workflow_call:
+  workflow_dispatch:
 
 concurrency:
   group: regression-bug-fixes-${{ github.ref }}
@@ -62,7 +65,7 @@ jobs:
         uses: ./.github/actions/setup-sonarqube
         with:
           sq-version: ${{ matrix.sq_version.id }}
-          sq-license-key: ${{ secrets[format('SONARQUBE_{0}_LICENSE_KEY', matrix.sq_version.secret_key)] }}
+          sq-license-key: ${{ secrets.SONARQUBE_LICENSE_KEY }}
 
       - name: Generate config
         uses: ./.github/actions/generate-config
