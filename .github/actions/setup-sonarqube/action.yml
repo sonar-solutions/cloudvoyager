@@ -1,0 +1,120 @@
+name: 'Setup Ephemeral SonarQube'
+description: 'Starts a SonarQube Enterprise container with PostgreSQL, restores a DB dump if available, or runs a fresh scan.'
+
+inputs:
+  sq-version:
+    description: 'SonarQube version (9.9, 10.0, 10.4, 2025.1)'
+    required: true
+  sq-license-key:
+    description: 'SonarQube Enterprise license key'
+    required: true
+  db-dump-artifact:
+    description: 'Name of the DB dump artifact to restore (empty = fresh scan)'
+    required: false
+    default: ''
+
+outputs:
+  sq-url:
+    description: 'URL of the running SonarQube instance'
+    value: ${{ steps.wait-healthy.outputs.sq-url }}
+  sq-token:
+    description: 'Admin token for the SonarQube instance'
+    value: ${{ steps.create-token.outputs.sq-token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Docker network
+      shell: bash
+      run: docker network create sq-net 2>/dev/null || true
+
+    - name: Start PostgreSQL
+      shell: bash
+      run: |
+        docker run -d --name sq-postgres --network sq-net \
+          -e POSTGRES_USER=sonar \
+          -e POSTGRES_PASSWORD=sonar \
+          -e POSTGRES_DB=sonarqube \
+          postgres:15-alpine
+        echo "Waiting for PostgreSQL..."
+        for i in $(seq 1 30); do
+          docker exec sq-postgres pg_isready -U sonar && break
+          sleep 1
+        done
+
+    - name: Restore DB dump (if provided)
+      if: inputs.db-dump-artifact != ''
+      shell: bash
+      run: |
+        echo "Restoring DB dump from artifact..."
+        docker exec -i sq-postgres psql -U sonar -d sonarqube < /tmp/sq-dump-${{ inputs.sq-version }}.sql
+        echo "Verifying restore..."
+        ROW_COUNT=$(docker exec sq-postgres psql -U sonar -d sonarqube -t -c "SELECT count(*) FROM projects;" 2>/dev/null | tr -d ' ' || echo "0")
+        echo "Projects in DB: $ROW_COUNT"
+        if [ "$ROW_COUNT" = "0" ]; then
+          echo "ERROR: DB restore failed (0 projects found)"
+          exit 1
+        fi
+
+    - name: Start SonarQube Enterprise
+      shell: bash
+      run: |
+        docker run -d --name sonarqube --network sq-net \
+          -e SONAR_JDBC_URL=jdbc:postgresql://sq-postgres:5432/sonarqube \
+          -e SONAR_JDBC_USERNAME=sonar \
+          -e SONAR_JDBC_PASSWORD=sonar \
+          -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
+          -e SONAR_WEB_JAVAADDITIONALOPTS="-Xmx2g" \
+          -p 9000:9000 \
+          sonarqube:${{ inputs.sq-version }}-enterprise
+        echo "SonarQube ${{ inputs.sq-version }} Enterprise starting..."
+
+    - name: Wait for healthy
+      id: wait-healthy
+      shell: bash
+      run: |
+        for i in $(seq 1 120); do
+          HEALTH=$(curl -s http://localhost:9000/api/system/status 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 || echo "")
+          if echo "$HEALTH" | grep -q "UP"; then
+            echo "SonarQube is UP"
+            echo "sq-url=http://localhost:9000" >> "$GITHUB_OUTPUT"
+            break
+          fi
+          echo "  Waiting for UP... ($i/120) status: $HEALTH"
+          sleep 2
+        done
+        if ! echo "$HEALTH" | grep -q "UP"; then
+          echo "ERROR: SonarQube did not become healthy within 240 seconds"
+          docker logs sonarqube --tail 50
+          exit 1
+        fi
+
+    - name: Inject license key
+      shell: bash
+      run: |
+        echo "Injecting Enterprise license..."
+        RESULT=$(curl -s -u admin:admin -X POST \
+          "http://localhost:9000/api/editions/set_license" \
+          -d "license=${{ inputs.sq-license-key }}")
+        if echo "$RESULT" | grep -q '"errors"'; then
+          echo "WARNING: License injection may have failed: $RESULT"
+        else
+          echo "License injected successfully"
+        fi
+
+    - name: Create admin token
+      id: create-token
+      shell: bash
+      run: |
+        TOKEN_RESPONSE=$(curl -s -u admin:admin \
+          -X POST "http://localhost:9000/api/user_tokens/generate" \
+          -d "name=regression-test-$(date +%s)" \
+          -d "type=GLOBAL_ANALYSIS_TOKEN")
+        TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$TOKEN" ]; then
+          echo "ERROR: Failed to create SQ token"
+          echo "$TOKEN_RESPONSE"
+          exit 1
+        fi
+        echo "sq-token=$TOKEN" >> "$GITHUB_OUTPUT"
+        echo "SQ admin token created"
