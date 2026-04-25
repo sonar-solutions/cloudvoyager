@@ -217,9 +217,9 @@ The report is submitted to SonarCloud's CE endpoint as a multipart form upload w
 
 Each report includes an `scm_revision_id` (git commit hash) in its metadata. SonarCloud uses this to detect and reject duplicate submissions, preventing accidental data duplication across multiple migration runs.
 
-### Issue Batching for Large Projects
+### Accurate Issue Creation Date Preservation
 
-When a branch has more than 5,000 issues, CloudVoyager automatically splits the issues into batches of 5,000 and submits each batch as a separate scanner report with a distinct `analysis_date` going backwards from today. This prevents hitting SonarCloud's Elasticsearch visualization limit of 10K results per date bucket, ensuring all migrated issues are visible in the UI. The batching is transparent to the caller — `transferBranch` automatically detects when batching is needed and routes accordingly. Non-final batches strip sources, changesets, and duplications to minimize upload size, while keeping components and active rules for issue resolution. Each batch uses a unique `scmRevisionId` to prevent CE deduplication.
+CloudVoyager preserves each issue's original SonarQube creation date in SonarCloud. `backdateChangesets()` reads each issue's `creationDate` and maps it to per-line SCM blame dates in the changeset protobuf. The CE takes MAX(date) across an issue's `textRange` lines, so "oldest wins" for overlapping lines ensures accurate creation dates. A safety split handles calendar days with >5K issues (sub-groups with 1-day-spaced synthetic dates, no file splitting). This produces a realistic historical distribution in SonarCloud's creation date facet matching the original SonarQube project history, instead of arbitrary batch-spaced clusters.
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Branch Name Resolution
