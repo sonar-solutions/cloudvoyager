@@ -27,11 +27,9 @@ jobs:
     uses: ./.github/workflows/regression-verify.yml
     secrets: inherit
 
-  bug-fixes:
-    needs: [setup, lint]
-    uses: ./.github/workflows/regression-bug-fixes.yml
-    secrets: inherit
+  # Bug-fix regression tests run in the private repo (sonar-solutions/cloudvoyager-ci)
+  # to keep SQ Enterprise license keys and SonarCloud tokens out of public CI logs.
 
   summary:
-    needs: [migrate, sync-metadata, verify, bug-fixes]
+    needs: [migrate, sync-metadata, verify]
     uses: ./.github/workflows/regression-summary.yml

@@ -900,10 +900,46 @@ The following npm scripts are available for building, testing, and linting:
 - [Desktop App Guide](desktop-app.md) — installation, wizard walkthrough, building from source
 - [Changelog](CHANGELOG.md) — release history and notable changes
 
+---
+
+<!-- updated: 2026-04-25_10:00:00 -->
+## 🧪 Regression Testing
+
+The regression testing system validates that bug fixes and behavioral changes in CloudVoyager remain correct across SonarQube versions.
+
+### Where the Code Lives
+
+- **Assertion scripts and helpers:** `test/regression/` in this repository contains the assertion scripts (`assert-*.js`), shared helpers, and enrichment scripts used by regression tests.
+- **CI workflow:** The actual CI pipeline that orchestrates regression runs lives in the **private** repo `sonar-solutions/cloudvoyager-ci` (not this public repo). The workflow file is `regression-bug-fixes.yml`.
+
+### Running Regression Tests Locally
+
+Full regression tests require an environment that mirrors CI:
+
+1. **Docker** — ephemeral SonarQube containers are spun up per test scenario.
+2. **SonarQube Enterprise license key** — the containers need a valid Enterprise Edition license.
+3. **SonarCloud organization access** — tests migrate data into SonarCloud and verify the results.
+
+> **Note:** These prerequisites make local runs heavyweight. Most day-to-day development does not require running the full regression suite locally — CI handles it on every PR.
+
+### Meta-Tests (No Docker Required)
+
+The helper utilities in `test/regression/helpers/` have their own unit tests (`test/regression/helpers/*.test.js`). These **meta-tests** run with the regular test command and do not require Docker or a running SonarQube instance:
+
+```bash
+npm test
+```
+
+### Adding a New Regression Test
+
+1. **Create an assertion script:** Add `test/regression/assert-{scenario-name}.js` in this repository. Follow the conventions of existing assertion scripts in the same directory.
+2. **Add a matrix entry:** In the private repo `sonar-solutions/cloudvoyager-ci`, add a new entry to the matrix in `regression-bug-fixes.yml` that references your assertion script and the SonarQube version(s) it should run against.
+
 <!--
 ## Change Log
 | Date | Section | Change |
 |------|---------|--------|
+| 2026-04-25 | Regression Testing | Added section documenting regression testing system |
 | 2026-03-20 | Prerequisites, Dependencies, Build Pipeline, Testing, CI/CD, Linting | Added Node.js v22+ warning, key dependencies, build pipeline steps, test config details, CI/CD matrix, ESLint config |
 | 2026-03-10 | transfer, migrate, npm Scripts | Added checkpoint/resume CLI flags |
 | 2026-02-28 | verify command, npm Scripts | Added verify CLI reference and npm scripts |

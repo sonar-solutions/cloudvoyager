@@ -91,16 +91,22 @@ runs:
 
     - name: Inject license key
       shell: bash
+      env:
+        SQ_LICENSE: ${{ inputs.sq-license-key }}
       run: |
+        echo "::add-mask::$SQ_LICENSE"
         echo "Injecting Enterprise license..."
-        RESULT=$(curl -s -u admin:admin -X POST \
+        HTTP_CODE=$(curl -s -o /tmp/license-response.txt -w '%{http_code}' \
+          -u admin:admin -X POST \
           "http://localhost:9000/api/editions/set_license" \
-          -d "license=${{ inputs.sq-license-key }}")
-        if echo "$RESULT" | grep -q '"errors"'; then
-          echo "WARNING: License injection may have failed: $RESULT"
+          -d "license=$SQ_LICENSE")
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+          echo "License injected successfully (HTTP $HTTP_CODE)"
         else
-          echo "License injected successfully"
+          echo "WARNING: License injection returned HTTP $HTTP_CODE"
+          echo "Response body intentionally not logged (may contain license data)"
         fi
+        rm -f /tmp/license-response.txt
 
     - name: Create admin token
       id: create-token

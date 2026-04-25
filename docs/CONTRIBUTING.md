@@ -371,3 +371,15 @@ Key version differences to watch for:
 - [ ] ESM imports with `.js` extension and `node:` prefix for builtins
 - [ ] Documentation updated if user-facing behavior changed
 - [ ] CHANGELOG.md updated with a new entry
+
+---
+
+## Regression Test Conventions
+<!-- updated: 2026-04-25_10:00:00 -->
+
+- Every bug fix should have a corresponding regression test in `test/regression/assert-{scenario}.js`
+- Assertion scripts import from `test/regression/helpers/sqc-client.js` (SQC API client with retry) and `test/regression/helpers/assert-utils.js` (PASS/FAIL output)
+- Each assertion script exits 0 (all pass) or 1 (any fail), with structured output: `PASS: [#issue] message` / `FAIL: [#issue] message`
+- Enrichment scripts in `test/regression/enrichment/` must exit non-zero on ANY API error and verify their side effects
+- The CI workflow runs in the private `sonar-solutions/cloudvoyager-ci` repo (not this public repo) to protect SQ Enterprise license keys
+- Meta-tests for helpers use AVA with `test.serial` (since they mock `global.fetch`)

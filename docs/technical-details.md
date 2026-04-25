@@ -699,6 +699,44 @@ All errors extend `CloudVoyagerError` base class (11 classes total):
 
 SIGINT/SIGTERM triggers registered cleanup handlers (journal save, lock release) then exits with code 0. A second signal forces immediate exit. The `shutdownCheck()` callback is passed through the pipeline for interrupt safety, allowing long-running operations to check for pending shutdown.
 
+## Ephemeral SonarQube Container Architecture (Regression Testing)
+<!-- updated: 2026-04-25_10:00:00 -->
+
+Each regression test CI job provisions a disposable SonarQube Enterprise environment from scratch, runs the CloudVoyager pipeline against it, asserts outcomes, and tears everything down. No shared state survives between jobs.
+
+### Per-Job Lifecycle
+
+```
+Job starts → PostgreSQL container → SQ Enterprise container → Health check → License inject → Token create → Enrichment → Migration → Assertion → Teardown
+```
+
+### Container Provisioning
+
+- Each CI job spins up **two containers**: a PostgreSQL container (backing store) and a SonarQube Enterprise container (version-specific, e.g. `sonarqube:10.4-enterprise`).
+- Both containers communicate via a Docker **user-defined bridge network** (`sq-net`), which provides DNS-based service discovery between the database and SonarQube.
+
+### Startup & Health Check
+
+- SonarQube startup takes **30–90 seconds** depending on the version and runner hardware.
+- The setup script polls `GET /api/system/status` in a loop until the response payload contains `"status": "UP"`, indicating the instance is fully operational and ready to accept API calls.
+
+### License Injection
+
+- The SonarQube Enterprise license key is injected via `POST /api/editions/set_license` immediately after the health check passes.
+- The license key is a CI secret, masked in logs via GitHub Actions' `::add-mask::` directive to prevent accidental exposure.
+
+### Admin Token Generation
+
+- An admin API token is created via `POST /api/user_tokens/generate` so that CloudVoyager can authenticate against the ephemeral SonarQube instance using bearer token auth rather than basic auth.
+
+### Project Key Namespacing
+
+- SQC target project keys use the `cv-regression-{scenario}-{sq-version}` namespace (e.g. `cv-regression-large-project-10.4`) to prevent collision with existing regression workflows that may target the same SonarCloud organization.
+
+### Composite Action
+
+The `setup-sonarqube` composite action (`.github/actions/setup-sonarqube/action.yml`) encapsulates the entire provisioning sequence — container creation, networking, health polling, license injection, and token generation — as a reusable building block for all regression test jobs.
+
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
