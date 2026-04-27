@@ -7,12 +7,28 @@ import { checkUnsyncable } from './check-unsyncable.js';
 
 /** Verify a single matched SQ ↔ SC issue pair. */
 export async function verifyIssuePair(sq, sc, sqClient, scClient, result) {
+  checkCreationDate(sq, sc, result);
   checkStatusMatch(sq, sc, result);
   await checkStatusHistory(sq, sc, sqClient, scClient, result);
   checkAssignment(sq, sc, result);
   checkComments(sq, sc, result);
   checkTags(sq, sc, result);
   checkUnsyncable(sq, sc, result);
+}
+
+function checkCreationDate(sq, sc, result) {
+  const sqDate = sq.creationDate;
+  const scDate = sc.creationDate;
+  if (!sqDate || !scDate) return;
+  const sqMs = new Date(sqDate).getTime();
+  const scMs = new Date(scDate).getTime();
+  if (isNaN(sqMs) || isNaN(scMs)) return;
+  if (sqMs === scMs) return;
+  result.creationDateMismatches.push({
+    sqKey: sq.key, scKey: sc.key, rule: sq.rule,
+    file: (sq.component || '').split(':').pop(), line: sq.line || sq.textRange?.startLine || 0,
+    sqCreationDate: sqDate, scCreationDate: scDate,
+  });
 }
 
 function checkStatusMatch(sq, sc, result) {

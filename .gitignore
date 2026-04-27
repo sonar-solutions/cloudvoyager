@@ -71,3 +71,4 @@ dist/desktop/
 **/*.json.gz
 
 sonar-local-scan.sh
+*.backup

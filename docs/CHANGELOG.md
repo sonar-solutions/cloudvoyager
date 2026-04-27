@@ -4,22 +4,29 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
-## Accurate Issue Creation Date Backdating (2026-04-25)
-<!-- updated: 2026-04-25_18:00:00 -->
+## Accurate Issue Creation Date Backdating (2026-04-28)
+<!-- updated: 2026-04-28_00:45:00 -->
 
-Rewrote `backdateChangesets()` to preserve each issue's original SonarQube creation date in SonarCloud, replacing the previous arbitrary 30-day-spaced bucket approach.
+Rewrote `backdateChangesets()` to preserve each issue's original SonarQube creation date in SonarCloud. Verified 99.92% accuracy (26/31,641 mismatches on Angular Framework — all from issues sharing the same startLine).
 
-**Problem:** The previous implementation grouped files into ≤5K-issue batches and assigned arbitrary dates (30 days apart). While this spread issues across SonarCloud's 10K ES visualization cap, the resulting issue creation dates were wrong — they didn't match the original SonarQube dates.
+**Root cause found:** `resolveLineCount()` defaulted to 1 when the `lines` metric wasn't available, causing `changesetIndexByLine` arrays to be 1 element long. Per-line date indices beyond index 0 were silently dropped, so the CE assigned a single date per file. The fix extends the array to `max(existingLength, maxIssueLine)`.
 
-**Solution:** Each issue's `creationDate` from SonarQube is now used to set the SCM changeset blame date for its specific lines. The CE takes MAX(date) across an issue's `textRange` lines, so per-line dating with "oldest wins" for overlapping lines preserves accurate creation dates. A safety split pre-assigns synthetic dates when a single calendar day has >5K issues (1-day spacing between sub-groups).
+**Algorithm:** For each file with issues, one changeset entry per unique issue date. Each issue's primary line (`startLine`) is mapped to its `creationDate`; non-issue lines default to the file's oldest issue date (index 0). The CE uses the blame date at each issue's line to set its creation date. "Oldest wins" for issues sharing the same startLine.
 
-**Algorithm (3 phases):**
-1. **Phase 0 — Safety split:** Count issues per calendar day. If any day exceeds 5K, sub-group its issues (by file, no file splitting) into ≤5K batches with 1-day-spaced synthetic dates.
-2. **Phase 1 — Per-line date map:** For each issue, map its `textRange` lines to its effective creation date. Oldest date wins when lines overlap (prevents CE MAX inflation).
-3. **Phase 2 — Rebuild changesets:** For each file with issues, create one changeset entry per unique date. Non-issue lines default to the file's oldest date. Files with no issues keep their original stub changeset.
+**Verify command:** Added `creationDate` comparison to the issue verification checker. Mismatches are reported in console, markdown, and PDF reports.
+
+**Verification results (Angular Framework — 31,641 matched issues):**
+- 31,615 exact date matches (99.92%)
+- 26 mismatches — all from issues sharing a `startLine` with an older issue (inherent per-line limitation)
 
 **Files changed:**
-- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — complete rewrite with per-line dating
+- `src/shared/utils/batch-distributor/helpers/backdate-changesets.js` — rewrite with per-line dating + array sizing fix
+- `src/shared/verification/checkers/issues/helpers/verify-issue-pair.js` — added `checkCreationDate`
+- `src/shared/verification/checkers/issues/helpers/create-empty-result.js` — added `creationDateMismatches`
+- `src/shared/verification/checkers/issues/index.js` — creation date mismatches trigger fail
+- `src/shared/verification/reports/helpers/log-project-issues.js` — log creation date mismatches
+- `src/shared/verification/reports/markdown-sections/helpers/issue-details.js` — render creation date section
+- `src/shared/verification/reports/markdown-sections/helpers/issue-list-details.js` — format creation date table
 
 ---
 
