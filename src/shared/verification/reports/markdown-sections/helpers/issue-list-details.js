@@ -26,6 +26,18 @@ export function formatScOnlyIssues(c, lines) {
   lines.push('\n</details>\n');
 }
 
+export function formatCreationDateMismatches(c, lines) {
+  if (!c.issues?.creationDateMismatches?.length) return;
+  lines.push(`<details><summary>Issue Creation Date Mismatches (${c.issues.creationDateMismatches.length})</summary>\n`);
+  lines.push(`| Rule | File | Line | SQ Creation Date | SC Creation Date |`);
+  lines.push(`|------|------|------|------------------|------------------|`);
+  for (const m of c.issues.creationDateMismatches.slice(0, 200)) {
+    lines.push(`| ${m.rule} | ${m.file} | ${m.line} | ${m.sqCreationDate} | ${m.scCreationDate} |`);
+  }
+  if (c.issues.creationDateMismatches.length > 200) lines.push(`\n*... and ${c.issues.creationDateMismatches.length - 200} more*`);
+  lines.push('\n</details>\n');
+}
+
 export function formatStatusMismatches(c, lines) {
   if (!c.issues?.statusMismatches?.length) return;
   lines.push(`<details><summary>Issue Status Mismatches (${c.issues.statusMismatches.length})</summary>\n`);

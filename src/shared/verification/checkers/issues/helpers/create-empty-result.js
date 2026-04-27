@@ -10,6 +10,7 @@ export function createEmptyIssueResult() {
     unmatched: 0,
     statusMismatches: [],
     statusHistoryMismatches: [],
+    creationDateMismatches: [],
     assignmentMismatches: [],
     commentMismatches: [],
     tagMismatches: [],

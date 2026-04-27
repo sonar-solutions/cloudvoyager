@@ -9,6 +9,7 @@ export function logProjectIssues(iss) {
   const parts = [`${iss.matched}/${iss.sqCount} matched`];
   if (iss.unmatched > 0) parts.push(`${iss.unmatched} unmatched`);
   if (iss.scOnlyIssues?.length > 0) parts.push(`${iss.scOnlyIssues.length} SC-only`);
+  if (iss.creationDateMismatches?.length > 0) parts.push(`${iss.creationDateMismatches.length} creation date mismatches`);
   if (iss.statusMismatches?.length > 0) parts.push(`${iss.statusMismatches.length} status mismatches`);
   if (iss.statusHistoryMismatches?.length > 0) parts.push(`${iss.statusHistoryMismatches.length} status history mismatches`);
   if (iss.assignmentMismatches?.length > 0) parts.push(`${iss.assignmentMismatches.length} assignment mismatches`);

@@ -1,5 +1,5 @@
 // -------- Issue Detail Sections --------
-import { formatUnmatchedSqIssues, formatScOnlyIssues, formatStatusMismatches, formatHistoryMismatches } from './issue-list-details.js';
+import { formatUnmatchedSqIssues, formatScOnlyIssues, formatCreationDateMismatches, formatStatusMismatches, formatHistoryMismatches } from './issue-list-details.js';
 import { formatAssignmentMismatches, formatCommentMismatches, formatTagMismatches, formatUnsyncableTypeChanges, formatUnsyncableSeverityChanges } from './issue-attr-details.js';
 
 /**
@@ -12,6 +12,7 @@ export function formatIssueDetails(c, lines) {
   formatSeverityBreakdown(c, lines);
   formatUnmatchedSqIssues(c, lines);
   formatScOnlyIssues(c, lines);
+  formatCreationDateMismatches(c, lines);
   formatStatusMismatches(c, lines);
   formatHistoryMismatches(c, lines);
   formatAssignmentMismatches(c, lines);

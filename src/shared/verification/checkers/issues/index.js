@@ -40,6 +40,7 @@ export async function verifyIssues(sqClient, scClient, scProjectKey, options = {
   }, { concurrency: options.concurrency || 5, settled: true, onProgress: progress });
 
   if (result.unmatched > 0 || result.statusMismatches.length > 0 || result.statusHistoryMismatches.length > 0) result.status = 'fail';
+  else if (result.creationDateMismatches.length > 0) result.status = 'fail';
   else if (result.assignmentMismatches.length > 0 || result.commentMismatches.length > 0 || result.tagMismatches.length > 0) result.status = 'fail';
   return result;
 }
