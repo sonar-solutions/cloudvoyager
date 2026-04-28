@@ -3,3 +3,4 @@ export { resolvePerformanceConfig, ensureHeapSize, getMemoryInfo, logSystemInfo,
 export { createLimiter } from './helpers/create-limiter.js';
 export { mapConcurrent } from './helpers/map-concurrent.js';
 export { createProgressLogger } from './helpers/create-progress-logger.js';
+export { parallelSyncIssues } from './helpers/parallel-issue-sync.js';

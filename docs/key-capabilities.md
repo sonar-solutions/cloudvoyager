@@ -505,6 +505,25 @@ Different operations have different optimal concurrency levels, reflecting API r
 
 Long-running concurrent operations emit progress logs (e.g., "Fetching sources: 142/350 completed") via `createProgressLogger`, giving operators real-time visibility into migration progress.
 
+### Parallel Issue Sync with Worker Threads
+<!-- updated: 2026-04-25_20:30:00 -->
+
+For large projects (≥500 matched issue pairs), issue sync is parallelized across `worker_threads` to overcome the single event loop bottleneck:
+
+- **`parallelSyncIssues()`** — Spawns N worker threads (default 20), each with an internal concurrency pool of 5, achieving **100 concurrent API calls** (vs 20 with single-process `mapConcurrent`)
+- **SEA-compatible**: Workers use `eval: true` with inline code (~200 lines) using only Node.js built-in `https`/`http` modules — no file system access or bundled module `require()` needed
+- **Round-robin partitioning**: Distributes matched pairs evenly across workers so "heavy" issues (many comments/transitions) don't cluster
+- **Rate limit resilience**: Each worker retries with exponential backoff (3 attempts, 1s/2s/4s) on 429/transient errors
+- **Configurable**: `workerCount` (default 20) and `concurrencyPerWorker` (default 5) are tunable
+- **Automatic fallback**: Projects with <500 matched pairs use the existing `mapConcurrent` path
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `workerCount` | 20 | Number of worker threads |
+| `concurrencyPerWorker` | 5 | Concurrent issues per worker |
+| Total concurrent requests | 100 | `workerCount × concurrencyPerWorker` |
+| Activation threshold | 500 | Minimum matched pairs to trigger parallel sync |
+
 ---
 
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->

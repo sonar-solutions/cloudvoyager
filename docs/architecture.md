@@ -60,7 +60,7 @@ src/
     ├── utils/                         # Utility modules
     │   ├── logger.js                   # Winston-based logging
     │   ├── errors.js                   # Custom error classes (11 error classes extending CloudVoyagerError)
-    │   ├── concurrency.js              # Concurrency primitives (limiter, mapConcurrent, progress)
+    │   ├── concurrency.js              # Concurrency primitives (limiter, mapConcurrent, progress, parallelSyncIssues)
     │   ├── system-info.js              # System info detection (CPU, memory) and auto-tune
     │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
     │   ├── progress.js                 # Checkpoint progress display and ETA
@@ -410,6 +410,8 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurr
 - **`createProgressLogger(label, total)`** — progress logging callback for long-running concurrent ops
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). Each version-specific `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
+
+- **`parallelSyncIssues(matchedPairs, ...)`** — For large issue sets (≥500 pairs), spawns `worker_threads` with `eval: true` (SEA-compatible) to run 20 workers × 5 concurrency each = 100 concurrent API calls. Falls back to `mapConcurrent` for smaller sets.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📦 Build and Packaging
