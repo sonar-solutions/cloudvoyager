@@ -4,6 +4,29 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Parallel Issue Sync with Worker Threads (2026-04-28)
+<!-- updated: 2026-04-28_11:30:00 -->
+
+Added `worker_threads`-based parallel issue sync to dramatically reduce wall-clock time for large projects (e.g., Angular Framework with 31,622 issues — from ~90 minutes to ~5-10 minutes).
+
+**Problem:** Issue sync was bottlenecked on SonarCloud API response times. A single Node.js process with `mapConcurrent` at concurrency=20 couldn't push past 20 concurrent HTTP requests, and the single event loop serialized callback processing.
+
+**Solution:** For projects with ≥500 matched pairs, spawn N worker threads (default 20) using `worker_threads` with `eval: true` (SEA-compatible — no file system access needed). Each worker runs self-contained inline code using only Node.js built-in `https`/`http` modules, with an internal concurrency pool of 5 issues each. Total concurrent API calls: 20×5 = 100 (vs 20 previously).
+
+**Design decisions:**
+- `eval: true` workers with inline code string — works inside the SEA binary without `require()` access to bundled modules
+- Round-robin partitioning distributes "heavy" issues (many comments/transitions) evenly across workers
+- Exponential backoff retry (3 attempts, 1s/2s/4s) in each worker handles 429 rate limiting
+- Falls back to existing `mapConcurrent` path for <500 matched pairs (worker spawn overhead not worth it)
+- Worker count and per-worker concurrency are configurable
+
+**Files changed:**
+- `src/shared/utils/concurrency/helpers/parallel-issue-sync.js` — new file: parent orchestrator + inline worker code
+- `src/shared/utils/concurrency/index.js` — added `parallelSyncIssues` export
+- `src/pipelines/sq-2025/sonarcloud/migrators/issue-sync/index.js` — conditional parallel dispatch for ≥500 pairs
+
+---
+
 ## Accurate Issue Creation Date Backdating (2026-04-28)
 <!-- updated: 2026-04-28_00:45:00 -->
 

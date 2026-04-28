@@ -1,5 +1,6 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
+import { parallelSyncIssues } from '../../../../../shared/utils/concurrency/helpers/parallel-issue-sync.js';
 import { applyManualChangesPreFilter } from '../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import { waitForScIndexing } from '../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
 import { matchIssues } from './helpers/match-issues.js';
@@ -49,12 +50,20 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     return stats;
   }
 
-  logger.info(`Syncing ${matchedPairs.length} issues with concurrency=${concurrency}`);
-  await mapConcurrent(
-    matchedPairs,
-    async (pair) => syncOneIssue(pair, client, sqClient, userMappings, stats, changelogMap),
-    { concurrency, settled: true, onProgress: createProgressLogger('Issue sync', matchedPairs.length) },
-  );
+  const PARALLEL_THRESHOLD = 500;
+  if (matchedPairs.length >= PARALLEL_THRESHOLD) {
+    const scConfig = { baseURL: client.baseURL, token: client.token, organization: client.organization, projectKey };
+    const sqClientConfig = sqClient ? { baseURL: sqClient.baseURL, token: sqClient.token, projectKey: sqClient.projectKey } : null;
+    const mergedStats = await parallelSyncIssues(matchedPairs, changelogMap, scConfig, sqClientConfig, userMappings);
+    Object.assign(stats, mergedStats);
+  } else {
+    logger.info(`Syncing ${matchedPairs.length} issues with concurrency=${concurrency}`);
+    await mapConcurrent(
+      matchedPairs,
+      async (pair) => syncOneIssue(pair, client, sqClient, userMappings, stats, changelogMap),
+      { concurrency, settled: true, onProgress: createProgressLogger('Issue sync', matchedPairs.length) },
+    );
+  }
 
   logSyncSummary(stats);
   return stats;
@@ -65,5 +74,6 @@ function logSyncSummary(stats) {
   const filtered = stats.filtered > 0 ? `${stats.filtered} filtered, ` : '';
   const mapped = stats.assignmentMapped > 0 ? `, ${stats.assignmentMapped} mapped` : '';
   const skipped = stats.assignmentSkipped > 0 ? `, ${stats.assignmentSkipped} assignment-skipped` : '';
-  logger.info(`Issue sync: ${filtered}${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mapped}, ${stats.assignmentFailed} assignment-failed${skipped}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed`);
+  const apiErr = stats.apiErrors > 0 ? `, ${stats.apiErrors} api-errors` : '';
+  logger.info(`Issue sync: ${filtered}${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mapped}, ${stats.assignmentFailed} assignment-failed${skipped}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed${apiErr}`);
 }

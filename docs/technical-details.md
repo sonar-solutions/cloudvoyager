@@ -407,6 +407,18 @@ The pre-filter is implemented across three shared utilities:
 - `has-manual-changes.js` — pure function; returns `true` if any of the above conditions holds
 - `apply-pre-filter.js` — orchestrates the above two and sets `stats.filtered` with the skipped count
 
+### Parallel Issue Sync (≥500 matched pairs)
+<!-- updated: 2026-04-25_20:30:00 -->
+
+When the matched pair count reaches 500+, the syncer switches from single-process `mapConcurrent` to `worker_threads`-based parallelism (`src/shared/utils/concurrency/helpers/parallel-issue-sync.js`):
+
+1. **Partition** — Matched pairs are distributed round-robin across 20 workers (~1,581 each for 31K issues)
+2. **Spawn** — Each worker is a `Worker` with `eval: true`, receiving a self-contained code string that uses only `https`/`http` built-ins (SEA-compatible)
+3. **Execute** — Each worker runs 5 concurrent issue syncs internally (status transitions, assignment, comments, tags, source link)
+4. **Aggregate** — Parent collects progress messages and merges final stats from all workers
+
+Total concurrent API calls: 20 workers × 5 internal = **100** (vs 20 with single-process). Each worker includes exponential backoff retry for 429/transient errors.
+
 ### Wait for SC Indexing: `waitForScIndexing`
 
 `src/shared/utils/issue-sync/wait-for-sc-indexing.js` wraps any SC fetch call with retry logic:
