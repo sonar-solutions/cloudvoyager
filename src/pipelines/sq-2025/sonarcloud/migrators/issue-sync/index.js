@@ -59,7 +59,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   if (matchedPairs.length >= PARALLEL_THRESHOLD) {
     const scConfig = { baseURL: client.baseURL, token: client.token, organization: client.organization, projectKey };
     const sqClientConfig = sqClient ? { baseURL: sqClient.baseURL, token: sqClient.token, projectKey: sqClient.projectKey } : null;
-    const mergedStats = await parallelSyncIssues(matchedPairs, changelogMap, scConfig, sqClientConfig, userMappings);
+    const mergedStats = await parallelSyncIssues(matchedPairs, scConfig, sqClientConfig, userMappings);
     Object.assign(stats, mergedStats);
   } else {
     logger.info(`Syncing ${matchedPairs.length} issues with concurrency=${concurrency}`);

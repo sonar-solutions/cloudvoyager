@@ -50,8 +50,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
     matchedPairs,
     async ({ sqIssue, scIssue }) => {
       try {
-        const preloadedChangelog = changelogMap.get(sqIssue.key);
-        const transitioned = await syncIssueStatus(scIssue, sqIssue, client, sqClient, preloadedChangelog);
+        const transitioned = await syncIssueStatus(scIssue, sqIssue, client);
         if (transitioned) stats.transitioned++;
         await syncIssueAssignment(scIssue, sqIssue, client, stats, userMappings);
         await syncIssueCommentsAndTags(scIssue, sqIssue, client, stats, sqClient);

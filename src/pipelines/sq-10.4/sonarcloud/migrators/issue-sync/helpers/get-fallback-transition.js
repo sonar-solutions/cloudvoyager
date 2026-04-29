@@ -10,7 +10,8 @@ export function getFallbackTransition(sqIssue) {
   switch (sqIssue.status) {
     case 'CONFIRMED': return 'confirm';
     case 'RESOLVED':
-    case 'CLOSED': return 'resolve';
+    case 'CLOSED':
+    case 'FIXED': return 'resolve';
     case 'ACCEPTED': return 'wontfix';
     case 'REOPENED': return 'reopen';
     default: return null;
