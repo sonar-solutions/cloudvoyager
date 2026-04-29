@@ -1,5 +1,6 @@
 import logger from '../../../../shared/utils/logger.js';
 import { isExternalIssue } from '../build-external-issues.js';
+import { isClosedOrFixed } from '../../../../shared/utils/issue-filters/is-closed-or-fixed.js';
 
 // -------- Build Issue Messages --------
 
@@ -10,6 +11,7 @@ export function buildIssues(builder) {
   let skippedIssues = 0;
 
   builder.data.issues.forEach(issue => {
+    if (isClosedOrFixed(issue)) return;
     if (isExternalIssue(issue, sonarCloudRepos)) return;
     if (!builder.validComponentKeys?.has(issue.component)) { skippedIssues++; return; }
     const componentRef = builder.componentRefMap.get(issue.component);

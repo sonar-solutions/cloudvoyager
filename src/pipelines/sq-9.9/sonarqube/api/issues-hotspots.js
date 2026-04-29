@@ -3,7 +3,10 @@ import { fetchWithSlicing } from '../../../../shared/utils/search-slicer/index.j
 
 // SonarQube 9.9 only supports the classic issue lifecycle statuses.
 // FALSE_POSITIVE, ACCEPTED, FIXED are NOT valid in 9.9 (causes 400 error).
-const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED';
+// CLOSED is excluded — resolved issues should not be recreated on the destination.
+// RESOLVED is kept because it includes FALSE-POSITIVE and WONTFIX resolutions
+// that should be migrated (downstream filter handles resolution=FIXED).
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED';
 
 export async function getIssues(probeTotal, getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);

@@ -4,7 +4,8 @@ import { probeTotal } from './probe-total.js';
 
 // -------- Issue Methods --------
 
-const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED,IN_SANDBOX';
+// FIXED is excluded — resolved issues should not be recreated on the destination.
+const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX';
 
 /** Attach issue and duplication methods to the client instance. */
 export function attachIssueMethods(inst) {

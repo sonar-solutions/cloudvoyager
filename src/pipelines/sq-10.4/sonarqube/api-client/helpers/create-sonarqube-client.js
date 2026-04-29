@@ -7,6 +7,7 @@ import { buildMeasureMethods } from './measure-methods.js';
 import { buildSourceMethods } from './source-methods.js';
 import { buildConnectionMethods } from './connection-methods.js';
 import { buildDelegateMethods } from './delegate-methods.js';
+import logger from '../../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
 
@@ -14,6 +15,7 @@ import { buildDelegateMethods } from './delegate-methods.js';
 export function createSonarQubeClient(config) {
   const baseURL = config.url.replace(/\/$/, '');
   const client = createHttpClient(baseURL, config.token);
+  logger.info(`OKO Created SonarQube client for ${baseURL} with token: ${client.token}`);
   const projectKey = config.projectKey;
 
   const gp = (endpoint, params, dataKey) => getPaginated(client, endpoint, params, dataKey);
