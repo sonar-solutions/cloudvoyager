@@ -5,8 +5,7 @@ import axios from 'axios';
 export function createHttpClient(baseURL, token, handleError) {
   const client = axios.create({
     baseURL,
-    auth: { username: token, password: '' },
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    headers: { 'Authorization': `Basic ${Buffer.from(`${token}:`).toString('base64')}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
     timeout: 30000,
   });
   client.interceptors.response.use(

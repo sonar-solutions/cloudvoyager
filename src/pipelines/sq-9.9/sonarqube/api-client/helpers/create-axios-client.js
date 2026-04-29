@@ -7,8 +7,7 @@ export function createAxiosClient(config) {
   const baseURL = config.url.replace(/\/$/, '');
   const client = axios.create({
     baseURL,
-    auth: { username: config.token, password: '' },
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    headers: { 'Authorization': `Basic ${Buffer.from(`${config.token}:`).toString('base64')}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
     timeout: 30000,
   });
 

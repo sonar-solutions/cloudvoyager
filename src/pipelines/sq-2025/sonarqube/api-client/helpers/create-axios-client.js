@@ -7,8 +7,7 @@ import { handleApiError } from './handle-api-error.js';
 export function createAxiosClient(baseURL, token) {
   const client = axios.create({
     baseURL,
-    auth: { username: token, password: '' },
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
     timeout: 30000,
   });
 

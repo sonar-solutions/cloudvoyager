@@ -6,7 +6,7 @@ import logger from '../../shared/utils/logger.js';
 export async function fetchServerVersion(config) {
   try {
     const response = await axios.get(`${config.url}/api/system/status`, {
-      auth: { username: config.token, password: '' },
+      headers: { 'Authorization': `Basic ${Buffer.from(`${config.token}:`).toString('base64')}` },
       timeout: 10000,
     });
     return response.data.version || 'unknown';
