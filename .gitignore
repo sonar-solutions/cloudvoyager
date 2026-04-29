@@ -60,6 +60,7 @@ debug/
 proto/
 compliance/sonar_scan_local.sh
 migrate-config.json
+transfer-config.json
 .claude/
 
 # Desktop app
@@ -69,6 +70,7 @@ dist/desktop/
 **/*.json.journal
 **/*.json.journal.backup
 **/*.json.gz
+*.lock
 
 sonar-local-scan.sh
 *.backup

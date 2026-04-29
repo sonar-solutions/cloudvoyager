@@ -889,6 +889,24 @@ The following npm scripts are available for building, testing, and linting:
 
 ---
 
+<!-- updated: 2026-04-29_14:50:00 -->
+## 🐛 Debugging Scripts
+
+The `.debugging/` folder contains convenience scripts for local testing:
+
+| Script | What it does |
+|--------|-------------|
+| `test-migrate.sh` | Run `migrate` command with `migrate-config.json` |
+| `test-transfer.sh` | Run `transfer` command with `transfer-config.json` |
+| `test-verify.sh` | Run `verify` command with `migrate-config.json` |
+| `build-desktop.sh` | Build the Electron desktop app |
+| `run-desktop.sh` | Launch the desktop app in dev mode |
+| `delete-all-sonarcloud-projects.sh` | Delete all projects from a SonarCloud org (for cleanup) |
+
+These scripts expect the binary at `./dist/bin/cloudvoyager-macos-arm64` and config files at the repo root. Both `migrate-config.json` and `transfer-config.json` are gitignored since they contain credentials.
+
+---
+
 <!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ## 📚 Further Reading
 
