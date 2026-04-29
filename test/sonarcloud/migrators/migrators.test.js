@@ -1696,7 +1696,7 @@ test('syncIssues handles RESOLVED status', async t => {
   t.is(client.transitionIssue.firstCall.args[1], 'resolve');
 });
 
-test('syncIssues handles CLOSED status', async t => {
+test('syncIssues filters out CLOSED issues (no transition propagation)', async t => {
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
@@ -1715,8 +1715,8 @@ test('syncIssues handles CLOSED status', async t => {
 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1 });
 
-  t.is(stats.transitioned, 1);
-  t.is(client.transitionIssue.firstCall.args[1], 'resolve');
+  t.is(stats.transitioned, 0);
+  t.false(client.transitionIssue.called);
 });
 
 test('syncIssues handles ACCEPTED status', async t => {

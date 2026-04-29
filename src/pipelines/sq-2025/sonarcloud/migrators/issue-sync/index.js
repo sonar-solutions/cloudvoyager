@@ -1,6 +1,7 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
 import { parallelSyncIssues } from '../../../../../shared/utils/concurrency/helpers/parallel-issue-sync.js';
+import { isClosedOrFixed } from '../../../../../shared/utils/issue-filters/is-closed-or-fixed.js';
 import { applyManualChangesPreFilter } from '../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import { waitForScIndexing } from '../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
 import { matchIssues } from './helpers/match-issues.js';
@@ -24,11 +25,15 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const userMappings = options.userMappings || null;
   const stats = createSyncStats();
 
-  let issuesToSync = sqIssues;
+  const beforeFilter = sqIssues.length;
+  let issuesToSync = sqIssues.filter(i => !isClosedOrFixed(i));
+  if (issuesToSync.length < beforeFilter) {
+    logger.info(`Filtered out ${beforeFilter - issuesToSync.length} closed/fixed issues`);
+  }
   let changelogMap = new Map();
 
   if (sqClient) {
-    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(sqIssues, sqClient, stats, concurrency));
+    ({ issuesToSync, changelogMap } = await applyManualChangesPreFilter(issuesToSync, sqClient, stats, concurrency));
     if (issuesToSync.length === 0) { logSyncSummary(stats); return stats; }
   }
 

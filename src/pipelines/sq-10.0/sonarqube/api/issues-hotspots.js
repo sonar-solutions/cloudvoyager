@@ -3,7 +3,10 @@ import { fetchWithSlicing } from '../../../../shared/utils/search-slicer/index.j
 
 // All issue statuses — pre-10.4 lifecycle + 10.4+ lifecycle.
 // The SonarQube API ignores unknown values, so including both sets is safe.
-const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED,FALSE_POSITIVE,ACCEPTED,FIXED';
+// CLOSED and FIXED are excluded — resolved issues should not be recreated on the destination.
+// RESOLVED is kept because it includes FALSE-POSITIVE and WONTFIX resolutions
+// that should be migrated (downstream filter handles resolution=FIXED).
+const ALL_STATUSES = 'OPEN,CONFIRMED,REOPENED,RESOLVED,FALSE_POSITIVE,ACCEPTED';
 
 export async function getIssues(probeTotal, getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);

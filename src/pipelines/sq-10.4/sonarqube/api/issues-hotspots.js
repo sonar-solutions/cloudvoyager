@@ -2,8 +2,8 @@ import logger from '../../../../shared/utils/logger.js';
 import { fetchWithSlicing } from '../../../../shared/utils/search-slicer/index.js';
 
 // 10.4+ uses the `issueStatuses` parameter with the modern lifecycle values.
-// Include CLOSED so that closed issues are also extracted for migration.
-const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,FIXED,CLOSED';
+// FIXED and CLOSED are excluded — resolved issues should not be recreated on the destination.
+const ISSUE_STATUSES = 'OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED';
 
 export async function getIssues(probeTotal, getPaginated, projectKey, filters = {}) {
   logger.info(`Fetching issues for project: ${projectKey}`);

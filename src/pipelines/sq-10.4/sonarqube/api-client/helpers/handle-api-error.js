@@ -7,7 +7,7 @@ export function handleApiError(error, baseURL) {
   if (error.response) {
     const { status, data, config } = error.response;
     if (status === 401 || status === 403) {
-      throw new AuthenticationError(`Authentication failed for SonarQube: ${data.errors?.[0]?.msg || 'Invalid credentials'}`, 'SonarQube');
+      throw new AuthenticationError(`Authentication failed for SonarQube: DATA = ${data} - ${data.errors?.[0]?.msg || 'Invalid credentials I believe'}`, 'SonarQube');
     }
     const message = data.errors?.[0]?.msg || data.message || error.message;
     throw new SonarQubeAPIError(`SonarQube API error (${status}): ${message}`, status, config.url);
