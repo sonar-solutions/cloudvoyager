@@ -13,13 +13,15 @@ export async function verifyProjectSettings(sqClient, scClient, sqProjectKey, sc
   const sqNonInherited = sqSettings.filter(s => !s.inherited);
   const scMap = new Map(scSettings.map(s => [s.key, s]));
 
+  const pick = (s) => s.value !== undefined && s.value !== null ? s.value : (s.values?.length ? s.values : undefined);
+
   for (const sqSetting of sqNonInherited) {
     const scSetting = scMap.get(sqSetting.key);
-    if (!scSetting) { result.sqOnly.push({ key: sqSetting.key, value: sqSetting.value || sqSetting.values }); continue; }
-    const sqVal = JSON.stringify(sqSetting.value || sqSetting.values || '');
-    const scVal = JSON.stringify(scSetting.value || scSetting.values || '');
+    if (!scSetting) { result.sqOnly.push({ key: sqSetting.key, value: pick(sqSetting) }); continue; }
+    const sqVal = JSON.stringify(pick(sqSetting) ?? '');
+    const scVal = JSON.stringify(pick(scSetting) ?? '');
     if (sqVal !== scVal) {
-      result.mismatches.push({ key: sqSetting.key, sqValue: sqSetting.value || sqSetting.values, scValue: scSetting.value || scSetting.values });
+      result.mismatches.push({ key: sqSetting.key, sqValue: pick(sqSetting), scValue: pick(scSetting) });
     }
   }
 

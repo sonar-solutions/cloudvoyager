@@ -23,13 +23,14 @@ export function buildSettingsParams({ key, component, value, values, fieldValues
  * Returns true if a value was dispatched, false if the setting was empty/skipped.
  */
 export async function dispatchSettingToApi(client, setting, projectKey) {
-  if (setting.value) {
+  if (setting.value !== undefined && setting.value !== null) {
     await client.setProjectSetting(setting.key, { value: setting.value }, projectKey);
   } else if (setting.values?.length) {
     await client.setProjectSetting(setting.key, { values: setting.values }, projectKey);
   } else if (setting.fieldValues?.length) {
     await client.setProjectSetting(setting.key, { fieldValues: setting.fieldValues }, projectKey);
   } else {
+    logger.debug(`Skipping setting ${setting.key} — no value, values, or fieldValues`);
     return false;
   }
   logger.debug(`Set setting ${setting.key} on ${projectKey}`);

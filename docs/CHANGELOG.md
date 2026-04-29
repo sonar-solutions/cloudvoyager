@@ -4,6 +4,39 @@ All notable changes to CloudVoyager are documented in this file. Entries are ord
 
 ---
 
+## Fix: Project Settings Migration (Issue #95) (2026-04-29)
+<!-- updated: 2026-04-29_22:50:00 -->
+
+Fixed project configuration settings (e.g., `sonar.exclusions`, `sonar.coverage.exclusions`) not being migrated from SonarQube Server to SonarQube Cloud.
+
+**Root causes identified and fixed:**
+
+1. **POST body format + Content-Type** — Settings were sent as URL query parameters (`/api/settings/set?key=...&values=...`) with a `null` body and `Content-Type: application/json` (from axios defaults). Changed to send parameters as a form-encoded POST body string with an explicit `Content-Type: application/x-www-form-urlencoded` header, which is the correct format for SonarQube/SonarCloud web API POST endpoints. The explicit header is required because the axios client's default `Content-Type: application/json` would not be overridden by auto-detection (axios uses `rewrite=false` for URLSearchParams).
+
+2. **Truthy check bug in `dispatchSettingToApi`** — Used `if (setting.value)` which is a JavaScript truthy check. This silently skipped settings with empty string values (`value: ""`). Changed to `if (setting.value !== undefined && setting.value !== null)` for correctness.
+
+3. **Improved logging** — Added per-setting logging showing which settings are being migrated, with a summary of applied/failed/skipped counts. Previously, failures were logged at `warn` level with no summary, making it hard to diagnose migration issues.
+
+4. **Verification checker fix** — The settings comparison in `verify-settings.js` had the same truthy fallback issue (`sqSetting.value || sqSetting.values`), which could produce incorrect comparisons for settings with empty string values.
+
+**Scope:** All 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025) updated consistently.
+
+**Files changed:**
+- `src/shared/utils/settings-params.js` — Fixed truthy check, added skip logging
+- `src/pipelines/sq-{9.9,10.0,10.4,2025}/sonarcloud/api/project-config/helpers/set-project-setting.js` (and equivalents) — POST body format fix
+- `src/pipelines/sq-{9.9,10.0,10.4,2025}/sonarcloud/migrators/project-config/helpers/migrate-project-settings.js` — Improved logging
+- `src/shared/verification/checkers/project-config/helpers/verify-settings.js` — Fixed value comparison
+- `test/utils/settings-params.test.js` — New: 14 unit tests for `buildSettingsParams` and `dispatchSettingToApi`
+- `test/sonarcloud/migrators/migrators.test.js` — Added empty string value dispatch test
+
+**Regression test (Angular Framework, SQ 2026.2 → SC-staging):**
+- Created 3 project-level settings on SQ: `sonar.exclusions` (3 values), `sonar.coverage.exclusions` (2 values), `sonar.cpd.exclusions` (1 value)
+- Ran `migrate --only project-settings`: 3 applied, 0 failed, 0 skipped
+- Verified all 3 settings match exactly between SQ and SC via API
+- No settings-related warnings in logs
+
+---
+
 ## Parallel Issue Sync with Worker Threads (2026-04-28)
 <!-- updated: 2026-04-28_11:30:00 -->
 
