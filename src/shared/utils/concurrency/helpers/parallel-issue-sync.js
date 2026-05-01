@@ -10,7 +10,7 @@ const { parentPort, workerData } = require('worker_threads');
 const https = require('https');
 const http = require('http');
 
-const { chunk, scConfig, sqConfig, userMappings, changelogEntries, concurrencyPerWorker } = workerData;
+const { chunk, scConfig, sqConfig, userMappings, concurrencyPerWorker } = workerData;
 
 function makePost(baseURL, token, path, params) {
   return new Promise((resolve, reject) => {
@@ -60,68 +60,22 @@ function scPost(path, params) {
   return makePostWithRetry(scConfig.baseURL, scConfig.token, path, params, 6);
 }
 
-function mapChangelogDiffToTransition(diffs) {
-  const statusDiff = diffs.find(d => d.key === 'status');
-  const resolutionDiff = diffs.find(d => d.key === 'resolution');
-  const newStatus = statusDiff && statusDiff.newValue;
-  const newResolution = resolutionDiff && resolutionDiff.newValue;
-  if (!newStatus) return null;
-  if (newResolution === 'FALSE-POSITIVE' || newStatus === 'FALSE-POSITIVE') return 'falsepositive';
-  if (newResolution === 'WONTFIX' || newStatus === 'WONTFIX') return 'wontfix';
-  switch (newStatus) {
-    case 'CONFIRMED': return 'confirm';
-    case 'REOPENED': return 'reopen';
-    case 'OPEN': return 'unconfirm';
-    case 'RESOLVED': return 'resolve';
-    case 'CLOSED': return 'resolve';
-    case 'ACCEPTED': return 'wontfix';
-    default: return null;
-  }
-}
-
-function extractTransitionsFromChangelog(changelog) {
-  const transitions = [];
-  for (const entry of changelog) {
-    const diffs = entry.diffs || [];
-    if (!diffs.some(d => d.key === 'status')) continue;
-    const t = mapChangelogDiffToTransition(diffs);
-    if (t) transitions.push(t);
-  }
-  return transitions;
-}
-
 function getFallbackTransition(sqIssue) {
   if (sqIssue.resolution === 'FALSE-POSITIVE' || sqIssue.status === 'FALSE-POSITIVE') return 'falsepositive';
   if (sqIssue.resolution === 'WONTFIX' || sqIssue.status === 'WONTFIX') return 'wontfix';
   switch (sqIssue.status) {
     case 'CONFIRMED': return 'confirm';
     case 'RESOLVED':
-    case 'CLOSED': return 'resolve';
+    case 'CLOSED':
+    case 'FIXED': return 'resolve';
     case 'ACCEPTED': return 'wontfix';
     case 'REOPENED': return 'reopen';
     default: return null;
   }
 }
 
-async function syncIssueStatus(scIssue, sqIssue, changelog) {
+async function syncIssueStatus(scIssue, sqIssue) {
   if (scIssue.status === sqIssue.status) return false;
-
-  if (changelog) {
-    const transitions = extractTransitionsFromChangelog(changelog);
-    if (transitions.length === 0) {
-      const t = getFallbackTransition(sqIssue);
-      if (!t) return false;
-      try { await scPost('/api/issues/do_transition', { issue: scIssue.key, transition: t }); return true; }
-      catch { return false; }
-    }
-    let applied = false;
-    for (const transition of transitions) {
-      try { await scPost('/api/issues/do_transition', { issue: scIssue.key, transition }); applied = true; }
-      catch { /* expected: some transitions are invalid for current state */ }
-    }
-    return applied;
-  }
-
   const t = getFallbackTransition(sqIssue);
   if (!t) return false;
   try { await scPost('/api/issues/do_transition', { issue: scIssue.key, transition: t }); return true; }
@@ -179,11 +133,10 @@ async function addSourceLink(sqIssue, scIssue, stats) {
   } catch { stats.apiErrors++; }
 }
 
-async function syncOneIssue(pair, userMappingsMap, stats, changelogMap) {
+async function syncOneIssue(pair, userMappingsMap, stats) {
   try {
     const { sqIssue, scIssue } = pair;
-    const changelog = changelogMap.get(sqIssue.key) || null;
-    const transitioned = await syncIssueStatus(scIssue, sqIssue, changelog);
+    const transitioned = await syncIssueStatus(scIssue, sqIssue);
     if (transitioned) stats.transitioned++;
     await syncIssueAssignment(sqIssue, scIssue, userMappingsMap, stats);
     await syncIssueComments(sqIssue, scIssue, stats);
@@ -216,11 +169,10 @@ async function run() {
   };
 
   const userMappingsMap = new Map(userMappings || []);
-  const changelogMap = new Map(changelogEntries || []);
   let completed = 0;
 
   await mapConcurrentWorker(chunk, async (pair) => {
-    await syncOneIssue(pair, userMappingsMap, stats, changelogMap);
+    await syncOneIssue(pair, userMappingsMap, stats);
     completed++;
     if (completed % 50 === 0) parentPort.postMessage({ type: 'progress', completed });
   }, concurrencyPerWorker);
@@ -233,7 +185,7 @@ run().catch((err) => {
 });
 `;
 
-export async function parallelSyncIssues(matchedPairs, changelogMap, scConfig, sqConfig, userMappings, options = {}) {
+export async function parallelSyncIssues(matchedPairs, scConfig, sqConfig, userMappings, options = {}) {
   const workerCount = options.workerCount || 20;
   const concurrencyPerWorker = options.concurrencyPerWorker || 5;
   const totalPairs = matchedPairs.length;
@@ -246,12 +198,6 @@ export async function parallelSyncIssues(matchedPairs, changelogMap, scConfig, s
 
   let totalCompleted = 0;
   const workerPromises = chunks.map((chunk, i) => {
-    const changelogEntries = [];
-    for (const pair of chunk) {
-      const entry = changelogMap.get(pair.sqIssue.key);
-      if (entry) changelogEntries.push([pair.sqIssue.key, entry]);
-    }
-
     return new Promise((resolve, reject) => {
       const worker = new Worker(WORKER_CODE, {
         eval: true,
@@ -260,7 +206,6 @@ export async function parallelSyncIssues(matchedPairs, changelogMap, scConfig, s
           scConfig,
           sqConfig,
           userMappings: serializedUserMappings,
-          changelogEntries,
           concurrencyPerWorker,
         },
       });

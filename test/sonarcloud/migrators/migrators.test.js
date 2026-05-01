@@ -2222,7 +2222,11 @@ test('extractTransitionsFromChangelog skips unknown status transitions', t => {
 // issue-sync.js - syncIssues with sqClient (changelog replay)
 // ============================================================================
 
-test('syncIssues with sqClient replays changelog transitions in order', async t => {
+test('syncIssues applies a single transition derived from current SQ status, ignoring older changelog states (#140)', async t => {
+  // Source went OPEN -> CONFIRMED -> RESOLVED+FALSE-POSITIVE -> REOPENED. Current source: REOPENED.
+  // Bug #140: pre-fix, replaying every transition meant the FIRST applicable one won
+  // (later ones rejected by SC's state machine). After the fix we apply exactly one
+  // transition based on the current source status -> 'reopen'.
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
@@ -2230,12 +2234,12 @@ test('syncIssues with sqClient replays changelog transitions in order', async t 
   });
   const sqClient = {
     getIssueChangelog: sinon.stub().resolves([
-      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
-      { diffs: [
+      { user: 'alice', diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
+      { user: 'alice', diffs: [
         { key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' },
         { key: 'resolution', oldValue: '', newValue: 'FALSE-POSITIVE' }
       ] },
-      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+      { user: 'alice', diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
     ])
   };
   const sqIssues = [
@@ -2245,98 +2249,24 @@ test('syncIssues with sqClient replays changelog transitions in order', async t 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
 
   t.is(stats.transitioned, 1);
-  t.is(client.transitionIssue.callCount, 3);
-  t.is(client.transitionIssue.getCall(0).args[1], 'confirm');
-  t.is(client.transitionIssue.getCall(1).args[1], 'falsepositive');
-  t.is(client.transitionIssue.getCall(2).args[1], 'reopen');
+  t.is(client.transitionIssue.callCount, 1);
+  t.is(client.transitionIssue.firstCall.args[1], 'reopen');
 });
 
-test('syncIssues with sqClient falls back when changelog has no status changes', async t => {
-  const client = mockClient({
-    searchIssues: sinon.stub().resolves([
-      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
-    ])
-  });
-  const sqClient = {
-    getIssueChangelog: sinon.stub().resolves([
-      { diffs: [{ key: 'assignee', oldValue: '', newValue: 'alice' }] }
-    ])
-  };
-  const sqIssues = [
-    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
-  ];
-
-  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
-
-  t.is(stats.transitioned, 1);
-  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
-});
-
-test('syncIssues with sqClient falls back when changelog fetch fails', async t => {
-  const client = mockClient({
-    searchIssues: sinon.stub().resolves([
-      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'OPEN' }
-    ])
-  });
-  const sqClient = {
-    getIssueChangelog: sinon.stub().rejects(new Error('changelog API error'))
-  };
-  const sqIssues = [
-    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
-  ];
-
-  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
-
-  // Falls back to single transition
-  t.is(stats.transitioned, 1);
-  t.is(client.transitionIssue.firstCall.args[1], 'confirm');
-});
-
-test('syncIssues with sqClient handles partial transition failures in replay', async t => {
-  const transitionStub = sinon.stub();
-  transitionStub.onFirstCall().resolves();
-  transitionStub.onSecondCall().rejects(new Error('transition not available'));
-  transitionStub.onThirdCall().resolves();
-
+test('syncIssues with sqClient returns not transitioned when transition fails', async t => {
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
     ]),
-    transitionIssue: transitionStub
+    transitionIssue: sinon.stub().rejects(new Error('transition rejected'))
   });
   const sqClient = {
     getIssueChangelog: sinon.stub().resolves([
-      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
-      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] },
-      { diffs: [{ key: 'status', oldValue: 'RESOLVED', newValue: 'REOPENED' }] }
+      { user: 'alice', diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] }
     ])
   };
   const sqIssues = [
-    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
-  ];
-
-  const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
-
-  // Still counted as transitioned since at least one succeeded
-  t.is(stats.transitioned, 1);
-  t.is(transitionStub.callCount, 3);
-});
-
-test('syncIssues with sqClient returns not transitioned when all replay transitions fail', async t => {
-  const client = mockClient({
-    searchIssues: sinon.stub().resolves([
-      { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'OPEN' }
-    ]),
-    transitionIssue: sinon.stub().rejects(new Error('all fail'))
-  });
-  const sqClient = {
-    getIssueChangelog: sinon.stub().resolves([
-      { diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] },
-      { diffs: [{ key: 'status', oldValue: 'CONFIRMED', newValue: 'RESOLVED' }] }
-    ])
-  };
-  const sqIssues = [
-    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'RESOLVED' }
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'CONFIRMED' }
   ];
 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
@@ -2344,14 +2274,16 @@ test('syncIssues with sqClient returns not transitioned when all replay transiti
   t.is(stats.transitioned, 0);
 });
 
-test('syncIssues with sqClient skips changelog fetch when statuses match', async t => {
+test('syncIssues skips transition when SC and SQ statuses already match', async t => {
   const client = mockClient({
     searchIssues: sinon.stub().resolves([
       { key: 'sc-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
     ])
   });
   const sqClient = {
-    getIssueChangelog: sinon.stub().resolves([])
+    getIssueChangelog: sinon.stub().resolves([
+      { user: 'alice', diffs: [{ key: 'status', oldValue: 'OPEN', newValue: 'CONFIRMED' }] }
+    ])
   };
   const sqIssues = [
     { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 5, status: 'CONFIRMED' }
@@ -2360,7 +2292,7 @@ test('syncIssues with sqClient skips changelog fetch when statuses match', async
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
 
   t.is(stats.transitioned, 0);
-  t.is(sqClient.getIssueChangelog.callCount, 0);
+  t.is(client.transitionIssue.callCount, 0);
 });
 
 // ============================================================================

@@ -9,7 +9,8 @@ export function getFallbackTransition(sqIssue) {
   switch (sqIssue.status) {
     case 'CONFIRMED': return 'confirm';
     case 'RESOLVED':
-    case 'CLOSED': return 'resolve';
+    case 'CLOSED':
+    case 'FIXED': return 'resolve';
     // ACCEPTED in SQ 10.4+ maps to 'wontfix' in SonarCloud
     case 'ACCEPTED': return 'wontfix';
     case 'REOPENED': return 'reopen';
