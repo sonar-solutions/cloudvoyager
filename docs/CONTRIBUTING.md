@@ -247,13 +247,12 @@ An issue is considered to have **manual changes** if any of:
 - `fetchSqChangelogs(sqIssues, sqClient, concurrency)` — batch-fetches changelogs via `mapConcurrent`, returns `Map<issueKey, changelog[]>`
 - `hasManualChanges(issue, changelog)` — pure function, returns `boolean`
 
-The pre-fetched changelogs are passed through to `syncIssueStatus` via a `changelogMap` to avoid redundant per-issue changelog API calls.
+The pre-fetched changelogs are used only to evaluate `hasManualChanges` during pre-filtering. Status sync derives the target SC transition from the issue's *current* SQ status (not the changelog history), so changelogs are not propagated past the filter step.
 
 **Performance test:** `test/utils/issue-sync.test.js` includes regression tests that verify the filter ratio stays within tolerance (<=10% of issues pass through) and that filtering 50K issues completes in <1 second.
 
 **Rules:**
-- Always pass `changelogMap` through from orchestrator to per-issue sync functions
-- The `preloadedChangelog` parameter in `syncIssueStatus` uses `??` (nullish coalescing) so it falls back to fetching if the caller doesn't provide preloaded data
+- `syncIssueStatus(scIssue, sqIssue, client)` applies a single transition derived from the SQ issue's current state — it does not replay changelog history
 - The `stats.filtered` counter tracks how many issues were skipped by the pre-filter
 
 ---
