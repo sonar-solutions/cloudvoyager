@@ -2,7 +2,7 @@
 
 <!-- Last updated: Apr 22, 2026 (batch-distributor in pipeline flow diagram, backdating strategy docs, scmRevisionId per-batch note, issue batching 5K per date bucket, issue sync pre-filter optimization, SC indexing wait, SonarCloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
 
-<!-- updated: 2026-04-22_14:30:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🗺️ Main Flow Sequence Diagram
 
 The diagram below shows the high-level flows for the four main commands. The **➕** markers reference the drill-down prompts in the table that follows — paste any prompt into a new chat (with this codebase in context) to generate a detailed diagram for that subsystem.
@@ -141,12 +141,13 @@ sequenceDiagram
 | ➕F | Quality profiles | `Generate a mermaid sequence diagram for CloudVoyager quality profile migration including backup XML, rename of built-in profiles, and diff report` |
 | ➕G | Batch distribution | `Generate a mermaid sequence diagram showing how CloudVoyager batch-distributor splits large issue sets into ≤5K batches with backdated analysis dates and sequential CE uploads` |
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📡 Protobuf Encoding
 
 The scanner report uses `scanner-report.proto` and `constants.proto` (in each pipeline's `protobuf/schema/` directory). Key protobuf messages: `Metadata`, `Component`, `Issue`, `ExternalIssue`, `AdHocRule`, `Measure`, `ActiveRule`, `Duplication`, `Changesets`, `Symbols`, `SyntaxHighlighting`, `LineCoverage`.
 
 ### Encoding Styles
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The scanner report ZIP uses two encoding styles:
 - **Single message** (no length delimiter): `metadata.pb`, `component-{ref}.pb`, `changesets-{ref}.pb`
@@ -155,6 +156,7 @@ The scanner report ZIP uses two encoding styles:
 - **Empty sentinel**: `context-props.pb` (always empty, matches real scanner behavior)
 
 ### Report ZIP Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 metadata.pb                       # Single Metadata message (NOT length-delimited)
@@ -170,7 +172,7 @@ duplications-{ref}.pb             # Length-delimited Duplication messages per co
 context-props.pb                  # Empty (matches real scanner)
 ```
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 CE Submission Retry Mechanism
 
 Report submission to SonarCloud's Compute Engine (`/api/ce/submit`) uses a robust retry strategy (implemented in `ce-submitter.js` within each pipeline):
@@ -184,6 +186,7 @@ Report submission to SonarCloud's Compute Engine (`/api/ce/submit`) uses a robus
 The form data is buffered before sending (not streamed) to avoid runtime-specific issues with Bun's HTTP client. Branch characteristics (`branch=<name>`, `branchType=LONG`) are included for non-main branches.
 
 ### Key Enum Values
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Enum | Values |
 |------|--------|
@@ -196,6 +199,7 @@ The form data is buffered before sending (not streamed) to avoid runtime-specifi
 **CRITICAL**: `cleanCodeAttribute` in `ExternalIssue` and `AdHocRule` must be encoded as a protobuf enum (varint), NOT a string. Despite the `.proto` file showing `optional string`, the real scanner uses enum encoding. SonarCloud CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
 
 ### Field Name Convention
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 protobufjs automatically converts snake_case field names to camelCase in JavaScript:
 - `analysis_date` becomes `analysisDate`
@@ -204,7 +208,7 @@ protobufjs automatically converts snake_case field names to camelCase in JavaScr
 
 All field names in the codebase use camelCase to match this convention.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📏 Measure Type Mapping
 
 Measures use typed value fields based on metric type:
@@ -212,26 +216,26 @@ Measures use typed value fields based on metric type:
 - **String metrics** (`stringValue`): `executable_lines_data`, `ncloc_data`, `alert_status`
 - **Float/percentage metrics** (`doubleValue`): `coverage`, `line_coverage`, `branch_coverage`, `duplicated_lines_density`, ratings
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📋 Active Rules
 
 - Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size
 - Rule keys are stripped of the repository prefix (e.g., `S7788` not `jsarchitecture:S7788`)
 - Quality profile keys are mapped to SonarCloud profile keys (not SonarQube keys)
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧱 Component Structure
 
 Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube measures API values.
 
-<!-- updated: 2026-04-22_14:30:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔖 SCM Revision Tracking
 
 The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
 **Batch uploads**: When issue batching is active (>5,000 issues), each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')` instead of the original git commit hash. This prevents the SonarCloud CE from deduplicating successive batch uploads as identical reports. See [Issue Batching for Upload](#-issue-batching-for-upload-5k-per-date-bucket) for details.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌿 Branch Sync
 
 By default, every branch discovered in SonarQube is transferred to SonarCloud (main branch first, then non-main branches). Each branch produces its own scanner report with branch-specific issues, measures, sources, and SCM data.
@@ -242,7 +246,7 @@ By default, every branch discovered in SonarQube is transferred to SonarCloud (m
 
 **Configuration:** Set `transfer.syncAllBranches` to `false` to only sync the main branch. Use `transfer.excludeBranches` to skip specific branch names (e.g., `["feature/old", "release/v1"]`).
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📄 API Pagination
 
 SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
@@ -259,7 +263,7 @@ The extractors handle these lower limits automatically.
 
 **metricKeys batching**: SQ 9.9 through 10.8 limits `metricKeys` to 15 per request (must batch). SQ 2025.1+ has no batching limit.
 
-<!-- updated: 2026-04-25_18:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Accurate Issue Creation Date Backdating
 
 SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backdateChangesets()` rewrites each file's changeset protobuf so that the CE assigns each issue its original SonarQube creation date.
@@ -267,12 +271,14 @@ SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backd
 **How it works:** The function reads each issue's `creationDate` field (preserved from SonarQube extraction) and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range, so using "oldest wins" for overlapping lines ensures accurate dates. A safety split handles days with >5K issues.
 
 ### Algorithm (3 Phases)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Phase 0 — Safety split:** Group issues by calendar day. For any day exceeding 5,000 issues, sort by component and sub-group into ≤5K batches with 1-day-spaced synthetic dates (no file splitting).
 2. **Phase 1 — Per-line date map:** For each issue, map its `textRange.startLine..endLine` to its effective creation date. Oldest date wins when lines overlap. File-level issues (line=0/null) are skipped.
 3. **Phase 2 — Rebuild changesets:** For each file with issues, create one changeset entry per unique date. `changesetIndexByLine[i]` points to the date for line `i+1`, or to the oldest date (index 0) for non-issue lines. Files with no issues keep their original stub.
 
 ### Design Decisions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Decision | Rationale |
 |----------|-----------|
@@ -284,6 +290,7 @@ SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backd
 | All projects backdated | No early return for small projects — every project gets accurate dates |
 
 ### Helper Files (`src/shared/utils/batch-distributor/helpers/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Role |
 |------|------|
@@ -293,10 +300,11 @@ SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backd
 Legacy files (unchanged, no longer used by `backdateChangesets`): `compute-batch-plan.js`, `compute-batch-date.js`, `create-batch-extracted-data.js`.
 
 ### Pipeline Integration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before the protobuf build step. The function mutates `extractedData.changesets` in place — no signature change.
 
-<!-- Updated: Mar 28, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔍 Search Slicing for 10K+ Issues
 
 SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results regardless of pagination. Projects with more than 10,000 issues would silently lose data during extraction.
@@ -311,6 +319,7 @@ SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results re
 6. **Merge & deduplicate** — `deduplicate-results.js` merges results from all windows and removes duplicates by `item.key || item.id` to handle boundary overlaps where an issue's creation timestamp falls on a window edge.
 
 **Helper files** (`src/shared/utils/search-slicer/helpers/`):
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Role |
 |------|------|
@@ -329,7 +338,7 @@ The slicing is transparent to callers — `issues-hotspots.js` in each pipeline 
 - `transfer` — calls `getIssuesWithComments()` via `fetch-and-sync-issues.js`, which invokes `fetchWithSlicing` under the hood.
 - `migrate` — calls `getIssuesWithComments()` via `sync-issue-metadata.js` → `sync-project-issues.js`, using the same `fetchWithSlicing` function.
 
-<!-- Updated: Apr 18, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Fallback Rule Repositories
 
 External-issue detection depends on knowing which rule repositories exist in SonarCloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 44 known SonarCloud repositories (`src/shared/utils/fallback-repos/index.js`).
@@ -346,7 +355,7 @@ The fallback set includes the `githubactions` IaC analyzer (previously omitted b
 - Handles rules without a colon separator (treated as non-external).
 - Handles empty repository prefixes gracefully.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚦 Rate Limit Handling
 
 The SonarCloud API client supports a configurable two-layer strategy for rate limiting. Customize it via the `rateLimit` section in your config file.
@@ -355,7 +364,7 @@ The SonarCloud API client supports a configurable two-layer strategy for rate li
 
 2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔌 External Issues (Plugin Migration)
 
 Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSoft, ABAP) are automatically migrated as **external issues** using the `ExternalIssue` and `AdHocRule` protobuf messages.
@@ -377,7 +386,7 @@ Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSo
 - `impacts` array — `Impact` messages with `softwareQuality` and `severity` fields
 - `defaultImpacts` — on `AdHocRule` messages
 
-<!-- Updated: Apr 18, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Issue Sync
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. The sync pipeline runs in several stages:
@@ -391,6 +400,7 @@ The `migrate` command syncs issue metadata after the scanner report is uploaded.
 7. **Tags** — Sets tags.
 
 ### Pre-filter: `hasManualChanges` (`src/shared/utils/issue-sync/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Before touching SonarCloud, the syncer applies a pre-filter that only keeps issues with human-authored changes:
 
@@ -408,6 +418,7 @@ The pre-filter is implemented across three shared utilities:
 - `apply-pre-filter.js` — orchestrates the above two and sets `stats.filtered` with the skipped count
 
 ### Parallel Issue Sync (≥500 matched pairs)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 <!-- updated: 2026-04-25_20:30:00 -->
 
 When the matched pair count reaches 500+, the syncer switches from single-process `mapConcurrent` to `worker_threads`-based parallelism (`src/shared/utils/concurrency/helpers/parallel-issue-sync.js`):
@@ -420,6 +431,7 @@ When the matched pair count reaches 500+, the syncer switches from single-proces
 Total concurrent API calls: 20 workers × 5 internal = **100** (vs 20 with single-process). Each worker includes exponential backoff retry for 429/transient errors.
 
 ### Wait for SC Indexing: `waitForScIndexing`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 `src/shared/utils/issue-sync/wait-for-sc-indexing.js` wraps any SC fetch call with retry logic:
 - **Trigger**: SC returns 0 results but there are SQ items that need syncing
@@ -434,7 +446,7 @@ Total concurrent API calls: 20 workers × 5 internal = **100** (vs 20 with singl
 
 The `verify` command validates this by fetching changelogs from both sides (`/api/issues/changelog`) and comparing the transition sequences.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔥 Hotspot Sync
 
 Similar to issue sync, hotspot metadata is matched and synced:
@@ -446,7 +458,7 @@ Hotspots are converted to `Issue` format for the scanner report (with `type=SECU
 
 **API gotcha**: The hotspot details API returns `comment` (singular, containing a list), not `comments`.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Issue Status Transition Mapping
 
 Each pipeline includes an `issue-status-mapper.js` that maps SonarQube issue changelog entries to SonarCloud transitions:
@@ -466,7 +478,7 @@ The mapper handles both SQ < 10.4 (where `FALSE-POSITIVE` and `WONTFIX` appear a
 - **Changelog replay**: Extracts ordered transitions from the full issue changelog and replays them in sequence
 - **Fallback**: Maps the current SQ status/resolution to a single transition when no changelog is available
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔑 Project Key Resolution
 
 SonarCloud requires globally unique project keys across all organizations. When migrating projects, the tool uses the following strategy:
@@ -478,12 +490,12 @@ SonarCloud requires globally unique project keys across all organizations. When 
 
 Key conflicts are reported in the migration summary and in the `reports/migration-report.txt` / `reports/migration-report.json` output files.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🗺️ Organization Mapping
 
 The `migrate` command maps projects to target SonarCloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔍 Dry-Run & Editable CSV Workflow
 
 The `--dry-run` flag generates 8 exhaustive CSV files covering projects, organizations, groups, quality profiles, quality gates, portfolios, permission templates, and global permissions. Each CSV includes an `Include` column (defaulting to `yes`) that users can edit to filter what gets migrated.
@@ -497,7 +509,7 @@ Quality gate CSVs use a flat one-row-per-gate pattern — users can include or e
 
 See [dry-run-csv-reference.md](dry-run-csv-reference.md) for full CSV schema documentation.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📋 Quality Profile Migration
 
 Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
@@ -515,7 +527,7 @@ After profile migration, a **quality profile diff report** (`quality-profiles/qu
 - **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
 - **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚧 Quality Gate Migration
 
 Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.
@@ -525,7 +537,7 @@ Quality gates are created with their full condition definitions (metric, operato
 - `/api/qualitygates/show` requires `name` param, not `id`
 - Built-in gates: permission APIs return 400 (expected, handle gracefully)
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ⚡ Concurrency Model
 
 CloudVoyager uses a custom concurrency layer (`src/shared/utils/concurrency.js`) with zero external dependencies. Key primitives:
@@ -544,17 +556,18 @@ Performance config is resolved at startup by `resolvePerformanceConfig()`, which
 - `hotspotSync` = min(max(CPU cores / 2, 3), 5)
 - `projectMigration` = max(1, CPU cores / 3)
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 💾 Memory Management
 
 When `maxMemoryMB` is set (via config or `--max-memory` flag), the tool automatically re-spawns itself with `NODE_OPTIONS="--max-old-space-size=<value>"` if the current heap limit is insufficient. This is transparent to the user — output streams seamlessly through the respawned process.
 
-<!-- Updated: Mar 25, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Checkpoint Journal and Pause/Resume
 
 CloudVoyager uses a write-ahead checkpoint journal to track progress at every major phase. If a transfer or migration is interrupted (CTRL+C, crash, network failure), re-running the same command resumes from the last completed checkpoint.
 
 ### Journal Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each transfer creates a checkpoint journal file alongside the state file:
 
@@ -563,6 +576,7 @@ Each transfer creates a checkpoint journal file alongside the state file:
 - **Session fingerprint**: SonarQube version, URL, and project key are recorded to detect environment changes between runs
 
 ### State Management Components
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **StateTracker**: Issue-level incremental sync tracking
 - **StateStorage**: Atomic write-to-temp + fsync + rename, backup rotation, 10MB disk space check
@@ -572,6 +586,7 @@ Each transfer creates a checkpoint journal file alongside the state file:
 - **MigrationJournal**: Org/project/step-level tracking for multi-org resume, using a `completedSteps` array (supports parallel step completion; backward-compatible with old `lastCompletedStep` format on read)
 
 ### Concurrent Safety
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Both `CheckpointJournal` and `MigrationJournal` use an in-process async mutex (`_withLock()`) to serialize all mutating operations. This prevents read-modify-write races when multiple branches or projects are transferred in parallel. All methods that modify journal state (start/complete/fail phase, record upload, mark interrupted, etc.) acquire the lock before reading and release it after writing.
 

@@ -4,7 +4,7 @@
 
 CloudVoyager supports two configuration formats depending on the command you're using.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📋 Single Project Config
 
 Used by: `transfer`, `test`, `validate`, `status`, `reset`
@@ -51,7 +51,7 @@ Used by: `transfer`, `test`, `validate`, `status`, `reset`
 
 See `examples/config.example.json` for a complete example.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📋 Migration Config
 
 Used by: `migrate`, `sync-metadata`, `verify`
@@ -115,10 +115,10 @@ See `examples/migrate-config.example.json` for a complete example.
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔧 Configuration Options
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### SonarQube Settings
 
 | Option | Required | Description |
@@ -127,7 +127,7 @@ See `examples/migrate-config.example.json` for a complete example.
 | `token` | Yes | SonarQube API token (or set via `SONARQUBE_TOKEN` env var) |
 | `projectKey` | For `transfer` only | Project key to export (not needed for `migrate`) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### SonarCloud Settings (Single Org)
 
 Used by `transfer`, `test`, `validate`, `status`, `reset`.
@@ -139,7 +139,7 @@ Used by `transfer`, `test`, `validate`, `status`, `reset`.
 | `organization` | Yes | SonarCloud organization key |
 | `projectKey` | For `transfer` only | Destination project key. The display name is automatically carried over from SonarQube |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### SonarCloud Settings (Multi-Org)
 
 Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an array of target organizations.
@@ -151,7 +151,7 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | `organizations[].url` | No | SonarCloud server URL. Use `https://sonarcloud.io` (EU, default) or `https://sonarqube.us` (US). In the Desktop app an EU/US radio button sets this automatically. |
 | `enterprise.key` | Optional | SonarCloud enterprise key. Required only for portfolio migration via V2 API. If absent, portfolio migration is gracefully skipped and the migration continues normally. |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Transfer Settings
 
 | Option | Default | Description |
@@ -174,7 +174,7 @@ The `transfer.checkpoint` block controls the pause/resume behavior. All settings
 | `cacheMaxAgeDays` | `7` | Maximum age of extraction cache files in days before auto-purge |
 | `strictResume` | `false` | Fail on SonarQube version mismatch when resuming (default: warn only) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Migrate Settings
 
 | Option | Default | Description |
@@ -187,7 +187,7 @@ The `transfer.checkpoint` block controls the pause/resume behavior. All settings
 
 > **Project key behavior (migrate command):** By default, the `migrate` command uses the original SonarQube project key on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org}_{key}`) and logs a warning. Key conflicts are listed in the migration report.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Rate Limit Settings
 
 Controls retry and throttling behavior for SonarCloud API requests. By default, retries are enabled (`maxRetries: 3`) but request throttling is off (`minRequestInterval: 0`). Add a `rateLimit` section to any config file to customize.
@@ -220,7 +220,7 @@ Controls retry and throttling behavior for SonarCloud API requests. By default, 
 }
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Performance Settings
 
 Controls CPU, memory, and concurrency tuning. Add a `performance` section to any config file. All settings are optional — defaults are tuned for safe, moderate parallelism.
@@ -330,7 +330,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 ./cloudvoyager migrate -c migrate-config.json --verbose --max-memory 8192
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌍 Environment Variables
 
 | Variable | Description |
@@ -344,7 +344,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
 | `SONAR_TOKEN` | SonarCloud token used by the `sonarcloud.yml` GitHub Actions workflow for SAST/SCA scanning of the CloudVoyager repository itself (not used by the CLI) |
 
-<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📜 npm Scripts vs Binary Commands
 
 CloudVoyager can be run in two ways:
@@ -403,12 +403,12 @@ All CLI flags work identically in both modes. The table below shows every availa
 
 > **Note:** The npm scripts use hardcoded config file paths (`config.json` or `migrate-config.json`). When using the binary directly, you can specify any config file path with `-c <path>`.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚀 Recommended Migration Workflow
 
 For multi-project migrations (`migrate` command), we recommend the following 3-step approach. This gives you the best combination of safety, speed, and reliability.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Step 1: Dry run — verify everything
 
 Run a dry run first to extract all data, generate mapping CSVs, and validate your config without touching SonarCloud:
@@ -423,7 +423,7 @@ npm run migrate:dry-run
 
 Check the generated files in `./migration-output/` (especially `mappings/organizations.csv`) to verify project-to-org assignments look correct.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Step 2: Migrate without metadata + auto-tune
 
 Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
@@ -438,7 +438,7 @@ npm run migrate:skip-all-metadata:auto-tune
 
 Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Step 3: Sync metadata separately
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step. This transitions issue statuses, copies comments, sets assignees, and syncs tags:
@@ -453,7 +453,7 @@ npm run sync-metadata
 
 This step is safely retryable — if it hits rate limits, just run it again. Already-synced items are matched by rule+file+line and won't be duplicated.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Why this approach?
 
 | Step | What it does | Why |
@@ -463,7 +463,7 @@ This step is safely retryable — if it hits rate limits, just run it again. Alr
 | Sync metadata | Transitions issue/hotspot statuses | Retryable, isolated from main migration |
 | Verify | Compares SQ and SC data exhaustively | Confirms 1:1 migration completeness |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Incremental Transfers
 
 When using incremental mode, the tool:
@@ -476,6 +476,7 @@ When using incremental mode, the tool:
 To force a full transfer, use the `reset` command to clear the state.
 
 ### Checkpoint Journal (Pause/Resume)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `transfer` command automatically maintains a **checkpoint journal** that tracks progress at the phase level. If a transfer is interrupted (CTRL+C, crash, network failure), you can resume from where it left off by simply running the same command again.
 
@@ -494,6 +495,7 @@ The journal records:
 Use `--force-restart` to discard the checkpoint journal and start from scratch. Use `--force-fresh-extract` to clear extraction caches while keeping the journal.
 
 ### State File
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The state file (`.cloudvoyager-state.json` by default) contains:
 - Last sync timestamp
@@ -508,6 +510,7 @@ Additional files created during transfer:
 - `cache/` directory — Extraction cache files (gzipped JSON)
 
 ## 📚 Further Reading
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Architecture](architecture.md) — project structure, data flow, report format
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model

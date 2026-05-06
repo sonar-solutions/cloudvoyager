@@ -1,6 +1,5 @@
 # ☁️ 🐋 CloudVoyager
-
-<!-- Last updated: 2026-03-25 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
 
@@ -8,6 +7,7 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 
 <!-- Updated: 2026-02-19 -->
 ## ✅ Quick Start (Recommended)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Choose your scenario:**
 
@@ -18,6 +18,7 @@ CloudVoyager copies everything — projects, code issues, security hotspots, qua
 | Migrate **everything** from SonarQube to **multiple** SonarCloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
 
 ## 🖥️ Desktop App (New!)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Prefer a visual interface? **CloudVoyager Desktop** provides a guided wizard UI — no terminal or config files needed. Includes a **Run History** sidebar for quick access to past migration results.
 
@@ -59,6 +60,7 @@ See the [Desktop App Guide](docs/desktop-app.md) for setup instructions and a wa
 
 <!-- Updated: 2026-02-18 -->
 ## 🔥 Single Command Full Migration (Slightly Dangerous)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. Download the latest release of CloudVoyager from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
 2. Ensure that you have full admin access API tokens for your SonarQube server and your SonarCloud organization.
@@ -75,6 +77,7 @@ See the [Desktop App Guide](docs/desktop-app.md) for setup instructions and a wa
 
 <!-- Updated: 2026-03-10 -->
 ## 🔄 Pause and Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All migrations support **automatic checkpointing**. Progress is saved after every phase (extract, build, encode, upload). If a migration is interrupted — whether by CTRL+C (graceful shutdown), a crash, or a network failure — simply re-run the same command to resume from where it left off. No data is lost or duplicated.
 
@@ -101,6 +104,7 @@ See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for
 
 <!-- Updated: 2026-03-19 -->
 ## 🔄 SonarQube Version Compatibility
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager ships **four fully independent pipelines** — one per SonarQube version range. At runtime, `version-router.js` calls `/api/system/status`, detects the server version, and dynamically loads the matching pipeline. No special configuration is needed.
 
@@ -117,6 +121,7 @@ See [Backward Compatibility](docs/backward-compatibility.md) for technical detai
 
 <!-- Updated: 2026-03-25 -->
 ## 🧪 CI / Regression Testing
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Two independent workflows run on every push to `main`:
 
@@ -131,11 +136,13 @@ The regression suite tests all `migrate`, `sync-metadata`, and `verify` commands
 
 <!-- Updated: 2026-02-19 -->
 ## 🛠️ Local Development
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Want to build and test CloudVoyager locally? See the [Local Development Guide](docs/local-development.md) for step-by-step instructions.
 
 <!-- Updated: 2026-04-01 -->
 ## 📚 Documentation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Document | Description |
 |----------|-------------|
@@ -155,6 +162,7 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 
 <!-- Updated: 2026-02-17 -->
 ## 📝 License
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 MIT
 

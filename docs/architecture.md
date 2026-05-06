@@ -1,9 +1,11 @@
 # 🏗️ Architecture
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Last updated: Apr 21, 2026 -->
 
 <!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
 
@@ -115,6 +117,7 @@ src/
 ```
 
 ### Version-Specific Pipeline Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each pipeline under `src/pipelines/sq-{version}/` uses a **folder-based module architecture** where every module over ~30 lines is decomposed into `module-name/index.js` + `module-name/helpers/*.js`. A re-export file at the original path (e.g., `transfer-pipeline.js`) preserves backward-compatible import paths.
 
@@ -251,6 +254,7 @@ sq-{version}/
 
 <!-- Updated: 2026-04-25_18:00:00 -->
 ### Shared Utilities — SCM Date Backdating
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The **batch-distributor** (`src/shared/utils/batch-distributor/`) preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report.
 
@@ -271,6 +275,7 @@ Legacy helpers (`computeBatchPlan`, `computeBatchDate`, `createBatchExtractedDat
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Version Routing
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 `version-router.js` detects the SonarQube server version and dynamically imports the correct pipeline:
 
@@ -289,6 +294,7 @@ No runtime version checks exist within any pipeline — each pipeline has its be
 | 2025.1+ | sq-2025 | Modern `issueStatuses` param, Web API V2 with fallbacks |
 
 ### Detailed Version Differences
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Behavior | sq-9.9 | sq-10.0 | sq-10.4 | sq-2025 |
 |----------|--------|---------|---------|---------|
@@ -300,9 +306,11 @@ No runtime version checks exist within any pipeline — each pipeline has its be
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🔄 Commands and Pipelines
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Updated: Mar 25, 2026 -->
 ### `transfer` — Single Project
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 
@@ -324,6 +332,7 @@ Interrupted transfers resume from the last completed checkpoint phase, skipping 
 
 <!-- Updated: Mar 25, 2026 -->
 ### `migrate` — Full Multi-Org Migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
 
@@ -355,6 +364,7 @@ On resume, completed organizations and projects are skipped based on the migrati
 
 <!-- Updated: Mar 25, 2026 -->
 ### `verify` — Migration Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Uses `shared/verification/verify-pipeline.js`:
 
@@ -381,6 +391,7 @@ Uses `shared/verification/verify-pipeline.js`:
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🧩 Key Design Patterns
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
 - **Migrator Pattern** — specialized modules for each SonarCloud migration target
@@ -401,6 +412,7 @@ Uses `shared/verification/verify-pipeline.js`:
 
 <!-- Updated: Mar 25, 2026 -->
 ## ⚡ Concurrency and Performance
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurrency.js`) for parallel I/O:
 
@@ -415,11 +427,13 @@ Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source f
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📦 Build and Packaging
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as the default, stable packaging pipeline. An experimental **Bun compile** pipeline is also available but may silently crash at runtime in some environments.
 
 <!-- Updated: Mar 25, 2026 -->
 ### Build Process (`scripts/build.js`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Default (Node.js SEA):** Two-step — esbuild bundles `src/index.js` into `dist/cli.cjs` (with `.proto` schemas inlined as text), then Node.js SEA packages it into a standalone binary with V8 code cache via postject.
 
@@ -427,6 +441,7 @@ CloudVoyager uses **esbuild + Node.js SEA** (Single Executable Applications) as 
 
 <!-- Updated: Mar 25, 2026 -->
 ### Output Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 dist/
@@ -444,6 +459,7 @@ dist/
 
 <!-- Updated: Mar 25, 2026 -->
 ### Build Commands
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 npm run build            # Bundle only via esbuild (dist/cli.cjs)
@@ -459,14 +475,17 @@ All CLI flags (`--concurrency`, `--max-memory`, `--project-concurrency`) work id
 
 <!-- Updated: Mar 26, 2026 -->
 ## 🧪 CI Workflows
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All workflows trigger **only on push to `main`** (merged PRs). No workflow runs on feature branches or pull requests.
 
 ### Unit Tests
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 A standalone `Unit Tests` workflow (`unit-tests.yml`) runs on every push to `main`. It installs dependencies, then runs `npm test`.
 
 ### Regression Tests
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 A separate `Regression Tests` workflow runs on every push to `main`. It does **not** block the release workflow.
 
@@ -484,10 +503,12 @@ setup ────────┤                     ├─ sync-metadata (4 pa
 - **Summary:** Gate job that only passes when all 30 integration tests pass
 
 ### SonarCloud Analysis
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 A standalone `SonarCloud Analysis` workflow (`sonarcloud.yml`) runs SAST and SCA scanning on every push to `main`. It does **not** run unit tests or ingest coverage — those are handled by the separate Unit Tests workflow.
 
 ### Auto Version Bump
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `Auto Version Bump` workflow (`version-bump.yml`) triggers when a PR is merged to `main` **and** the PR has a milestone assigned. It automatically bumps the version in `package.json` and `package-lock.json`:
 
@@ -498,12 +519,14 @@ The `Auto Version Bump` workflow (`version-bump.yml`) triggers when a PR is merg
 **To use:** Assign a milestone (e.g., `1.2`) to your PR in the GitHub sidebar before merging. The version is derived automatically from the milestone title.
 
 ### Build and Release
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `Build and Release` workflow (`release.yml`) builds binaries for 6 platforms and creates a GitHub Release. The release body includes:
 - Auto-generated release notes from merged PRs
 - A link to the corresponding GitHub milestone (derived from `package.json` version)
 
 ### Workflow files
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |---|---|
@@ -528,6 +551,7 @@ The `Build and Release` workflow (`release.yml`) builds binaries for 6 platforms
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📄 Generated Report Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 scanner-report.zip:
@@ -548,10 +572,12 @@ Measures are only generated for file components (no project-level `measures-1.pb
 
 <!-- Updated: Mar 25, 2026 -->
 ## 🖥️ Desktop App Architecture
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager Desktop is an Electron (v33) application in the `desktop/` directory that wraps the CLI binary with a guided wizard UI.
 
 ### Directory Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 desktop/
@@ -580,6 +606,7 @@ desktop/
 ```
 
 ### How It Works
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Config Wizard** — User fills out forms in the renderer process
 2. **Config Persistence** — Settings saved to `electron-store` (encrypted tokens at rest)
@@ -593,6 +620,7 @@ The renderer uses vanilla HTML/CSS/JS with no build step. Security follows Elect
 > **New desktop components:** `progress-parser.js` parses CLI log output to compute real-time progress percentages and ETA for all three pipeline types (migrate, transfer, verify). `whale-animator.js` renders a pixel-art whale sprite animation with starfield, cloud parallax, and typewriter phase labels during execution.
 
 ## 📚 Further Reading
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Technical Details](technical-details.md) — protobuf encoding, measure types, concurrency model

@@ -1,13 +1,12 @@
 # Changelog
 
-All notable changes to CloudVoyager are documented in this file. Entries are ordered with the most recent changes first.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to CloudVoyager are documented in this file. Entries are ordered with the most recent changes first.
 
 ---
 
 ## Fix: Project Settings Migration (Issue #95) (2026-04-29)
-<!-- updated: 2026-04-29_22:50:00 -->
 
-Fixed project configuration settings (e.g., `sonar.exclusions`, `sonar.coverage.exclusions`) not being migrated from SonarQube Server to SonarQube Cloud.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> (e.g., `sonar.exclusions`, `sonar.coverage.exclusions`) not being migrated from SonarQube Server to SonarQube Cloud.
 
 **Root causes identified and fixed:**
 
@@ -38,9 +37,8 @@ Fixed project configuration settings (e.g., `sonar.exclusions`, `sonar.coverage.
 ---
 
 ## Parallel Issue Sync with Worker Threads (2026-04-28)
-<!-- updated: 2026-04-28_11:30:00 -->
 
-Added `worker_threads`-based parallel issue sync to dramatically reduce wall-clock time for large projects (e.g., Angular Framework with 31,622 issues — from ~90 minutes to ~5-10 minutes).
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to dramatically reduce wall-clock time for large projects (e.g., Angular Framework with 31,622 issues — from ~90 minutes to ~5-10 minutes).
 
 **Problem:** Issue sync was bottlenecked on SonarCloud API response times. A single Node.js process with `mapConcurrent` at concurrency=20 couldn't push past 20 concurrent HTTP requests, and the single event loop serialized callback processing.
 
@@ -61,9 +59,8 @@ Added `worker_threads`-based parallel issue sync to dramatically reduce wall-clo
 ---
 
 ## Accurate Issue Creation Date Backdating (2026-04-28)
-<!-- updated: 2026-04-28_00:45:00 -->
 
-Rewrote `backdateChangesets()` to preserve each issue's original SonarQube creation date in SonarCloud. Verified 99.92% accuracy (26/31,641 mismatches on Angular Framework — all from issues sharing the same startLine).
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to preserve each issue's original SonarQube creation date in SonarCloud. Verified 99.92% accuracy (26/31,641 mismatches on Angular Framework — all from issues sharing the same startLine).
 
 **Root cause found:** `resolveLineCount()` defaulted to 1 when the `lines` metric wasn't available, causing `changesetIndexByLine` arrays to be 1 element long. Per-line date indices beyond index 0 were silently dropped, so the CE assigned a single date per file. The fix extends the array to `max(existingLength, maxIssueLine)`.
 
@@ -87,9 +84,8 @@ Rewrote `backdateChangesets()` to preserve each issue's original SonarQube creat
 ---
 
 ## Regression Testing System — Phase 1 (2026-04-25)
-<!-- updated: 2026-04-25_10:00:00 -->
 
-Built and shipped the regression testing system for CloudVoyager. 5 bug-fix scenarios tested across all 4 SonarQube versions (9.9, 10.0, 10.4, 2025.1) = 20 matrix jobs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for CloudVoyager. 5 bug-fix scenarios tested across all 4 SonarQube versions (9.9, 10.0, 10.4, 2025.1) = 20 matrix jobs.
 
 **Architecture:** Each CI job spins up an ephemeral SonarQube Enterprise Docker container with PostgreSQL. Test data is enriched with issue comments, status changes, and hotspot metadata via SQ API. CloudVoyager runs the migration to SonarCloud, then assertion scripts verify each previously-fixed bug hasn't regressed.
 
@@ -114,9 +110,8 @@ Built and shipped the regression testing system for CloudVoyager. 5 bug-fix scen
 ---
 
 ## Bug Fix: Issue Migration Data Loss + SCM Date-Bucket Distribution (2026-04-23)
-<!-- updated: 2026-04-23_13:15:00 -->
 
-Fixed issue migration data loss and implemented SCM-based date-bucket distribution to work around SonarCloud's 10K Elasticsearch visualization cap.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> and implemented SCM-based date-bucket distribution to work around SonarCloud's 10K Elasticsearch visualization cap.
 
 **Bug 1 — Batch distributor silently drops issues (critical):** The old batch distributor split large issue sets into separate 5K-batch analyses. SonarCloud's issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed. Only the last batch's issues survived. **Fix:** Disabled multi-analysis batching. All issues now upload in a single analysis.
 
@@ -135,38 +130,38 @@ Fixed issue migration data loss and implemented SCM-based date-bucket distributi
 ---
 
 ## Design Review: Desktop App UX (2026-04-22)
-<!-- updated: 2026-04-22_20:00:00 -->
 
-/plan-design-review completed on the CloudVoyager desktop Electron app. Initial score: 5/10, final: 7/10. Key decisions: (1) Collapse settings Step 3 to show only mode selection by default, addresses issues #61/#63/#64/#67/#68. (2) Per-item status for execution + connection test (partial failure visibility). (3) Completion summary card with migration stats (victory moment). (4) Bundle custom typeface (Inter or Geist). (5) Mandatory pre-flight validation before Start, addresses issue #72. (6) Fix color contrast on glassmorphic cards for WCAG compliance. Deferred: first-time user flow, results empty state, PREVIOUS RUN warning (#87), light theme polish.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> on the CloudVoyager desktop Electron app. Initial score: 5/10, final: 7/10. Key decisions: (1) Collapse settings Step 3 to show only mode selection by default, addresses issues #61/#63/#64/#67/#68. (2) Per-item status for execution + connection test (partial failure visibility). (3) Completion summary card with migration stats (victory moment). (4) Bundle custom typeface (Inter or Geist). (5) Mandatory pre-flight validation before Start, addresses issue #72. (6) Fix color contrast on glassmorphic cards for WCAG compliance. Deferred: first-time user flow, results empty state, PREVIOUS RUN warning (#87), light theme polish.
 
 ---
 
 ## CEO Review: Regression Testing Architecture Upgrade (2026-04-22)
-<!-- updated: 2026-04-22_19:30:00 -->
 
-/plan-ceo-review completed on the regression testing design. Key decisions: (1) Ephemeral SQ Docker containers per test job replace persistent test instances, eliminating stale test data risk. (2) All 4 SQ versions tested (9.9, 10.0, 10.4, 2025.1) = 76 matrix jobs. (3) Workflow integrated into existing regression.yml orchestrator. (4) SQC target keys namespaced with cv-regression-* prefix. (5) Budget unlimited: largest runners, max JVM for sonar-scanner. (6) sqc-us-region moved to Phase 2 (requires new secrets). Outside voice (Claude subagent) ran, 8 findings, 5 actioned.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> on the regression testing design. Key decisions: (1) Ephemeral SQ Docker containers per test job replace persistent test instances, eliminating stale test data risk. (2) All 4 SQ versions tested (9.9, 10.0, 10.4, 2025.1) = 76 matrix jobs. (3) Workflow integrated into existing regression.yml orchestrator. (4) SQC target keys namespaced with cv-regression-* prefix. (5) Budget unlimited: largest runners, max JVM for sonar-scanner. (6) sqc-us-region moved to Phase 2 (requires new secrets). Outside voice (Claude subagent) ran, 8 findings, 5 actioned.
 
 ---
 
 ## Design: Matrix-Based Regression Testing (2026-04-22)
-<!-- updated: 2026-04-22_19:00:00 -->
 
-Design document approved for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube/SonarCloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube/SonarCloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
 
 ---
 
 ## Bug Fixes: Migration Log Analysis — Round 2 (2026-04-22)
-<!-- updated: 2026-04-22_10:23:00 -->
 
-Two additional bugs found by re-running migration after Round 1 fixes and analysing `migration-output/logs/2026-04-22T01-49-13-947Z/` logs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> by re-running migration after Round 1 fixes and analysing `migration-output/logs/2026-04-22T01-49-13-947Z/` logs.
 
 ### 4. CE "newer report already processed" crashes migration resume (all 4 pipelines)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 On resume, the checkpoint extractor restores the cached `scmRevisionId` from the first run. If SonarCloud already processed a newer report (e.g. from a previous partial migration), the CE task fails with "a newer report has already been processed" and the entire project is marked failed. This is incorrect — the project already has analysis data on SonarCloud.
 
 **Fix:** In `waitForAnalysis()`, detect the "a newer report has already been processed" error message and treat it as a success (log a warning instead of throwing). Applied to all 4 pipelines.
 
 ### 5. PDF `PdfPrinter` missing `urlResolver` parameter (pdfmake 0.3.x API)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 The `PdfPrinter` constructor in pdfmake 0.3.x requires three parameters: `(fontDescriptors, virtualfs, urlResolver)`. The code only passed two, leaving `this.urlResolver` as `undefined`. When `createPdfKitDocument()` called `this.resolveUrls()`, it crashed with `Cannot read properties of undefined (reading 'resolve')`. The VFS object was also missing `writeFileSync()` which `URLResolver` requires.
 
@@ -187,11 +182,12 @@ Re-ran migration after fixes: **3/3 projects succeeded, 0 failed, 0 errors in er
 ---
 
 ## Bug Fixes: Migration Log Analysis — Round 1 (2026-04-22)
-<!-- updated: 2026-04-22_18:00:00 -->
 
-Three bugs found by analysing `migration-output/logs/2026-04-22T01-14-10-349Z/` logs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> by analysing `migration-output/logs/2026-04-22T01-14-10-349Z/` logs.
 
 ### 1. Hotspot comment API parameter name wrong (all 4 pipelines)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 `addHotspotComment()` sent `{ hotspot, text }` to `/api/hotspots/add_comment`, but SonarCloud expects the parameter name `comment`, not `text`. Every hotspot comment/source-link/metadata-marker call returned `400: The 'comment' parameter is missing`.
 
@@ -199,11 +195,15 @@ Three bugs found by analysing `migration-output/logs/2026-04-22T01-14-10-349Z/` 
 
 ### 2. PDF report generation crash (VFS data resolution)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 `create-printer.js` resolved `vfsModule.pdfMake?.vfs || vfsModule` for the font VFS data, but `pdfmake/build/vfs_fonts.js` exports `{ default: { 'Roboto-Regular.ttf': '...', ... } }`. The `pdfMake?.vfs` path returns `undefined`, and `vfsModule` itself is the ES module wrapper — not the font data.
 
 **Fix:** Added `vfsModule.default` fallback: `vfsModule.pdfMake?.vfs || vfsModule.default || vfsModule`.
 
 ### 3. CE analysis failure reason lost in error logs
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 When a project's CE analysis failed, `recordProjectOutcome()` logged only step names (e.g. `Upload scanner report`) but not the error message. Additionally, `waitForAnalysis()` didn't fall back to `task.errorType` when `task.errorMessage` was absent, producing generic "Unknown error" messages.
 
@@ -228,9 +228,8 @@ When a project's CE analysis failed, `recordProjectOutcome()` logged only step n
 ---
 
 ## Bug Fix: Duplicate Log Folders on Heap Respawn (2026-04-22)
-<!-- updated: 2026-04-22_11:22:00 -->
 
-`enableFileLogging` was called in each command handler **before** `ensureHeapSize` in the action handler. When the process respawned for more heap memory, the child process called `enableFileLogging` again, creating a second per-run log folder. The initial process's folder contained only startup messages; all real logs went to the child's folder.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> in each command handler **before** `ensureHeapSize` in the action handler. When the process respawned for more heap memory, the child process called `enableFileLogging` again, creating a second per-run log folder. The initial process's folder contained only startup messages; all real logs went to the child's folder.
 
 **Fix:** Moved `enableFileLogging` from the 4 command handlers (`migrate`, `verify`, `transfer`, `sync-metadata`) into their respective action handlers, immediately after `ensureHeapSize`. Since `ensureHeapSize` either respawns (never returns) or returns normally, `enableFileLogging` now runs exactly once — in the process that does the actual work.
 
@@ -248,13 +247,12 @@ When a project's CE analysis failed, `recordProjectOutcome()` logged only step n
 ---
 
 ## Issue #98: Additional Bug Fixes from Deep Code Review (2026-04-22)
-<!-- updated: 2026-04-22_02:45:00 -->
 
-Applied all fixes from the deep codebase audit (5 critical, 16 warnings, 9 info). Zero new test failures introduced.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> from the deep codebase audit (5 critical, 16 warnings, 9 info). Zero new test failures introduced.
 
 ### Critical Fixes
 
-- **CR-01**: Shutdown coordinator now unregisters original handler before cleanup, preventing force-exit during state writes
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> Shutdown coordinator now unregisters original handler before cleanup, preventing force-exit during state writes
 - **CR-02**: Atomic save reordered: write temp first (primary still exists), then backup, then rename
 - **CR-03**: StateTracker now uses `createWriteLock()` consistent with CheckpointJournal and MigrationJournal
 - **CR-04**: `shouldBatch()` uses optional chaining to handle undefined `issues` array
@@ -262,7 +260,7 @@ Applied all fixes from the deep codebase audit (5 critical, 16 warnings, 9 info)
 
 ### Warning Fixes
 
-- **WR-01**: `enableFileLogging` sanitizes `commandName` to prevent path traversal in log filenames
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> `enableFileLogging` sanitizes `commandName` to prevent path traversal in log filenames
 - **WR-02**: `loadMigrateConfig` adds defensive `throw error` after `handleConfigLoadError`
 - **WR-03**: `validateMigrateSchema` compiles Ajv schema once at module scope
 - **WR-04/05**: Search slicer windows no longer overlap (offset by +1ms)
@@ -279,7 +277,7 @@ Applied all fixes from the deep codebase audit (5 critical, 16 warnings, 9 info)
 
 ### Info Fixes
 
-- **IN-01**: `API_RESULT_LIMIT` extracted to shared `constants.js`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> `API_RESULT_LIMIT` extracted to shared `constants.js`
 - **IN-02**: Removed unused `stateDir` variable in `createProgressTracker`
 - **IN-03/04**: Removed redundant `existsSync` checks (ENOENT already caught)
 - **IN-09**: `parse-only-components.js` imports `VALID_ONLY_COMPONENTS` from shared location
@@ -291,9 +289,8 @@ See git diff for full list. Key areas: state management, shutdown, batch-distrib
 ---
 
 ## Code Review: Deep Codebase Audit (2026-04-22)
-<!-- updated: 2026-04-22_12:30:00 -->
 
-Full codebase review of 95 files across shared utilities, state management, pipelines, protobuf encoding, verification, and CLI commands. Findings documented in `REVIEW.md` at project root.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> of 95 files across shared utilities, state management, pipelines, protobuf encoding, verification, and CLI commands. Findings documented in `REVIEW.md` at project root.
 
 ### Summary
 
@@ -313,9 +310,8 @@ Full codebase review of 95 files across shared utilities, state management, pipe
 ---
 
 ## Feature: Per-Run Log Folders (2026-04-22)
-<!-- updated: 2026-04-22_03:01:00 -->
 
-Each migration run now creates a **timestamped subfolder** under `migration-output/logs/`, e.g. `migration-output/logs/2026-04-22T03-01-00-123Z/`. This makes it easy to find and compare logs across different runs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a **timestamped subfolder** under `migration-output/logs/`, e.g. `migration-output/logs/2026-04-22T03-01-00-123Z/`. This makes it easy to find and compare logs across different runs.
 
 Within each run folder, four log files are written:
 
@@ -327,6 +323,8 @@ Within each run folder, four log files are written:
 This makes it easy to triage warnings and errors without searching through thousands of info-level lines.
 
 ### Bug Fix: Logs preserved during output directory cleanup
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Previously, a fresh (non-resume) migration would `rm -rf` the entire `migration-output/` directory, deleting log files that were created moments earlier by `enableFileLogging`. All 4 pipeline versions now skip the `logs/` subdirectory during cleanup so logs accumulate across runs.
 
@@ -342,9 +340,8 @@ Previously, a fresh (non-resume) migration would `rm -rf` the entire `migration-
 ---
 
 ## Bug Fix: New Code Definitions Migration Fails with 400 Error (2026-04-22)
-<!-- updated: 2026-04-22_14:00:00 -->
 
-Fixed a bug where the "New code definitions" migration step failed with `SonarCloud API error (400): Either 'value', 'values' or 'fieldValues' must be provided`.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> the "New code definitions" migration step failed with `SonarCloud API error (400): Either 'value', 'values' or 'fieldValues' must be provided`.
 
 ### Root Cause
 
@@ -363,11 +360,10 @@ Changed the call to `client.setProjectSetting(setting.key, { value: setting.valu
 
 ---
 
-<!-- <subsection-updated last-updated="2026-04-22T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## Bug Fixes: Missing Imports in Verification Report Generators (2026-04-22)
-<!-- updated: 2026-04-22_00:42:00 -->
 
-Fixed several missing import bugs that caused the `verify` command's report generation to fail, and a quoting bug in the build script.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> that caused the `verify` command's report generation to fail, and a quoting bug in the build script.
 
 ### Bug Fixes
 
@@ -380,14 +376,14 @@ Fixed several missing import bugs that caused the `verify` command's report gene
 
 ---
 
-<!-- <subsection-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## Issue Batching: Distribute Large Issue Sets Across Multiple Dates (2026-04-20)
 
-Projects with more than 5,000 issues per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.
 
 ### New Feature
 
-- **Issue batch distribution** — When a branch has >5,000 issues, they are split into batches of 5,000 and uploaded as separate scanner reports with backdated analysis dates (going backwards from today, one day per batch). The final batch carries the original date and full project data.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> — When a branch has >5,000 issues, they are split into batches of 5,000 and uploaded as separate scanner reports with backdated analysis dates (going backwards from today, one day per batch). The final batch carries the original date and full project data.
 - **Shared utility** — `src/shared/utils/batch-distributor/` provides four pure-function helpers: `shouldBatch`, `computeBatchPlan`, `computeBatchDate`, `createBatchExtractedData`.
 - **All 4 pipeline versions updated** — sq-9.9, sq-10.0, sq-10.4, and sq-2025 all integrate the batch distributor via a `shouldBatch` gate in `transferBranch`.
 - **Upload size optimization** — Non-final batches strip `sources`, `changesets`, and `duplications` to minimize upload payload. `components` and `activeRules` are preserved for issue resolution.
@@ -395,17 +391,17 @@ Projects with more than 5,000 issues per branch now automatically split into mul
 
 ### Design Notes
 
-- Batch size is hardcoded at 5,000 (50% safety margin under the 10K ES visualization limit)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> at 5,000 (50% safety margin under the 10K ES visualization limit)
 - Batches are submitted oldest-first and always wait for CE completion before the next batch
 - Branch-level stats are computed from the original (unbatched) data for accuracy
 - No changes to the protobuf builder, encoder, or packager — batching operates at the `extractedData` level
 
 ---
 
-<!-- <subsection-updated last-updated="2026-04-01T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## Desktop Migration Graph: Bug Fixes (2026-04-01)
 
-Fixed four bugs in the desktop migration graph visualization component that caused incorrect node positioning, missing edges, blocked node activation, and inconsistent progress parsing.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> in the desktop migration graph visualization component that caused incorrect node positioning, missing edges, blocked node activation, and inconsistent progress parsing.
 
 All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
@@ -418,12 +414,14 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 ---
 
-<!-- Updated: Mar 28, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## Search Slicer: Fix 10K Limit on Large Projects (2026-03-28)
 
-Fixed two bugs that caused transfers to fail for projects with more than 10,000 issues.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> that caused transfers to fail for projects with more than 10,000 issues.
 
 ### Bug 1 — `10001th result asked` (Elasticsearch limit hit during date-range probe)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 - **Root cause:** `slice-by-creation-date.js` called `findDateRange()` to determine the oldest/newest issue before building date windows. `findDateRange` used `getPaginatedFn` with `ps=1`, causing the paginator to loop page-by-page through all issues. On projects with >10K issues it reached page 10,001, which Elasticsearch rejects.
 - **Fixed:** Removed `find-date-range.js` and the probing step entirely. `sliceByCreationDate` now uses a fixed epoch (`2006-01-01` → now) to build 12 equal-width time windows, requiring zero API calls to determine the date range.
@@ -433,10 +431,14 @@ Fixed two bugs that caused transfers to fail for projects with more than 10,000 
 
 ### Bug 2 — `Date cannot be parsed as either a date or date+time` (wrong datetime format)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 - **Root cause:** JavaScript's `Date.toISOString()` produces `2007-09-08T21:21:02.125Z` (includes milliseconds). SonarQube's `createdAfter`/`createdBefore` API parameters reject this format and require `2007-09-08T21:21:02+0000`.
 - **Fixed:** Added `format-sonarqube-date.js` helper that strips milliseconds and replaces `Z` with `+0000`. All date-window boundaries and midpoints now use this formatter.
 
 ### Bug 3 — Desktop app config validation failure (`/transfer must NOT have additional properties`)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 - **Root cause:** The desktop transfer wizard set `transfer.skipIssueMetadataSync` and `transfer.skipHotspotMetadataSync` in the config, but these weren't declared in `transfer-options-schema.js`. The schema's `additionalProperties: false` rejected them.
 - **Fixed:** Added both properties to the transfer options schema.
@@ -445,7 +447,7 @@ Fixed two bugs that caused transfers to fail for projects with more than 10,000 
 
 ## Transfer Command: Metadata Sync (2026-03-27)
 
-The `transfer` command now includes a **Phase 2: Metadata Sync** that runs automatically after the scanner report upload completes.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a **Phase 2: Metadata Sync** that runs automatically after the scanner report upload completes.
 
 - **Added:** Issue metadata sync — replays full status history from SQ changelog, copies comments with attribution, adds `metadata-synchronized` tag, syncs assignments, and adds a `[SonarQube Source]` comment linking back to the original SQ issue URL.
 - **Added:** Hotspot metadata sync — syncs hotspot statuses, comments, and source links.
@@ -456,7 +458,7 @@ The `transfer` command now includes a **Phase 2: Metadata Sync** that runs autom
 
 ## External Issue Prefix Fix (2026-03-27)
 
-Fixed a critical bug where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube 2025+.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube 2025+.
 
 - **Root cause:** SonarQube 2025+ returns external linter rules with an `external_` prefix (e.g., `external_ruff:D200`). SonarCloud's `/api/rules/repositories` includes `external_ruff` as a known repo, causing `isExternalIssue()` to misclassify these as native issues. SC then dropped them because no native rule `external_ruff:D200` exists.
 - **Fixed:** `isExternalIssue()` now detects the `external_` prefix and always treats such rules as external — across all 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025).
@@ -468,18 +470,18 @@ Fixed a critical bug where **all external linter issues** (Ruff, Pylint, ESLint,
 
 ## CI Workflow Restructure (2026-03-26)
 
-Restructured GitHub Actions workflows to simplify CI and automate versioning.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to simplify CI and automate versioning.
 
 ### Workflow Trigger Cleanup
 
-All workflows now trigger **only on push to `main`**. Removed all `pull_request` triggers to prevent redundant runs on feature branches.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> **only on push to `main`**. Removed all `pull_request` triggers to prevent redundant runs on feature branches.
 
 - **Changed:** `sonarcloud.yml` — removed `pull_request` trigger
 - **Changed:** `unit-tests.yml` — removed `pull_request` trigger
 
 ### Separate Unit Tests Workflow
 
-Unit tests are now a standalone workflow, decoupled from both SonarCloud scanning and regression tests.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a standalone workflow, decoupled from both SonarCloud scanning and regression tests.
 
 - **New:** `.github/workflows/unit-tests.yml` — standalone unit test workflow triggered on push to `main`
 - **Changed:** `.github/workflows/sonarcloud.yml` — removed test coverage step; now only runs SAST/SCA scanning
@@ -488,7 +490,7 @@ Unit tests are now a standalone workflow, decoupled from both SonarCloud scannin
 
 ### Auto Version Bump from PR Milestone
 
-Version bumping is now fully automated based on the milestone assigned to merged PRs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> fully automated based on the milestone assigned to merged PRs.
 
 - **New:** `.github/workflows/version-bump.yml` — on PR merge, reads the milestone title and bumps `package.json` + `package-lock.json` (patch increment if same milestone, reset to `.0` if new milestone)
 - **Changed:** `.github/workflows/gh-release.yml` — milestone link now uses the correct GitHub milestone integer ID (queried via API) instead of the version string
@@ -498,7 +500,7 @@ Version bumping is now fully automated based on the milestone assigned to merged
 
 ## Bug Fix Audit (2026-03-26)
 
-A comprehensive codebase audit identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
 
 - **Fixed:** Org-level verification was comparing SonarCloud to itself (passing `scClient` as both args to `runOrgChecks`). Now correctly constructs a `SonarQubeClient` for the SQ side.
 - **Fixed:** Missing `await` on `syncIssueAssignment()` in sq-10.0 pipeline caused silent error swallowing and stats race conditions.
@@ -515,9 +517,11 @@ A comprehensive codebase audit identified 83 issues. The following 10 high/mediu
 
 ## Milestone 1.2 Fixes (2026-03-26)
 
-The following four fixes were applied as part of the v1.2 milestone.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> were applied as part of the v1.2 milestone.
 
 ### Search Slicing for 10K+ Issues (#53)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000. Projects exceeding this limit now use date-window slicing to retrieve all issues.
 
@@ -526,6 +530,8 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000. Projects excee
 - **Modified:** `issues-hotspots.js` in all 4 pipelines now calls `fetchWithSlicing` when the total exceeds the 10K ceiling
 
 ### Third-Party Issue Migration Fix (#56)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Fixed silent loss of external (third-party) issues when the SonarCloud rule-repositories API was unreachable.
 
@@ -537,6 +543,8 @@ Fixed silent loss of external (third-party) issues when the SonarCloud rule-repo
 
 ### SonarCloud Public Scanning (#66)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarCloud.
 
 - **New:** `.github/workflows/sonarcloud.yml` — triggers on push to `main` and on pull requests
@@ -545,11 +553,15 @@ Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarCloud.
 
 ### Release Milestone References (#75)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 GitHub releases now include the corresponding milestone link in the release body.
 
 - **Modified:** `.github/workflows/gh-release.yml` — extracts the version tag, derives the milestone name, and appends a milestone link to the auto-generated release notes
 
 ### Desktop UI — Collapsible Config Sections
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 The migrate-config wizard now groups optional settings into collapsible sections that start collapsed by default, reducing visual clutter for new users.
 
@@ -562,16 +574,20 @@ The migrate-config wizard now groups optional settings into collapsible sections
 
 ### Bug Fix — Test Compatibility for Factory-Pattern Class Wrappers
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Fixed 134 hook failures and 47 test failures caused by the refactored class wrappers (`SonarQubeClient`, `SonarCloudClient`, `ProtobufBuilder`, `ProtobufEncoder`, `EnterpriseClient`, `ReportUploader`) not being compatible with sinon prototype stubbing.
 
 #### Root Cause
-The major refactor (v1.1.7) converted monolithic classes into factory functions with thin class wrappers using `Object.assign(this, instance)`. This broke sinon's `sinon.stub(Class.prototype, 'method')` pattern because:
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> (v1.1.7) converted monolithic classes into factory functions with thin class wrappers using `Object.assign(this, instance)`. This broke sinon's `sinon.stub(Class.prototype, 'method')` pattern because:
 1. Methods existed as instance properties (from `Object.assign`), not on the prototype
 2. Sinon requires methods to exist on the prototype before stubbing
 3. Instance properties from `Object.assign` shadowed prototype stubs
 
 #### Fix
-- Added prototype method placeholders to all class wrappers so sinon can stub them
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to all class wrappers so sinon can stub them
 - Changed constructors to detect sinon stubs (via `isSinonProxy` flag) and skip overwriting them
 - Added missing `handleError` method to `SonarQubeClient` factory
 - Added missing `_findTaskFromActivity` method to `ReportUploader` class and factory
@@ -595,15 +611,20 @@ The major refactor (v1.1.7) converted monolithic classes into factory functions 
 
 ### Bug Fix — Third-Party Issue Migration (#56)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Fixed a bug where external (third-party) issues were silently dropped during migration when the SonarCloud `/api/rules/repositories` endpoint was unreachable or returned an error.
 
 #### Root Cause
-When `sonarCloudRepos` was empty (due to API failure), three layers of code conspired to skip all external issues:
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> was empty (due to API failure), three layers of code conspired to skip all external issues:
 1. `isExternalIssue()` returned `false` for every issue when the repo set was empty
 2. `buildExternalIssues()` short-circuited with an early return when the repo set was empty
 3. `getRuleRepositories()` returned an empty `Set` on any API error with no retry
 
 #### Fix (applied across all 4 pipelines: sq-9.9, sq-10.0, sq-10.4, sq-2025)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - **`isExternalIssue`** — Falls back to `FALLBACK_SONARCLOUD_REPOS` (a built-in set of known SonarCloud rule repos) when the live repo set is empty. Also adds guards for rules without colons and empty repo prefixes.
 - **`buildExternalIssues`** — Removes the early-return that skipped processing; now logs a warning and continues with fallback data.
 - **`getRuleRepositories`** — Retries the API call up to 3 times with exponential backoff (1s, 2s, 3s). If all retries fail, returns `FALLBACK_SONARCLOUD_REPOS` instead of an empty set.
@@ -625,10 +646,13 @@ When `sonarCloudRepos` was empty (due to API failure), three layers of code cons
 
 ### Bug Fix — Broken Relative Import Paths After Folder Refactoring
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Fixed 366 broken relative import paths across 325 files in `src/pipelines/`, `src/commands/`, and `src/version-router/`. After the folder-based module decomposition (v1.1.7), helper files nested inside new subfolder structures had incorrect `../` counts in their relative paths to `src/shared/` and to sibling pipeline modules.
 
 #### Root Cause
-Files moved one level deeper (e.g., from `module.js` into `module/helpers/fn.js`) still used the old `../` count, causing imports to resolve to `src/pipelines/shared/` instead of `src/shared/`.
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> (e.g., from `module.js` into `module/helpers/fn.js`) still used the old `../` count, causing imports to resolve to `src/pipelines/shared/` instead of `src/shared/`.
 
 #### Scope
 - **358 shared/ imports** fixed across `src/pipelines/sq-9.9/`, `sq-10.0/`, `sq-10.4/`, and `sq-2025/`
@@ -641,6 +665,8 @@ Files moved one level deeper (e.g., from `module.js` into `module/helpers/fn.js`
 ## [1.1.7] - 2026-03-25
 
 ### Code Architecture Refactoring — Folder-Based Module Decomposition
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Refactored all 55+ files exceeding 50 lines in `src/pipelines/sq-10.4/` into a folder-based module architecture. Every large file is now decomposed into `module-name/index.js` + `module-name/helpers/*.js`, with a 1-line re-export file at the original path preserving all existing import paths.
 
@@ -677,6 +703,8 @@ Refactored all 55+ files exceeding 50 lines in `src/pipelines/sq-10.4/` into a f
 
 ### Regression Testing Suite
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Added a comprehensive GitHub Actions regression testing workflow that runs all CLI feature/flag combinations in parallel.
 
 - **30 parallel integration test jobs** covering all `migrate`, `sync-metadata`, and `verify` flag combinations
@@ -693,6 +721,8 @@ Added a comprehensive GitHub Actions regression testing workflow that runs all C
 
 ### Desktop App — SonarCloud Organization Validation
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 - **config-form.js** — Added `validateOrgs()` method that enforces at least one SonarCloud organization is present and all required fields (org key, token) are filled before allowing the user to proceed.
 - **migrate-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
 - **sync-metadata-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
@@ -704,6 +734,8 @@ Added a comprehensive GitHub Actions regression testing workflow that runs all C
 ## [1.1.4] - 2026-03-25
 
 ### Pipeline Modularization and New Components
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Refactored project migration into modular components and added new capabilities across all 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025).
 
@@ -759,6 +791,8 @@ Refactored project migration into modular components and added new capabilities 
 ## [Documentation] - 2026-03-20
 
 ### Updated
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - **docs/architecture.md** — Updated folder structure, pipeline layout, version differences table, data flow diagrams, desktop app architecture, build system details
 - **docs/technical-details.md** — Updated protobuf encoding details, report ZIP structure, external issues documentation, state management, concurrency, error hierarchy
 - **docs/configuration.md** — Updated CLI flags, config schemas, auto-tune defaults, environment variables, npm scripts
@@ -782,6 +816,8 @@ Full codebase review performed across all 322 source files (4 version-specific p
 ## [1.1.3] - 2026-03-20
 
 ### Pipeline-Per-Version Architecture Refactor
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Refactored the entire codebase from a flat structure with a single `VersionAwareSonarQubeClient` to a **pipeline-per-version** architecture. Each supported SonarQube version range now has its own fully independent pipeline directory containing all version-specific code.
 
@@ -834,6 +870,8 @@ Refactored the entire codebase from a flat structure with a single `VersionAware
 
 ### Cross-Compile Support and macOS x64 Desktop App
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### Cross-Platform SEA Binary Building
 - Added `--target=<platform>` flag to `scripts/build.js` for cross-compiling Node.js SEA binaries (e.g., building a macOS x64 binary from an ARM64 Mac)
 - When cross-compiling, the build script downloads the correct Node.js binary for the target architecture from nodejs.org and injects the SEA blob into it
@@ -860,6 +898,8 @@ Refactored the entire codebase from a flat structure with a single `VersionAware
 
 ### Bug Fix: SonarCloud Issue Sync Failure (FALSE_POSITIVE Status Parameter)
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Projects were being marked as **partial** because the "Sync issues" step failed for every project with:
 > `Value of parameter 'statuses' (FALSE_POSITIVE) must be one of: [OPEN, CONFIRMED, REOPENED, RESOLVED, CLOSED]`
 
@@ -881,53 +921,73 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ### 2026-03-10 — Incremental Migrations with Pause/Resume
 
 #### New Feature: Checkpoint Journal System
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Added a **write-ahead checkpoint journal** that tracks phase-by-phase progress for both `transfer` and `migrate` commands, enabling true pause/resume across all migration workflows
 - Interrupted migrations (CTRL+C, crashes, network failures) can now be resumed from the exact point of interruption — no re-processing of completed work
 - The journal stores a session fingerprint (SonarQube version, URL, project key) and validates it on resume, warning on version mismatches
 
 #### Graceful Shutdown (SIGINT/SIGTERM)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - First CTRL+C: finishes the current atomic operation, saves progress to the journal, releases the lock, and exits cleanly
 - Second CTRL+C: forces immediate exit
 - Cleanup handlers are registered for saving state, releasing locks, and flushing logs
 
 #### Concurrent Run Prevention
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Advisory lock file (`<stateFile>.lock`) prevents two instances from running on the same state file simultaneously
 - Stale lock detection: auto-releases locks from dead processes (PID check) or locks older than 6 hours
 - Different-hostname locks require `--force-unlock` for NFS safety
 
 #### Extraction Caching
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Extraction results are cached to disk as gzipped JSON files, so resumed runs skip already-completed extraction phases
 - Cache files auto-purge after 7 days (configurable via `transfer.checkpoint.cacheMaxAgeDays`)
 - Corrupt cache files are handled gracefully (phase re-executes)
 
 #### Upload Deduplication
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Before re-uploading after a crash, checks `/api/ce/activity` for existing CE tasks from the current session
 - Prevents duplicate CE tasks — the most dangerous edge case in crash-during-upload scenarios
 
 #### Migration Journal (Multi-Project)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Per-organization and per-project completion tracking for the `migrate` command
 - On resume: completed orgs and projects are skipped, in-progress projects resume from their last completed step
 - Output directory is preserved on resume (no longer wiped)
 
 #### Atomic State Writes
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - State files now use write-to-temp, `fsync`, then atomic rename — prevents corruption on crash
 - Backup rotation: current state is copied to `.backup` before each save
 - Safe load with fallback: tries main file, then `.backup`, then returns null
 - Disk space pre-check (10MB minimum) before writing
 
 #### New CLI Flags
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - `--force-restart` — Discard checkpoint/migration journal and start from scratch (`transfer`, `migrate`)
 - `--force-fresh-extract` — Discard extraction caches and re-extract everything (`transfer`)
 - `--force-unlock` — Force release a stale lock file from a previous run (`transfer`, `migrate`)
 - `--show-progress` — Display checkpoint progress table and exit (`transfer`)
 
 #### New Config Options
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - `transfer.checkpoint.enabled` — Enable/disable checkpoint journal (default: `true`)
 - `transfer.checkpoint.cacheExtractions` — Enable/disable extraction caching (default: `true`)
 - `transfer.checkpoint.cacheMaxAgeDays` — Max age of cache files in days (default: `7`)
 - `transfer.checkpoint.strictResume` — Fail on SonarQube version mismatch when resuming (default: `false`)
 
 #### Enhanced Commands
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - `status` command now shows checkpoint journal progress (phases, branches, completion %) when a journal exists
 - `reset` command now clears checkpoint journals, lock files, and extraction caches in addition to state files
 
@@ -957,6 +1017,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ### 2026-03-10 — User Mapping CSV for Issue Assignment
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### New Feature: User Mapping
 - Added `user-mappings.csv` to the dry-run CSV workflow, enabling SonarQube-to-SonarCloud user login mapping
 - During `--dry-run`, CloudVoyager now collects all unique issue assignees across all projects using lightweight facet queries and enriches them with display names and emails from the SonarQube user API
@@ -984,6 +1046,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ---
 
 ### 2026-03-09 — SonarQube 9.9 & 2025.1 Backward Compatibility
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### New: Version-Aware SonarQube Client
 - Added `VersionAwareSonarQubeClient` subclass (`src/sonarqube/version-aware-client.js`) that auto-detects the SonarQube server version and adapts API calls accordingly
@@ -1016,6 +1080,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ### 2026-03-04 — Issue Status History Verification
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### Enhancement: `verify` Command
 - Added **status history (changelog) verification** to the issue metadata checker
 - Fetches changelogs from both SonarQube and SonarCloud via `/api/issues/changelog`
@@ -1029,6 +1095,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ---
 
 ### 2026-02-28 — Migration Verification Command
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### New Feature: `verify` Command
 - Added a `verify` command that exhaustively compares SonarQube and SonarCloud data to confirm migration completeness
@@ -1057,6 +1125,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ### 2026-02-25 — Transfer-All Deprecation, Further Reading, Server-Wide Data Caching
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### Deprecated
 - Removed `transfer-all` command, config schema, example config, scenario docs, and all references — replaced by the more capable `migrate` command
 - Removed `examples/transfer-all-config.example.json` and `docs/scenario-transfer-all.md`
@@ -1073,6 +1143,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ### 2026-02-20 — Enterprise Portfolio API, Configuration Updates
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### Enterprise Portfolio API (V2)
 - Migrated portfolio management to SonarCloud's V2 Enterprise API for creating and managing portfolios
 - Added `src/sonarcloud/enterprise-client.js` for V2 API interactions
@@ -1088,6 +1160,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ---
 
 ### 2026-02-19 — Unit Tests, Local Dev Guide, Build Optimizations, and SEA Binary Fixes
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Build Optimizations
 - Updated esbuild target from Node 18 to Node 21 for modern syntax and fewer polyfill transforms
@@ -1113,6 +1187,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ---
 
 ### 2026-02-18 — Reporting, Quality Profile Diffs, and Stability Fixes
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Migration Report Generation
 - Added comprehensive migration report output in multiple formats: **PDF**, **JSON**, **Markdown**, and **plain text**
@@ -1158,6 +1234,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ### 2026-02-17 — Full Migration Pipeline, Metadata Sync, and Concurrency
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 #### Full Migration Pipeline (`migrate` command)
 - **Issue metadata sync** — migrates issue statuses, assignments, comments, and tags from SonarQube to SonarCloud
 - **Hotspot metadata sync** — migrates security hotspot statuses and review comments
@@ -1194,6 +1272,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 ---
 
 ### 2026-02-16 — Core Transfer Engine, CLI, Build System, and Initial Documentation
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Data Extraction Engine
 - Built the core extraction engine that pulls all relevant data from SonarQube via its REST API:

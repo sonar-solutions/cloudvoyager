@@ -1,6 +1,6 @@
 # Bespoke Algorithms
 
-<!-- <doc-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 This document describes custom, non-trivial algorithms implemented from scratch within CloudVoyager — logic that required deliberate design decisions rather than off-the-shelf solutions.
 
@@ -8,7 +8,7 @@ This document describes custom, non-trivial algorithms implemented from scratch 
 
 ## Table of Contents
 
-1. [Date-Window Slicing (10K+ Issue Retrieval)](#1-date-window-slicing-10k-issue-retrieval)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 2. [Migration Graph Visualization (Desktop DAG Renderer)](#2-migration-graph-visualization-desktop-dag-renderer)
 3. [Atomic Checkpoint Journal](#3-atomic-checkpoint-journal)
 4. [Protobuf Report Encoding](#4-protobuf-report-encoding)
@@ -24,8 +24,7 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000 items per query
 
 ### Algorithm
 
-```
-fetchWithSlicing(projectKey, params):
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
   1. Probe the total count for the full date range
   2. If total <= 10,000 → return single fetch
   3. Otherwise bisect the date window:
@@ -37,7 +36,7 @@ fetchWithSlicing(projectKey, params):
 
 ### Implementation
 
-`src/shared/utils/search-slicer/index.js` — orchestrator
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 `src/shared/utils/search-slicer/helpers/bisect-window.js` — binary split
 `src/shared/utils/search-slicer/helpers/build-windows.js` — initial partition
 `src/shared/utils/search-slicer/helpers/fetch-window.js` — single window fetch
@@ -53,7 +52,7 @@ The CloudVoyager Desktop execution screen renders a real-time animated DAG (dire
 
 ### Architecture
 
-The graph is implemented as a mixin-composed singleton (`window.MigrationGraph`) split across five files:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 | File | Responsibility |
 |------|---------------|
@@ -65,7 +64,7 @@ The graph is implemented as a mixin-composed singleton (`window.MigrationGraph`)
 
 ### Graph Topology (migrate mode)
 
-The static org-level DAG for `migrate` mode is defined in `_graphDefs.migrate`:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 setup → groups → permissions → projects → portfolios
@@ -81,7 +80,7 @@ The `projects → portfolios` edge is present in the static graph definition so 
 
 ### Per-Project Fan-out
 
-When the first log line matching `--- Project N/M: <key>` is seen, `_addProjectBranch` dynamically creates four child nodes per project:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 projects → upload:<key> → config:<key> → issues:<key>
@@ -141,7 +140,7 @@ This ensures nodes advance to `done` correctly when running with `concurrency=1`
 
 ### State Color Interpolation
 
-Node color is computed by linearly interpolating through three stops keyed to `node.progress` (0.0 = pending, 0.5 = active, 1.0 = done):
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 progress 0.0 → theme pending color  (grey)
@@ -153,7 +152,7 @@ Interpolation is split at `p = 0.5`: below uses `pending → amber`, above uses 
 
 ### Force Simulation
 
-Nodes converge to their `targetX / targetY` via a simple Euler integrator:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 vx += (targetX - x) * gravity
@@ -174,8 +173,7 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ### Write Protocol
 
-```
-1. Serialize new state to JSON
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 2. Write to <journal>.tmp (new file descriptor, O_CREAT | O_TRUNC)
 3. fsync the file descriptor
 4. Rename <journal>.tmp → <journal>  (atomic on POSIX filesystems)
@@ -186,7 +184,7 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ### Implementation
 
-`src/shared/state/checkpoint.js`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ---
 
@@ -197,14 +195,13 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 ### Problem
 
-SonarCloud's Compute Engine assigns creation dates to NEW issues from SCM blame data. Each file's changeset protobuf has `changesets[]` (array of `{revision, author, date}`) and `changesetIndexByLine[]` (maps each line to a changeset index). The CE takes **MAX(date)** across an issue's `textRange.startLine..endLine` to determine its creation date.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> Each file's changeset protobuf has `changesets[]` (array of `{revision, author, date}`) and `changesetIndexByLine[]` (maps each line to a changeset index). The CE takes **MAX(date)** across an issue's `textRange.startLine..endLine` to determine its creation date.
 
 Without backdating, all issues in a migrated project would get the same creation date (the extraction timestamp). The goal is **1:1 accuracy** — each issue's creation date in SonarCloud should match its original `creationDate` from SonarQube. A 5K-per-day safety split handles rare cases where a single calendar day has >5K issues (SonarCloud's ES visualization cap is 10K per date bucket).
 
 ### Algorithm
 
-```
-backdateChangesets(extractedData):
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
   issues = extractedData.issues
   fallbackDate = extractedData.metadata.extractedAt || Date.now()
 
@@ -245,7 +242,7 @@ backdateChangesets(extractedData):
 
 ### Why "Oldest Wins" for Overlapping Lines
 
-The CE takes MAX across a multi-line issue's range:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - **Older issue**: all its lines ≤ its date → MAX = its date (correct)
 - **Newer issue**: overlapping lines have older date, but non-overlapping lines have its correct date → MAX = correct date (correct)
 - **Exception**: newer issue entirely contained within older issue's range → inherits older date (unavoidable CE MAX limitation — rare for real code issues)
@@ -254,7 +251,7 @@ Non-issue lines default to the file's oldest issue date to prevent accidental MA
 
 ### Key Invariants
 
-- **All projects are backdated** — no early return for small projects. Every project gets accurate dates.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - **Per-line granularity** — each line in a file can have a different date, enabling multiple issues with different creation dates in the same file.
 - **Safety split threshold = 5,000** — matches the `ISSUE_BATCH_SIZE` constant. Days exceeding this get sub-grouped with 1-day spacing.
 - **No file splitting** — the safety split groups whole files into sub-batches; a file's issues are never split across different synthetic dates.
@@ -263,12 +260,11 @@ Non-issue lines default to the file's oldest issue date to prevent accidental MA
 
 ### Pipeline Integration
 
-All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extractedData)` before the protobuf build step. No signature change — the function mutates `extractedData.changesets` in place.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> No signature change — the function mutates `extractedData.changesets` in place.
 
 ### Implementation
 
-```
-src/shared/utils/batch-distributor/helpers/
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
   backdate-changesets.js  — Per-line date backdating from issue.creationDate
   should-batch.js         — ISSUE_BATCH_SIZE constant (5000); shouldBatch() returns false
 
@@ -288,8 +284,7 @@ SonarCloud's Compute Engine accepts analysis reports encoded as protobuf-over-zi
 
 ### Encoding Pipeline
 
-```
-1. Fetch all issues, hotspots, measures from SonarQube API
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 2. Map each entity to the corresponding protobuf message type
    (ScannerReport.Issue, ScannerReport.Hotspot, ScannerReport.Measure, …)
 3. Write one binary protobuf file per component (source file / module)
@@ -301,5 +296,5 @@ The protobuf schemas were reverse-engineered from the SonarScanner source and ar
 
 ### Implementation
 
-`src/pipelines/<version>/transfer-pipeline/` — per-version protobuf builder
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 `src/pipelines/<version>/sonarcloud/api/` — SonarCloud upload client

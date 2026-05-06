@@ -1,12 +1,12 @@
 # Versioning
-<!-- <section-updated last-updated="2026-04-21T00:00:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 How CloudVoyager versions are managed, bumped, and released.
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Source of Truth
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The **single source of truth** for the application version is:
 
@@ -22,8 +22,8 @@ The CLI (`src/index.js`) reads the version dynamically rather than hardcoding it
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Where the Version Appears
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Location | File | Updated By |
 |----------|------|------------|
@@ -37,12 +37,13 @@ The package.json files are updated automatically by the version-bump workflow. T
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## How the Version Gets Bumped
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The version bump is triggered by **merging a pull request to `main` that has a GitHub milestone attached**.
 
 ### Trigger Conditions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Both conditions must be true:
 1. The PR is **merged** (not just closed)
@@ -51,6 +52,7 @@ Both conditions must be true:
 If either condition is missing, no version bump occurs.
 
 ### Bump Logic
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The workflow (`.github/workflows/version-bump.yml`) compares the milestone title to the current version:
 
@@ -60,6 +62,7 @@ The workflow (`.github/workflows/version-bump.yml`) compares the milestone title
 | New major.minor | `1.2.5` | `1.3` | `1.3.0` (reset patch to 0) |
 
 ### What the Workflow Does
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. Reads the milestone title from the merged PR
 2. Reads the current version from `package.json`
@@ -70,8 +73,8 @@ The workflow (`.github/workflows/version-bump.yml`) compares the milestone title
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Release Pipeline
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Every push to `main` triggers the full release pipeline (`.github/workflows/release.yml`):
 
@@ -85,6 +88,7 @@ push to main
 ```
 
 ### Tag Format
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 v1.2.0-20260328120445
@@ -95,6 +99,7 @@ v1.2.0-20260328120445
 ```
 
 ### Release Body
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The release includes:
 - Auto-generated release notes (from commit history)
@@ -103,8 +108,8 @@ The release includes:
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Desktop App Versioning
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The desktop app version is read from `desktop/package.json` by `electron-builder`. This determines the version shown in:
 - Installer filenames (e.g., `CloudVoyager.Desktop-1.2.0-macos-arm64.dmg`)
@@ -115,8 +120,8 @@ The `electron-builder.yml` config uses `${version}` which resolves to `desktop/p
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Milestones
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 GitHub milestones serve two purposes:
 
@@ -127,8 +132,8 @@ Milestone titles must be in `MAJOR.MINOR` format (e.g., `1.2`, `1.3`, `2.0`).
 
 ---
 
-<!-- <subsection-updated last-updated="2026-03-30T00:00:00Z" updated-by="Claude" /> -->
 ## Workflow Files
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Workflow | File | Purpose |
 |----------|------|---------|

@@ -1,4 +1,5 @@
-# 📦 Migrate a Single Project
+# Migrate a Single Project
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Last updated: Apr 21, 2026 -->
 
@@ -8,8 +9,8 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📦 What Gets Migrated
+## What Gets Migrated
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Category | Details |
 |----------|---------|
@@ -27,8 +28,8 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## ✅ Prerequisites
+## Prerequisites
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Admin access** to your SonarQube server
 2. **Admin access** to your SonarCloud organization
@@ -40,8 +41,8 @@ This does **not** migrate org-level settings like quality gates, quality profile
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📥 Step 1: Download
+## Step 1: Download
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Download the latest binary for your platform from the [Releases](https://github.com/sonar-solutions/cloudvoyager/releases) page:
 
@@ -60,8 +61,8 @@ On macOS/Linux, make the binary executable:
 chmod +x cloudvoyager-*
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📝 Step 2: Create a config file
+## Step 2: Create a config file
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Create a file called `config.json`:
 
@@ -85,8 +86,8 @@ Create a file called `config.json`:
 
 See [`examples/config.example.json`](../examples/config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Config fields
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -100,8 +101,8 @@ See [`examples/config.example.json`](../examples/config.example.json) for a read
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Optional: Transfer settings
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Add a `transfer` section to control incremental mode, batch size, and checkpoint behavior:
 
@@ -134,8 +135,8 @@ Add a `transfer` section to control incremental mode, batch size, and checkpoint
 | `checkpoint.cacheMaxAgeDays` | `7` | Discard extraction caches older than this many days |
 | `checkpoint.strictResume` | `false` | When `true`, abort if the session fingerprint (SQ version, URL, project key) has changed since the checkpoint was created |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 🧪 Step 3: Test your connections
+## Step 3: Test your connections
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 ./cloudvoyager test -c config.json
@@ -143,8 +144,8 @@ Add a `transfer` section to control incremental mode, batch size, and checkpoint
 
 You should see a success message for both SonarQube and SonarCloud. If not, double-check your URLs and tokens.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 🚀 Step 4: Run the transfer
+## Step 4: Run the transfer
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 ./cloudvoyager transfer -c config.json --verbose
@@ -156,8 +157,8 @@ That's it! The tool uploads the report and returns immediately — it does not w
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 🔧 Other useful commands
+## Other useful commands
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 # Validate your config file
@@ -172,8 +173,8 @@ That's it! The tool uploads the report and returns immediately — it does not w
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## ⚡ Speed up the transfer (optional)
+## Speed up the transfer (optional)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 For large projects with many source files or issues, use `--auto-tune` to automatically detect your hardware and set optimal performance values:
 
@@ -191,7 +192,8 @@ See the [Configuration Reference](configuration.md#performance-settings) for all
 
 ---
 
-## 🔄 Pause and Resume
+## Pause and Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Transfers are automatically checkpointed. If a transfer is interrupted (CTRL+C, crash, network failure), simply re-run the same command to resume from where it left off:
 
@@ -213,17 +215,19 @@ To discard progress and start fresh, use `--force-restart`:
 ```
 
 ### Upload deduplication
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 On resume after a crash, the tool checks whether a Compute Engine (CE) task already exists for the current session before uploading. This prevents duplicate scanner reports from being submitted to SonarCloud. The check uses the `scm_revision_id` (git commit hash) included in each report.
 
 ### Lock file handling
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 An advisory lock file prevents multiple CloudVoyager instances from running against the same project simultaneously. The lock includes the process ID, hostname, and start time. Stale locks from crashed processes are auto-released after 6 hours. If a lock is held by another host or a non-stale process, the tool exits with an error. Use `--force-unlock` to manually release a lock you know is stale.
 
 ---
 
-<!-- Updated: Feb 22, 2026 at 10:30:00 AM -->
-## 🚩 All CLI Flags
+## All CLI Flags
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Flag | What it does |
 |------|-------------|
@@ -240,15 +244,15 @@ An advisory lock file prevents multiple CloudVoyager instances from running agai
 
 ---
 
-<!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
-## ⚠️ Limitations
+## Limitations
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📚 Further Reading
+## Further Reading
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format
@@ -256,15 +260,3 @@ An advisory lock file prevents multiple CloudVoyager instances from running agai
 - [Troubleshooting](troubleshooting.md) — common errors and how to fix them
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
 - [Changelog](CHANGELOG.md) — release history and notable changes
-
-<!--
-## Change Log
-| Date | Section | Change |
-|------|---------|--------|
-| 2026-03-10 | Pause and Resume, CLI Flags | Added checkpoint/resume workflow and new flags |
-| 2026-02-22 | CLI Flags | Removed duplicate --skip-all-branch-sync entry |
-| 2026-02-21 | CLI Flags, Limitations | Added --skip-all-branch-sync flag |
-| 2026-02-18 | CLI Flags | Added --wait and --auto-tune flags |
-| 2026-02-17 | Speed up, Further Reading | Performance tuning, scenario links |
-| 2026-02-16 | All | Initial single project scenario |
--->

@@ -1,6 +1,6 @@
 # Audit & Error Events Logging Strategy
 
-<!-- last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 This document describes the logging architecture, log levels, destinations, and audit trail implementation for CloudVoyager. All logging is handled through the centralized Winston-based logger at `src/shared/utils/logger/`.
 
@@ -8,11 +8,13 @@ This document describes the logging architecture, log levels, destinations, and 
 
 ## 1. Logging Architecture
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses [Winston](https://github.com/winstonjs/winston) as its logging framework, providing a flexible and extensible architecture for handling logs across all pipeline operations.
 
 ### Core Components
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 The logging system is split into three modules within `src/shared/utils/logger/`:
 
@@ -23,6 +25,8 @@ The logging system is split into three modules within `src/shared/utils/logger/`
 | `helpers/log-format.js` | Defines the log format templates |
 
 ### Logger Initialization
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 The default logger is created with console transport and respects the `LOG_LEVEL` environment variable (defaults to `info`):
 
@@ -46,7 +50,7 @@ const logger = winston.createLogger({
 
 ## 2. Log Levels
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses the standard severity levels defined by Winston. Each level has a specific use case within the migration pipelines.
 
@@ -59,6 +63,8 @@ CloudVoyager uses the standard severity levels defined by Winston. Each level ha
 
 ### Environment-Based Level Control
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Set the log level via the `LOG_LEVEL` environment variable:
 
 ```bash
@@ -70,6 +76,8 @@ LOG_LEVEL=debug node migrate.js
 ```
 
 ### Usage Examples
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```javascript
 import logger from '../shared/utils/logger.js';
@@ -91,11 +99,13 @@ logger.debug(`Skipping project config for ${scProjectKey} (already applied)`);
 
 ## 3. Log Destinations
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager supports multiple log destinations, configurable based on environment and requirements.
 
 ### Console Transport
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 All logs are written to stdout by default with colorized output for readability:
 
@@ -107,6 +117,8 @@ All logs are written to stdout by default with colorized output for readability:
 
 ### File Transports
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 File logging is enabled by calling `enableFileLogging(commandName)`. This creates a timestamped directory under `migration-output/logs/` with four separate log files:
 
 | File | Contents |
@@ -117,6 +129,8 @@ File logging is enabled by calling `enableFileLogging(commandName)`. This create
 | `cloudvoyager-{name}.error.log` | Only `error` level messages |
 
 ### Directory Structure
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 migration-output/
@@ -130,6 +144,8 @@ migration-output/
 
 ### Legacy Single File Transport
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 For ad-hoc logging, the `LOG_FILE` environment variable directs all logs to a single file:
 
 ```bash
@@ -140,9 +156,11 @@ LOG_FILE=/var/log/cloudvoyager.log node migrate.js
 
 ## 4. Structured Logging
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Text Format
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 CloudVoyager uses a human-readable text format optimized for operator review:
 
@@ -159,6 +177,8 @@ With stack traces appended for errors:
 
 ### Format Examples
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 **Standard log entry:**
 ```
 2026-05-07 01:15:00 [info]: Project JIRA-123 migrated successfully
@@ -173,6 +193,8 @@ Error: SonarQube API error
 ```
 
 ### JSON Extraction
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 For machine parsing, extract fields using standard text parsing:
 
@@ -190,11 +212,13 @@ For machine parsing, extract fields using standard text parsing:
 
 ## 5. Error Event Classification
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager defines a hierarchy of error types in `src/shared/utils/errors/`, all inheriting from the base `CloudVoyagerError` class.
 
 ### Error Class Hierarchy
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```
 CloudVoyagerError (base)
@@ -212,6 +236,8 @@ CloudVoyagerError (base)
 
 ### Base Error Class
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 ```javascript
 export class CloudVoyagerError extends Error {
   constructor(message, statusCode = 500) {
@@ -225,6 +251,8 @@ export class CloudVoyagerError extends Error {
 
 ### API-Specific Errors
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 API errors include endpoint information for debugging:
 
 ```javascript
@@ -237,6 +265,8 @@ export class SonarQubeAPIError extends CloudVoyagerError {
 ```
 
 ### Error Logging Pattern
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Errors are logged with context at the point of capture:
 
@@ -257,11 +287,13 @@ try {
 
 ## 6. Audit Trail
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager logs specific events for compliance auditing and operational visibility.
 
 ### Migration Lifecycle Events
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 | Event | Level | Description |
 |-------|-------|-------------|
@@ -274,6 +306,8 @@ CloudVoyager logs specific events for compliance auditing and operational visibi
 | API request/response | `debug` | External API calls (body redacted) |
 
 ### Audit Log Examples
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 **Project success:**
 ```
@@ -291,6 +325,8 @@ CloudVoyager logs specific events for compliance auditing and operational visibi
 ```
 
 ### Step Tracking
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Each project migration records step outcomes in `projectResult.steps`:
 
@@ -310,6 +346,8 @@ const projectResult = {
 
 ### Compliance Recording
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 Failed steps are aggregated into a structured error log:
 
 ```javascript
@@ -325,11 +363,13 @@ if (failedSteps.length > 0) {
 
 ## 7. Log Rotation and Retention
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager creates new log directories for each migration run, providing natural separation for rotation.
 
 ### Directory Naming Convention
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Logs are stored in timestamped directories using ISO 8601 format (with colons/dots replaced):
 
@@ -341,6 +381,8 @@ migration-output/logs/2026-05-08T00-00-15/
 
 ### Rotation Strategy
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 | Aspect | Implementation |
 |--------|----------------|
 | Rotation trigger | New directory per `enableFileLogging()` call |
@@ -349,6 +391,8 @@ migration-output/logs/2026-05-08T00-00-15/
 | Filename safety | Command names sanitized to `[^a-zA-Z0-9_-]` |
 
 ### Retention Recommendations
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Since CloudVoyager does not implement automatic retention, it is recommended to:
 
@@ -369,6 +413,8 @@ Since CloudVoyager does not implement automatic retention, it is recommended to:
 
 ### Manual Cleanup
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 To clean up old logs manually:
 
 ```bash
@@ -377,6 +423,8 @@ find migration-output/logs -type d -mtime +30 -exec rm -rf {} +
 ```
 
 ### Disk Space Monitoring
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Monitor log directory size to prevent disk exhaustion:
 
@@ -388,13 +436,19 @@ du -sh migration-output/logs/
 
 ## Quick Reference
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 ### Importing the Logger
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```javascript
 import logger from '../shared/utils/logger.js';
 ```
 
 ### Enabling File Logging
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 ```javascript
 import { enableFileLogging } from '../shared/utils/logger.js';
@@ -404,6 +458,8 @@ enableFileLogging('migrate');  // Creates migration-output/logs/{timestamp}/clou
 
 ### Environment Variables
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LOG_LEVEL` | `info` | Minimum log level to output |
@@ -411,7 +467,7 @@ enableFileLogging('migrate');  // Creates migration-output/logs/{timestamp}/clou
 
 ### Log Level Quick Reference
 
-- Use `error` for failures that prevent operation completion
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> that prevent operation completion
 - Use `warn` for recoverable issues or partial successes
 - Use `info` for significant milestones and configuration
 - Use `debug` for diagnostic traces (not for production)

@@ -1,4 +1,5 @@
 # Desktop App
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Updated: Apr 21, 2026 -->
 
@@ -9,6 +10,7 @@ CloudVoyager Desktop wraps the CLI binary in a guided wizard UI built with Elect
 Available for: **Linux x64**, **Linux ARM64**, **macOS ARM64**, **macOS x64**, **Windows x64**, **Windows ARM64**.
 
 ## Installation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Download the latest release from the [GitHub Releases](https://github.com/your-org/cloudvoyager/releases) page. Choose the installer for your platform:
 
@@ -24,8 +26,10 @@ Download the latest release from the [GitHub Releases](https://github.com/your-o
 > The app bundles the CLI binary — no separate CLI install is needed.
 
 ## Getting Started
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Welcome Screen
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 On launch, the Welcome screen presents the available workflows:
 
@@ -37,6 +41,7 @@ On launch, the Welcome screen presents the available workflows:
 - **Clear Migration History** — Reset state and clear sync history
 
 ### Wizard Flow
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each workflow guides you through a series of screens:
 
@@ -48,8 +53,10 @@ Each workflow guides you through a series of screens:
 The live log viewer shows migration progress in real-time with a timer, cancel button, and status badge. When complete, the results screen shows generated report files that you can browse and open.
 
 ## Wizard Screens
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Transfer Config (4 steps)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Step | Description |
 |------|-------------|
@@ -59,6 +66,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | 4. Review & Start | Review all settings and begin the transfer |
 
 ### Migrate Config (4 steps)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Step | Description |
 |------|-------------|
@@ -70,6 +78,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 ![Migration Settings Wizard](screenshots/full_migration.png)
 
 ### Verify Config (3 steps)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Step | Description |
 |------|-------------|
@@ -78,6 +87,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | 3. Review & Start | Review settings and begin verification |
 
 ### Sync Metadata Config (3 steps)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Step | Description |
 |------|-------------|
@@ -86,6 +96,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 | 3. Review & Start | Review settings and begin metadata synchronization |
 
 ### Other Screens
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Connection Test** — Runs the `test` command to verify connectivity to both SonarQube and SonarCloud
 - **Execution** — Live log viewer with elapsed timer, cancel button, and status badge (running/success/failed)
@@ -100,6 +111,7 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 - **Status** — View migration progress, sync history, and reset state
 
 ### Progress Tracking and Animation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The execution screen includes real-time progress tracking with a whale animation:
 
@@ -109,6 +121,7 @@ The execution screen includes real-time progress tracking with a whale animation
 The progress bar layout divides 0-100% across pipeline phases (e.g., for migrate: 0-10% setup, 10-15% org config, 15-95% per-project migration, 95-100% finalization).
 
 ## Configuration Persistence
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - All settings are saved automatically as you navigate between wizard steps
 - Tokens are encrypted at rest using `electron-store`
@@ -126,13 +139,16 @@ The progress bar layout divides 0-100% across pipeline phases (e.g., for migrate
 | Windows | `%APPDATA%\cloudvoyager-desktop\` |
 
 ## Building from Source
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Prerequisites
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - Node.js v20+
 - The CLI binary placed in `desktop/resources/cli/` (use `node scripts/prepare-cli.js` to copy from `dist/bin/`)
 
 ### Development
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 cd desktop
@@ -143,6 +159,7 @@ npm start          # Run in dev mode (uses src/index.js as CLI fallback)
 Pass `--dev` to enable DevTools on startup.
 
 ### Distribution Builds
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 npm run build:linux-x64
@@ -156,6 +173,7 @@ npm run build:win-arm64
 Output artifacts are placed in the `desktop/dist/` directory.
 
 ## Architecture
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The desktop app lives in the `desktop/` directory at the repository root. It is built with **Electron 33.4.11** and vanilla HTML/CSS/JS — no frontend frameworks.
 
@@ -207,6 +225,7 @@ desktop/
 ```
 
 ### Main Process
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **main.js**: Enforces single-instance lock so only one app window runs at a time. Persists window bounds across restarts. Registers `F6` as a global shortcut to capture screenshots. Passes `--dev` to open DevTools on startup. Detects OS theme for light/dark mode.
 - **ipc-handlers.js**: Registers 10 IPC channels under namespaces `config:*`, `cli:run`, `cli:cancel`, `dialog:*`, `reports:*`, `devtools:capture`, and `app:*`.
@@ -214,10 +233,12 @@ desktop/
 - **config-store.js**: Wraps `electron-store` with encryption enabled. Maintains two config schemas (`transferConfig` and `migrateConfig`), a 50-entry migration history, and theme preference.
 
 ### Preload Bridge
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **preload.js** exposes the `window.cloudvoyager` namespace to the renderer via `contextBridge`. It provides 7 modules: `config`, `cli`, `dialog`, `reports`, `app`, `theme`, and `devtools`. All renderer-to-main communication goes through this bridge.
 
 ### Renderer
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **app.js**: Defines the `window.App` global, manages 9 screens, handles theme switching, and provides toast notifications (6-second auto-dismiss) and confirm dialogs with focus traps.
 - **Screens**: Each wizard screen manages its own step navigation and form state. Transfer and migrate configs use 4-step wizards; verify and sync-metadata use 3-step wizards.
@@ -229,6 +250,7 @@ desktop/
   - `sidebar-history.js` — Displays the last 50 migration/transfer runs with clickable entries to view reports
 
 ### Security
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Context isolation** enabled; `nodeIntegration` disabled. Sandbox is disabled to allow CLI binary spawning.
 - **CSP headers** configured to restrict content sources.
@@ -238,6 +260,7 @@ desktop/
 - **Temporary config files** written with `0o600` permissions and auto-cleaned after CLI execution.
 
 ### Accessibility
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - ARIA labels, roles, and live regions throughout the UI
 - Focus management and keyboard navigation support
@@ -245,6 +268,7 @@ desktop/
 - Focus traps in confirm dialogs
 
 ### Data Flow (Transfer Example)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. User fills the 4-step wizard — config is saved to `electron-store` at each step
 2. `cli:run` IPC message sent to main process — main writes a temp config file, spawns the CLI binary
@@ -254,6 +278,7 @@ desktop/
 6. History entry saved to `electron-store`; temp config file auto-cleaned
 
 ### Key Design Decisions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Electron 33.4.11** with vanilla HTML/CSS/JS — no framework dependency
 - **`contextBridge` / IPC** for secure renderer-to-main communication
@@ -265,6 +290,7 @@ desktop/
 - **Visual effects**: glassmorphism panels, scanline overlay, ambient gradients, typing animations, staggered card entrance, whale progress indicator
 
 ## CLI vs Desktop Feature Comparison
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Both the CLI and Desktop app provide the same migration capabilities. The Desktop app adds a graphical wrapper with guided wizards and encrypted storage.
 

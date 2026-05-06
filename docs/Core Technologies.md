@@ -1,14 +1,16 @@
 # Core Technologies
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager is built on a carefully selected stack of battle-tested open-source technologies. Each technology was chosen to address specific requirements of the SonarQube-to-SonarCloud migration workflow.
 
 ## 1. Node.js
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Node.js
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Node.js provides the ideal foundation for a cross-platform CLI tool that interfaces with REST APIs. The choice delivers:
 
@@ -19,12 +21,16 @@ Node.js provides the ideal foundation for a cross-platform CLI tool that interfa
 
 ### Runtime Version Requirements
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 | Role | Minimum Version | Notes |
 |------|----------------|-------|
 | Development / CLI | Node 18+ | Required by `engines.node` in `package.json` |
 | SEA Binary Packaging | Node 20 | Node 22+ embeds the sentinel twice, causing `postject` to fail |
 
 ### Single Executable Application (SEA)
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager ships as a standalone binary using Node.js SEA (Single Executable Application). The build pipeline:
 
@@ -37,9 +43,11 @@ This approach produces a distributable binary that does not require the end user
 
 ## 2. Protobuf
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Protobuf
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SonarCloud accepts scanner reports only in Protocol Buffer format. Protobuf was chosen because:
 
@@ -49,6 +57,8 @@ SonarCloud accepts scanner reports only in Protocol Buffer format. Protobuf was 
 - **Language neutrality** — The same schema is used across all supported SonarQube versions (9.9, 10.0, 10.4, 2025.1)
 
 ### Protobuf Schema
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The scanner report schema lives at:
 
@@ -68,6 +78,8 @@ Key message types defined in the schema:
 
 ### Protobufjs Integration
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 The project uses `protobufjs` (v7.2.0) for runtime schema loading and encoding. The encoder factory is in:
 
 ```
@@ -76,9 +88,11 @@ src/pipelines/sq-2025/protobuf/encoder/helpers/create-protobuf-encoder.js
 
 ## 3. Winston
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Winston
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Structured logging is critical for a migration tool that may run unattended in CI environments. Winston (v3.11.0) was chosen because:
 
@@ -89,6 +103,8 @@ Structured logging is critical for a migration tool that may run unattended in C
 - **Colorization** — Human-readable colored output in terminal; plain output when redirected to files
 
 ### Logger Usage in CloudVoyager
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The logger is initialized per the migration context and exported from:
 
@@ -106,9 +122,11 @@ logger.info('Starting migration', { projectKey: 'my-project', branch: 'main' });
 
 ## 4. Commander.js
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Commander.js
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Commander.js (v12.0.0) is the de facto standard for Node.js CLI frameworks. The choice is driven by:
 
@@ -119,6 +137,8 @@ Commander.js (v12.0.0) is the de facto standard for Node.js CLI frameworks. The 
 - **Minimal footprint** — Ships with CloudVoyager as a production dependency
 
 ### Command Architecture
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The CLI entry point at `src/index.js` registers all subcommands:
 
@@ -136,9 +156,11 @@ src/commands/
 
 ## 5. Ajv
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Ajv
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Configuration errors should be caught before any migration work begins. Ajv (v8.12.0) was chosen because:
 
@@ -149,6 +171,8 @@ Configuration errors should be caught before any migration work begins. Ajv (v8.
 - **Detailed error messages** — Each validation error includes the JSON path (`instancePath`) and a human-readable message
 
 ### Schema Hierarchy
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The configuration is validated against a layered schema structure:
 
@@ -163,6 +187,8 @@ Top-level schema references sub-schemas for `sonarqube`, `sonarcloud`, `transfer
 
 ### Validation Flow
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 ```
 loadConfig() → validateConfig() → throws ValidationError on failure
 ```
@@ -171,9 +197,11 @@ The validator is compiled once and reused across all config loads, avoiding repe
 
 ## 6. Electron
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why Electron
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 While CloudVoyager is primarily a CLI tool, a desktop GUI is provided for users who prefer a visual interface. Electron (v33.4.11) was chosen because:
 
@@ -185,6 +213,8 @@ While CloudVoyager is primarily a CLI tool, a desktop GUI is provided for users 
 
 ### Desktop App Architecture
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 ```
 desktop/src/
   main/main.js         — Electron main process (window management, IPC)
@@ -195,6 +225,8 @@ desktop/src/
 ```
 
 ### Building Desktop Binaries
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The desktop app is packaged with `electron-builder`. Each platform is built separately:
 
@@ -208,9 +240,11 @@ npm run build:linux-arm64 # Linux ARM64
 
 ## 7. GitHub Actions
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Why GitHub Actions
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CI/CD is implemented entirely in GitHub Actions because:
 
@@ -221,6 +255,8 @@ CI/CD is implemented entirely in GitHub Actions because:
 - **Secrets management** — `SONARCLOUD_TOKEN` and `SONARQUBE_TOKEN` stored as repository secrets
 
 ### Workflows
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Workflow | Purpose |
 |----------|---------|
@@ -234,6 +270,8 @@ CI/CD is implemented entirely in GitHub Actions because:
 
 ### Build Strategy for SEA Binaries
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Each platform is built in a dedicated job:
 
 | Platform | Runner | Strategy |
@@ -246,5 +284,7 @@ Each platform is built in a dedicated job:
 | win-arm64 | `windows-11-arm` | Native build on ARM runner |
 
 ### Regression Testing Strategy
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Regression workflows spin up real SonarQube and SonarCloud instances and run actual migration commands. The workflows use `actions/cache` to share state between jobs rather than artifact uploads, following the project's CI best practice of using cache for inter-job data transfer.
