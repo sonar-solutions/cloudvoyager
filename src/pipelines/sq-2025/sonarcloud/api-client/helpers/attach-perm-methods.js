@@ -8,6 +8,7 @@ export function attachPermMethods(inst, client, org, pk) {
   inst.createGroup = (n, d = '') => perms.createGroup(client, org, n, d);
   inst.addGroupPermission = (g, p) => perms.addGroupPermission(client, org, g, p);
   inst.addProjectGroupPermission = (g, projKey, p) => perms.addProjectGroupPermission(client, org, g, projKey, p);
+  inst.grantAllPermissionsOnAllProjects = (g) => perms.grantAllPermissionsOnAllProjects(client, org, g);
   inst.createPermissionTemplate = (n, d = '', p = '') => perms.createPermissionTemplate(client, org, n, d, p);
   inst.addGroupToTemplate = (t, g, p) => perms.addGroupToTemplate(client, org, t, g, p);
   inst.setDefaultTemplate = (t, q = 'TRK') => perms.setDefaultTemplate(client, org, t, q);
