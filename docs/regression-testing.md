@@ -6,10 +6,12 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 ---
 
 ## The Prompt
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 > After implementing the feature/fix, test it end-to-end on the **Angular Framework** project (38K+ issues, 400+ hotspots). Follow this protocol exactly:
 >
 > ### Phase 1 â€” Adversarial Code Review (before running anything)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 >
 > Re-read every changed file with fresh eyes. For each file, ask:
 >
@@ -23,7 +25,8 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 > Write down every concern. Then verify or disprove each one before proceeding.
 >
 > ### Phase 2 â€” Environment Assessment
->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 > Before running the test, check the live state:
 >
 > 1. **SonarQube**: `curl` the SQ API to confirm the project exists, count issues, sample 5 issues to check their fields (status, tags, comments, assignee, updateDate vs creationDate).
@@ -32,6 +35,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 > 4. **Clean slate**: Delete `migration-output/`, `.cloudvoyager-state.json*`, and the SC project. Every test run must start from zero.
 >
 > ### Phase 3 â€” Build and Execute
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 >
 > 1. `npm run package` â€” must succeed. If it fails, fix before proceeding.
 > 2. Create or verify the config file (`config.json` for `transfer`, `migrate-config.json` for `migrate`).
@@ -43,7 +47,8 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 >    - The final summary stats line
 >
 > ### Phase 4 â€” Analyze Results
->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 > When the command finishes (exit code 0 or non-zero):
 >
 > 1. **Parse the summary stats line.** For every counter:
@@ -60,6 +65,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 >    - Check the warn log for rate limiting or timeout messages
 >
 > ### Phase 5 â€” Investigate Anomalies
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 >
 > For every unexpected result, trace the full code path:
 >
@@ -70,6 +76,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 > 5. **Identify the root cause.** Don't guess â€” prove. "The comments field was empty because..." with evidence.
 >
 > ### Phase 6 â€” Fix and Re-test
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 >
 > If any issue was found:
 >
@@ -83,6 +90,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 > **Repeat Phase 6 until every stat matches expectations and spot-checks pass.**
 >
 > ### Phase 7 â€” Declare Clean Pass
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 >
 > A clean pass requires ALL of:
 >
@@ -97,6 +105,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 ---
 
 ## Reference: Angular Framework Test Environment
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Property | Value |
 |----------|-------|
@@ -113,6 +122,7 @@ A reusable protocol for verifying features and fixes against a live SonarQube â†
 | Test migration script | `.debugging/test-migrate.sh` |
 
 ### Creating Test Data on SQ
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 To trigger code paths that require manual changes (pre-filter keeps only issues with human-authored changes):
 
@@ -147,6 +157,7 @@ Adapt similarly for `do_transition` (confirm/reopen), `add_comment`, and `assign
 ---
 
 ## Example: Parallel Issue Sync Test (2026-04-28)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Applied this protocol to verify `worker_threads`-based parallel issue sync.
 

@@ -6,6 +6,7 @@ This guide documents the architectural patterns and conventions of the CloudVoya
 ---
 
 ## Golden Rule: Pipeline Isolation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each supported SonarQube version range gets its own **complete, independent pipeline directory** under `src/pipelines/`. There are no runtime version checks within any pipeline -- each pipeline has its behavior hardcoded for its target version range.
 
@@ -26,6 +27,7 @@ The **version router** (`src/version-router.js`) detects the SonarQube server ve
 ---
 
 ## Directory Structure
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 src/
@@ -111,8 +113,10 @@ New files must go in the appropriate directory. Shared, version-independent code
 ---
 
 ## Patterns
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### 1. Extractor Pattern (`src/pipelines/sq-{version}/sonarqube/extractors/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each extractor is a standalone async function:
 
@@ -133,6 +137,7 @@ export async function extractXxx(client, state = null, branch = null) {
 - The `DataExtractor` orchestrator in `extractors/index.js` coordinates all extractors
 
 ### 2. API Module Pattern (`src/pipelines/sq-{version}/sonarqube/api/`, `src/pipelines/sq-{version}/sonarcloud/api/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Stateless functions that wrap a single API endpoint:
 
@@ -151,6 +156,7 @@ export async function getXxx(client, param) {
 - The `SonarQubeClient` delegates to these via thin wrappers
 
 ### 3. Migrator Pattern (`src/pipelines/sq-{version}/sonarcloud/migrators/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Transform extracted SonarQube data and apply it to SonarCloud:
 
@@ -167,6 +173,7 @@ export async function migrateXxx(extractedData, scClient, options) {
 - Handle partial failures gracefully (log warning, continue)
 
 ### 4. Client Pattern (`src/pipelines/sq-{version}/sonarqube/api-client.js`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each pipeline has its own `SonarQubeClient` tailored to its version range:
 
@@ -177,6 +184,7 @@ Each pipeline has its own `SonarQubeClient` tailored to its version range:
 - Version-specific behavior is hardcoded -- no runtime version checks needed
 
 ### 5. Error Handling
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Custom error hierarchy** (all extend `CloudVoyagerError` from `src/shared/utils/errors.js`):
 
@@ -195,6 +203,7 @@ Each pipeline has its own `SonarQubeClient` tailored to its version range:
 - **Don't wrap**: Core endpoints where failure should stop execution
 
 ### 6. Pagination
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All paginated SonarQube APIs use `getPaginated()`:
 
@@ -209,6 +218,7 @@ return await this.getPaginated('/api/xxx/search', { ps: 500 }, 'items');
 - Never implement manual pagination -- always use `getPaginated()`
 
 ### 7. Concurrency
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Use `mapConcurrent()` from `src/shared/utils/concurrency.js` for parallel I/O:
 
@@ -227,6 +237,7 @@ const results = await mapConcurrent(items, async (item) => {
 - Use `createProgressLogger()` for large batches
 
 ### 8. Issue Sync Pre-Filter Pattern (`src/shared/utils/issue-sync/`)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Issue sync across all four pipelines uses a **pre-filter optimization** (see [GitHub #90](https://github.com/sonar-solutions/cloudvoyager/issues/90)) modeled after the [`sonar-findings-sync` algorithm](https://github.com/okorach/sonar-tools/blob/0be16b23d1eb9a374fc3cbbcb1c10242df0631a3/sonar/syncer.py#L564).
 
@@ -258,8 +269,10 @@ The pre-fetched changelogs are used only to evaluate `hasManualChanges` during p
 ---
 
 ## Conventions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Imports
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **ESM only** -- the project uses `"type": "module"`
 - Node builtins use `node:` prefix: `import { readFile } from 'node:fs/promises'`
@@ -268,6 +281,7 @@ The pre-fetched changelogs are used only to evaluate `hasManualChanges` during p
 - Commands use dynamic `import()` to load the correct pipeline at runtime via the version router
 
 ### Logging
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```js
 import logger from '../../shared/utils/logger.js';
@@ -285,6 +299,7 @@ logger.error('Fatal error, stopping');             // Errors that halt execution
 - Never use `console.log` -- always use the logger
 
 ### Configuration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - JSON Schema validated with Ajv (`useDefaults: true`)
 - Env vars override config values: `SONARQUBE_TOKEN`, `SONARCLOUD_TOKEN`, `SONARQUBE_URL`, `SONARCLOUD_URL`
@@ -293,6 +308,7 @@ logger.error('Fatal error, stopping');             // Errors that halt execution
 - Config schemas live in `src/shared/config/`
 
 ### State Management
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - State files track incremental sync progress (last sync time, processed issue keys)
 - State is only written after successful upload -- never partially update state
@@ -303,6 +319,7 @@ logger.error('Fatal error, stopping');             // Errors that halt execution
 ---
 
 ## Testing
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Framework:** Ava + Sinon + esmock
 
@@ -336,6 +353,7 @@ npm run lint      # ESLint
 ---
 
 ## Adding New SonarQube Version Support
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When a new SonarQube version introduces API changes:
 
@@ -360,6 +378,7 @@ Key version differences to watch for:
 ---
 
 ## Checklist Before Submitting
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [ ] `npm run lint` passes with no errors
 - [ ] `npm test` passes
@@ -374,7 +393,7 @@ Key version differences to watch for:
 ---
 
 ## Regression Test Conventions
-<!-- updated: 2026-04-25_10:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - Every bug fix should have a corresponding regression test in `test/regression/assert-{scenario}.js`
 - Assertion scripts import from `test/regression/helpers/sqc-client.js` (SQC API client with retry) and `test/regression/helpers/assert-utils.js` (PASS/FAIL output)

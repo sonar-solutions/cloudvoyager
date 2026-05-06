@@ -10,13 +10,15 @@ CloudVoyager follows a set of design principles that prioritize code clarity, ma
 
 ## 1. Folder-Centric Architecture
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 One folder per feature, one file per responsibility.
 
 The folder structure tells the story of the system. A well-named folder tree reveals the architecture at a glance, without reading a single line of code.
 
 ### The Pattern
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each logical unit (feature, endpoint, pipeline stage) gets its own folder. Inside, concerns are split into separate files:
 
@@ -72,6 +74,8 @@ src/
 
 ### Backward-Compatible Re-exports
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 To preserve import paths when decomposing a module, a re-export shim sits at the original path:
 
 ```javascript
@@ -83,6 +87,8 @@ export { CheckpointJournal, createCheckpointJournal } from './checkpoint/index.j
 
 ### Example: State Management Structure
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 The `src/shared/state/` directory demonstrates this principle:
 
 - `storage.js` — Re-export shim pointing to `storage/index.js`
@@ -93,15 +99,19 @@ The `src/shared/state/` directory demonstrates this principle:
 
 ## 2. Micro Files Over Monoliths
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Every file should do one thing and do it well. No file exceeds 50 lines.
 
 ### The Rule
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 When a file grows beyond ~30 lines, decompose it into a folder with an orchestrator (`index.js`) and helper files. Each helper exports exactly one function.
 
 ### Examples from the Codebase
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Error Classes (one per file):**
 
@@ -184,6 +194,8 @@ export function createFailedPhase(existingPhase, error) {
 
 ### Why It Matters
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 - **Navigable:** Developers find exactly what they need without scrolling
 - **Testable:** Each function can be unit tested in isolation
 - **Reviewable:** Pull requests are smaller and focused
@@ -193,11 +205,13 @@ export function createFailedPhase(existingPhase, error) {
 
 ## 3. Flat Over Nested
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Avoid deeply nested logic. Prefer flat sequential flows and helper decomposition.
 
 ### The Problem with Nesting
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Nested callbacks, promise chains, and conditional pyramids are hard to read and harder to debug:
 
@@ -215,6 +229,8 @@ generateSalt(function(salt) {
 ```
 
 ### The CloudVoyager Approach
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Chain small, focused functions together. Each step does one job:
 
@@ -245,6 +261,8 @@ async function transferProject(options) {
 
 ### Factory Functions Over Classes
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Instead of deeply nested class hierarchies, use factory functions that return configured instances:
 
 ```javascript
@@ -269,6 +287,8 @@ function createCheckpointJournal(journalPath) {
 
 ### Helper Decomposition
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 When a function has multiple steps, extract each step into a named helper:
 
 ```javascript
@@ -282,11 +302,13 @@ When a function has multiple steps, extract each step into a named helper:
 
 ## 4. Readable at a Glance
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Code should be self-documenting. Use whitespace, comments, and consistent formatting so a developer can understand a file in seconds.
 
 ### Section Header Comments
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Divide files into scannable zones:
 
@@ -298,6 +320,8 @@ Divide files into scannable zones:
 ```
 
 ### Descriptive Naming
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Use descriptive, full-word names that convey intent:
 
@@ -315,6 +339,8 @@ export function createFailedPhase(existingPhase, error) { ... }
 ```
 
 ### Whitespace as a Visual Tool
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Use blank lines to separate logical sections within a file:
 
@@ -356,6 +382,8 @@ function createCheckpointJournal(journalPath) {
 
 ### Inline Comments for Why, Not What
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 ```javascript
 // WHY: Explain non-obvious decisions
 // Binary-split a date window to handle 10K+ issue retrieval efficiently
@@ -370,11 +398,13 @@ export function createCompletedPhase(existingPhase, meta = {}) { ... }
 
 ## 5. Shared Libraries for Reuse
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Don't duplicate logic. Extract reusable code into shared libraries under `src/shared/`.
 
 ### Shared Modules
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Module | Purpose | Example Contents |
 |--------|---------|------------------|
@@ -386,6 +416,8 @@ Don't duplicate logic. Extract reusable code into shared libraries under `src/sh
 | `verification/` | Migration verification | Per-check modules, report generation |
 
 ### Example: Concurrency Utilities
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Instead of duplicating limiter logic across pipelines, once in `src/shared/utils/concurrency/`:
 
@@ -404,6 +436,8 @@ import { createLimiter, mapConcurrent } from '../../../shared/utils/concurrency/
 ```
 
 ### Example: Error Classes
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All errors extend a common base, defined once:
 
@@ -428,6 +462,8 @@ export class SonarQubeAPIError extends CloudVoyagerError { ... }
 
 ### Version-Specific with Shared Foundation
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Each `src/pipelines/sq-{version}/` contains version-specific logic, but all rely on shared utilities:
 
 ```
@@ -441,11 +477,13 @@ src/pipelines/sq-2025/
 
 ## 6. Error Handling
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Graceful degradation with proper error classification and logging.
 
 ### Custom Error Hierarchy
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 All errors extend `CloudVoyagerError`, providing context for debugging:
 
@@ -471,6 +509,8 @@ export class LockError extends CloudVoyagerError { }
 ```
 
 ### Graceful Shutdown Handling
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `GracefulShutdownError` allows pipelines to respond to SIGINT/SIGTERM:
 
@@ -510,6 +550,8 @@ try {
 
 ### Lock Files for Concurrent Run Prevention
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Advisory locks prevent concurrent pipeline runs:
 
 ```javascript
@@ -528,11 +570,13 @@ export function createWriteLock() {
 
 ## 7. State Management
 
-<!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Checkpoint journal for resumability. State persists across failures.
 
 ### Checkpoint Journal Pattern
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `CheckpointJournal` tracks phase completion, enabling pause/resume:
 
@@ -565,6 +609,8 @@ function createCheckpointJournal(journalPath) {
 
 ### State Persistence
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Atomic writes with backup rotation ensure no state loss:
 
 ```javascript
@@ -579,6 +625,8 @@ export class StateStorage {
 ```
 
 ### Journal Structure
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```javascript
 {
@@ -603,6 +651,8 @@ export class StateStorage {
 ```
 
 ### Resume Flow
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```javascript
 async function resumeTransfer(transferConfig, projectKey) {
@@ -630,6 +680,8 @@ async function resumeTransfer(transferConfig, projectKey) {
 
 ### Lock Integration
 
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
 Locks prevent concurrent runs that could corrupt state:
 
 ```javascript
@@ -643,6 +695,8 @@ registerShutdown(shutdownCoordinator, journal, stateTracker, lockFile);
 ---
 
 ## Summary
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Principle | Practice |
 |-----------|----------|

@@ -1,4 +1,5 @@
 # Milestone 1.2 — Verification Report
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Branch:** `contributors/joshuaquek`
 **Date:** 2026-03-26
@@ -7,6 +8,7 @@
 ---
 
 ## Summary
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Issue | Title | Status |
 |-------|-------|--------|
@@ -18,12 +20,14 @@
 ---
 
 ## Issue #53 — 10K+ Issues Search Slicing
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Problem:** SonarQube's `/api/issues/search` endpoint has a hard 10,000-result limit. Projects exceeding this silently lost data during migration.
 
 **Solution:** Implemented a date-window search-slicing algorithm that automatically activates when results hit the 10K limit.
 
 ### Files Created
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |------|---------|
@@ -38,6 +42,7 @@
 | `src/pipelines/sq-2025/sonarqube/api-client/helpers/probe-total.js` | (identical) |
 
 ### Files Modified
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Change |
 |------|--------|
@@ -46,6 +51,7 @@
 | `src/pipelines/sq-2025/sonarqube/api-client/helpers/issue-methods.js` | Additional delegation file unique to sq-2025; also wired with `fetchWithSlicing` |
 
 ### Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Check | Result |
 |-------|--------|
@@ -60,18 +66,21 @@
 ---
 
 ## Issue #56 — Third-Party Issue Migration Bug
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Problem:** When `getRuleRepositories()` failed to fetch the SonarCloud rules API, it returned an empty Set. This caused `isExternalIssue()` to return `false` for ALL issues, silently dropping third-party analyzer issues (ruff, pylint, Trivy, etc.) during migration.
 
 **Solution:** Added a fallback set of 43 known SonarCloud rule repositories, retry logic with exponential backoff on `getRuleRepositories()`, and edge-case guards in `isExternalIssue()`.
 
 ### Files Created
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |------|---------|
 | `src/shared/utils/fallback-repos/index.js` | Exports `FALLBACK_SONARCLOUD_REPOS` — Set of 43 known built-in SonarCloud rule repository keys |
 
 ### Files Modified
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Change |
 |------|--------|
@@ -86,6 +95,7 @@
 | `src/pipelines/sq-2025/.../query-methods-4.js` | (same change) |
 
 ### Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Check | Result |
 |-------|--------|
@@ -102,12 +112,14 @@
 ---
 
 ## Issue #66 — SonarCloud Public Scanning
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Problem:** No automated SAST, unit test coverage, or SCA scanning was configured for the repository.
 
 **Solution:** Added a standalone GitHub Actions workflow that runs SonarCloud analysis on every push to `main` and on pull requests.
 
 ### Files Created
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |------|---------|
@@ -115,6 +127,7 @@
 | `sonar-project.properties` | SonarCloud project configuration |
 
 ### Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Check | Result |
 |-------|--------|
@@ -135,24 +148,28 @@
 | `sonar-project.properties` has appropriate exclusions | PASS |
 
 ### Note
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Requires the `SONAR_TOKEN` secret to be configured in the GitHub repository settings before the workflow will succeed.
 
 ---
 
 ## Issue #75 — Release Milestone References
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Problem:** GitHub Releases did not reference the milestone (1.2, 1.3, etc.), making it hard to associate a release with its planned scope.
 
 **Solution:** Modified the `gh-release.yml` workflow to extract the version from `package.json`, derive the milestone, and include it in the release description with a clickable link.
 
 ### Files Modified
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Change |
 |------|--------|
 | `.github/workflows/gh-release.yml` | Added checkout step, milestone extraction step, and `body:` parameter with milestone link |
 
 ### Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Check | Result |
 |-------|--------|
@@ -168,6 +185,7 @@ Requires the `SONAR_TOKEN` secret to be configured in the GitHub repository sett
 ---
 
 ## Overall Result
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **All 4 milestone 1.2 issues are fully resolved.**
 

@@ -1,4 +1,5 @@
-# 🏢 Migrate Everything to Multiple SonarCloud Organizations
+# Migrate Everything to Multiple SonarCloud Organizations
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Last updated: Apr 21, 2026 -->
 
@@ -6,8 +7,8 @@ Use this when you want to migrate **all projects and configuration** from your S
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📦 What Gets Migrated
+## What Gets Migrated
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Category | Details |
 |----------|---------|
@@ -20,15 +21,15 @@ Use this when you want to migrate **all projects and configuration** from your S
 | **New Code Definitions** | Per-project and per-branch new code period settings |
 | **Server Info** | Server version, plugins, settings, and webhooks (saved as reference files) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### How projects are assigned to orgs
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatically decide which projects go to which organization. Projects without bindings are assigned to the first organization in the list. **You can review and adjust the project-to-org assignments in the generated `mappings/organizations.csv` file before running the actual migration.**
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## ✅ Prerequisites
+## Prerequisites
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Admin access** to your SonarQube server
 2. **Admin access** to **each** target SonarCloud organization
@@ -40,8 +41,8 @@ CloudVoyager uses DevOps platform bindings (GitHub, GitLab, etc.) to automatical
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📥 Step 1: Download
+## Step 1: Download
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Download the latest binary for your platform from the [Releases](https://github.com/sonar-solutions/cloudvoyager/releases) page:
 
@@ -60,8 +61,8 @@ On macOS/Linux, make the binary executable:
 chmod +x cloudvoyager-*
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📝 Step 2: Create a config file
+## Step 2: Create a config file
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Create a file called `migrate-config.json` with an entry for **each** target organization:
 
@@ -98,8 +99,8 @@ Create a file called `migrate-config.json` with an entry for **each** target org
 
 See [`examples/migrate-config.example.json`](../examples/migrate-config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Config fields
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -130,13 +131,13 @@ See [`examples/migrate-config.example.json`](../examples/migrate-config.example.
 }
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 🚀 Step 3: Run the migration (recommended 3-step approach)
+## Step 3: Run the migration (recommended 3-step approach)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 We recommend a 3-step migration: dry run, migrate without metadata, then sync metadata separately. This gives you the best combination of safety, speed, and reliability.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Step 3a: Dry run — verify everything
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 A dry run extracts all data and generates mapping CSVs so you can review **which projects go to which org**, without changing anything in SonarCloud:
 
@@ -146,8 +147,8 @@ A dry run extracts all data and generates mapping CSVs so you can review **which
 
 Check `./migration-output/mappings/organizations.csv` to verify the project-to-org assignments look correct before proceeding.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Step 3b: Migrate without metadata + auto-tune
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Run the actual migration with metadata sync disabled and auto-tuned performance. This transfers all projects, quality gates, profiles, groups, permissions, and report data — but skips the slower issue/hotspot status transitions:
 
@@ -159,8 +160,8 @@ Skipping metadata during the main migration avoids SonarCloud rate limiting (503
 
 > **Note:** By default, the tool does not wait for each project's analysis to complete on SonarCloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
 ### Step 3c: Sync metadata separately
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Once all projects are migrated, sync issue and hotspot metadata as a standalone step:
 
@@ -178,8 +179,8 @@ This step is safely retryable — if it hits rate limits, just run it again. You
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
 ### Step 3d: Verify migration completeness (recommended)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 After syncing metadata, run the verification command to confirm everything was migrated correctly across all organizations:
 
@@ -201,7 +202,8 @@ This performs read-only checks comparing SonarQube and SonarCloud data and gener
 
 ---
 
-## 🏗️ Per-organization resource migration
+## Per-organization resource migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 For each target organization, the tool runs these steps before migrating individual projects:
 
@@ -217,17 +219,19 @@ For each target organization, the tool runs these steps before migrating individ
 After all organizations are fully migrated, **portfolios** are created at the enterprise level (requires `sonarcloud.enterprise.key`).
 
 ### Per-project steps (11 steps per project)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each project within an organization goes through 11 individually-checkpointed steps — see the [single-org scenario](scenario-single-org.md#-what-happens-per-project-11-steps) for the full breakdown.
 
 ### Parallel project extraction
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 During the extraction phase, the tool fetches branches for all projects concurrently using bounded parallelism (`mapConcurrent`). The concurrency level is controlled by `performance.sourceExtraction.concurrency` in the config or by `--concurrency` on the CLI. This significantly speeds up the data-gathering phase for large SonarQube instances.
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## ⚡ Performance tuning (optional)
+## Performance tuning (optional)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `--auto-tune` flag (used in Step 3b) detects your hardware (CPU cores and RAM) and sets optimal values automatically. You can also manually set specific values:
 
@@ -269,8 +273,8 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📄 Generated Output Files
+## Generated Output Files
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | What's in it |
 |------|-------------|
@@ -292,8 +296,8 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
 Per-project state files are saved to `{outputDir}/state/` for incremental transfer tracking.
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
 ### Verification Output Files
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When you run `./cloudvoyager verify`, reports are written to `./verification-output/` (or the path specified by `--output-dir`):
 
@@ -305,8 +309,8 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 
 ---
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
-## 🚩 All CLI Flags
+## All CLI Flags
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Flag | What it does |
 |------|-------------|
@@ -327,15 +331,15 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## ⚠️ Limitations
+## Limitations
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
-## 📚 Further Reading
+## Further Reading
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format
@@ -344,14 +348,3 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 - [Key Capabilities](key-capabilities.md) — comprehensive overview of engineering and capabilities
 - [Dry-Run CSV Reference](dry-run-csv-reference.md) — CSV schema documentation for the dry-run workflow
 - [Changelog](CHANGELOG.md) — release history and notable changes
-
-<!--
-## Change Log
-| Date | Section | Change |
-|------|---------|--------|
-| 2026-03-10 | CLI Flags, Resume | Added checkpoint/resume flags and resume note |
-| 2026-02-28 | Step 3d Verify | Added verify as recommended final step |
-| 2026-02-18 | Performance, Output Files, CLI Flags | Auto-tune, reports, --wait flag |
-| 2026-02-17 | All | Initial multi-org migration scenario |
-| 2026-02-16 | Download | Base download instructions |
--->

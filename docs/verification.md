@@ -1,4 +1,5 @@
 # Verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Updated: Apr 21, 2026 -->
 
@@ -25,6 +26,7 @@ cloudvoyager verify -c migrate-config.json --concurrency 20 --max-memory 4096
 ```
 
 ### CLI Flags
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Flag | Description |
 |------|-------------|
@@ -38,6 +40,7 @@ cloudvoyager verify -c migrate-config.json --concurrency 20 --max-memory 4096
 > **Tip:** Verification is read-only and does not modify any data. If a verification run is interrupted, simply re-run it — there is no checkpoint state to manage for verification.
 
 ## Output
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Verification produces three report files in `./verification-output/`:
 
@@ -48,14 +51,17 @@ Verification produces three report files in `./verification-output/`:
 | `verification-report.pdf` | PDF | Shareable report for stakeholders |
 
 ## What Gets Verified
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The verification system runs **58+ checks** across two levels: organization-wide and per-project.
 
 ### Organization-Level Checks
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These run once per organization in your migration config.
 
 #### Quality Gates
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares quality gate **definitions** between SQ and SC.
 
@@ -69,6 +75,7 @@ Compares quality gate **definitions** between SQ and SC.
 **Fail** if a custom gate is missing or has condition mismatches.
 
 #### Quality Profiles
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares quality profile **definitions** (not assignments — those are per-project).
 
@@ -84,6 +91,7 @@ Compares quality profile **definitions** (not assignments — those are per-proj
 **Fail** if a profile is missing (for a supported language) or a custom profile's rule count differs.
 
 #### Groups
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares custom user groups.
 
@@ -95,6 +103,7 @@ Compares custom user groups.
 **Pass** if all custom SQ groups exist in SC.
 
 #### Global Permissions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares group-level permissions at the organization level.
 
@@ -107,6 +116,7 @@ Compares group-level permissions at the organization level.
 **Pass** if all SQ group permissions (minus unsupported ones) exist in SC.
 
 #### Permission Templates
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares permission template existence.
 
@@ -119,16 +129,19 @@ Compares permission template existence.
 ---
 
 ### Per-Project Checks
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These run for every project mapping in your migration config.
 
 #### Project Existence
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Confirms the SC project exists.
 
 **Pass** if SC project is found.
 
 #### Branches
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares branches between SQ and SC.
 
@@ -142,6 +155,7 @@ Compares branches between SQ and SC.
 **Pass** if all SQ branches exist in SC (with default branch equivalence).
 
 #### Issues
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The most detailed check. Compares all issues between SQ and SC.
 
@@ -167,6 +181,7 @@ The most detailed check. Compares all issues between SQ and SC.
 - Up to 200 unmatched issue details (rule, file, line, type, severity, message)
 
 #### Hotspots
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares security hotspots between SQ and SC.
 
@@ -181,6 +196,7 @@ Compares security hotspots between SQ and SC.
 **Pass** if all genuine hotspots match and no status/comment mismatches.
 
 #### Measures
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares project-level metric values.
 
@@ -197,12 +213,14 @@ Compares project-level metric values.
 **Pass** if all remaining metrics match (after filtering and tolerance).
 
 #### Quality Gate (project-level)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Checks which quality gate is assigned to the project.
 
 **Pass** if SQ and SC have the same gate assigned (by name).
 
 #### Quality Profiles (project-level)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Checks which quality profile is assigned per language.
 
@@ -215,6 +233,7 @@ Checks which quality profile is assigned per language.
 **Pass** if all SC-supported language profiles match.
 
 #### Settings
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares project-level settings (non-inherited only).
 
@@ -226,30 +245,35 @@ Compares project-level settings (non-inherited only).
 **Pass** if all shared settings have matching values.
 
 #### Tags
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares project tags.
 
 **Pass** if all SQ tags exist in SC. Extra SC tags are allowed.
 
 #### Links
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares project links (homepage, CI, issue tracker, etc.).
 
 **Pass** if all SQ links (matched by `name + url`) exist in SC.
 
 #### New Code Periods
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares new code period definitions.
 
 **Pass** if the new code period type matches (e.g., `PREVIOUS_VERSION`, `NUMBER_OF_DAYS`).
 
 #### DevOps Binding
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares ALM/DevOps platform bindings.
 
 **Pass** if both have the same binding (or neither has one). Fails if SQ has a binding that SC doesn't.
 
 #### Permissions (project-level)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Same logic as global permissions, but scoped to the project.
 
@@ -258,12 +282,14 @@ Same logic as global permissions, but scoped to the project.
 ---
 
 ### Portfolios
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Portfolio verification is **always skipped** — it requires Enterprise API access. SQ portfolios are listed in the report for reference.
 
 ---
 
-### Report Modularization
+## Report Modularization
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Verification report generation has been modularized into separate section modules:
 - `markdown-sections/detail-sections.js` — Per-check detail sections (issues, hotspots, branches, measures, etc.)
@@ -276,6 +302,7 @@ This enables easier maintenance and extension of verification reports.
 ---
 
 ## `--only` Component Filters
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 You can run verification for specific components only:
 
@@ -294,6 +321,7 @@ You can run verification for specific components only:
 ---
 
 ## Result Statuses
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each check produces one of these statuses:
 
@@ -308,10 +336,12 @@ Each check produces one of these statuses:
 ---
 
 ## Platform Differences (Gotchas)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These are known differences between SonarQube and SonarCloud that the verification system handles automatically. They are **not** migration failures.
 
 ### Rule Availability
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ and SC have different rule sets. Some rules exist in SQ but not SC (or vice versa):
 
@@ -322,6 +352,7 @@ SQ and SC have different rule sets. Some rules exist in SQ but not SC (or vice v
 The verifier handles this by checking if a rule has **zero presence** in the SC side. If so, unmatched items for that rule are excluded from the failure count.
 
 ### External Issues (Plugin Migration)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When SQ has issues from plugins not available in SC (e.g., MuleSoft), the migration creates **external issues** in SC. These have a different rule key format:
 
@@ -337,10 +368,12 @@ The verifier normalizes rule keys by stripping the `external_` prefix before mat
 **Improved in v1.2:** External issue detection is now more reliable. If the SonarCloud `/api/rules/repositories` API is unreachable during migration, the tool falls back to a built-in set of 43 known repositories (with 3 retries and exponential backoff). Rules without a colon separator and empty repository prefixes are also handled gracefully. If verification shows missing external issues from a pre-v1.2 migration, re-run the migration for affected projects.
 
 ### Branch Naming
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ and SC may have different default branch names (e.g., SQ uses `main`, SC uses `master`). The verifier detects each side's default branch (via the `isMain` flag) and treats them as equivalent.
 
 ### Quality Profile Naming
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The migration creates profiles with a `(SonarQube Migrated)` suffix to avoid colliding with SC's built-in profiles:
 
@@ -351,10 +384,12 @@ The migration creates profiles with a `(SonarQube Migrated)` suffix to avoid col
 The verifier strips this suffix before comparing.
 
 ### Built-In Quality Gates and Profiles
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Built-in quality gates ("Sonar way", "Sonar way for AI Code") and built-in profiles ("Sonar way" for each language) are managed by the platform. Their conditions and rule counts naturally differ between SQ and SC versions. The verifier skips detailed comparison for these.
 
 ### SonarCloud-Unsupported Permissions
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These SonarQube Enterprise permissions don't exist in SonarCloud and are excluded from comparison:
 
@@ -362,10 +397,12 @@ These SonarQube Enterprise permissions don't exist in SonarCloud and are exclude
 - `portfoliocreator` — create Portfolios (Enterprise feature)
 
 ### Unsupported Languages
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ may have plugins that add languages not available in SC (e.g., MuleSoft's `mulesoft` language). Quality profiles for these languages cannot be migrated and are excluded from the profile assignment check.
 
 ### Measure Differences
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Metric category | Behavior |
 |----------------|----------|
@@ -375,7 +412,7 @@ SQ may have plugins that add languages not available in SC (e.g., MuleSoft's `mu
 | SQ-only metrics (`statements`, `functions`, `classes`, `coverage`, `line_coverage`) | Informational only — SC may not report these |
 
 ### Batch-Distributed Issues and Multiple Analysis Dates
-<!-- updated: 2026-04-22_14:30:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When a branch has more than 5,000 issues, the migration uses **batch distribution** to split those issues into chunks of up to 5,000 and assigns each chunk a separate `analysis_date` (computed by stepping backwards one day per batch from the original analysis date). This means a single branch that had one analysis in SonarQube may appear in SonarCloud with issues spread across multiple `analysis_date` values.
 
@@ -393,20 +430,24 @@ For reference, the batching logic lives in `src/shared/utils/batch-distributor/`
 | **Batch plan** | `computeBatchPlan(totalIssues)` returns an array of `{ startIndex, endIndex, batchIndex, isLast }` descriptors |
 
 ### Tag Differences on Issues
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SC may add its own tags to issues that SQ doesn't have (e.g., `type-dependent` on `typescript:S7755`). The verifier only flags tags that are **missing** from SC (SQ tags not found in SC), not extra SC tags.
 
 ### Hotspot Assignments
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Hotspot assignments (who the hotspot is assigned to) cannot be synced via SC's API. Assignment differences on hotspots are reported as **unsyncable warnings**, not failures.
 
 ### Type and Severity Reclassification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ and SC may classify the same rule with different types (BUG vs CODE_SMELL) or severities (MAJOR vs CRITICAL). These are platform-level decisions that can't be overridden by the migration. They're reported as **unsyncable warnings**.
 
 ---
 
 ## SonarQube API Gotchas
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These API quirks affect both migration and verification:
 
@@ -425,24 +466,29 @@ These API quirks affect both migration and verification:
 ---
 
 ## Troubleshooting Verification Failures
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### "X unmatched issues"
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. Check the `unmatchedSqIssues` array in the JSON report for details (rule, file, line).
 2. If all unmatched issues share the same rule, that rule likely doesn't exist in SC — this is a platform difference and should already be handled.
 3. If issues are on different rules, check if the files exist in SC and were transferred correctly.
 
 ### "X unmatched hotspots"
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Same as issues — check if the rules exist in SC. Common causes:
 - Rule reclassified from hotspot to issue (or vice versa)
 - Rule not available in SC's analyzer version
 
 ### "Quality profile rule count mismatch"
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 For built-in profiles, this is expected and should be skipped automatically. For custom profiles, check if SC has additional rules activated or if some SQ rules aren't available in SC.
 
 ### "Measures mismatch"
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Check which metric is mismatched:
 - `lines`/`ncloc` with small differences — scanner implementation difference (should be within 1% tolerance)
@@ -450,6 +496,7 @@ Check which metric is mismatched:
 - `duplicated_*` — SC recalculates these, should be skipped automatically
 
 ### Report shows 19 failures but source code fixes pass
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 If you're running the compiled binary (`dist/bin/cloudvoyager-*`) and see failures that `node src/index.js verify` doesn't, you need to rebuild:
 

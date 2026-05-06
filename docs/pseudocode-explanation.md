@@ -5,6 +5,7 @@ This document describes each feature of the CloudVoyager migration tool in pseud
 ---
 
 ## Table of Contents
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. [CLI Commands](#1-cli-commands)
 2. [Transfer Pipeline (Single-Project)](#2-transfer-pipeline)
@@ -29,6 +30,7 @@ This document describes each feature of the CloudVoyager migration tool in pseud
 ---
 
 ## 1. CLI Commands
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 COMMAND: validate
@@ -86,6 +88,7 @@ COMMAND: verify
 ---
 
 ## 2. Transfer Pipeline
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Transfers a single SonarQube project to SonarCloud.
 
@@ -193,6 +196,7 @@ FUNCTION transferBranchBatched(extractedData, branch, scConfig, ...):
 ---
 
 ## 3. Migration Pipeline
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Migrates all projects across multiple SonarCloud organizations.
 
@@ -309,6 +313,7 @@ FUNCTION migrateOneOrganization(org, projects, extractedData, ...):
 ---
 
 ## 4. Metadata Sync
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Re-syncs issue and hotspot metadata for already-migrated projects.
 
@@ -328,6 +333,7 @@ COMMAND sync-metadata:
 ---
 
 ## 5. Verification Pipeline
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Compares SonarQube and SonarCloud data to verify migration completeness.
 
@@ -390,6 +396,7 @@ FUNCTION verifyAll(sonarqubeConfig, sonarcloudOrgs, outputDir, onlyComponents, .
 ---
 
 ## 6. Data Extraction
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Extracts all data from SonarQube for a single project.
 
@@ -467,6 +474,7 @@ FUNCTION DataExtractor.extractBranch(branchName, mainData):
 ---
 
 ## 7. Protobuf Building & Encoding
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Transforms extracted data into SonarCloud's scanner report protobuf format.
 
@@ -614,6 +622,7 @@ CLASS ProtobufEncoder:
 ---
 
 ## 8. Report Upload to SonarCloud
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Packages the encoded protobuf report and submits it to SonarCloud's Compute Engine.
 
@@ -682,6 +691,7 @@ CLASS ReportUploader:
 ---
 
 ## 9. External Issues & Plugin Migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Automatically detects issues from unsupported rule repositories (e.g., MuleSoft) and migrates them as external issues.
 
@@ -772,6 +782,7 @@ FUNCTION buildRuleEnrichmentMap(scClient, scProfiles):
 ---
 
 ## 10. Issue & Hotspot Metadata Sync
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Syncs issue/hotspot statuses, assignments, comments, and tags from SonarQube to SonarCloud after scanner report upload.
 
@@ -857,6 +868,7 @@ FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
 ---
 
 ## 11. Quality Gates Migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 FUNCTION migrateQualityGates(extractedGates, scClient):
@@ -895,6 +907,7 @@ FUNCTION assignQualityGatesToProjects(gateMapping, projectAssignments, scClient)
 ---
 
 ## 12. Quality Profiles Migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 FUNCTION migrateQualityProfiles(extractedProfiles, scClient):
@@ -957,6 +970,7 @@ FUNCTION buildInheritanceChains(profiles):
 ---
 
 ## 13. Permissions & Groups Migration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 FUNCTION migrateGroups(extractedGroups, scClient):
@@ -997,6 +1011,7 @@ FUNCTION migrateProjectPermissions(project, scClient):
 ---
 
 ## 14. Organization Mapping & CSV Generation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Maps SonarQube projects to SonarCloud organizations and generates editable CSV files.
 
@@ -1071,6 +1086,7 @@ FUNCTION applyCsvOverrides(csvData, extractedData, resourceMappings, orgAssignme
 ---
 
 ## 15. Version Router and Pipeline Selection
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Detects SonarQube version at runtime and loads the correct version-specific pipeline.
 
@@ -1106,6 +1122,7 @@ FUNCTION detectAndRoute(sonarqubeConfig):
 ---
 
 ## 16. State Management
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Tracks migration progress for incremental transfers.
 
@@ -1157,6 +1174,7 @@ CLASS StateTracker:
 ---
 
 ## 17. Configuration & Validation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 FUNCTION loadConfig(configPath):
@@ -1226,6 +1244,7 @@ CONFIG SCHEMA:
 ---
 
 ## 18. Performance Tuning
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 PERFORMANCE FEATURES:
@@ -1267,6 +1286,7 @@ PERFORMANCE FEATURES:
 ---
 
 ## 19. Checkpoint Journal and Pause/Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```
 CHECKPOINT JOURNAL:

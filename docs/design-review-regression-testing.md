@@ -1,5 +1,5 @@
 # Design Review: Matrix-Based Regression Testing for All Fixed Issues
-<!-- updated: 2026-04-25_10:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 > **Implementation Status: SHIPPED (Phase 1)** — PR [#127](https://github.com/sonar-solutions/cloudvoyager/pull/127). 22 files, 1,309 lines. 5 scenarios x 4 SQ versions. Sensitive CI moved to private repo `sonar-solutions/cloudvoyager-ci`.
 
@@ -9,14 +9,15 @@
 **Quality score:** 7/10
 
 ## Summary
-<!-- updated: 2026-04-22_19:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 9 issues found across 4 of 5 dimensions. No blockers, but fixes needed before implementation to prevent surprises. Scope dimension passed cleanly.
 
 ## Issues by Dimension
-<!-- updated: 2026-04-22_19:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Completeness (3 issues)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | ID | Issue | Suggested Fix |
 |----|-------|---------------|
@@ -25,6 +26,7 @@
 | 1.3 | `issue-sync-first-migration` assertion is unmeasurable ("triggers correctly") | Define as: SQC API returns >0 issues within N seconds post-sync |
 
 ### Consistency (2 issues)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | ID | Issue | Suggested Fix |
 |----|-------|---------------|
@@ -32,6 +34,7 @@
 | 2.2 | Trigger is push-to-main only, but success criteria claims pre-merge PR gating | Either add PR trigger or reword to "post-merge detection" |
 
 ### Clarity (2 issues)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | ID | Issue | Suggested Fix |
 |----|-------|---------------|
@@ -39,10 +42,12 @@
 | 3.2 | Cleanup "deletes and recreates" doesn't specify API calls or whether recreation is implicit | Clarify: DELETE endpoint + implicit recreation via scanner report upload |
 
 ### Scope
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 PASS -- no YAGNI violations.
 
 ### Feasibility (2 issues)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | ID | Issue | Suggested Fix |
 |----|-------|---------------|

@@ -6,11 +6,13 @@ CloudVoyager delivers a complete SonarQube-to-SonarCloud migration without requi
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 1. Time Savings — No Re-scanning Required
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### The Hidden Cost of Re-Scanning
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Traditional migration approaches require re-running CI/CD scanners against every project. For a portfolio of 50 projects across multiple teams, this means:
 
@@ -19,8 +21,10 @@ Traditional migration approaches require re-running CI/CD scanners against every
 - **Locked CI/CD resources** — Build agents are occupied running scans instead of their normal development work
 - **Extended validation cycles** — Each re-scan potentially surfaces new issues that did not exist in the original SonarQube, requiring investigation
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### CloudVoyager Eliminates This Entirely
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager connects directly to your existing SonarQube server via API, extracts all project data, and uploads it to SonarCloud as a legitimate scanner submission — without touching your source code or CI/CD pipelines.
 
@@ -36,8 +40,10 @@ CloudVoyager connects directly to your existing SonarQube server via API, extrac
 
 This same migration via re-scanning would have taken days,占用 significant CI/CD resources and requiring coordination across multiple development teams.
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### What This Means for Your Team
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **No CI/CD disruption** — Migration runs in the background while your pipelines continue normal operations
 - **No coordination required** — Individual development teams do not need to take any action
@@ -46,11 +52,13 @@ This same migration via re-scanning would have taken days,占用 significant CI/
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 2. Data Preservation — All Historical Issues, Hotspots, and Measures Preserved
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Complete Data Fidelity
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager migrates every category of data that SonarQube tracks:
 
@@ -63,8 +71,10 @@ CloudVoyager migrates every category of data that SonarQube tracks:
 | **SCM Data** | Changeset information (author, date, revision) per file |
 | **Branches** | All branches transferred, with main branch processed first |
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Issue Lifecycle Preservation
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each issue carries its complete lifecycle history from SonarQube:
 
@@ -74,8 +84,10 @@ Each issue carries its complete lifecycle history from SonarQube:
 - **Comments** — Full comment history preserved with `[Migrated from SonarQube]` attribution
 - **Tags** — Custom categorization labels maintained
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Accurate Issue Creation Dates
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager preserves each issue's original SonarQube creation date by backdating SCM changeset blame dates in the protobuf report. Issues appear in SonarCloud with the same creation timestamp they had in SonarQube, maintaining the historical distribution in the creation date facet.
 
@@ -83,14 +95,18 @@ For calendar days with more than 5,000 issues, CloudVoyager automatically splits
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 3. Risk Reduction — Verified Migration with Rollback Capability
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Three-Layer Safety System
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Layer 1: Dry-Run Preview
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Before any data touches SonarCloud, run the migration in dry-run mode:
 
@@ -107,8 +123,10 @@ This extracts all data and generates 9 CSV mapping files for review. You can:
 
 Only after reviewing the generated CSVs do you proceed to the actual migration.
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Layer 2: Checkpoint Journal with Pause/Resume
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Every migration step is individually checkpointed. If migration is interrupted — by CTRL+C, network failure, or system crash — running the same command again resumes from the last completed step. No data is lost or duplicated.
 
@@ -118,8 +136,10 @@ The checkpoint journal tracks:
 - Upload deduplication via CE task ID verification (prevents re-uploading completed analyses)
 - Session fingerprint validation (warns on SonarQube version changes between runs)
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Layer 3: Post-Migration Verification
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 After migration completes, the verification pipeline runs **58+ automated checks** comparing SonarQube against SonarCloud:
 
@@ -145,11 +165,13 @@ Reports generate in JSON, Markdown, and PDF formats, including collapsible detai
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 4. Cost Efficiency — No CI/CD Pipeline Re-Runs Needed
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### The True Cost of Re-Scanning
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Re-running CI/CD pipelines for migration is not free. Consider the hidden costs:
 
@@ -163,8 +185,10 @@ Re-running CI/CD pipelines for migration is not free. Consider the hidden costs:
 
 For a 50-project portfolio, re-scanning could consume hundreds of CI/CD minutes, tie up developer attention, and extend the migration timeline from hours to weeks.
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### One Command, Full Migration
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager runs as a single command that orchestrates the entire migration:
 
@@ -182,8 +206,10 @@ The `--auto-tune` flag automatically detects your hardware (CPU cores, RAM) and 
 | Medium (10-50 projects, 1K-50K issues) | 4-8 GB | 15-60 minutes |
 | Large (50+ projects, 50K+ issues) | 8+ GB | 1-3 hours |
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Parallel Processing Architecture
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses a zero-dependency concurrency engine to maximize throughput:
 
@@ -196,11 +222,13 @@ This parallelism means CloudVoyager fully utilizes available resources without r
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 5. Governance Continuity — Permissions, Quality Gates, Profiles Maintained
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Complete Governance Preservation
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Moving to SonarCloud should not mean rebuilding your entire quality governance framework from scratch. CloudVoyager migrates every governance artifact:
 
@@ -214,8 +242,10 @@ Moving to SonarCloud should not mean rebuilding your entire quality governance f
 | **Permission Templates** | Reusable templates with group assignments, set as defaults where applicable |
 | **Portfolios** | Portfolio definitions with project associations preserved for executive-level views |
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Quality Gate Integrity
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Quality gates are recreated with their exact condition logic:
 
@@ -226,8 +256,10 @@ Quality gates are recreated with their exact condition logic:
 
 This means your existing quality standards continue uninterrupted — projects that passed SonarQube's gate pass SonarCloud's gate with the same criteria.
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Quality Profile Fidelity
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Quality profiles use SonarQube's native backup/restore XML format, preserving:
 
@@ -244,8 +276,10 @@ Quality profiles use SonarQube's native backup/restore XML format, preserving:
 
 This enables governance teams to review rule parity before cutting over to SonarCloud.
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Project Settings and Bindings
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Per-project configuration that transfers includes:
 
@@ -260,7 +294,7 @@ This ensures each project arrives in SonarCloud fully configured and ready for y
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## Summary
 
 CloudVoyager's business value is straightforward:
@@ -277,8 +311,10 @@ CloudVoyager is purpose-built for enterprises that need to migrate to SonarCloud
 
 ---
 
-<!-- subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## Further Reading
+
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Key Capabilities](key-capabilities.md) — Comprehensive technical overview
 - [Architecture](architecture.md) — Project structure and data flow

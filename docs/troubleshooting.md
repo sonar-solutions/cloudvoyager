@@ -2,7 +2,7 @@
 
 <!-- Last updated: Apr 21, 2026 -->
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🐛 Debugging a Migration Run
 
 After every `migrate` run (whether it succeeds, partially succeeds, or crashes), CloudVoyager writes report files to the `reports/` subdirectory of your output directory:
@@ -12,7 +12,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 | `reports/migration-report.txt` | Human-readable report — open this first |
 | `reports/migration-report.json` | Machine-readable structured data for scripting |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Where to start
 
 1. **Open `reports/migration-report.txt`** — it's structured top-down so you can quickly find problems:
@@ -27,7 +27,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 
 3. **Check `reports/migration-report.json`** if you need to script post-migration analysis (e.g., count how many projects failed at "Sync hotspots" vs "Upload scanner report").
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Example report output
 
 ```
@@ -66,7 +66,7 @@ From this you can see:
 - `my-legacy-project` failed at the scanner report upload (likely a protobuf/format issue) — but settings, tags, links, etc. still succeeded
 - `big-project` succeeded except for hotspot sync (rate limited) — you can re-run with only hotspot sync later
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Project statuses
 
 | Status | Meaning |
@@ -75,7 +75,7 @@ From this you can see:
 | **partial** | Some steps succeeded, some failed — check the report for which ones |
 | **failed** | All non-skipped steps failed |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Per-project migration steps
 
 Each project goes through these steps (in order). If the scanner report upload fails, issue/hotspot sync are automatically skipped (they depend on uploaded data), but remaining steps still run:
@@ -94,7 +94,7 @@ Each project goes through these steps (in order). If the scanner report upload f
 | Assign quality profiles | Assigns migrated built-in quality profiles per language | No |
 | Project permissions | Sets group-level project permissions | No |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Using log files for deeper investigation
 
 For detailed debugging beyond the report, save the full log to a file:
@@ -122,7 +122,7 @@ grep "Rate limited" migration.log
 grep "SKIP\|skipping" migration.log
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Re-running after failures
 
 The migration can be re-run safely. Projects that already exist in SonarCloud will be updated (not duplicated). To fix specific failures:
@@ -134,6 +134,7 @@ The migration can be re-run safely. Projects that already exist in SonarCloud wi
 ---
 
 ## 🔄 Checkpoint and Resume Issues
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ### Stale Lock File ("Another instance is running")
 
@@ -146,6 +147,7 @@ If a previous run crashed without releasing the lock file, you may see an error 
 The tool automatically detects stale locks from dead processes on the same machine. If the lock was created by a different machine (e.g., NFS-shared state file), manual intervention with `--force-unlock` is required.
 
 ### Corrupt Checkpoint Journal
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 If the checkpoint journal becomes corrupt (e.g., due to a system crash during a write), the tool falls back to the `.journal.backup` file. If both are corrupt:
 
@@ -155,6 +157,7 @@ If the checkpoint journal becomes corrupt (e.g., due to a system crash during a 
 ```
 
 ### SonarQube Version Mismatch on Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 If you upgrade SonarQube between pause and resume, the tool warns about a version mismatch in the session fingerprint. By default, this is a warning only — the transfer continues. To enforce strict version matching:
 
@@ -171,6 +174,7 @@ If you upgrade SonarQube between pause and resume, the tool warns about a versio
 With `strictResume: true`, a version mismatch will fail the transfer and require `--force-restart` to proceed.
 
 ### Source Code Changed Between Pause and Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 If source code in SonarQube changes between pause and resume (e.g., new analysis uploaded), already-cached extraction phases will use stale data. Use `--force-fresh-extract` to re-extract all data while keeping the checkpoint journal:
 
@@ -179,6 +183,7 @@ If source code in SonarQube changes between pause and resume (e.g., new analysis
 ```
 
 ### Clearing All Checkpoint State
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The `reset` command now clears checkpoint journals, lock files, and extraction caches in addition to the state file:
 
@@ -194,7 +199,7 @@ This removes:
 
 ---
 
-<!-- Updated: Mar 12, 2026 at 11:00:00 AM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🏗️ Build Failures
 
 ### `npm run package` — "Multiple occurrences of sentinel found in the binary"
@@ -217,27 +222,27 @@ This only affects building the binary. Tests, linting, and `npm run build` work 
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔐 Authentication Errors
 - Verify your tokens have the correct permissions
 - Check that tokens haven't expired
 - Ensure the project key exists in SonarQube
 - Verify the organization key is correct in SonarCloud
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ⚠️ Generic "Issue whilst processing" Error
 
 This vague SonarCloud error can be caused by:
 - **Branch name mismatch** - SonarQube and SonarCloud have different main branch names. The tool handles this automatically via `getMainBranchName()`, but verify your SonarCloud project's branch configuration
 - **Line count mismatch** - Source file line counts don't match component metadata. The tool uses actual source content line counts to avoid this
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ❌ Report Rejected by SonarCloud
 - **Empty ScmInfo** - Ensure `changesetIndexByLine` is populated for ADDED files (array of zeros, one per line)
 - **Issue gap field** - The `gap` field should not be included in issues (it's scanner-computed, not from SonarQube)
 - **Duplicate report** - SonarCloud rejects reports with the same `scm_revision_id`. Use a different commit or update the source project
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔑 Project Key Conflicts
 
 SonarCloud requires globally unique project keys across all organizations. By default, CloudVoyager uses the **original SonarQube project key** when creating projects on SonarCloud. If the key is already taken by another SonarCloud organization, the tool automatically falls back to a prefixed key (`{org}_{key}`) and logs a warning.
@@ -249,13 +254,13 @@ Key conflicts are reported in three places:
 
 If you see key conflicts, the affected projects were still migrated successfully — they just use a different key than the original SonarQube key. You can rename them later via the SonarCloud API (`/api/projects/update_key`) if the conflicting key becomes available.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌐 Connection Timeouts
 - Check network connectivity to both servers
 - Verify firewall rules allow access
 - Use `--verbose` flag for detailed connection logs
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚦 Rate Limiting (503 / 429 Errors)
 
 SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
@@ -281,19 +286,19 @@ If you still encounter rate limit errors after all retries are exhausted, consid
 - Running the migration during off-peak hours
 - Using `--skip-hotspot-metadata-sync` to skip the most rate-limit-prone operation
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🏷️ Project Names Showing as Project Keys
 
 If projects in SonarCloud show the project key as the display name instead of the original human-readable name from SonarQube, the project was likely created by an older version of CloudVoyager. The current version automatically carries over the original project name from SonarQube when creating projects in SonarCloud.
 
 To fix already-migrated projects, you can rename them manually in SonarCloud via **Project Settings > General Settings > Project Name**, or delete and re-migrate the project.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚧 Quality Gate / Profile Permission Errors (400)
 
 When migrating quality gates or profiles, permission APIs may return 400 errors for built-in gates/profiles. This is expected — built-in resources don't support custom permissions. The migrators handle this gracefully and skip these entries.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📊 Issue Counts Differ Between SonarQube and SonarCloud
 
 If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube and SonarCloud quality profiles.
@@ -302,7 +307,7 @@ The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way
 
 If you'd prefer to skip quality profile migration entirely and use each language's default SonarCloud profile instead, use `--skip-quality-profile-sync`.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📄 SonarQube API Pagination Limits
 
 Some SonarQube APIs enforce a maximum page size of 100 (not 500):
@@ -313,12 +318,12 @@ Some SonarQube APIs enforce a maximum page size of 100 (not 500):
 
 The extractors handle this automatically, but if you see pagination-related errors, this is likely the cause.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔤 Quality Gates Use Names, Not IDs
 
 The SonarQube quality gates API uses `name` for all operations (`/api/qualitygates/show`, `/api/qualitygates/select`), not `id`. If you see "not found" errors related to quality gates, check that you're using the gate name.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 💾 Out of Memory / Heap Allocation Errors
 
 If you see `FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory`, increase the heap size via `--max-memory` or the `maxMemoryMB` config option. The tool automatically restarts itself with the increased heap:
@@ -343,7 +348,7 @@ Or use the `migrate:auto-tune` npm script, which detects your hardware and sets 
 npm run migrate:auto-tune
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🐢 Slow Migration Performance
 
 If migrations are taking too long, the easiest fix is to use `--auto-tune` which detects your hardware and sets optimal values:
@@ -363,7 +368,7 @@ For persistent config, add a `performance` section to your config file. See the 
 
 Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Large Reports
 
 Limit source file extraction for testing:
@@ -373,10 +378,10 @@ export MAX_SOURCE_FILES=10
 ./cloudvoyager transfer -c config.json
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Migration-Specific Issues
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Partial Migration Failures
 
 The `migrate` command continues to the next project (and the next step within each project) if one fails. After the run completes, check `reports/migration-report.txt` in your output directory for a detailed breakdown of what succeeded and what failed per project, per step.
@@ -385,7 +390,7 @@ Projects with the status **partial** had some steps succeed and others fail. Pro
 
 You can re-run the migration — it will re-process all projects.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Dry Run for Planning
 
 Always run with `--dry-run` first to generate mapping CSVs and verify organization assignments before executing the full migration:
@@ -394,7 +399,7 @@ Always run with `--dry-run` first to generate mapping CSVs and verify organizati
 ./cloudvoyager migrate -c migrate-config.json --dry-run
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Skipping Issue/Hotspot Metadata Sync
 
 If issue or hotspot metadata sync is causing rate limit errors on large projects, you can skip them during migration and sync them separately afterward:
@@ -417,7 +422,7 @@ You can also sync just one type of metadata at a time:
 ./cloudvoyager sync-metadata -c migrate-config.json --skip-issue-metadata-sync --verbose
 ```
 
-<!-- updated: 2026-04-22_14:30:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ✅ Verification Reports
 
 > **Import bug fixes (v1.3):** Earlier versions had missing imports in `issue-details.js`, `hotspot-details.js`, and `format-pdf/index.js` that could cause report generation to fail with `ReferenceError` or produce incomplete output. These have been fixed in v1.3. If you encountered report generation errors on a prior version, upgrade and re-run `verify`.
@@ -449,6 +454,7 @@ The console also prints a summary with per-project breakdowns and overall pass/f
 | **error** | Check failed due to an API or connectivity error |
 
 ### Issue assignment failures
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 If issue assignments are failing during migration, the most likely cause is a **login mismatch** between SonarQube and SonarCloud. SonarQube uses local logins (e.g., `john.doe`) while SonarCloud typically uses SSO/GitHub logins (e.g., `john-doe-github`).
 
@@ -464,6 +470,7 @@ If you've already migrated and need to fix assignments, re-run with `--only issu
 See [Dry-Run CSV Reference — user-mappings.csv](dry-run-csv-reference.md#user-mappingscsv) for the full schema and examples.
 
 ### Unsyncable items (expected differences)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Some differences are expected because the SonarCloud API does not support syncing them:
 
@@ -476,6 +483,7 @@ Some differences are expected because the SonarCloud API does not support syncin
 These are reported as **warnings**, not failures. If the only differences are unsyncable items, the verification is considered successful.
 
 ### Selective verification
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 You can verify specific components to save time:
 
@@ -491,6 +499,7 @@ You can verify specific components to save time:
 ```
 
 ## 🛑 Error Classes Reference
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses a hierarchy of custom error classes (defined in `src/shared/utils/errors.js`). Understanding which error you're seeing helps narrow down the root cause:
 
@@ -511,6 +520,7 @@ CloudVoyager uses a hierarchy of custom error classes (defined in `src/shared/ut
 ---
 
 ## 🔒 Lock File Details
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Lock files prevent concurrent runs on the same state file. Key behaviors:
 
@@ -522,6 +532,7 @@ Lock files prevent concurrent runs on the same state file. Key behaviors:
 ---
 
 ## 🧬 Checkpoint Fingerprint Validation
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When resuming from a checkpoint journal, the tool validates a session fingerprint against the stored journal. The behavior depends on what changed:
 
@@ -537,18 +548,21 @@ With `strictResume: true` in config, any fingerprint warning becomes a hard fail
 ---
 
 ## 🗃️ Extraction Cache TTL
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Extraction caches are stored as **gzipped JSON** files in the `cache/` directory. Files older than **7 days** (configurable via `cacheMaxAgeDays`) are automatically purged. Use `--force-fresh-extract` to discard all caches and re-extract from SonarQube.
 
 ---
 
 ## 🔄 Upload Deduplication on Resume
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The checkpoint journal records successful CE task uploads per branch (task ID + timestamp). On resume, if a branch was already uploaded successfully, the upload is skipped. This prevents duplicate CE tasks in SonarCloud after a crash between upload and journal save.
 
 ---
 
 ## ⏹️ Graceful Shutdown (SIGINT / SIGTERM)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager uses a `ShutdownCoordinator` that handles process signals:
 
@@ -560,12 +574,14 @@ Between pipeline phases, the tool checks the shutdown flag and throws a `Gracefu
 ---
 
 ## 🔤 External Linter Issues Missing After Migration (SQ 2025+)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SonarQube 2025+ stores external linter rules (Ruff, Pylint, ESLint, Checkstyle, etc.) with an `external_` prefix in the rule key (e.g., `external_ruff:D200`). If you see zero Ruff/Pylint/etc. issues in SonarCloud after migration, ensure you are running CloudVoyager v1.2.0+ which correctly handles this prefix. Older versions misclassify these as native issues, causing SonarCloud to silently drop them.
 
 ---
 
 ## 🔤 External Issue `cleanCodeAttribute` Must Be Enum
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 When migrating issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft), the tool creates external issues. A critical encoding detail:
 
@@ -576,6 +592,7 @@ When migrating issues from SonarQube plugins not available in SonarCloud (e.g., 
 ---
 
 ## 🕘 SonarQube 9.9 Issue Statuses
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ 9.9 LTS uses the legacy issue status model with only 5 statuses:
 
@@ -585,7 +602,7 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 
 ---
 
-<!-- updated: 2026-04-25_18:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📊 Projects with 10,000+ Issues
 
 SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
@@ -593,12 +610,14 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elast
 > **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **SCM date backdating** (`backdateChangesets`) preserves each issue's original SonarQube creation date in SonarCloud by writing per-line blame dates into the changeset protobuf. A safety split ensures no single calendar day exceeds 5K issues (50% margin under the 10K ES visualization cap). Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud with accurate historical creation dates.
 
 ### Error: `10001th result asked`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Symptom:** Transfer or migration fails with `SonarQube API error (400): Can return only the first 10000 results. 10001th result asked.`
 
 **Fix (v1.2.1+):** The date-range probe that triggered this error has been replaced with a fixed epoch (`2006-01-01` → now) range. No configuration needed — re-run the transfer or migration.
 
 ### Error: `Date cannot be parsed as either a date or date+time`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Symptom:** Transfer fails with `SonarQube API error (400): Date '2007-09-08T21:21:02.125Z' cannot be parsed as either a date or date+time` when slicing activates.
 
@@ -607,6 +626,7 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elast
 **Fix (v1.2.1+):** Date window boundaries now use `+0000` format. Re-run the transfer or migration.
 
 ### General info
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The search slicer algorithm:
 1. Detects when total issues exceed 10K
@@ -618,7 +638,7 @@ The search slicer algorithm:
 
 ---
 
-<!-- updated: 2026-04-25_18:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Issue Creation Date Accuracy
 
 CloudVoyager preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report. This is automatic and transparent — no user configuration needed.
@@ -626,24 +646,29 @@ CloudVoyager preserves each issue's original SonarQube creation date in SonarClo
 > **How it works (v1.3.1+):** `backdateChangesets()` reads each issue's `creationDate` field from SonarQube and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range to determine its creation date, so per-line dating with "oldest wins" for overlapping lines preserves accurate dates. A safety split handles calendar days with >5K issues.
 
 ### Issue creation dates don't match SonarQube
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Check that the migration was run with v1.3.1+. Earlier versions used arbitrary 30-day-spaced batch dates instead of original creation dates. Re-transfer affected projects to get accurate dates.
 
 ### Issue counts look correct in the API but not in the UI
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SonarCloud's Elasticsearch caps visualization at 10K per date bucket. With accurate creation dates, issues are naturally distributed across their original dates. The safety split ensures no single day exceeds 5K issues. If you see this problem, verify the migration used v1.3.1+.
 
 ### Warning: "N issues on DATE exceed 5K cap"
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Expected behavior.** This means a single calendar day had more than 5,000 issues with the same creation date. The safety split automatically sub-groups them into ≤5K batches with 1-day-spaced synthetic dates. The sub-groups will appear as separate adjacent dates in SonarCloud's creation date facet.
 
 ### Can I change the safety split threshold?
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The threshold is hardcoded at 5,000 (50% safety margin under the 10K ES visualization limit). It is not configurable.
 
 ---
 
 ## 🔌 Third-Party Issues Not Appearing in SonarCloud
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 External (third-party) issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft, ABAP) may be silently dropped if the rule-repository detection fails.
 
@@ -661,6 +686,7 @@ External (third-party) issues from SonarQube plugins not available in SonarCloud
 ---
 
 ## 📚 Further Reading
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
 - [Architecture](architecture.md) — project structure, data flow, report format

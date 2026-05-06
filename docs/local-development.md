@@ -6,7 +6,7 @@ Use this guide to build and run CloudVoyager locally. All developers should **bu
 
 ---
 
-<!-- Updated: Mar 12, 2026 at 11:00:00 AM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ✅ Prerequisites
 
 1. **Node.js** v20 LTS (required for `npm run package` — see warning below)
@@ -33,6 +33,7 @@ npm install
 ```
 
 ### Key Dependencies
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Production (25 total):** protobufjs 7.2.0, commander 12.0.0, axios 1.6.0, ajv 8.12.0, winston 3.11.0, pdfmake 0.3.4, form-data 4.0.0, adm-zip 0.5.16, and others.
 
@@ -42,12 +43,12 @@ npm install
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Building the Binary
 
 CloudVoyager can be compiled into a standalone binary using two packaging backends. Both produce a self-contained binary that does not require Node.js or Bun to be installed on the target machine.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Node.js SEA (Default)
 
 ```bash
@@ -60,6 +61,7 @@ Uses esbuild for bundling + Node.js [Single Executable Applications (SEA)](https
 > **WARNING: Requires Node.js v20 LTS.** Node.js v22+ causes a `postject` injection failure ("Multiple occurrences of sentinel"). Run `nvm use 20` before packaging. See [Prerequisites](#-prerequisites) for details.
 
 #### Build Pipeline Steps
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The Node.js SEA build runs three stages internally:
 
@@ -68,7 +70,7 @@ The Node.js SEA build runs three stages internally:
 3. **postject injection** — injects the SEA blob into a copy of the Node.js binary → `dist/bin/cloudvoyager-{platform}-{arch}`
 4. **macOS only** — code signature removal and re-signing is required after injection
 
-<!-- Updated: Feb 21, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Bun Compile (Experimental)
 
 ```bash
@@ -78,7 +80,7 @@ npm run package:bun:cross     # Cross-compile 5 platform binaries
 
 Uses Bun's single-step compile — source goes directly to a native binary with no intermediate bundle. Bun is installed as an optional dependency — no global install required. While faster to build, Bun binaries may silently crash at runtime in some environments, so this is considered experimental.
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Output
 
 | Platform | Output Binary | Build Method |
@@ -102,17 +104,19 @@ This creates `dist/cli.cjs`, which can be run with `node dist/cli.cjs <command> 
 
 ---
 
-<!-- Updated: Mar 13, 2026 at 12:00:00 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🖥️ Desktop App
 
 CloudVoyager Desktop is an Electron-based GUI that wraps the CLI binary. It provides a wizard interface for configuring and running migrations without using the terminal. Past successful runs are saved in a sidebar history for quick access to reports.
 
 ### Prerequisites
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - Node.js v20+ and npm
 - The CLI binary built and available in `dist/bin/` (run `npm run package` first)
 
 ### Running in Development
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 ```bash
 cd desktop
@@ -128,6 +132,7 @@ npm start
 In development mode, if no CLI binary is found in `resources/cli/`, the app falls back to running `node src/index.js` directly.
 
 ### Building for Distribution
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Each command builds a platform-specific installer:
 
@@ -158,7 +163,7 @@ See the [Desktop App Guide](desktop-app.md) for the full user guide.
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🏃 Running the Binary
 
 After building, make it executable (macOS/Linux) and run it directly:
@@ -171,7 +176,7 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 ./dist/bin/cloudvoyager-macos-arm64 migrate -c migrate-config.json --verbose
 ```
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Quick Start Examples
 
 ```bash
@@ -220,7 +225,7 @@ See the [CLI Reference](#-cli-reference) section below for all available flags a
 
 This section documents every command and flag available in CloudVoyager. The examples use `./cloudvoyager` as shorthand — substitute with your actual binary path (e.g. `./dist/bin/cloudvoyager-macos-arm64`).
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Global Flag
 
 | Flag | Short | Description |
@@ -230,14 +235,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `validate` — Validate configuration file
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file to validate |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -250,7 +255,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `test` — Test connections to SonarQube and SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -258,7 +263,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file containing connection details |
 | `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -271,14 +276,14 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `status` — Show current synchronization status
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -288,7 +293,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `reset` — Reset state and clear sync history
 
 | Flag | Short | Required | Argument | Description |
@@ -296,7 +301,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file (reads the state file path from it) |
 | `--yes` | `-y` | No | — | Skip the confirmation prompt and reset immediately |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -312,7 +317,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `transfer` — Transfer a single project from SonarQube to SonarCloud
 
 | Flag | Short | Required | Argument | Description |
@@ -329,7 +334,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--force-unlock` | — | No | — | Force release a stale lock file from a previous run |
 | `--show-progress` | — | No | — | Display checkpoint progress status table and exit |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -404,7 +409,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `migrate` — Full migration from SonarQube to one or more SonarCloud organizations
 
 | Flag | Short | Required | Argument | Description |
@@ -582,7 +587,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 28, 2026 at 12:00:00 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `verify` — Verify migration completeness by comparing SonarQube and SonarCloud data
 
 | Flag | Short | Required | Argument | Description |
@@ -644,7 +649,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### `sync-metadata` — Sync issue and hotspot metadata for already-migrated projects
 
 | Flag | Short | Required | Argument | Description |
@@ -659,7 +664,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
 | `--skip-all-branch-sync` | — | No | — | Only sync the main branch of each project (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Examples
 
 ```bash
@@ -726,7 +731,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧹 Linting
 
 ```bash
@@ -741,7 +746,7 @@ npm run lint:fix
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧪 Running Tests
 
 ```bash
@@ -753,6 +758,7 @@ npm run test:fast
 ```
 
 ### Test Configuration
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Test runner:** [AVA](https://github.com/avajs/ava) v6.4.1
 - **Test glob:** `test/**/*.test.js` (50+ test files)
@@ -765,7 +771,7 @@ npm run test:fast
 
 ---
 
-<!-- Updated: Mar 20, 2026 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🏗️ CI/CD (GitHub Actions)
 
 The project uses a multi-stage GitHub Actions pipeline:
@@ -780,10 +786,12 @@ The project uses a multi-stage GitHub Actions pipeline:
 | `gh-release.yml` | GitHub Releases | Creates releases with milestone links derived from version tags |
 
 ### SonarCloud Scanning
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The repository includes a `sonarcloud.yml` workflow and a `sonar-project.properties` file at the project root for automatic SAST/SCA scanning via SonarCloud. The workflow runs on every push to `main` and on pull requests. It requires a `SONAR_TOKEN` secret configured in the GitHub repository settings.
 
 ### Platform Build Matrix (6 targets)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Platform | Runner |
 |----------|--------|
@@ -796,7 +804,7 @@ The repository includes a `sonarcloud.yml` workflow and a `sonar-project.propert
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌍 Environment Variables
 
 | Variable | Description |
@@ -809,7 +817,7 @@ The repository includes a `sonarcloud.yml` workflow and a `sonar-project.propert
 | `SONARCLOUD_URL` | Override SonarCloud URL from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Examples with environment variables
 
 ```bash
@@ -825,7 +833,7 @@ MAX_SOURCE_FILES=10 ./cloudvoyager transfer -c config.json --verbose
 
 ---
 
-<!-- Updated: Feb 21, 2026 at 10:30:00 AM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ⚡ npm Scripts
 
 The following npm scripts are available for building, testing, and linting:
@@ -889,7 +897,7 @@ The following npm scripts are available for building, testing, and linting:
 
 ---
 
-<!-- updated: 2026-04-29_14:50:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🐛 Debugging Scripts
 
 The `.debugging/` folder contains convenience scripts for local testing:
@@ -907,7 +915,7 @@ These scripts expect the binary at `./dist/bin/cloudvoyager-macos-arm64` and con
 
 ---
 
-<!-- Updated: Feb 20, 2026 at 04:02:35 PM -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📚 Further Reading
 
 - [Configuration Reference](configuration.md) — all config options, environment variables, npm scripts
@@ -920,17 +928,19 @@ These scripts expect the binary at `./dist/bin/cloudvoyager-macos-arm64` and con
 
 ---
 
-<!-- updated: 2026-04-25_10:00:00 -->
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧪 Regression Testing
 
 The regression testing system validates that bug fixes and behavioral changes in CloudVoyager remain correct across SonarQube versions.
 
 ### Where the Code Lives
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Assertion scripts and helpers:** `test/regression/` in this repository contains the assertion scripts (`assert-*.js`), shared helpers, and enrichment scripts used by regression tests.
 - **CI workflow:** The actual CI pipeline that orchestrates regression runs lives in the **private** repo `sonar-solutions/cloudvoyager-ci` (not this public repo). The workflow file is `regression-bug-fixes.yml`.
 
 ### Running Regression Tests Locally
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Full regression tests require an environment that mirrors CI:
 
@@ -941,6 +951,7 @@ Full regression tests require an environment that mirrors CI:
 > **Note:** These prerequisites make local runs heavyweight. Most day-to-day development does not require running the full regression suite locally — CI handles it on every PR.
 
 ### Meta-Tests (No Docker Required)
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 The helper utilities in `test/regression/helpers/` have their own unit tests (`test/regression/helpers/*.test.js`). These **meta-tests** run with the regular test command and do not require Docker or a running SonarQube instance:
 
@@ -949,6 +960,7 @@ npm test
 ```
 
 ### Adding a New Regression Test
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Create an assertion script:** Add `test/regression/assert-{scenario-name}.js` in this repository. Follow the conventions of existing assertion scripts in the same directory.
 2. **Add a matrix entry:** In the private repo `sonar-solutions/cloudvoyager-ci`, add a new entry to the matrix in `regression-bug-fixes.yml` that references your assertion script and the SonarQube version(s) it should run against.
