@@ -1258,6 +1258,18 @@ test('migrateProjectSettings handles empty settings', async t => {
   t.is(client.setProjectSetting.callCount, 0);
 });
 
+test('migrateProjectSettings dispatches empty string value', async t => {
+  const client = mockClient();
+  const settings = [
+    { key: 'sonar.test.inclusions', value: '' }
+  ];
+
+  await migrateProjectSettings('proj', settings, client);
+
+  t.is(client.setProjectSetting.callCount, 1);
+  t.deepEqual(client.setProjectSetting.firstCall.args, ['sonar.test.inclusions', { value: '' }, 'proj']);
+});
+
 // ============================================================================
 // project-config.js - migrateProjectTags
 // ============================================================================

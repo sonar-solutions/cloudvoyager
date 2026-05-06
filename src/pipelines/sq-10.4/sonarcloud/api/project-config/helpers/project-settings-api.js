@@ -8,7 +8,9 @@ import { buildSettingsParams } from '../../../../../../shared/utils/settings-par
 export async function setProjectSetting(client, key, { value, values, fieldValues } = {}, component) {
   logger.debug(`Setting ${key} on project ${component}`);
   const params = buildSettingsParams({ key, component, value, values, fieldValues });
-  await client.post(`/api/settings/set?${params.toString()}`, null);
+  await client.post('/api/settings/set', params.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
 }
 
 export async function setProjectTags(client, projectKey, tags) {
