@@ -19,6 +19,19 @@ export async function addGroupPermission(client, organization, groupName, permis
   });
 }
 
+/**
+ * Grant all permissions on all projects to a group.
+ * Uses the 'admin' permission at org level, which automatically grants
+ * all permissions on all projects in SonarCloud.
+ * This is the recommended approach when groups/users may not exist in SQC.
+ */
+export async function grantAllPermissionsOnAllProjects(client, organization, groupName) {
+  logger.info(`Granting admin permission to group ${groupName} (grants all permissions on all projects)`);
+  await client.post('/api/permissions/add_group', null, {
+    params: { groupName, permission: 'admin', organization }
+  });
+}
+
 /** Add a project-level permission to a group. */
 export async function addProjectGroupPermission(client, organization, groupName, projectKey, permission) {
   logger.debug(`Adding ${permission} to group ${groupName} on project ${projectKey}`);
