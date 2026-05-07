@@ -6,7 +6,7 @@ import { applyFallbackAction } from './hotspot-fallback-action.js';
 
 /** Sync hotspot status by replaying changelog or falling back to single transition. */
 export async function syncHotspotStatus(scHotspot, sqHotspot, client) {
-  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution || null) === (sqHotspot.resolution || null)) return false;
+  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution ?? null) === (sqHotspot.resolution ?? null)) return false;
 
   const changelog = sqHotspot.changelog;
   if (changelog && changelog.length > 0) {
