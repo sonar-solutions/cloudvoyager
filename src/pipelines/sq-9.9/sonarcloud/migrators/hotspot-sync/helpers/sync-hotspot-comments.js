@@ -1,4 +1,5 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { buildHotspotSourceComment } from '../../../../../../shared/utils/source-link/build-source-comments.js';
 
 // -------- Sync Hotspot Comments, Metadata Marker, and Source Link --------
 
@@ -18,8 +19,8 @@ export async function syncHotspotComments(scHotspot, sqHotspot, client, stats, o
 
   if (options.sonarqubeUrl && options.sonarqubeProjectKey) {
     try {
-      const sqUrl = `${options.sonarqubeUrl}/security_hotspots?id=${encodeURIComponent(options.sonarqubeProjectKey)}&hotspots=${encodeURIComponent(sqHotspot.key)}`;
-      await client.addHotspotComment(scHotspot.key, `[SonarQube Source] Original hotspot: ${sqUrl}`);
+      const text = buildHotspotSourceComment(options.sonarqubeUrl, options.sonarqubeProjectKey, sqHotspot.key);
+      await client.addHotspotComment(scHotspot.key, text);
       stats.sourceLinked++;
     } catch (e) { logger.debug(`Failed to add source link to hotspot ${scHotspot.key}: ${e.message}`); }
   }

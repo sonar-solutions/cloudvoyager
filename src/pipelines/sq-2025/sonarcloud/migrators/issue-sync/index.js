@@ -4,6 +4,7 @@ import { parallelSyncIssues } from '../../../../../shared/utils/concurrency/help
 import { isClosedOrFixed } from '../../../../../shared/utils/issue-filters/is-closed-or-fixed.js';
 import { applyManualChangesPreFilter } from '../../../../../shared/utils/issue-sync/apply-pre-filter.js';
 import { waitForScIndexing } from '../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
+import { resolveSourceBaseURL } from '../../../../../shared/utils/source-link/resolve-source-base-url.js';
 import { matchIssues } from './helpers/match-issues.js';
 import { syncOneIssue } from './helpers/sync-one-issue.js';
 import { createSyncStats } from './helpers/create-sync-stats.js';
@@ -58,7 +59,11 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   const PARALLEL_THRESHOLD = 500;
   if (matchedPairs.length >= PARALLEL_THRESHOLD) {
     const scConfig = { baseURL: client.baseURL, token: client.token, organization: client.organization, projectKey };
-    const sqClientConfig = sqClient ? { baseURL: sqClient.baseURL, token: sqClient.token, projectKey: sqClient.projectKey } : null;
+    let sqClientConfig = null;
+    if (sqClient) {
+      const resolvedBaseURL = await resolveSourceBaseURL(sqClient);
+      sqClientConfig = { baseURL: resolvedBaseURL, token: sqClient.token, projectKey: sqClient.projectKey };
+    }
     const mergedStats = await parallelSyncIssues(matchedPairs, scConfig, sqClientConfig, userMappings);
     Object.assign(stats, mergedStats);
   } else {

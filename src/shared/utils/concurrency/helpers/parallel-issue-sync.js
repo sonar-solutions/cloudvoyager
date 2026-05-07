@@ -128,7 +128,8 @@ async function addSourceLink(sqIssue, scIssue, stats) {
   if (!sqConfig || !sqConfig.baseURL || !sqConfig.projectKey) return;
   try {
     const sqUrl = sqConfig.baseURL + '/project/issues?id=' + encodeURIComponent(sqConfig.projectKey) + '&issues=' + encodeURIComponent(sqIssue.key) + '&open=' + encodeURIComponent(sqIssue.key);
-    await scPost('/api/issues/add_comment', { issue: scIssue.key, text: '[SonarQube Source] Original issue: ' + sqUrl });
+    const text = 'Link to [Original issue](' + sqUrl + ')';
+    await scPost('/api/issues/add_comment', { issue: scIssue.key, text });
     stats.sourceLinked++;
   } catch { stats.apiErrors++; }
 }

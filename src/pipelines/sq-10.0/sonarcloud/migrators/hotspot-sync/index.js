@@ -1,6 +1,7 @@
 import logger from '../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../shared/utils/concurrency.js';
 import { waitForScIndexing } from '../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
+import { resolveSourceBaseURL } from '../../../../../shared/utils/source-link/resolve-source-base-url.js';
 import { matchHotspots } from './helpers/match-hotspots.js';
 import { syncSingleHotspot } from './helpers/sync-single-hotspot.js';
 import { createEmptyHotspotStats } from './helpers/create-empty-hotspot-stats.js';
@@ -15,6 +16,10 @@ export { mapHotspotChangelogDiffToAction, extractHotspotTransitionsFromChangelog
 export async function syncHotspots(projectKey, sqHotspots, client, options = {}) {
   const concurrency = options.concurrency || 3;
   const stats = createEmptyHotspotStats();
+
+  if (options.sqClient && options.sonarqubeProjectKey) {
+    options.sonarqubeUrl = await resolveSourceBaseURL(options.sqClient);
+  }
 
   let scHotspots = await client.searchHotspots(projectKey);
   if (scHotspots.length === 0 && sqHotspots.length > 0) {

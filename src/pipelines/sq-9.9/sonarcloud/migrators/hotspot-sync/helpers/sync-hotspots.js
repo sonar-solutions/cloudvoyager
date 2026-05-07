@@ -1,6 +1,7 @@
 import logger from '../../../../../../shared/utils/logger.js';
 import { mapConcurrent, createProgressLogger } from '../../../../../../shared/utils/concurrency.js';
 import { waitForScIndexing } from '../../../../../../shared/utils/issue-sync/wait-for-sc-indexing.js';
+import { resolveSourceBaseURL } from '../../../../../../shared/utils/source-link/resolve-source-base-url.js';
 import { matchHotspots } from './match-hotspots.js';
 import { syncHotspotStatus } from './sync-hotspot-status.js';
 import { syncHotspotComments } from './sync-hotspot-comments.js';
@@ -10,6 +11,10 @@ import { syncHotspotComments } from './sync-hotspot-comments.js';
 export async function syncHotspots(projectKey, sqHotspots, client, options = {}) {
   const concurrency = options.concurrency || 3;
   const stats = { matched: 0, statusChanged: 0, commented: 0, metadataSyncCommented: 0, sourceLinked: 0, failed: 0 };
+
+  if (options.sqClient && options.sonarqubeProjectKey) {
+    options.sonarqubeUrl = await resolveSourceBaseURL(options.sqClient);
+  }
 
   let scHotspots = await client.searchHotspots(projectKey);
   if (scHotspots.length === 0 && sqHotspots.length > 0) {

@@ -1,4 +1,6 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { resolveSourceBaseURL } from '../../../../../../shared/utils/source-link/resolve-source-base-url.js';
+import { buildIssueSourceComment } from '../../../../../../shared/utils/source-link/build-source-comments.js';
 
 // -------- Main Logic --------
 
@@ -33,8 +35,9 @@ export async function syncIssueMetadata(sqIssue, scIssue, client, sqClient, stat
   // Add source link comment
   if (sqClient?.baseURL && sqClient?.projectKey) {
     try {
-      const sqUrl = `${sqClient.baseURL}/project/issues?id=${encodeURIComponent(sqClient.projectKey)}&issues=${encodeURIComponent(sqIssue.key)}&open=${encodeURIComponent(sqIssue.key)}`;
-      await client.addIssueComment(scIssue.key, `[SonarQube Source] Original issue: ${sqUrl}`);
+      const baseURL = await resolveSourceBaseURL(sqClient);
+      const text = buildIssueSourceComment(baseURL, sqClient.projectKey, sqIssue.key);
+      await client.addIssueComment(scIssue.key, text);
       stats.sourceLinked++;
     } catch (e) { logger.debug(`Failed to add source link comment to issue ${scIssue.key}: ${e.message}`); }
   }
