@@ -27,5 +27,6 @@ export async function fetchAndSyncHotspots(opts) {
     concurrency: syncConcurrency,
     sonarqubeUrl: sonarQubeClient.baseURL,
     sonarqubeProjectKey: sonarQubeClient.projectKey,
+    sqClient: sonarQubeClient,
   });
 }
