@@ -31,4 +31,20 @@ export function addProtobufFiles(zip, encodedReport) {
     zip.addFile('activerules.pb', Buffer.from(encodedReport.activeRules));
     logger.debug(`Added activerules.pb (${encodedReport.activeRules.length} bytes)`);
   }
+
+  // External issues (externalissues-{ref}.pb)
+  if (encodedReport.externalIssues && encodedReport.externalIssues.size > 0) {
+    let extIssueFileCount = 0;
+    encodedReport.externalIssues.forEach((buf, ref) => {
+      zip.addFile(`externalissues-${ref}.pb`, Buffer.from(buf));
+      extIssueFileCount++;
+    });
+    logger.debug(`Added ${extIssueFileCount} external issue files`);
+  }
+
+  // Ad-hoc rules (adhoerules.pb)
+  if (encodedReport.adHocRules && encodedReport.adHocRules.length > 0) {
+    zip.addFile('adhoerules.pb', Buffer.from(encodedReport.adHocRules));
+    logger.debug(`Added adhoerules.pb (${encodedReport.adHocRules.length} bytes)`);
+  }
 }

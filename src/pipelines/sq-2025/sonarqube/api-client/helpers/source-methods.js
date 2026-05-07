@@ -14,7 +14,7 @@ export function attachSourceMethods(inst) {
 
   inst.getSourceFiles = async (branch = null) => {
     logger.info(`Fetching source files for project: ${inst.projectKey}`);
-    const params = { component: inst.projectKey, qualifiers: 'FIL' };
+    const params = { component: inst.projectKey, qualifiers: 'FIL,UTS' };
     if (branch) params.branch = branch;
     return await inst.getPaginated('/api/components/tree', params, 'components');
   };
