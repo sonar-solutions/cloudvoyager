@@ -22,7 +22,7 @@ function getFallbackAction(scHotspot, sqHotspot) {
 }
 
 export async function syncHotspotStatus(scHotspot, sqHotspot, client) {
-  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution || null) === (sqHotspot.resolution || null)) return false;
+  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution ?? null) === (sqHotspot.resolution ?? null)) return false;
 
   const changelog = sqHotspot.changelog;
   if (changelog?.length > 0) {

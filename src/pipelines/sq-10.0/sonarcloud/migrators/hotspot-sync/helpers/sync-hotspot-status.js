@@ -10,7 +10,7 @@ import { applyFallbackHotspotAction } from './apply-fallback-hotspot-action.js';
  * Falls back to a single transition when no changelog is available.
  */
 export async function syncHotspotStatus(scHotspot, sqHotspot, client) {
-  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution || null) === (sqHotspot.resolution || null)) {
+  if (scHotspot.status === sqHotspot.status && (scHotspot.resolution ?? null) === (sqHotspot.resolution ?? null)) {
     return false;
   }
 
