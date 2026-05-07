@@ -31,4 +31,17 @@ export function buildFileComponents(builder, componentsMap, sanitizeLang) {
       });
     }
   });
+
+  // Ensure all FIL components are in componentsMap even without source code.
+  // This catches Text files and other FIL components whose source code could not be fetched.
+  builder.data.components.forEach(comp => {
+    if (comp.qualifier === 'FIL' && !componentsMap.has(comp.key)) {
+      const lineCount = Number.parseInt(comp.measures?.find(m => m.metric === 'lines')?.value) || 0;
+      componentsMap.set(comp.key, {
+        ref: builder.getComponentRef(comp.key), type: 4,
+        language: sanitizeLang(comp.language || ''),
+        lines: lineCount, status: 3, projectRelativePath: comp.path || comp.name,
+      });
+    }
+  });
 }
