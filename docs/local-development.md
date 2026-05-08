@@ -1,6 +1,6 @@
 # 🛠️ Local Development
 
-<!-- Last updated: Apr 21, 2026 — updated build pipeline, testing, CI/CD details, SonarCloud scanning -->
+<!-- Last updated: Apr 21, 2026 — updated build pipeline, testing, CI/CD details, SonarQube Cloud scanning -->
 
 Use this guide to build and run CloudVoyager locally. All developers should **build the binary and run that** — do not run directly from source. This ensures consistent behavior across environments and eliminates "works on my machine" issues.
 
@@ -183,7 +183,7 @@ chmod +x dist/bin/cloudvoyager-macos-arm64
 # Validate a config file
 ./cloudvoyager validate -c config.json
 
-# Test connections to SonarQube and SonarCloud
+# Test connections to SonarQube Server and SonarQube Cloud
 ./cloudvoyager test -c config.json
 
 # Transfer a single project
@@ -256,7 +256,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### `test` — Test connections to SonarQube and SonarCloud
+### `test` — Test connections to SonarQube Server and SonarQube Cloud
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
@@ -318,19 +318,19 @@ This section documents every command and flag available in CloudVoyager. The exa
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### `transfer` — Transfer a single project from SonarQube to SonarCloud
+### `transfer` — Transfer a single project from SonarQube Server to SonarQube Cloud
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the configuration file |
 | `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
-| `--wait` | — | No | — | Wait for the SonarCloud analysis to complete before returning (blocks until the Compute Engine task finishes) |
+| `--wait` | — | No | — | Wait for the SonarQube Cloud analysis to complete before returning (blocks until the Compute Engine task finishes) |
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (source file extraction, hotspot extraction, etc.) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts the process with increased heap if the current heap is too small |
 | `--auto-tune` | — | No | — | Auto-detect hardware (CPU cores, available memory) and set optimal concurrency and memory values |
 | `--skip-all-branch-sync` | — | No | — | Only sync the main branch (skip non-main branches). Equivalent to setting `transfer.syncAllBranches: false` in config |
 | `--force-restart` | — | No | — | Discard checkpoint journal and start a fresh transfer from scratch |
-| `--force-fresh-extract` | — | No | — | Discard extraction caches and re-extract all data from SonarQube |
+| `--force-fresh-extract` | — | No | — | Discard extraction caches and re-extract all data from SonarQube Server |
 | `--force-unlock` | — | No | — | Force release a stale lock file from a previous run |
 | `--show-progress` | — | No | — | Display checkpoint progress status table and exit |
 
@@ -347,7 +347,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 # Transfer with verbose logging (short flag)
 ./cloudvoyager transfer -c config.json -v
 
-# Transfer and wait for SonarCloud analysis to finish
+# Transfer and wait for SonarQube Cloud analysis to finish
 ./cloudvoyager transfer -c config.json --wait
 
 # Transfer with verbose logging and wait for analysis
@@ -410,17 +410,17 @@ This section documents every command and flag available in CloudVoyager. The exa
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### `migrate` — Full migration from SonarQube to one or more SonarCloud organizations
+### `migrate` — Full migration from SonarQube Server to one or more SonarQube Cloud organizations
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
 | `--config <path>` | `-c` | Yes | File path | Path to the migration configuration file |
 | `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
-| `--wait` | — | No | — | Wait for each SonarCloud analysis to complete before proceeding |
+| `--wait` | — | No | — | Wait for each SonarQube Cloud analysis to complete before proceeding |
 | `--dry-run` | — | No | — | Extract data and generate project/key mappings without actually migrating any data |
 | `--skip-issue-metadata-sync` | — | No | — | Skip syncing issue metadata (statuses, assignments, comments, tags) after transfer |
 | `--skip-hotspot-metadata-sync` | — | No | — | Skip syncing hotspot metadata (statuses, comments) after transfer |
-| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarCloud profiles) |
+| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarQube Cloud profiles) |
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (applies to source extraction, hotspot extraction, issue sync, and hotspot sync) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--project-concurrency <n>` | — | No | Integer | Maximum number of projects to migrate concurrently |
@@ -527,7 +527,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 # Migration with auto-tune, wait, and skip both metadata syncs
 ./cloudvoyager migrate -c migrate-config.json --verbose --wait --auto-tune --skip-issue-metadata-sync --skip-hotspot-metadata-sync
 
-# Migration skipping quality profile sync (use default SonarCloud profiles)
+# Migration skipping quality profile sync (use default SonarQube Cloud profiles)
 ./cloudvoyager migrate -c migrate-config.json --verbose --skip-quality-profile-sync
 
 # Migration skipping quality profile sync with auto-tune
@@ -588,7 +588,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### `verify` — Verify migration completeness by comparing SonarQube and SonarCloud data
+### `verify` — Verify migration completeness by comparing SonarQube Server and SonarQube Cloud data
 
 | Flag | Short | Required | Argument | Description |
 |------|-------|----------|----------|-------------|
@@ -658,7 +658,7 @@ This section documents every command and flag available in CloudVoyager. The exa
 | `--verbose` | `-v` | No | — | Enable debug-level logging for detailed output |
 | `--skip-issue-metadata-sync` | — | No | — | Skip syncing issue metadata (statuses, assignments, comments, tags); only sync hotspot metadata |
 | `--skip-hotspot-metadata-sync` | — | No | — | Skip syncing hotspot metadata (statuses, comments); only sync issue metadata |
-| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarCloud profiles) |
+| `--skip-quality-profile-sync` | — | No | — | Skip syncing quality profiles (projects use default SonarQube Cloud profiles) |
 | `--concurrency <n>` | — | No | Integer | Override the maximum concurrency for I/O operations (issue sync, hotspot sync, hotspot extraction) |
 | `--max-memory <mb>` | — | No | Integer | Set the max heap size in MB; auto-restarts with increased heap if needed |
 | `--auto-tune` | — | No | — | Auto-detect hardware and set optimal concurrency and memory values |
@@ -782,13 +782,13 @@ The project uses a multi-stage GitHub Actions pipeline:
 | `build.yml` | Build CLI binaries | 6 platform builds in parallel using Node.js 20 |
 | `build-desktop.yml` | Build Electron desktop apps | 6 Electron builds (depends on CLI build artifacts) |
 | `release.yml` | Orchestrator | Chains: install → build → build-desktop → release |
-| `sonarcloud.yml` | SonarCloud SAST/SCA | Automatic scanning on push to `main` and on PRs. Requires `SONAR_TOKEN` secret |
+| `sonarcloud.yml` | SonarQube Cloud SAST/SCA | Automatic scanning on push to `main` and on PRs. Requires `SONAR_TOKEN` secret |
 | `gh-release.yml` | GitHub Releases | Creates releases with milestone links derived from version tags |
 
-### SonarCloud Scanning
+### SonarQube Cloud Scanning
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-The repository includes a `sonarcloud.yml` workflow and a `sonar-project.properties` file at the project root for automatic SAST/SCA scanning via SonarCloud. The workflow runs on every push to `main` and on pull requests. It requires a `SONAR_TOKEN` secret configured in the GitHub repository settings.
+The repository includes a `sonarcloud.yml` workflow and a `sonar-project.properties` file at the project root for automatic SAST/SCA scanning via SonarQube Cloud. The workflow runs on every push to `main` and on pull requests. It requires a `SONAR_TOKEN` secret configured in the GitHub repository settings.
 
 ### Platform Build Matrix (6 targets)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -811,10 +811,10 @@ The repository includes a `sonarcloud.yml` workflow and a `sonar-project.propert
 |----------|-------------|
 | `LOG_LEVEL` | Set logging level: `debug`, `info`, `warn`, `error` |
 | `LOG_FILE` | Path to log file (optional, logs to console by default) |
-| `SONARQUBE_TOKEN` | Override SonarQube token from config |
-| `SONARCLOUD_TOKEN` | Override SonarCloud token from config |
-| `SONARQUBE_URL` | Override SonarQube URL from config |
-| `SONARCLOUD_URL` | Override SonarCloud URL from config |
+| `SONARQUBE_TOKEN` | Override SonarQube Server token from config |
+| `SONARCLOUD_TOKEN` | Override SonarQube Cloud token from config |
+| `SONARQUBE_URL` | Override SonarQube Server URL from config |
+| `SONARCLOUD_URL` | Override SonarQube Cloud URL from config |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (`0` = all) |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -909,7 +909,7 @@ The `.debugging/` folder contains convenience scripts for local testing:
 | `test-verify.sh` | Run `verify` command with `migrate-config.json` |
 | `build-desktop.sh` | Build the Electron desktop app |
 | `run-desktop.sh` | Launch the desktop app in dev mode |
-| `delete-all-sonarcloud-projects.sh` | Delete all projects from a SonarCloud org (for cleanup) |
+| `delete-all-sonarcloud-projects.sh` | Delete all projects from a SonarQube Cloud org (for cleanup) |
 
 These scripts expect the binary at `./dist/bin/cloudvoyager-macos-arm64` and config files at the repo root. Both `migrate-config.json` and `transfer-config.json` are gitignored since they contain credentials.
 
@@ -931,7 +931,7 @@ These scripts expect the binary at `./dist/bin/cloudvoyager-macos-arm64` and con
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧪 Regression Testing
 
-The regression testing system validates that bug fixes and behavioral changes in CloudVoyager remain correct across SonarQube versions.
+The regression testing system validates that bug fixes and behavioral changes in CloudVoyager remain correct across SonarQube Server versions.
 
 ### Where the Code Lives
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -944,16 +944,16 @@ The regression testing system validates that bug fixes and behavioral changes in
 
 Full regression tests require an environment that mirrors CI:
 
-1. **Docker** — ephemeral SonarQube containers are spun up per test scenario.
-2. **SonarQube Enterprise license key** — the containers need a valid Enterprise Edition license.
-3. **SonarCloud organization access** — tests migrate data into SonarCloud and verify the results.
+1. **Docker** — ephemeral SonarQube Server containers are spun up per test scenario.
+2. **SonarQube Server Enterprise license key** — the containers need a valid Enterprise Edition license.
+3. **SonarQube Cloud organization access** — tests migrate data into SonarQube Cloud and verify the results.
 
 > **Note:** These prerequisites make local runs heavyweight. Most day-to-day development does not require running the full regression suite locally — CI handles it on every PR.
 
 ### Meta-Tests (No Docker Required)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-The helper utilities in `test/regression/helpers/` have their own unit tests (`test/regression/helpers/*.test.js`). These **meta-tests** run with the regular test command and do not require Docker or a running SonarQube instance:
+The helper utilities in `test/regression/helpers/` have their own unit tests (`test/regression/helpers/*.test.js`). These **meta-tests** run with the regular test command and do not require Docker or a running SonarQube Server instance:
 
 ```bash
 npm test
@@ -963,7 +963,7 @@ npm test
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. **Create an assertion script:** Add `test/regression/assert-{scenario-name}.js` in this repository. Follow the conventions of existing assertion scripts in the same directory.
-2. **Add a matrix entry:** In the private repo `sonar-solutions/cloudvoyager-ci`, add a new entry to the matrix in `regression-bug-fixes.yml` that references your assertion script and the SonarQube version(s) it should run against.
+2. **Add a matrix entry:** In the private repo `sonar-solutions/cloudvoyager-ci`, add a new entry to the matrix in `regression-bug-fixes.yml` that references your assertion script and the SonarQube Server version(s) it should run against.
 
 <!--
 ## Change Log

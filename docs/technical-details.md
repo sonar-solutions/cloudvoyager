@@ -1,6 +1,6 @@
 # 🔬 Technical Details
 
-<!-- Last updated: Apr 22, 2026 (batch-distributor in pipeline flow diagram, backdating strategy docs, scmRevisionId per-batch note, issue batching 5K per date bucket, issue sync pre-filter optimization, SC indexing wait, SonarCloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
+<!-- Last updated: Apr 22, 2026 (batch-distributor in pipeline flow diagram, backdating strategy docs, scmRevisionId per-batch note, issue batching 5K per date bucket, issue sync pre-filter optimization, SC indexing wait, SonarQube Cloud 10K issue slicing, githubactions language support, SQC US instance, enterprise key optional, search-slicer for SQC, fallback rule repositories, protobuf details, external issues, enum values, error hierarchy, state management, API gotchas, CE retry, issue status mapping, checkpoint extraction, CSV filtering) -->
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🗺️ Main Flow Sequence Diagram
@@ -13,8 +13,8 @@ sequenceDiagram
     actor User
     participant CLI as CLI (src/index.js)
     participant VR as VersionRouter
-    participant SQ as SonarQube
-    participant SC as SonarCloud
+    participant SQ as SonarQube Server
+    participant SC as SonarQube Cloud
     participant FS as File System
 
     rect rgb(30, 50, 80)
@@ -137,7 +137,7 @@ sequenceDiagram
 | ➕B | Protobuf encoding | `Generate a mermaid sequence diagram showing how CloudVoyager builds and encodes a scanner report ZIP using protobuf messages` |
 | ➕C | CE submission retry | `Generate a mermaid sequence diagram showing the CE submission retry mechanism in CloudVoyager including fallback polling` |
 | ➕D | Issue sync | `Generate a mermaid sequence diagram showing the full issue sync pipeline in CloudVoyager including pre-filter, SC indexing wait, and changelog replay` |
-| ➕E | Org mapping / CSVs | `Generate a mermaid sequence diagram showing how CloudVoyager maps SonarQube projects to SonarCloud organizations and generates dry-run CSV files` |
+| ➕E | Org mapping / CSVs | `Generate a mermaid sequence diagram showing how CloudVoyager maps SonarQube Server projects to SonarQube Cloud organizations and generates dry-run CSV files` |
 | ➕F | Quality profiles | `Generate a mermaid sequence diagram for CloudVoyager quality profile migration including backup XML, rename of built-in profiles, and diff report` |
 | ➕G | Batch distribution | `Generate a mermaid sequence diagram showing how CloudVoyager batch-distributor splits large issue sets into ≤5K batches with backdated analysis dates and sequential CE uploads` |
 
@@ -175,7 +175,7 @@ context-props.pb                  # Empty (matches real scanner)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 CE Submission Retry Mechanism
 
-Report submission to SonarCloud's Compute Engine (`/api/ce/submit`) uses a robust retry strategy (implemented in `ce-submitter.js` within each pipeline):
+Report submission to SonarQube Cloud's Compute Engine (`/api/ce/submit`) uses a robust retry strategy (implemented in `ce-submitter.js` within each pipeline):
 
 1. **Submit** the report ZIP via `POST /api/ce/submit` with a 60-second response timeout
 2. **On timeout** (no server response): fall back to `/api/ce/activity` polling — check for a matching CE task 5 times at 3-second intervals
@@ -196,7 +196,7 @@ The form data is buffered before sending (not streamed) to avoid runtime-specifi
 | **Severity** | UNSET=0, INFO=1, MINOR=2, MAJOR=3, CRITICAL=4, BLOCKER=5 |
 | **IssueType** | CODE_SMELL=1, BUG=2, VULNERABILITY=3, SECURITY_HOTSPOT=4 |
 
-**CRITICAL**: `cleanCodeAttribute` in `ExternalIssue` and `AdHocRule` must be encoded as a protobuf enum (varint), NOT a string. Despite the `.proto` file showing `optional string`, the real scanner uses enum encoding. SonarCloud CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
+**CRITICAL**: `cleanCodeAttribute` in `ExternalIssue` and `AdHocRule` must be encoded as a protobuf enum (varint), NOT a string. Despite the `.proto` file showing `optional string`, the real scanner uses enum encoding. SonarQube Cloud CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
 
 ### Field Name Convention
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -221,26 +221,26 @@ Measures use typed value fields based on metric type:
 
 - Active rules are filtered by languages actually used in the project, resulting in ~84% reduction in payload size
 - Rule keys are stripped of the repository prefix (e.g., `S7788` not `jsarchitecture:S7788`)
-- Quality profile keys are mapped to SonarCloud profile keys (not SonarQube keys)
+- Quality profile keys are mapped to SonarQube Cloud profile keys (not SonarQube Server keys)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🧱 Component Structure
 
-Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube measures API values.
+Components use a flat structure - all files are direct children of the project component (no directory components). Line counts are derived from actual source file content rather than SonarQube Server measures API values.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔖 SCM Revision Tracking
 
-The tool includes `scm_revision_id` (git commit hash) in metadata. SonarCloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
+The tool includes `scm_revision_id` (git commit hash) in metadata. SonarQube Cloud uses this to detect and reject duplicate reports, enabling proper analysis history tracking.
 
-**Batch uploads**: When issue batching is active (>5,000 issues), each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')` instead of the original git commit hash. This prevents the SonarCloud CE from deduplicating successive batch uploads as identical reports. See [Issue Batching for Upload](#-issue-batching-for-upload-5k-per-date-bucket) for details.
+**Batch uploads**: When issue batching is active (>5,000 issues), each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')` instead of the original git commit hash. This prevents the SonarQube Cloud CE from deduplicating successive batch uploads as identical reports. See [Issue Batching for Upload](#-issue-batching-for-upload-5k-per-date-bucket) for details.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌿 Branch Sync
 
-By default, every branch discovered in SonarQube is transferred to SonarCloud (main branch first, then non-main branches). Each branch produces its own scanner report with branch-specific issues, measures, sources, and SCM data.
+By default, every branch discovered in SonarQube Server is transferred to SonarQube Cloud (main branch first, then non-main branches). Each branch produces its own scanner report with branch-specific issues, measures, sources, and SCM data.
 
-**Branch name resolution:** The main branch name is fetched from SonarCloud (via `getMainBranchName()` API) rather than using the SonarQube branch name. This avoids mismatches where SonarQube uses "main" but SonarCloud expects "master" (or vice versa). Non-main branches use their original SonarQube branch name and reference the main branch for new-code comparison.
+**Branch name resolution:** The main branch name is fetched from SonarQube Cloud (via `getMainBranchName()` API) rather than using the SonarQube Server branch name. This avoids mismatches where SonarQube Server uses "main" but SonarQube Cloud expects "master" (or vice versa). Non-main branches use their original SonarQube Server branch name and reference the main branch for new-code comparison.
 
 **Incremental mode:** Completed branches are tracked in the state file. On subsequent runs, already-synced branches are skipped automatically. Use `reset` to re-transfer all branches.
 
@@ -249,7 +249,7 @@ By default, every branch discovered in SonarQube is transferred to SonarCloud (m
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📄 API Pagination
 
-SonarQube client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
+SonarQube Server client handles pagination automatically via `getPaginated` method with a default page size of 500 items. All paginated results are concatenated into single arrays.
 
 **APIs with max `ps=100`** (not the default 500):
 - `/api/permissions/groups`
@@ -266,9 +266,9 @@ The extractors handle these lower limits automatically.
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Accurate Issue Creation Date Backdating
 
-SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backdateChangesets()` rewrites each file's changeset protobuf so that the CE assigns each issue its original SonarQube creation date.
+SonarQube Cloud's CE assigns creation dates to NEW issues from SCM blame data. `backdateChangesets()` rewrites each file's changeset protobuf so that the CE assigns each issue its original SonarQube Server creation date.
 
-**How it works:** The function reads each issue's `creationDate` field (preserved from SonarQube extraction) and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range, so using "oldest wins" for overlapping lines ensures accurate dates. A safety split handles days with >5K issues.
+**How it works:** The function reads each issue's `creationDate` field (preserved from SonarQube Server extraction) and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range, so using "oldest wins" for overlapping lines ensures accurate dates. A safety split handles days with >5K issues.
 
 ### Algorithm (3 Phases)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -285,7 +285,7 @@ SonarCloud's CE assigns creation dates to NEW issues from SCM blame data. `backd
 | Per-line dating (not per-file) | Enables multiple issues with different creation dates in the same file |
 | Oldest date wins for overlapping lines | CE takes MAX across line range — older date on shared lines doesn't inflate newer issues that have their own non-overlapping lines |
 | Non-issue lines get oldest date | Prevents accidental MAX inflation for multi-line issues spanning non-issue lines |
-| Safety split at 5,000/day | 50% margin under SonarCloud's 10K ES visualization cap per date bucket |
+| Safety split at 5,000/day | 50% margin under SonarQube Cloud's 10K ES visualization cap per date bucket |
 | No file splitting in safety split | A file's issues stay together on the same synthetic date |
 | All projects backdated | No early return for small projects — every project gets accurate dates |
 
@@ -307,14 +307,14 @@ All 6 pipeline `transfer-branch` entry points call `backdateChangesets(extracted
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔍 Search Slicing for 10K+ Issues
 
-SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results regardless of pagination. Projects with more than 10,000 issues would silently lose data during extraction.
+SonarQube Server's `/api/issues/search` endpoint returns a maximum of 10,000 results regardless of pagination. Projects with more than 10,000 issues would silently lose data during extraction.
 
 **Solution:** `src/shared/utils/search-slicer/` implements a date-window bisection algorithm:
 
 1. **Probe** — `probe-total.js` (in each pipeline's `api-client/helpers/`) sends a lightweight request (`ps=1, p=1`) to get the total issue count for a query without fetching data.
-2. **Partition** — If the total exceeds 10,000, the full SonarQube era (`2006-01-01` → now) is divided into **12 equal-width time windows** via `build-date-windows.js`. A fixed epoch is used instead of probing the date range — probing via `getPaginated(ps=1)` would loop page-by-page through all issues and itself hit the Elasticsearch 10K limit on large projects.
+2. **Partition** — If the total exceeds 10,000, the full SonarQube Server era (`2006-01-01` → now) is divided into **12 equal-width time windows** via `build-date-windows.js`. A fixed epoch is used instead of probing the date range — probing via `getPaginated(ps=1)` would loop page-by-page through all issues and itself hit the Elasticsearch 10K limit on large projects.
 3. **Bisect** — Any window that still exceeds 10,000 is **recursively halved** at the midpoint timestamp (via `split-midpoint.js`) until every window is under the limit. This binary subdivision guarantees convergence for any realistic issue distribution.
-4. **Guard** — If a window cannot be split further (both halves land on the same millisecond boundary, e.g. a mass-import scenario where all issues share the same creation timestamp), the window is fetched directly. This is an unavoidable SonarQube API limitation; it affects only projects where thousands of issues share an identical millisecond timestamp.
+4. **Guard** — If a window cannot be split further (both halves land on the same millisecond boundary, e.g. a mass-import scenario where all issues share the same creation timestamp), the window is fetched directly. This is an unavoidable SonarQube Server API limitation; it affects only projects where thousands of issues share an identical millisecond timestamp.
 5. **Fetch** — Each window is fetched independently using standard pagination (`ps=500`) with `createdAfter` / `createdBefore` API parameters scoping results to that window.
 6. **Merge & deduplicate** — `deduplicate-results.js` merges results from all windows and removes duplicates by `item.key || item.id` to handle boundary overlaps where an issue's creation timestamp falls on a window edge.
 
@@ -326,13 +326,13 @@ SonarQube's `/api/issues/search` endpoint returns a maximum of 10,000 results re
 | `fetch-window.js` | Fetches one window; recursively bisects if it exceeds the limit |
 | `slice-by-creation-date.js` | Partitions epoch→now into 12 windows, calls `fetchWindow` for each |
 | `build-date-windows.js` | Builds evenly-spaced `{ start, end }` window objects |
-| `split-midpoint.js` | Computes the SonarQube-compatible datetime at the midpoint between two timestamps |
-| `format-sonarqube-date.js` | Formats timestamps as `YYYY-MM-DDTHH:MM:SS+0000` (SonarQube rejects `.XXXZ` milliseconds) |
+| `split-midpoint.js` | Computes the SonarQube Server-compatible datetime at the midpoint between two timestamps |
+| `format-sonarqube-date.js` | Formats timestamps as `YYYY-MM-DDTHH:MM:SS+0000` (SonarQube Server rejects `.XXXZ` milliseconds) |
 | `deduplicate-results.js` | Deduplicates merged results by `item.key \|\| item.id` |
 
 The slicing is transparent to callers — `issues-hotspots.js` in each pipeline calls `fetchWithSlicing`, which falls back to a normal paginated fetch when the total is under 10,000.
 
-**Applies to both SonarQube and SonarCloud.** The slicing workaround targets SonarQube's `/api/issues/search` and `/api/hotspots/search` endpoints, which enforce the 10K cap. The same `fetchWithSlicing` mechanism is also applied to SonarCloud's issue search during **issue sync** (i.e., when fetching SC issues to match against SQ issues). This prevents data loss on large SonarCloud organizations that have >10,000 issues per project.
+**Applies to both SonarQube Server and SonarQube Cloud.** The slicing workaround targets SonarQube Server's `/api/issues/search` and `/api/hotspots/search` endpoints, which enforce the 10K cap. The same `fetchWithSlicing` mechanism is also applied to SonarQube Cloud's issue search during **issue sync** (i.e., when fetching SC issues to match against SQ issues). This prevents data loss on large SonarQube Cloud organizations that have >10,000 issues per project.
 
 **Both commands use it:**
 - `transfer` — calls `getIssuesWithComments()` via `fetch-and-sync-issues.js`, which invokes `fetchWithSlicing` under the hood.
@@ -341,7 +341,7 @@ The slicing is transparent to callers — `issues-hotspots.js` in each pipeline 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Fallback Rule Repositories
 
-External-issue detection depends on knowing which rule repositories exist in SonarCloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 44 known SonarCloud repositories (`src/shared/utils/fallback-repos/index.js`).
+External-issue detection depends on knowing which rule repositories exist in SonarQube Cloud. If the `/api/rules/repositories` call fails, the tool falls back to a built-in set of 44 known SonarQube Cloud repositories (`src/shared/utils/fallback-repos/index.js`).
 
 The fallback set includes the `githubactions` IaC analyzer (previously omitted by accident; added back in the Apr 2026 release). Without it, GitHub Actions rules were incorrectly treated as external issues.
 
@@ -358,28 +358,28 @@ The fallback set includes the `githubactions` IaC analyzer (previously omitted b
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚦 Rate Limit Handling
 
-The SonarCloud API client supports a configurable two-layer strategy for rate limiting. Customize it via the `rateLimit` section in your config file.
+The SonarQube Cloud API client supports a configurable two-layer strategy for rate limiting. Customize it via the `rateLimit` section in your config file.
 
 1. **Exponential backoff retry** (`maxRetries`, `baseDelay`) — When a 503 or 429 response is received, the request is retried up to `maxRetries` times with exponentially increasing delays (baseDelay × 2^attempt). If all retries are exhausted, the error is propagated to the caller. Default: `3` retries.
 
-2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarCloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
+2. **Write request throttling** (`minRequestInterval`) — POST requests are spaced at least `minRequestInterval` ms apart via a request interceptor. This proactively reduces the chance of triggering SonarQube Cloud's rate limits during high-volume operations like issue sync and hotspot sync. Default: `0` (no throttling).
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔌 External Issues (Plugin Migration)
 
-Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSoft, ABAP) are automatically migrated as **external issues** using the `ExternalIssue` and `AdHocRule` protobuf messages.
+Issues from SonarQube Server plugins that are not available in SonarQube Cloud (e.g., MuleSoft, ABAP) are automatically migrated as **external issues** using the `ExternalIssue` and `AdHocRule` protobuf messages.
 
-**Auto-detection**: The tool compares SonarQube rule repositories against SonarCloud's available repositories via `getRuleRepositories()`. If a rule's repository is not present in SonarCloud, the issue is routed through the external issue path instead of the regular `Issue` path.
+**Auto-detection**: The tool compares SonarQube Server rule repositories against SonarQube Cloud's available repositories via `getRuleRepositories()`. If a rule's repository is not present in SonarQube Cloud, the issue is routed through the external issue path instead of the regular `Issue` path.
 
-**SonarQube 2025+ `external_` prefix handling**: SonarQube 2025+ returns external linter issues with an `external_` prefix in the rule key (e.g., `external_ruff:D200` instead of `ruff:D200`). The tool detects this prefix and always treats such rules as external, then strips the prefix before building the `ExternalIssue` protobuf message to avoid double-prefixing in SonarCloud.
+**SonarQube Server 2025+ `external_` prefix handling**: SonarQube Server 2025+ returns external linter issues with an `external_` prefix in the rule key (e.g., `external_ruff:D200` instead of `ruff:D200`). The tool detects this prefix and always treats such rules as external, then strips the prefix before building the `ExternalIssue` protobuf message to avoid double-prefixing in SonarQube Cloud.
 
 **How it works**:
 1. Rules with an `external_` prefix in SQ are always treated as external (regardless of SC repo list)
 2. The `external_` prefix is stripped from the engineId before encoding (SQ `external_ruff:D200` → engineId `ruff`, ruleId `D200`)
 3. Issues with unsupported rule repos (no `external_` prefix) are detected by comparing against SC repositories
 4. Each unique rule becomes an `AdHocRule` with name, description, severity, type, clean code attribute, and impacts
-5. External issues appear in SonarCloud as `external_{engineId}:{ruleId}` (e.g., `external_ruff:D200`, `external_mulesoft:MS058`)
-6. Ad-hoc rules do not appear in SonarCloud's rules search (expected behavior per SC docs)
+5. External issues appear in SonarQube Cloud as `external_{engineId}:{ruleId}` (e.g., `external_ruff:D200`, `external_mulesoft:MS058`)
+6. Ad-hoc rules do not appear in SonarQube Cloud's rules search (expected behavior per SC docs)
 
 **Requirements**: Each `ExternalIssue` and `AdHocRule` must include:
 - `cleanCodeAttribute` — encoded as protobuf enum (varint), not string (see Protobuf Encoding section)
@@ -391,23 +391,23 @@ Issues from SonarQube plugins that are not available in SonarCloud (e.g., MuleSo
 
 The `migrate` command syncs issue metadata after the scanner report is uploaded. The sync pipeline runs in several stages:
 
-1. **Pre-filter** — Batch-fetches SQ changelogs for all issues and discards any issue that has no human-authored changes (see below). This avoids redundant API calls to SonarCloud for issues that are still in their pristine `OPEN` state.
-2. **Wait for SC indexing** — If SonarCloud returns 0 issues immediately after a first-time upload, the syncer retries with exponential backoff (initial delay 10 s, max 60 s, up to 10 attempts) until the CE analysis is fully indexed. This handles the race condition introduced by Issue #91 where the analysis report was uploaded but SonarCloud hadn't yet indexed its issues.
-3. **Match** — Searches for a matching issue in SonarCloud by rule, component, and line number.
-4. **Replay changelog** — Fetches the SonarQube issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.).
+1. **Pre-filter** — Batch-fetches SQ changelogs for all issues and discards any issue that has no human-authored changes (see below). This avoids redundant API calls to SonarQube Cloud for issues that are still in their pristine `OPEN` state.
+2. **Wait for SC indexing** — If SonarQube Cloud returns 0 issues immediately after a first-time upload, the syncer retries with exponential backoff (initial delay 10 s, max 60 s, up to 10 attempts) until the CE analysis is fully indexed. This handles the race condition introduced by Issue #91 where the analysis report was uploaded but SonarQube Cloud hadn't yet indexed its issues.
+3. **Match** — Searches for a matching issue in SonarQube Cloud by rule, component, and line number.
+4. **Replay changelog** — Fetches the SonarQube Server issue changelog and replays all status transitions in order (Open → Confirmed → False Positive, etc.).
 5. **Assignee** — Sets the assignee (supports user mapping from SQ login to SC login).
-6. **Comments** — Copies comments, skipping any that begin with `[Migrated from SonarQube]` to avoid double-migration.
+6. **Comments** — Copies comments, skipping any that begin with `[Migrated from SonarQube Server]` to avoid double-migration.
 7. **Tags** — Sets tags.
 
 ### Pre-filter: `hasManualChanges` (`src/shared/utils/issue-sync/`)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Before touching SonarCloud, the syncer applies a pre-filter that only keeps issues with human-authored changes:
+Before touching SonarQube Cloud, the syncer applies a pre-filter that only keeps issues with human-authored changes:
 
 | Check | Condition |
 |-------|-----------|
 | Human changelog entry | At least one changelog entry with a non-empty `user` field |
-| Manual comments | At least one comment not prefixed with `[Migrated from SonarQube]` |
+| Manual comments | At least one comment not prefixed with `[Migrated from SonarQube Server]` |
 | Custom tags | `issue.tags` array is non-empty |
 | Manual assignee | `issue.assignee` is set |
 | Updated after creation | `updateDate !== creationDate` (catch-all safety net) |
@@ -439,7 +439,7 @@ Total concurrent API calls: 20 workers × 5 internal = **100** (vs 20 with singl
 - **Max attempts**: 10 (configurable via `options.maxRetries`)
 - **Transient errors**: fetch errors during a retry are caught and logged; the function returns `[]` after exhausting all retries
 
-**SonarQube version differences**:
+**SonarQube Server version differences**:
 - SQ 9.9 statuses: `OPEN`, `CONFIRMED`, `REOPENED`, `RESOLVED`, `CLOSED`
 - SQ 10.4+: `OPEN`, `CONFIRMED`, `FALSE_POSITIVE`, `ACCEPTED`, `FIXED`
 - Available transitions: `confirm`, `unconfirm`, `reopen`, `resolve`, `falsepositive`, `wontfix`, `accept`
@@ -461,9 +461,9 @@ Hotspots are converted to `Issue` format for the scanner report (with `type=SECU
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔄 Issue Status Transition Mapping
 
-Each pipeline includes an `issue-status-mapper.js` that maps SonarQube issue changelog entries to SonarCloud transitions:
+Each pipeline includes an `issue-status-mapper.js` that maps SonarQube Server issue changelog entries to SonarQube Cloud transitions:
 
-| SonarQube Status/Resolution | SonarCloud Transition |
+| SonarQube Server Status/Resolution | SonarQube Cloud Transition |
 |-----------------------------|----------------------|
 | `FALSE-POSITIVE` (resolution or status) | `falsepositive` |
 | `WONTFIX` (resolution or status) | `wontfix` |
@@ -481,10 +481,10 @@ The mapper handles both SQ < 10.4 (where `FALSE-POSITIVE` and `WONTFIX` appear a
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔑 Project Key Resolution
 
-SonarCloud requires globally unique project keys across all organizations. When migrating projects, the tool uses the following strategy:
+SonarQube Cloud requires globally unique project keys across all organizations. When migrating projects, the tool uses the following strategy:
 
-1. **Try the original SonarQube project key** — check if it's available globally on SonarCloud via `/api/components/show`
-2. **If available** — use the original key as-is, so the SonarCloud project key matches SonarQube
+1. **Try the original SonarQube Server project key** — check if it's available globally on SonarQube Cloud via `/api/components/show`
+2. **If available** — use the original key as-is, so the SonarQube Cloud project key matches SonarQube Server
 3. **If taken by another organization** — fall back to `{org}_{key}` (e.g., `my-org_my-project`) and log a warning
 4. **If already owned by the target organization** — use the original key (the project was likely created in a previous migration run)
 
@@ -493,7 +493,7 @@ Key conflicts are reported in the migration summary and in the `reports/migratio
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🗺️ Organization Mapping
 
-The `migrate` command maps projects to target SonarCloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
+The `migrate` command maps projects to target SonarQube Cloud organizations based on their DevOps platform bindings. Projects with the same ALM binding are grouped together. Mapping CSVs are generated for review before execution (via `--dry-run`).
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔍 Dry-Run & Editable CSV Workflow
@@ -501,36 +501,36 @@ The `migrate` command maps projects to target SonarCloud organizations based on 
 The `--dry-run` flag generates 8 exhaustive CSV files covering projects, organizations, groups, quality profiles, quality gates, portfolios, permission templates, and global permissions. Each CSV includes an `Include` column (defaulting to `yes`) that users can edit to filter what gets migrated.
 
 **Pipeline integration:**
-1. `migrate --dry-run` extracts data from SonarQube, generates CSVs, then stops
+1. `migrate --dry-run` extracts data from SonarQube Server, generates CSVs, then stops
 2. User reviews/edits CSVs (set `Include=no` to exclude resources from migration)
-3. `migrate` (without `--dry-run`) detects existing CSVs, reads them into memory **before** wiping the output directory, re-extracts from SonarQube, then applies CSV overrides via `applyCsvOverrides()` which returns filtered copies using `structuredClone`
+3. `migrate` (without `--dry-run`) detects existing CSVs, reads them into memory **before** wiping the output directory, re-extracts from SonarQube Server, then applies CSV overrides via `applyCsvOverrides()` which returns filtered copies using `structuredClone`
 
-Quality gate CSVs use a flat one-row-per-gate pattern — users can include or exclude entire gates, but conditions are always migrated as-is from SonarQube. Portfolio and permission template CSVs use a parent/child pattern for their member/permission rows.
+Quality gate CSVs use a flat one-row-per-gate pattern — users can include or exclude entire gates, but conditions are always migrated as-is from SonarQube Server. Portfolio and permission template CSVs use a parent/child pattern for their member/permission rows.
 
 See [dry-run-csv-reference.md](dry-run-csv-reference.md) for full CSV schema documentation.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📋 Quality Profile Migration
 
-Quality profiles are migrated using SonarQube's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
+Quality profiles are migrated using SonarQube Server's backup/restore XML format, which preserves all rule configurations, severity overrides, and parameter values. Profile permissions (user and group access) are migrated separately via the permissions API.
 
-Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "Sonar way") cannot be overwritten on SonarCloud, so they are restored as custom profiles with a "(SonarQube Migrated)" suffix (e.g., "Sonar way (SonarQube Migrated)"). These migrated profiles are automatically assigned to each project to ensure the same rules are active as in SonarQube.
+Both **custom and built-in** profiles are migrated. Built-in profiles (e.g., "Sonar way") cannot be overwritten on SonarQube Cloud, so they are restored as custom profiles with a "(SonarQube Server Migrated)" suffix (e.g., "Sonar way (SonarQube Server Migrated)"). These migrated profiles are automatically assigned to each project to ensure the same rules are active as in SonarQube Server.
 
-To skip quality profile migration entirely and use each language's existing default SonarCloud profile, pass `--skip-quality-profile-sync`.
+To skip quality profile migration entirely and use each language's existing default SonarQube Cloud profile, pass `--skip-quality-profile-sync`.
 
 **API gotchas**:
 - `/api/qualityprofiles/backup` requires `language` + `qualityProfile` (name), not `profileKey`
 - `/api/qualityprofiles/search_users` requires `language` + `qualityProfile` (name)
 - Built-in profiles: permission APIs return 400 (expected, handle gracefully)
 
-After profile migration, a **quality profile diff report** (`quality-profiles/quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube and SonarCloud, listing:
-- **Missing rules** — rules active in SonarQube but not available in SonarCloud (may cause fewer issues)
-- **Added rules** — rules available in SonarCloud but not in SonarQube (may create new issues)
+After profile migration, a **quality profile diff report** (`quality-profiles/quality-profile-diff.json`) is written to the output directory. This report compares active rules per language between SonarQube Server and SonarQube Cloud, listing:
+- **Missing rules** — rules active in SonarQube Server but not available in SonarQube Cloud (may cause fewer issues)
+- **Added rules** — rules available in SonarQube Cloud but not in SonarQube Server (may create new issues)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚧 Quality Gate Migration
 
-Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarCloud.
+Quality gates are created with their full condition definitions (metric, operator, threshold). The SonarQube Server API uses gate `name` (not `id`) for all operations. Built-in gates are skipped since they already exist in SonarQube Cloud.
 
 **API gotchas**:
 - `/api/qualitygates/list` returns no `id` field, only `name`
@@ -573,7 +573,7 @@ Each transfer creates a checkpoint journal file alongside the state file:
 
 - **Phase tracking**: Each extraction phase (project metadata, metrics, components, rules, issues, hotspots, measures, sources, etc.) is tracked individually
 - **Branch tracking**: Per-branch completion status with CE task IDs for upload deduplication
-- **Session fingerprint**: SonarQube version, URL, and project key are recorded to detect environment changes between runs
+- **Session fingerprint**: SonarQube Server version, URL, and project key are recorded to detect environment changes between runs
 
 ### State Management Components
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -606,7 +606,7 @@ If the main state file is corrupted, the system falls back to the `.backup` file
 
 ### Extraction Caching
 
-Completed extraction phases are cached as gzipped JSON in `<outputDir>/cache/extractions/<projectKey>/`. On resume, cached phases are loaded from disk instead of re-fetching from SonarQube. Cache files include integrity metadata and auto-purge after 7 days (configurable via `transfer.checkpoint.cacheMaxAgeDays`).
+Completed extraction phases are cached as gzipped JSON in `<outputDir>/cache/extractions/<projectKey>/`. On resume, cached phases are loaded from disk instead of re-fetching from SonarQube Server. Cache files include integrity metadata and auto-purge after 7 days (configurable via `transfer.checkpoint.cacheMaxAgeDays`).
 
 ### Upload Deduplication
 
@@ -658,7 +658,7 @@ The `csv-entity-filters.js` module in `src/shared/mapping/` provides dry-run CSV
 | `applyGlobalPermissionsCsv` | Global permissions | Group Name + Permission + Include |
 | `applyTemplateMappingsCsv` | Permission templates | Template Name + Permission Key + Include |
 | `applyPortfolioMappingsCsv` | Portfolios | Portfolio Key + Member Project Key + Include |
-| `applyUserMappingsCsv` | User mappings | SonarQube Login + SonarCloud Login + Include |
+| `applyUserMappingsCsv` | User mappings | SonarQube Server Login + SonarQube Cloud Login + Include |
 
 All filters use the `Include` column from the CSV (default: `yes`). Setting `Include=no` excludes the entity from migration.
 
@@ -672,9 +672,9 @@ For non-standard environments (e.g. staging), the Desktop app's **Advanced Setti
 <!-- Updated: Apr 18, 2026 -->
 ## 🔑 Enterprise Key & Portfolio Skipping
 
-The SonarCloud enterprise key (`sonarcloud.enterprise.key`) is **optional** — its absence no longer aborts the migration. When the key is missing, portfolio migration is gracefully skipped via `handleMissingEnterpriseKey()` (`src/shared/utils/portfolio-skip.js`):
+The SonarQube Cloud enterprise key (`sonarcloud.enterprise.key`) is **optional** — its absence no longer aborts the migration. When the key is missing, portfolio migration is gracefully skipped via `handleMissingEnterpriseKey()` (`src/shared/utils/portfolio-skip.js`):
 
-- If portfolios were extracted from SonarQube, a `WARN` log is emitted and `results.portfoliosSkipped` is incremented.
+- If portfolios were extracted from SonarQube Server, a `WARN` log is emitted and `results.portfoliosSkipped` is incremented.
 - If no portfolios exist, an `INFO` log is emitted and migration proceeds normally.
 
 The `portfoliosSkipped` count is included in the migration summary and migration reports.

@@ -1,7 +1,7 @@
 # Regression Testing Protocol
 <!-- updated: 2026-05-07 -->
 
-A reusable protocol for verifying bug fixes and features against a live SonarQube → SonarCloud migration. This protocol is **issue-driven** — you MUST fully understand the GitHub issue before designing any test, and your test plan must be explicitly derived from the issue's symptoms, root cause, and fix.
+A reusable protocol for verifying bug fixes and features against a live SonarQube Server → SonarQube Cloud migration. This protocol is **issue-driven** — you MUST fully understand the GitHub issue before designing any test, and your test plan must be explicitly derived from the issue's symptoms, root cause, and fix.
 
 ---
 
@@ -33,7 +33,7 @@ For the GitHub issue you are regression testing, you must be able to answer ALL 
 
 From the issue understanding in 0.1, write a **specific regression test plan** BEFORE touching any code. This plan must include:
 
-- **Which SonarQube project to use** — pick the project that best reproduces the issue (e.g., Angular Framework for hotspots because it has ~409 hotspots)
+- **Which SonarQube Server project to use** — pick the project that best reproduces the issue (e.g., Angular Framework for hotspots because it has ~409 hotspots)
 - **What test data to create** — do you need to bulk-tag issues, add comments, transition statuses to trigger the pre-filter? How many?
 - **What to verify after migration** — specific API queries, specific counts, specific spot-checks
 - **What the pass criteria are** — concrete numbers, not vague "looks right"
@@ -77,7 +77,7 @@ Find ALL code paths that touch the same data or API calls as the fix:
 8. **Worker thread lifecycle**: Are workers properly joined before the process exits? Are they cleaned up on error?
 
 ### API Contract Compliance
-9. **HTTP method**: Does the code use GET/POST/PUT/DELETE exactly as the SonarQube/SonarCloud API specifies?
+9. **HTTP method**: Does the code use GET/POST/PUT/DELETE exactly as the SonarQube Server/SonarQube Cloud API specifies?
 10. **Endpoint path**: Is the URL exactly right — no missing/misplaced path segments, no incorrect query params?
 11. **Request body/params**: Are field names, types, and encoding exactly correct? Compare character-by-character against the real API docs or actual observed API traces.
 12. **Auth**: Are tokens passed correctly (Authorization header vs query param)? Are tokens refreshed if expired?

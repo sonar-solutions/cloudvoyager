@@ -1,9 +1,9 @@
-# Migrate Everything to One SonarCloud Organization
+# Migrate Everything to One SonarQube Cloud Organization
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 <!-- Last updated: Apr 21, 2026 -->
 
-Use this when you want to migrate **all projects and configuration** from your SonarQube server to a **single** SonarCloud organization.
+Use this when you want to migrate **all projects and configuration** from your SonarQube Server to a **single** SonarQube Cloud organization.
 
 ---
 
@@ -26,13 +26,13 @@ Use this when you want to migrate **all projects and configuration** from your S
 ## Prerequisites
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-1. **Admin access** to your SonarQube server
-2. **Admin access** to your SonarCloud organization
-3. **API tokens** for both SonarQube and SonarCloud
+1. **Admin access** to your SonarQube Server
+2. **Admin access** to your SonarQube Cloud organization
+3. **API tokens** for both SonarQube Server and SonarQube Cloud
 
 > **How to get your tokens:**
-> - **SonarQube:** Go to `My Account > Security > Generate Tokens` in your SonarQube web UI
-> - **SonarCloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io)
+> - **SonarQube Server:** Go to `My Account > Security > Generate Tokens` in your SonarQube Server web UI
+> - **SonarQube Cloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io)
 
 ---
 
@@ -84,18 +84,18 @@ Create a file called `migrate-config.json`:
 
 See [`examples/migrate-config.example.json`](../examples/migrate-config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
-> **Project keys and names:** Each project's display name is automatically carried over from SonarQube. By default, the tool uses the **original SonarQube project key** on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
+> **Project keys and names:** Each project's display name is automatically carried over from SonarQube Server. By default, the tool uses the **original SonarQube Server project key** on SonarQube Cloud. If the key is already taken by another SonarQube Cloud organization, the tool falls back to a prefixed key (`{org-key}_{sonarqube-project-key}`) and logs a warning. Any key conflicts are listed in the migration report.
 
 ### Config fields
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `sonarqube.url` | Yes | Full URL of your SonarQube server |
-| `sonarqube.token` | Yes | SonarQube admin API token |
-| `sonarcloud.organizations[].key` | Yes | SonarCloud organization key |
-| `sonarcloud.organizations[].token` | Yes | SonarCloud admin API token |
-| `sonarcloud.organizations[].url` | No | SonarCloud URL (default: `https://sonarcloud.io`) |
+| `sonarqube.url` | Yes | Full URL of your SonarQube Server |
+| `sonarqube.token` | Yes | SonarQube Server admin API token |
+| `sonarcloud.organizations[].key` | Yes | SonarQube Cloud organization key |
+| `sonarcloud.organizations[].token` | Yes | SonarQube Cloud admin API token |
+| `sonarcloud.organizations[].url` | No | SonarQube Cloud URL (default: `https://sonarcloud.io`) |
 | `migrate.outputDir` | No | Directory for mapping CSVs and reports (default: `./migration-output`) |
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
@@ -108,7 +108,7 @@ We recommend a 3-step migration: dry run, migrate without metadata, then sync me
 ### Step 3a: Dry run — verify everything
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-A dry run extracts all data and generates mapping CSVs so you can review what will be migrated, without changing anything in SonarCloud:
+A dry run extracts all data and generates mapping CSVs so you can review what will be migrated, without changing anything in SonarQube Cloud:
 
 ```bash
 ./cloudvoyager migrate -c migrate-config.json --dry-run
@@ -125,9 +125,9 @@ Run the actual migration with metadata sync disabled and auto-tuned performance.
 ./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune
 ```
 
-Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
+Skipping metadata during the main migration avoids SonarQube Cloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
-> **Note:** By default, the tool does not wait for each project's analysis to complete on SonarCloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
+> **Note:** By default, the tool does not wait for each project's analysis to complete on SonarQube Cloud before moving on to the next project. This speeds up large migrations significantly. Add `--wait` if you need to block until each analysis finishes.
 
 ### Step 3c: Sync metadata separately
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -157,7 +157,7 @@ After syncing metadata, run the verification command to confirm everything was m
 ./cloudvoyager verify -c migrate-config.json --verbose
 ```
 
-This performs read-only checks comparing SonarQube and SonarCloud data and generates a detailed pass/fail report in `./verification-output/`. You can also verify specific components:
+This performs read-only checks comparing SonarQube Server and SonarQube Cloud data and generates a detailed pass/fail report in `./verification-output/`. You can also verify specific components:
 
 ```bash
 # Verify only issue and hotspot metadata
@@ -209,7 +209,7 @@ The `--dry-run` flag generates 9 CSV files in `{outputDir}/mappings/`. Each CSV 
 | `portfolio-mappings.csv` | Portfolios with member projects (parent/child rows) |
 | `template-mappings.csv` | Permission templates with per-permission rows (parent/child) |
 | `global-permissions.csv` | Group-to-permission assignments |
-| `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping for issue assignment |
+| `user-mappings.csv` | SonarQube Server-to-SonarQube Cloud user login mapping for issue assignment |
 
 See the [Dry-Run CSV Reference](dry-run-csv-reference.md) for full column schemas and editing examples.
 
@@ -254,7 +254,7 @@ Use defaults — no `performance` section needed.
 }
 ```
 
-Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See the [Configuration Reference](configuration.md#performance-settings) for all options.
+Keep `hotspotSync.concurrency` low (3–5) to avoid SonarQube Cloud rate limits. See the [Configuration Reference](configuration.md#performance-settings) for all options.
 
 ---
 
@@ -276,7 +276,7 @@ Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits. See 
 | `reports/executive-summary.md` | High-level executive summary |
 | `reports/performance-report.md` | Performance metrics breakdown |
 | `reports/*.pdf` | PDF versions of the above reports (best-effort) |
-| `quality-profiles/quality-profile-diff.json` | Per-language diff of active rules between SonarQube and SonarCloud |
+| `quality-profiles/quality-profile-diff.json` | Per-language diff of active rules between SonarQube Server and SonarQube Cloud |
 
 Server info (version, plugins, settings, webhooks) is saved to `{outputDir}/server-info/` as JSON files.
 Per-project state files are saved to `{outputDir}/state/` for incremental transfer tracking.
@@ -303,7 +303,7 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 | `--dry-run` | Extract data and generate mappings without migrating |
 | `--skip-issue-metadata-sync` | Skip syncing issue statuses, comments, assignments, tags |
 | `--skip-hotspot-metadata-sync` | Skip syncing hotspot statuses and comments |
-| `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarCloud profiles) |
+| `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarQube Cloud profiles) |
 | `--only <components>` | Only migrate specific components (comma-separated). Valid: `scan-data`, `scan-data-all-branches`, `portfolios`, `quality-gates`, `quality-profiles`, `permission-templates`, `permissions`, `issue-metadata`, `hotspot-metadata`, `project-settings` |
 | `--auto-tune` | Auto-detect CPU and RAM and set optimal performance values |
 | `--concurrency <n>` | Override max concurrency for I/O operations |
@@ -319,7 +319,7 @@ When you run `./cloudvoyager verify`, reports are written to `./verification-out
 ## Limitations
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-- Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
+- Historical metrics (the charts in each project's **Activity** tab in SonarQube Server) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 

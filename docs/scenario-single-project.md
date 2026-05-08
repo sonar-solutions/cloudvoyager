@@ -3,7 +3,7 @@
 
 <!-- Last updated: Apr 21, 2026 -->
 
-Use this when you want to migrate **one specific project** from SonarQube to SonarCloud.
+Use this when you want to migrate **one specific project** from SonarQube Server to SonarQube Cloud.
 
 This does **not** migrate org-level settings like quality gates, quality profiles, groups, or permissions — for that, see [Migrate Everything to One Org](scenario-single-org.md).
 
@@ -21,7 +21,7 @@ This does **not** migrate org-level settings like quality gates, quality profile
 | **Metrics & measures** | Project and component-level measures (coverage, complexity, etc.) |
 | **SCM changesets** | Per-file changeset info (author, date, revision) |
 | **Active rules** | Quality profile rules filtered by languages used in the project |
-| **Issue metadata** | Status history (full changelog replay), comments, assignments, `metadata-synchronized` tag, and a link back to the original SonarQube issue URL |
+| **Issue metadata** | Status history (full changelog replay), comments, assignments, `metadata-synchronized` tag, and a link back to the original SonarQube Server issue URL |
 | **Hotspot metadata** | Hotspot statuses, comments, and source links |
 
 > **Not included:** Quality gates, quality profiles, groups, permissions, portfolios, project settings, tags, links, DevOps bindings, and new code definitions. Use the [`migrate` command](scenario-single-org.md) to transfer these.
@@ -31,13 +31,13 @@ This does **not** migrate org-level settings like quality gates, quality profile
 ## Prerequisites
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-1. **Admin access** to your SonarQube server
-2. **Admin access** to your SonarCloud organization
-3. **API tokens** for both SonarQube and SonarCloud
+1. **Admin access** to your SonarQube Server
+2. **Admin access** to your SonarQube Cloud organization
+3. **API tokens** for both SonarQube Server and SonarQube Cloud
 
 > **How to get your tokens:**
-> - **SonarQube:** Go to `My Account > Security > Generate Tokens` in your SonarQube web UI
-> - **SonarCloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io)
+> - **SonarQube Server:** Go to `My Account > Security > Generate Tokens` in your SonarQube Server web UI
+> - **SonarQube Cloud:** Go to `My Account > Security > Generate Tokens` at [sonarcloud.io](https://sonarcloud.io)
 
 ---
 
@@ -82,7 +82,7 @@ Create a file called `config.json`:
 }
 ```
 
-> **Where to find your project key:** In SonarQube, go to your project's **Project Information** page — the key is shown there. You can use the same key for SonarCloud, or choose a new one.
+> **Where to find your project key:** In SonarQube Server, go to your project's **Project Information** page — the key is shown there. You can use the same key for SonarQube Cloud, or choose a new one.
 
 See [`examples/config.example.json`](../examples/config.example.json) for a ready-to-use template with all optional fields (rate limiting, performance tuning, etc.).
 
@@ -91,13 +91,13 @@ See [`examples/config.example.json`](../examples/config.example.json) for a read
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `sonarqube.url` | Yes | Full URL of your SonarQube server |
-| `sonarqube.token` | Yes | SonarQube API token (starts with `sqp_` on newer versions) |
-| `sonarqube.projectKey` | Yes (for `transfer`) | Project key in SonarQube |
-| `sonarcloud.url` | No | SonarCloud URL (default: `https://sonarcloud.io`) |
-| `sonarcloud.token` | Yes | SonarCloud API token |
-| `sonarcloud.organization` | Yes | SonarCloud organization key |
-| `sonarcloud.projectKey` | Yes (for `transfer`) | Project key to use in SonarCloud |
+| `sonarqube.url` | Yes | Full URL of your SonarQube Server |
+| `sonarqube.token` | Yes | SonarQube Server API token (starts with `sqp_` on newer versions) |
+| `sonarqube.projectKey` | Yes (for `transfer`) | Project key in SonarQube Server |
+| `sonarcloud.url` | No | SonarQube Cloud URL (default: `https://sonarcloud.io`) |
+| `sonarcloud.token` | Yes | SonarQube Cloud API token |
+| `sonarcloud.organization` | Yes | SonarQube Cloud organization key |
+| `sonarcloud.projectKey` | Yes (for `transfer`) | Project key to use in SonarQube Cloud |
 
 > **Tip:** You can set tokens via environment variables (`SONARQUBE_TOKEN` and `SONARCLOUD_TOKEN`) instead of putting them in the config file.
 
@@ -142,7 +142,7 @@ Add a `transfer` section to control incremental mode, batch size, and checkpoint
 ./cloudvoyager test -c config.json
 ```
 
-You should see a success message for both SonarQube and SonarCloud. If not, double-check your URLs and tokens.
+You should see a success message for both SonarQube Server and SonarQube Cloud. If not, double-check your URLs and tokens.
 
 ## Step 4: Run the transfer
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -151,9 +151,9 @@ You should see a success message for both SonarQube and SonarCloud. If not, doub
 ./cloudvoyager transfer -c config.json --verbose
 ```
 
-That's it! The tool uploads the report and returns immediately — it does not wait for SonarCloud to finish processing. Your project data will appear in SonarCloud once the analysis completes in the background.
+That's it! The tool uploads the report and returns immediately — it does not wait for SonarQube Cloud to finish processing. Your project data will appear in SonarQube Cloud once the analysis completes in the background.
 
-> **Tip:** If you want the command to block until SonarCloud finishes processing, add `--wait`.
+> **Tip:** If you want the command to block until SonarQube Cloud finishes processing, add `--wait`.
 
 ---
 
@@ -217,7 +217,7 @@ To discard progress and start fresh, use `--force-restart`:
 ### Upload deduplication
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-On resume after a crash, the tool checks whether a Compute Engine (CE) task already exists for the current session before uploading. This prevents duplicate scanner reports from being submitted to SonarCloud. The check uses the `scm_revision_id` (git commit hash) included in each report.
+On resume after a crash, the tool checks whether a Compute Engine (CE) task already exists for the current session before uploading. This prevents duplicate scanner reports from being submitted to SonarQube Cloud. The check uses the `scm_revision_id` (git commit hash) included in each report.
 
 ### Lock file handling
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -247,7 +247,7 @@ An advisory lock file prevents multiple CloudVoyager instances from running agai
 ## Limitations
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-- Historical metrics (the charts in each project's **Activity** tab in SonarQube) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
+- Historical metrics (the charts in each project's **Activity** tab in SonarQube Server) cannot be migrated. All actual issues and hotspots are migrated — only the historical trend data is lost.
 
 ---
 

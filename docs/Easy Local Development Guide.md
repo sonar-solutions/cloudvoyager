@@ -2,7 +2,7 @@
 
 <!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
 
-Welcome to CloudVoyager! This guide walks you through setting up and running CloudVoyager on your local machine. No prior experience with SonarQube or SonarCloud is required — just follow the steps below.
+Welcome to CloudVoyager! This guide walks you through setting up and running CloudVoyager on your local machine. No prior experience with SonarQube Server or SonarQube Cloud is required — just follow the steps below.
 
 ---
 
@@ -10,7 +10,7 @@ Welcome to CloudVoyager! This guide walks you through setting up and running Clo
 
 <!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager is a command-line tool that migrates projects from **SonarQube** (self-hosted) to **SonarCloud** (cloud-hosted). It transfers source code, quality gates, quality profiles, permissions, and more.
+CloudVoyager is a command-line tool that migrates projects from **SonarQube Server** (self-hosted) to **SonarQube Cloud** (cloud-hosted). It transfers source code, quality gates, quality profiles, permissions, and more.
 
 **In plain English:** It copies your code analysis data from your own server to the cloud, saving you from doing it manually.
 
@@ -155,8 +155,8 @@ CloudVoyager v1.x.x
 <!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
 
 CloudVoyager needs a JSON configuration file that tells it:
-- How to connect to your SonarQube server (source)
-- How to connect to your SonarCloud organization (destination)
+- How to connect to your SonarQube Server (source)
+- How to connect to your SonarQube Cloud organization (destination)
 - Which projects to migrate
 
 Create a file called `config.json` at the project root:
@@ -187,8 +187,8 @@ Create a file called `config.json` at the project root:
 ```
 
 **Where to find your tokens:**
-- **SonarQube token:** Log in to SonarQube → My Account → Security → Generate Tokens
-- **SonarCloud token:** Log in to SonarCloud → Account → Security → Generate Tokens
+- **SonarQube Server token:** Log in to SonarQube Server → My Account → Security → Generate Tokens
+- **SonarQube Cloud token:** Log in to SonarQube Cloud → Account → Security → Generate Tokens
 
 ---
 
@@ -220,7 +220,7 @@ ERROR: Missing required field 'source.sonarQube.url'
 
 <!-- <subsection-updated last-updated="2026-05-07T01:15:00Z" updated-by="Claude" /> -->
 
-Test that CloudVoyager can connect to both SonarQube and SonarCloud:
+Test that CloudVoyager can connect to both SonarQube Server and SonarQube Cloud:
 
 ```bash
 ./dist/bin/cloudvoyager-macos-arm64 test -c config.json --verbose
@@ -229,8 +229,8 @@ Test that CloudVoyager can connect to both SonarQube and SonarCloud:
 **Expected output (success):**
 ```
 Testing connections...
-Source (SonarQube): Connected successfully
-Target (SonarCloud): Connected successfully
+Source (SonarQube Server): Connected successfully
+Target (SonarQube Cloud): Connected successfully
 All connections verified.
 ```
 
@@ -356,7 +356,7 @@ npm run package
 ### "Connection refused" when testing
 
 Check that:
-1. Your SonarQube/SonarCloud URLs are accessible from your network
+1. Your SonarQube Server/SonarQube Cloud URLs are accessible from your network
 2. Your tokens are valid and not expired
 3. Your firewall allows outbound HTTPS (port 443)
 
@@ -382,10 +382,10 @@ You can override config values using environment variables:
 |----------|-------------|
 | `LOG_LEVEL` | Set logging level: `debug`, `info`, `warn`, `error` |
 | `LOG_FILE` | Path to log file (logs to console by default) |
-| `SONARQUBE_TOKEN` | Override SonarQube token |
-| `SONARCLOUD_TOKEN` | Override SonarCloud token |
-| `SONARQUBE_URL` | Override SonarQube URL |
-| `SONARCLOUD_URL` | Override SonarCloud URL |
+| `SONARQUBE_TOKEN` | Override SonarQube Server token |
+| `SONARCLOUD_TOKEN` | Override SonarQube Cloud token |
+| `SONARQUBE_URL` | Override SonarQube Server URL |
+| `SONARCLOUD_URL` | Override SonarQube Cloud URL |
 
 **Example:**
 

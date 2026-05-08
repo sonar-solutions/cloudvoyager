@@ -56,7 +56,7 @@ See `examples/config.example.json` for a complete example.
 
 Used by: `migrate`, `sync-metadata`, `verify`
 
-Performs a full migration from a SonarQube server to one or more SonarCloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more. The `sync-metadata` command uses the same config to sync only issue and hotspot metadata for already-migrated projects. The `verify` command uses the same config to compare SonarQube and SonarCloud data and confirm migration completeness.
+Performs a full migration from a SonarQube Server to one or more SonarQube Cloud organizations, including projects, quality gates, quality profiles, groups, permissions, portfolios, and more. The `sync-metadata` command uses the same config to sync only issue and hotspot metadata for already-migrated projects. The `verify` command uses the same config to compare SonarQube Server and SonarQube Cloud data and confirm migration completeness.
 
 ```json
 {
@@ -119,37 +119,37 @@ See `examples/migrate-config.example.json` for a complete example.
 ## 🔧 Configuration Options
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### SonarQube Settings
+### SonarQube Server Settings
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `url` | Yes | SonarQube server URL |
-| `token` | Yes | SonarQube API token (or set via `SONARQUBE_TOKEN` env var) |
+| `url` | Yes | SonarQube Server URL |
+| `token` | Yes | SonarQube Server API token (or set via `SONARQUBE_TOKEN` env var) |
 | `projectKey` | For `transfer` only | Project key to export (not needed for `migrate`) |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### SonarCloud Settings (Single Org)
+### SonarQube Cloud Settings (Single Org)
 
 Used by `transfer`, `test`, `validate`, `status`, `reset`.
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `url` | No | SonarCloud server URL (default: `https://sonarcloud.io`) |
-| `token` | Yes | SonarCloud API token (or set via `SONARCLOUD_TOKEN` env var) |
-| `organization` | Yes | SonarCloud organization key |
-| `projectKey` | For `transfer` only | Destination project key. The display name is automatically carried over from SonarQube |
+| `url` | No | SonarQube Cloud server URL (default: `https://sonarcloud.io`) |
+| `token` | Yes | SonarQube Cloud API token (or set via `SONARCLOUD_TOKEN` env var) |
+| `organization` | Yes | SonarQube Cloud organization key |
+| `projectKey` | For `transfer` only | Destination project key. The display name is automatically carried over from SonarQube Server |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-### SonarCloud Settings (Multi-Org)
+### SonarQube Cloud Settings (Multi-Org)
 
 Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an array of target organizations.
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `organizations[].key` | Yes | SonarCloud organization key |
-| `organizations[].token` | Yes | SonarCloud API token for this org |
-| `organizations[].url` | No | SonarCloud server URL. Use `https://sonarcloud.io` (EU, default) or `https://sonarqube.us` (US). In the Desktop app an EU/US radio button sets this automatically. |
-| `enterprise.key` | Optional | SonarCloud enterprise key. Required only for portfolio migration via V2 API. If absent, portfolio migration is gracefully skipped and the migration continues normally. |
+| `organizations[].key` | Yes | SonarQube Cloud organization key |
+| `organizations[].token` | Yes | SonarQube Cloud API token for this org |
+| `organizations[].url` | No | SonarQube Cloud server URL. Use `https://sonarcloud.io` (EU, default) or `https://sonarqube.us` (US). In the Desktop app an EU/US radio button sets this automatically. |
+| `enterprise.key` | Optional | SonarQube Cloud enterprise key. Required only for portfolio migration via V2 API. If absent, portfolio migration is gracefully skipped and the migration continues normally. |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Transfer Settings
@@ -172,7 +172,7 @@ The `transfer.checkpoint` block controls the pause/resume behavior. All settings
 | `enabled` | `true` | Enable checkpoint journal for pause/resume support |
 | `cacheExtractions` | `true` | Cache extraction results to disk for faster resume |
 | `cacheMaxAgeDays` | `7` | Maximum age of extraction cache files in days before auto-purge |
-| `strictResume` | `false` | Fail on SonarQube version mismatch when resuming (default: warn only) |
+| `strictResume` | `false` | Fail on SonarQube Server version mismatch when resuming (default: warn only) |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Migrate Settings
@@ -182,15 +182,15 @@ The `transfer.checkpoint` block controls the pause/resume behavior. All settings
 | `outputDir` | `./migration-output` | Directory for mapping CSVs and server info output |
 | `skipIssueMetadataSync` | `false` | Skip syncing issue metadata (statuses, assignments, comments, tags) |
 | `skipHotspotMetadataSync` | `false` | Skip syncing hotspot metadata (statuses, comments) |
-| `skipQualityProfileSync` | `false` | Skip syncing quality profiles (projects use default SonarCloud profiles) |
+| `skipQualityProfileSync` | `false` | Skip syncing quality profiles (projects use default SonarQube Cloud profiles) |
 | `dryRun` | `false` | Extract and generate mappings without migrating |
 
-> **Project key behavior (migrate command):** By default, the `migrate` command uses the original SonarQube project key on SonarCloud. If the key is already taken by another SonarCloud organization, the tool falls back to a prefixed key (`{org}_{key}`) and logs a warning. Key conflicts are listed in the migration report.
+> **Project key behavior (migrate command):** By default, the `migrate` command uses the original SonarQube Server project key on SonarQube Cloud. If the key is already taken by another SonarQube Cloud organization, the tool falls back to a prefixed key (`{org}_{key}`) and logs a warning. Key conflicts are listed in the migration report.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Rate Limit Settings
 
-Controls retry and throttling behavior for SonarCloud API requests. By default, retries are enabled (`maxRetries: 3`) but request throttling is off (`minRequestInterval: 0`). Add a `rateLimit` section to any config file to customize.
+Controls retry and throttling behavior for SonarQube Cloud API requests. By default, retries are enabled (`maxRetries: 3`) but request throttling is off (`minRequestInterval: 0`). Add a `rateLimit` section to any config file to customize.
 
 ```json
 {
@@ -204,7 +204,7 @@ Controls retry and throttling behavior for SonarCloud API requests. By default, 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `maxRetries` | `3` | Max retry attempts when SonarCloud returns 503 or 429. Set to `0` to disable retries. Retries use exponential backoff (delay doubles each attempt). |
+| `maxRetries` | `3` | Max retry attempts when SonarQube Cloud returns 503 or 429. Set to `0` to disable retries. Retries use exponential backoff (delay doubles each attempt). |
 | `baseDelay` | `1000` | Initial delay in ms before the first retry. Doubles each retry: 1000ms → 2000ms → 4000ms → etc. Only applies when `maxRetries` > 0. |
 | `minRequestInterval` | `0` | Minimum ms to wait between POST (write) requests. Set to `0` to disable throttling. Values like `100`–`200` help avoid triggering rate limits during high-volume operations. |
 
@@ -245,10 +245,10 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `autoTune` | `false` | Auto-detect CPU and RAM and set optimal values. When enabled, uses 75% of total RAM (max 16GB) and scales concurrency based on CPU cores. Explicit settings override auto-tuned values. |
 | `maxConcurrency` | `64` | General concurrency limit for parallel I/O operations (1–64) |
 | `maxMemoryMB` | `8192` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
-| `sourceExtraction.concurrency` | `50` | Max concurrent source file fetches from SonarQube (1–50) |
-| `hotspotExtraction.concurrency` | `50` | Max concurrent hotspot detail fetches from SonarQube (1–50) |
-| `issueSync.concurrency` | `20` | Max concurrent issue metadata sync operations to SonarCloud (1–20) |
-| `hotspotSync.concurrency` | `20` | Max concurrent hotspot sync operations to SonarCloud (1–20) |
+| `sourceExtraction.concurrency` | `50` | Max concurrent source file fetches from SonarQube Server (1–50) |
+| `hotspotExtraction.concurrency` | `50` | Max concurrent hotspot detail fetches from SonarQube Server (1–50) |
+| `issueSync.concurrency` | `20` | Max concurrent issue metadata sync operations to SonarQube Cloud (1–20) |
+| `hotspotSync.concurrency` | `20` | Max concurrent hotspot sync operations to SonarQube Cloud (1–20) |
 | `projectMigration.concurrency` | `8` | Max concurrent project migrations (1–8) |
 
 **Auto-tune defaults:** When `autoTune` is enabled (or `--auto-tune` CLI flag is used), the following values are calculated based on your hardware:
@@ -286,7 +286,7 @@ Explicit config values or CLI flags override auto-tuned values.
 | `--dry-run` | Extract data and generate mapping CSVs without migrating | `migrate` |
 | `--skip-issue-metadata-sync` | Skip syncing issue metadata (statuses, assignments, comments, tags) | `migrate`, `sync-metadata` |
 | `--skip-hotspot-metadata-sync` | Skip syncing hotspot metadata (statuses, comments) | `migrate`, `sync-metadata` |
-| `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarCloud profiles) | `migrate`, `sync-metadata` |
+| `--skip-quality-profile-sync` | Skip syncing quality profiles (projects use default SonarQube Cloud profiles) | `migrate`, `sync-metadata` |
 
 **Selective migration flag:**
 
@@ -335,14 +335,14 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 
 | Variable | Description |
 |----------|-------------|
-| `SONARQUBE_TOKEN` | Override SonarQube token from config |
-| `SONARCLOUD_TOKEN` | Override SonarCloud token from config |
-| `SONARQUBE_URL` | Override SonarQube URL from config |
-| `SONARCLOUD_URL` | Override SonarCloud URL from config |
+| `SONARQUBE_TOKEN` | Override SonarQube Server token from config |
+| `SONARCLOUD_TOKEN` | Override SonarQube Cloud token from config |
+| `SONARQUBE_URL` | Override SonarQube Server URL from config |
+| `SONARCLOUD_URL` | Override SonarQube Cloud URL from config |
 | `LOG_LEVEL` | Set logging level (`debug`, `info`, `warn`, `error`) |
 | `LOG_FILE` | Path to log file (optional) |
 | `MAX_SOURCE_FILES` | Limit number of source files to extract (0 = all) |
-| `SONAR_TOKEN` | SonarCloud token used by the `sonarcloud.yml` GitHub Actions workflow for SAST/SCA scanning of the CloudVoyager repository itself (not used by the CLI) |
+| `SONAR_TOKEN` | SonarQube Cloud token used by the `sonarcloud.yml` GitHub Actions workflow for SAST/SCA scanning of the CloudVoyager repository itself (not used by the CLI) |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📜 npm Scripts vs Binary Commands
@@ -411,7 +411,7 @@ For multi-project migrations (`migrate` command), we recommend the following 3-s
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Step 1: Dry run — verify everything
 
-Run a dry run first to extract all data, generate mapping CSVs, and validate your config without touching SonarCloud:
+Run a dry run first to extract all data, generate mapping CSVs, and validate your config without touching SonarQube Cloud:
 
 ```bash
 # npm
@@ -436,7 +436,7 @@ npm run migrate:skip-all-metadata:auto-tune
 ./cloudvoyager migrate -c migrate-config.json --verbose --skip-issue-metadata-sync --skip-hotspot-metadata-sync --auto-tune
 ```
 
-Skipping metadata during the main migration avoids SonarCloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
+Skipping metadata during the main migration avoids SonarQube Cloud rate limiting (503 errors) that can occur during high-volume issue/hotspot sync.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Step 3: Sync metadata separately
@@ -484,7 +484,7 @@ The journal records:
 - Which extraction phases have completed (metrics, issues, sources, etc.)
 - Per-branch transfer status (completed, in-progress, pending)
 - Upload deduplication data (prevents duplicate CE tasks after crashes)
-- Session fingerprint (SonarQube version, URL, project key) for resume validation
+- Session fingerprint (SonarQube Server version, URL, project key) for resume validation
 
 **Key behaviors:**
 - **Automatic resume**: Running the same `transfer` command after an interruption automatically resumes from the last checkpoint
@@ -529,5 +529,5 @@ Additional files created during transfer:
 | 2026-02-19 | npm Scripts | Expanded script table with all commands |
 | 2026-02-18 | Performance Settings | Auto-tune feature added |
 | 2026-02-17 | Transfer-All, Migrate, Rate Limit, Workflow | Migration engine config options |
-| 2026-02-16 | Single Project, SonarQube, Env Vars, State | Core configuration system |
+| 2026-02-16 | Single Project, SonarQube Server, Env Vars, State | Core configuration system |
 -->

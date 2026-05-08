@@ -33,7 +33,7 @@ Download the latest release from the [GitHub Releases](https://github.com/your-o
 
 On launch, the Welcome screen presents the available workflows:
 
-- **Transfer One Project** — Migrate a single project from SonarQube to SonarCloud
+- **Transfer One Project** — Migrate a single project from SonarQube Server to SonarQube Cloud
 - **Move All Projects & Settings** — Full organization migration (projects, quality gates, profiles, permissions, etc.)
 - **Verify Migration Results** — Compare data between source and destination after migration
 - **Sync Settings & Policies** — Update coding rules, policies, and permissions without re-migrating code data
@@ -45,7 +45,7 @@ On launch, the Welcome screen presents the available workflows:
 
 Each workflow guides you through a series of screens:
 
-1. **Connection setup** — Enter SonarQube and SonarCloud URLs and tokens
+1. **Connection setup** — Enter SonarQube Server and SonarQube Cloud URLs and tokens
 2. **Options** — Configure transfer mode, branch selection, and other settings
 3. **Review** — Confirm all settings before starting
 4. **Start** — Kick off the migration and watch live logs
@@ -60,8 +60,8 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 
 | Step | Description |
 |------|-------------|
-| 1. SonarQube Connection | Enter URL and token for the source SonarQube instance |
-| 2. SonarCloud Connection | Enter URL, token, organization, and project key for the target. An **EU / US radio button** selects the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
+| 1. SonarQube Server Connection | Enter URL and token for the source SonarQube Server instance |
+| 2. SonarQube Cloud Connection | Enter URL, token, organization, and project key for the target. An **EU / US radio button** selects the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
 | 3. Transfer Settings | Choose transfer mode (full/incremental), batch size, branch options. The "More Settings (Advanced)" section is collapsed by default (click the gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the transfer |
 
@@ -70,8 +70,8 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 
 | Step | Description |
 |------|-------------|
-| 1. SonarQube Connection | Enter URL and admin token for the source SonarQube instance |
-| 2. SonarCloud Organizations | Add or remove target SonarCloud organizations with their tokens. Each organization entry includes an **EU / US radio button** to select the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
+| 1. SonarQube Server Connection | Enter URL and admin token for the source SonarQube Server instance |
+| 2. SonarQube Cloud Organizations | Add or remove target SonarQube Cloud organizations with their tokens. Each organization entry includes an **EU / US radio button** to select the SonarQube Cloud instance (`sonarcloud.io` vs `sonarqube.us`) |
 | 3. Migration Settings | Configure output directory, dry run, included/excluded projects. The "Choose What to Migrate" and "More Settings (Advanced)" sections are collapsed by default to reduce clutter (click the shield or gear icon to expand) |
 | 4. Review & Start | Review all settings and begin the full migration |
 
@@ -82,8 +82,8 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 
 | Step | Description |
 |------|-------------|
-| 1. SonarQube Connection | Enter URL and token for the source SonarQube instance |
-| 2. SonarCloud Organizations | Add target SonarCloud organizations to verify against |
+| 1. SonarQube Server Connection | Enter URL and token for the source SonarQube Server instance |
+| 2. SonarQube Cloud Organizations | Add target SonarQube Cloud organizations to verify against |
 | 3. Review & Start | Review settings and begin verification |
 
 ### Sync Metadata Config (3 steps)
@@ -91,14 +91,14 @@ The live log viewer shows migration progress in real-time with a timer, cancel b
 
 | Step | Description |
 |------|-------------|
-| 1. SonarQube Connection | Enter URL and token for the source SonarQube instance |
-| 2. SonarCloud Organizations | Add target SonarCloud organizations for metadata sync |
+| 1. SonarQube Server Connection | Enter URL and token for the source SonarQube Server instance |
+| 2. SonarQube Cloud Organizations | Add target SonarQube Cloud organizations for metadata sync |
 | 3. Review & Start | Review settings and begin metadata synchronization |
 
 ### Other Screens
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-- **Connection Test** — Runs the `test` command to verify connectivity to both SonarQube and SonarCloud
+- **Connection Test** — Runs the `test` command to verify connectivity to both SonarQube Server and SonarQube Cloud
 - **Execution** — Live log viewer with elapsed timer, cancel button, and status badge (running/success/failed)
 
 ![Live Migration Progress](screenshots/migrate_progress.png)

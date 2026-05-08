@@ -187,7 +187,7 @@ With stack traces appended for errors:
 **Error with stack trace:**
 ```
 2026-05-07 01:15:00 [error]: Project JIRA-456 FAILED
-Error: SonarQube API error
+Error: SonarQube Server API error
     at SonarQubeClient.request (/src/sonarqube/api-client.js:45:12)
     at async migrateOneProjectCore (/src/pipelines/sq-2025/pipeline/project-core-migrator/helpers/migrate-one-project-core.js:67:20)
 ```
@@ -225,8 +225,8 @@ CloudVoyagerError (base)
 ├── ConfigurationError          <- Invalid configuration values
 ├── ValidationError             <- Input validation failures
 ├── StateError                  <- Invalid state transitions
-├── SonarQubeAPIError           <- SonarQube API failures
-├── SonarCloudAPIError           <- SonarCloud API failures
+├── SonarQubeAPIError           <- SonarQube Server API failures
+├── SonarCloudAPIError           <- SonarQube Cloud API failures
 ├── AuthenticationError          <- Auth/credential failures
 ├── ProtobufEncodingError       <- Protobuf serialization errors
 ├── GracefulShutdownError       <- Controlled shutdown signal

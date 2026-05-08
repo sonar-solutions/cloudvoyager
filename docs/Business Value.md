@@ -2,7 +2,7 @@
 
 <!-- Last updated: 2026-05-07 -->
 
-CloudVoyager delivers a complete SonarQube-to-SonarCloud migration without requiring a single line of code to be re-scanned. By reverse-engineering SonarScanner's internal protobuf report protocol, CloudVoyager extracts all data directly from SonarQube's API and repackages it into the exact binary format that SonarCloud's Compute Engine expects.
+CloudVoyager delivers a complete SonarQube Server-to-SonarQube Cloud migration without requiring a single line of code to be re-scanned. By reverse-engineering SonarScanner's internal protobuf report protocol, CloudVoyager extracts all data directly from SonarQube Server's API and repackages it into the exact binary format that SonarQube Cloud's Compute Engine expects.
 
 ---
 
@@ -19,14 +19,14 @@ Traditional migration approaches require re-running CI/CD scanners against every
 - **Days to weeks of pipeline execution** — Each scan must complete in sequence or with limited parallelism, constrained by CI/CD runner availability
 - **Developer interruption** — Teams must update branch configurations, trigger manual pipelines, and monitor for failures
 - **Locked CI/CD resources** — Build agents are occupied running scans instead of their normal development work
-- **Extended validation cycles** — Each re-scan potentially surfaces new issues that did not exist in the original SonarQube, requiring investigation
+- **Extended validation cycles** — Each re-scan potentially surfaces new issues that did not exist in the original SonarQube Server, requiring investigation
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### CloudVoyager Eliminates This Entirely
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager connects directly to your existing SonarQube server via API, extracts all project data, and uploads it to SonarCloud as a legitimate scanner submission — without touching your source code or CI/CD pipelines.
+CloudVoyager connects directly to your existing SonarQube Server via API, extracts all project data, and uploads it to SonarQube Cloud as a legitimate scanner submission — without touching your source code or CI/CD pipelines.
 
 **Real-world example from production use:**
 
@@ -48,7 +48,7 @@ This same migration via re-scanning would have taken days,占用 significant CI/
 - **No CI/CD disruption** — Migration runs in the background while your pipelines continue normal operations
 - **No coordination required** — Individual development teams do not need to take any action
 - **Predictable timeline** — A 50-project portfolio migrates in hours, not weeks
-- **Zero re-scan risk** — Code that passed SonarQube analysis arrives in SonarCloud with the same issue status, not potentially different results from a re-run
+- **Zero re-scan risk** — Code that passed SonarQube Server analysis arrives in SonarQube Cloud with the same issue status, not potentially different results from a re-run
 
 ---
 
@@ -60,7 +60,7 @@ This same migration via re-scanning would have taken days,占用 significant CI/
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager migrates every category of data that SonarQube tracks:
+CloudVoyager migrates every category of data that SonarQube Server tracks:
 
 | Category | Data Preserved |
 |----------|---------------|
@@ -76,12 +76,12 @@ CloudVoyager migrates every category of data that SonarQube tracks:
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Each issue carries its complete lifecycle history from SonarQube:
+Each issue carries its complete lifecycle history from SonarQube Server:
 
-- **Original creation date** — Preserved via SCM date backdating, so SonarCloud shows the same temporal distribution as SonarQube
+- **Original creation date** — Preserved via SCM date backdating, so SonarQube Cloud shows the same temporal distribution as SonarQube Server
 - **Status transitions** — Confirmed, False Positive, Accepted, Won't Fix, Resolved, Reopened states all synced
-- **Assignments** — Issues assigned to specific users transfer to the corresponding SonarCloud user
-- **Comments** — Full comment history preserved with `[Migrated from SonarQube]` attribution
+- **Assignments** — Issues assigned to specific users transfer to the corresponding SonarQube Cloud user
+- **Comments** — Full comment history preserved with `[Migrated from SonarQube Server]` attribution
 - **Tags** — Custom categorization labels maintained
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -89,7 +89,7 @@ Each issue carries its complete lifecycle history from SonarQube:
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager preserves each issue's original SonarQube creation date by backdating SCM changeset blame dates in the protobuf report. Issues appear in SonarCloud with the same creation timestamp they had in SonarQube, maintaining the historical distribution in the creation date facet.
+CloudVoyager preserves each issue's original SonarQube Server creation date by backdating SCM changeset blame dates in the protobuf report. Issues appear in SonarQube Cloud with the same creation timestamp they had in SonarQube Server, maintaining the historical distribution in the creation date facet.
 
 For calendar days with more than 5,000 issues, CloudVoyager automatically splits into sub-groups with 1-day-spaced synthetic dates to prevent clustering, ensuring a realistic distribution across the project's history.
 
@@ -108,7 +108,7 @@ For calendar days with more than 5,000 issues, CloudVoyager automatically splits
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Before any data touches SonarCloud, run the migration in dry-run mode:
+Before any data touches SonarQube Cloud, run the migration in dry-run mode:
 
 ```bash
 cloudvoyager migrate -c migrate-config.json --dry-run
@@ -116,9 +116,9 @@ cloudvoyager migrate -c migrate-config.json --dry-run
 
 This extracts all data and generates 9 CSV mapping files for review. You can:
 
-- Verify which projects map to which SonarCloud organizations
+- Verify which projects map to which SonarQube Cloud organizations
 - Exclude specific projects or branches from migration
-- Map SonarQube users to SonarCloud users before migration
+- Map SonarQube Server users to SonarQube Cloud users before migration
 - Review quality gate and profile assignments
 
 Only after reviewing the generated CSVs do you proceed to the actual migration.
@@ -134,20 +134,20 @@ The checkpoint journal tracks:
 - Per-organization completion status
 - Per-project progress across 11 migration phases
 - Upload deduplication via CE task ID verification (prevents re-uploading completed analyses)
-- Session fingerprint validation (warns on SonarQube version changes between runs)
+- Session fingerprint validation (warns on SonarQube Server version changes between runs)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 #### Layer 3: Post-Migration Verification
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-After migration completes, the verification pipeline runs **58+ automated checks** comparing SonarQube against SonarCloud:
+After migration completes, the verification pipeline runs **58+ automated checks** comparing SonarQube Server against SonarQube Cloud:
 
 | Verification Area | Checks Performed |
 |-------------------|-----------------|
 | **Issues** | Count parity, status matching, status history (changelog sequence), assignments, comments, tags |
 | **Hotspots** | Count parity, status matching (Safe, Acknowledged, Fixed, To Review), comments |
-| **Branches** | All SonarQube branches exist in SonarCloud |
+| **Branches** | All SonarQube Server branches exist in SonarQube Cloud |
 | **Measures** | 18 key metrics compared (ncloc, complexity, coverage, violations, etc.) |
 | **Quality Gates** | Existence, condition definitions, project assignments |
 | **Quality Profiles** | Existence, active rule counts, project assignments |
@@ -230,7 +230,7 @@ This parallelism means CloudVoyager fully utilizes available resources without r
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Moving to SonarCloud should not mean rebuilding your entire quality governance framework from scratch. CloudVoyager migrates every governance artifact:
+Moving to SonarQube Cloud should not mean rebuilding your entire quality governance framework from scratch. CloudVoyager migrates every governance artifact:
 
 | Governance Element | What Gets Migrated |
 |-------------------|-------------------|
@@ -252,29 +252,29 @@ Quality gates are recreated with their exact condition logic:
 - **Metric + operator + threshold** preserved for every condition
 - **Gate permissions** migrated for custom gates
 - **Project assignments** applied per organization mapping
-- Built-in gates (Sonar way) use SonarCloud's default since they are platform-managed
+- Built-in gates (Sonar way) use SonarQube Cloud's default since they are platform-managed
 
-This means your existing quality standards continue uninterrupted — projects that passed SonarQube's gate pass SonarCloud's gate with the same criteria.
+This means your existing quality standards continue uninterrupted — projects that passed SonarQube Server's gate pass SonarQube Cloud's gate with the same criteria.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Quality Profile Fidelity
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Quality profiles use SonarQube's native backup/restore XML format, preserving:
+Quality profiles use SonarQube Server's native backup/restore XML format, preserving:
 
 - **All rule activations and deactivations**
 - **Severity overrides** for individual rules
 - **Rule parameter values** (for rules with configurable parameters)
 - **Inheritance chains** — profiles restored in dependency order so parent profiles exist before children
 
-**Built-in profile handling** is handled specially. SonarCloud's built-in profiles cannot be overwritten, so CloudVoyager extracts the built-in profile's rules from SonarQube and creates a custom profile with a `(SonarQube Migrated)` suffix. This ensures the exact same rules are active in SonarCloud as they were in SonarQube.
+**Built-in profile handling** is handled specially. SonarQube Cloud's built-in profiles cannot be overwritten, so CloudVoyager extracts the built-in profile's rules from SonarQube Server and creates a custom profile with a `(SonarQube Server Migrated)` suffix. This ensures the exact same rules are active in SonarQube Cloud as they were in SonarQube Server.
 
 **Quality profile diff reports** are generated after migration, showing:
-- **Missing rules** — Active in SonarQube but not available in SonarCloud
-- **Added rules** — Available in SonarCloud but not in SonarQube
+- **Missing rules** — Active in SonarQube Server but not available in SonarQube Cloud
+- **Added rules** — Available in SonarQube Cloud but not in SonarQube Server
 
-This enables governance teams to review rule parity before cutting over to SonarCloud.
+This enables governance teams to review rule parity before cutting over to SonarQube Cloud.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Project Settings and Bindings
@@ -290,7 +290,7 @@ Per-project configuration that transfers includes:
 - **DevOps bindings** (GitHub, GitLab, Azure DevOps, Bitbucket) for pull request decoration and automatic branch analysis
 - **Non-inherited project-level settings**
 
-This ensures each project arrives in SonarCloud fully configured and ready for your development teams to use immediately.
+This ensures each project arrives in SonarQube Cloud fully configured and ready for your development teams to use immediately.
 
 ---
 
@@ -307,7 +307,7 @@ CloudVoyager's business value is straightforward:
 | **Cost Efficiency** | No CI/CD runner consumption, no developer coordination overhead |
 | **Governance Continuity** | Quality gates, profiles, permissions, groups, and templates maintained across the migration |
 
-CloudVoyager is purpose-built for enterprises that need to migrate to SonarCloud without disrupting development teams, sacrificing historical data, or rebuilding governance configuration from scratch.
+CloudVoyager is purpose-built for enterprises that need to migrate to SonarQube Cloud without disrupting development teams, sacrificing historical data, or rebuilding governance configuration from scratch.
 
 ---
 

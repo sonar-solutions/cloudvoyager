@@ -51,5 +51,5 @@ PASS -- no YAGNI violations.
 
 | ID | Issue | Suggested Fix |
 |----|-------|---------------|
-| 5.1 | `cv-test-malformed` requires Unicode keys and empty names that SonarQube API rejects | Specify DB-level seeding or descope to API-achievable scenarios only |
+| 5.1 | `cv-test-malformed` requires Unicode keys and empty names that SonarQube Server API rejects | Specify DB-level seeding or descope to API-achievable scenarios only |
 | 5.2 | `max-parallel: 8` may still exceed SQC rate limits with no cross-job throttling | Lower to 4, add staggered startup delays, or use separate SQC orgs |
