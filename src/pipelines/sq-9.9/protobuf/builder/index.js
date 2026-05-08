@@ -22,6 +22,7 @@ export function createProtobufBuilder(extractedData, scConfig = {}, scProfiles =
     referenceBranchName: options.referenceBranchName || null,
     sonarCloudRepos: options.sonarCloudRepos || new Set(),
     ruleEnrichmentMap: options.ruleEnrichmentMap || new Map(),
+    sourceProjectVersion: options.sourceProjectVersion || null,
     getComponentRef(key) { if (!this.componentRefMap.has(key)) this.componentRefMap.set(key, this.nextRef++); return this.componentRefMap.get(key); },
     mapSeverity, buildQProfiles() { return buildQProfiles(this); }, buildFileCountsByType() { return buildFileCountsByType(this); },
     buildMetadata() { return buildMetadata(this); }, buildComponents() { return buildComponents(this); },

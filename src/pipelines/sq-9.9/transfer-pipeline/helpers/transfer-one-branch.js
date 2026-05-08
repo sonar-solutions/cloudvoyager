@@ -4,7 +4,7 @@ import logger from '../../../../shared/utils/logger.js';
 
 // -------- Transfer a Single Non-Main Branch --------
 
-export async function transferOneBranch({ branch, extractedData, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker }) {
+export async function transferOneBranch({ branch, extractedData, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker }) {
   const branchName = branch.name;
 
   if (shutdownCheck()) return { skipped: true, branchName, reason: 'shutdown' };
@@ -27,7 +27,7 @@ export async function transferOneBranch({ branch, extractedData, extractor, jour
 
     const branchResult = await transferBranch({
       extractedData: branchData, sonarcloudConfig, sonarCloudProfiles, branchName,
-      referenceBranchName: sonarCloudMainBranch, wait, sonarCloudClient, label: branchName,
+      referenceBranchName: sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, label: branchName,
       sonarCloudRepos, ruleEnrichmentMap,
     });
 

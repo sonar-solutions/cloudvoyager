@@ -18,7 +18,7 @@ export function buildMetadata(ctx) {
     branchName, branchType: 1,
     referenceBranchName: referenceBranch,
     scmRevisionId: ctx.data.metadata.scmRevisionId || generateFakeCommitHash(),
-    projectVersion: '1.0.0',
+    projectVersion: ctx.sourceProjectVersion || '1.0.0',
     analyzedIndexedFileCountPerType: ctx.buildFileCountsByType(),
   };
   logger.debug(`Metadata built: projectKey=${metadata.projectKey}, branch=${metadata.branchName}, scmRevisionId=${metadata.scmRevisionId}`);

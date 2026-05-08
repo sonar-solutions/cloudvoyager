@@ -11,7 +11,7 @@ import logger from '../../../../shared/utils/logger.js';
 export async function transferBranchBatched(opts) {
   const { extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
     referenceBranchName, sonarCloudClient, label, isMainBranch,
-    sonarCloudRepos, ruleEnrichmentMap } = opts;
+    sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion } = opts;
 
   extractedData.issues.sort((a, b) => (a.component || '').localeCompare(b.component || ''));
 
@@ -29,7 +29,7 @@ export async function transferBranchBatched(opts) {
     logger.info(`[${batchLabel}] Issues ${batch.startIndex + 1}-${batch.endIndex} | date=${batchDate}`);
 
     const builder = new ProtobufBuilder(batchData, sonarcloudConfig, sonarCloudProfiles, {
-      sonarCloudBranchName: branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap,
+      sonarCloudBranchName: branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion,
     });
     const messages = builder.buildAll();
     const encoder = new ProtobufEncoder();
@@ -38,7 +38,7 @@ export async function transferBranchBatched(opts) {
     const uploader = new ReportUploader(sonarCloudClient);
     const metadata = {
       projectKey: sonarcloudConfig.projectKey, organization: sonarcloudConfig.organization,
-      version: '1.0.0', ...(!isMainBranch && branchName ? { branchName } : {}),
+      version: sourceProjectVersion || '1.0.0', ...(!isMainBranch && branchName ? { branchName } : {}),
     };
 
     lastCeTask = await uploader.uploadAndWait(encodedReport, metadata);

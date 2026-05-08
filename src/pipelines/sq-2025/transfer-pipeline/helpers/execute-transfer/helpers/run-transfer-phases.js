@@ -15,13 +15,13 @@ export async function runTransferPhases(opts) {
     extractedData, extractor, projectKey, performanceConfig } = opts;
 
   const { mainBranchResult, aggregatedStats } = await transferMainBranch({
-    journal, sonarCloudMainBranch, sonarCloudClient, extractedData,
+    journal, sonarCloudMainBranch, sonarCloudClient, sonarQubeClient, extractedData,
     sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudRepos, ruleEnrichmentMap, stateTracker, isIncremental,
   });
   checkShutdown(shutdownCheck);
 
   if (syncAllBranches) {
-    await transferNonMainBranches({ extractedData, excludeBranches, includeBranches, mainBranchResult, sonarCloudClient, sonarCloudMainBranch, wait, aggregatedStats, extractor, journal, cache, shutdownCheck, stateTracker, isIncremental, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, performanceConfig });
+    await transferNonMainBranches({ extractedData, excludeBranches, includeBranches, mainBranchResult, sonarCloudClient, sonarQubeClient, sonarCloudMainBranch, wait, aggregatedStats, extractor, journal, cache, shutdownCheck, stateTracker, isIncremental, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, performanceConfig });
   }
 
   // -------- Phase 2: Metadata Sync --------

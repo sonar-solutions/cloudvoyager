@@ -12,7 +12,7 @@ import logger from '../../../../shared/utils/logger.js';
  * @returns {Promise<object>} { branchName, branchResult } or { skipped, branchName }
  */
 export async function transferSingleBranch(opts) {
-  const { branch, extractedData, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, extractor, journal, cache, stateTracker, isIncremental, shutdownCheck, sonarCloudRepos, ruleEnrichmentMap } = opts;
+  const { branch, extractedData, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, extractor, journal, cache, stateTracker, isIncremental, shutdownCheck, sonarCloudRepos, ruleEnrichmentMap } = opts;
   const branchName = branch.name;
 
   const skipResult = checkBranchSkip(branchName, { shutdownCheck, isIncremental, stateTracker, journal });
@@ -28,7 +28,7 @@ export async function transferSingleBranch(opts) {
 
     const branchResult = await transferBranch({
       extractedData: branchData, sonarcloudConfig, sonarCloudProfiles, branchName,
-      referenceBranchName: sonarCloudMainBranch, wait, sonarCloudClient, label: branchName,
+      referenceBranchName: sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, label: branchName,
       sonarCloudRepos, ruleEnrichmentMap,
     });
 

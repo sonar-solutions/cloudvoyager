@@ -4,6 +4,7 @@ import { ReportUploader } from '../../sonarcloud/uploader.js';
 import { computeBranchStats } from './compute-branch-stats.js';
 import { transferBranchBatched } from './transfer-branch-batched.js';
 import { shouldBatch, backdateChangesets } from '../../../../shared/utils/batch-distributor.js';
+import { resolveSourceProjectVersion } from '../../../../shared/utils/source-version/resolve-source-project-version.js';
 import logger from '../../../../shared/utils/logger.js';
 
 // -------- Main Logic --------
@@ -11,12 +12,14 @@ import logger from '../../../../shared/utils/logger.js';
 /**
  * Build, encode, and upload a single branch report to SonarCloud.
  */
-export async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
+export async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, sonarQubeClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
+  const sourceProjectVersion = await resolveSourceProjectVersion(sonarQubeClient, sonarQubeClient?.projectKey, isMainBranch ? null : branchName);
+
   if (shouldBatch(extractedData)) {
     const ceTask = await transferBranchBatched({
       extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
       referenceBranchName, sonarCloudClient, label, isMainBranch,
-      sonarCloudRepos, ruleEnrichmentMap,
+      sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion,
     });
     return { stats: computeBranchStats(extractedData), ceTask };
   }
@@ -25,7 +28,7 @@ export async function transferBranch({ extractedData, sonarcloudConfig, sonarClo
 
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(extractedData, sonarcloudConfig, sonarCloudProfiles, {
-    sonarCloudBranchName: branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap,
+    sonarCloudBranchName: branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion,
   });
   const messages = builder.buildAll();
 
@@ -38,7 +41,7 @@ export async function transferBranch({ extractedData, sonarcloudConfig, sonarClo
   const uploader = new ReportUploader(sonarCloudClient);
   const metadata = {
     projectKey: sonarcloudConfig.projectKey, organization: sonarcloudConfig.organization,
-    version: '1.0.0', ...(!isMainBranch && branchName ? { branchName } : {}),
+    version: sourceProjectVersion || '1.0.0', ...(!isMainBranch && branchName ? { branchName } : {}),
   };
 
   let ceTask;

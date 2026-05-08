@@ -4,13 +4,13 @@ import logger from '../../../../../../shared/utils/logger.js';
 // -------- Upload Report --------
 
 /** Upload an encoded report to SonarCloud. */
-export async function uploadReport(encodedReport, scConfig, scClient, branchName, isMainBranch, wait, label) {
+export async function uploadReport(encodedReport, scConfig, scClient, branchName, isMainBranch, wait, label, sourceProjectVersion) {
   logger.info(`[${label}] Uploading to SonarCloud...`);
   const uploader = new ReportUploader(scClient);
   const metadata = {
     projectKey: scConfig.projectKey,
     organization: scConfig.organization,
-    version: '1.0.0',
+    version: sourceProjectVersion || '1.0.0',
     ...(!isMainBranch && branchName ? { branchName } : {}),
   };
 

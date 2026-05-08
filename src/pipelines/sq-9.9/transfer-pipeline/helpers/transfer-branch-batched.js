@@ -11,7 +11,7 @@ import logger from '../../../../shared/utils/logger.js';
 export async function transferBranchBatched(opts) {
   const { extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
     referenceBranchName, sonarCloudClient, label, isMainBranch,
-    sonarCloudRepos, ruleEnrichmentMap } = opts;
+    sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion } = opts;
 
   extractedData.issues.sort((a, b) => (a.component || '').localeCompare(b.component || ''));
 
@@ -28,9 +28,9 @@ export async function transferBranchBatched(opts) {
 
     logger.info(`[${batchLabel}] Issues ${batch.startIndex + 1}-${batch.endIndex} | date=${batchDate}`);
 
-    const messages = buildProtobufMessages(batchData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, batchLabel);
+    const messages = buildProtobufMessages(batchData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, batchLabel, sourceProjectVersion);
     const encodedReport = await encodeReport(messages, batchLabel);
-    lastCeTask = await uploadReport(encodedReport, sonarcloudConfig, sonarCloudClient, branchName, isMainBranch, true, batchLabel);
+    lastCeTask = await uploadReport(encodedReport, sonarcloudConfig, sonarCloudClient, branchName, isMainBranch, true, batchLabel, sourceProjectVersion);
     logger.info(`[${batchLabel}] CE task completed: ${lastCeTask.id}`);
   }
 

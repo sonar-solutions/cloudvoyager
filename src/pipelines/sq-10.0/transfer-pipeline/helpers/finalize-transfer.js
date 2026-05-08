@@ -23,7 +23,7 @@ export async function finalizeTransfer({ mainResult, sonarCloudMainBranch, syncA
     if (nonMainBranches.length > 0) {
       await waitForMainAnalysis(sonarCloudClient, mainResult.ceTask?.id, wait);
       logger.info(`Syncing ${nonMainBranches.length} additional branch(es): ${nonMainBranches.map(b => b.name).join(', ')}`);
-      await transferNonMainBranches({ nonMainBranches, extractedData, extractor, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, journal, cache, stateTracker, isIncremental, shutdownCheck, performanceConfig, sonarCloudRepos, ruleEnrichmentMap, aggregatedStats });
+      await transferNonMainBranches({ nonMainBranches, extractedData, extractor, sonarcloudConfig, sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, journal, cache, stateTracker, isIncremental, shutdownCheck, performanceConfig, sonarCloudRepos, ruleEnrichmentMap, aggregatedStats });
     } else {
       logger.info('No additional branches to sync (only the main branch exists)');
     }

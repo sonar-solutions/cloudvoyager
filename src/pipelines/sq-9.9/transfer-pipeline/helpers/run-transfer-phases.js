@@ -22,7 +22,7 @@ export async function runTransferPhases({ sonarQubeClient, sonarCloudClient, son
   const { sonarCloudProfiles, sonarCloudMainBranch, sonarCloudRepos, ruleEnrichmentMap } = await fetchCloudContext(sonarCloudClient, prebuiltEnrichmentMap);
   checkShutdown(shutdownCheck);
 
-  const mainBranchResult = await transferMainBranch({ journal, sonarCloudMainBranch, sonarCloudClient, extractedData, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudRepos, ruleEnrichmentMap });
+  const mainBranchResult = await transferMainBranch({ journal, sonarCloudMainBranch, sonarCloudClient, sonarQubeClient, extractedData, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudRepos, ruleEnrichmentMap });
 
   const aggregatedStats = {
     issuesTransferred: mainBranchResult.stats.issuesTransferred || 0,
@@ -37,7 +37,7 @@ export async function runTransferPhases({ sonarQubeClient, sonarCloudClient, son
   checkShutdown(shutdownCheck);
 
   if (syncAllBranches) {
-    const branchResults = await transferNonMainBranches({ extractedData, excludeBranches, includeBranches, sonarCloudMainBranch, mainBranchCeTaskId: mainBranchResult.ceTask?.id, wait, sonarCloudClient, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker, performanceConfig });
+    const branchResults = await transferNonMainBranches({ extractedData, excludeBranches, includeBranches, sonarCloudMainBranch, mainBranchCeTaskId: mainBranchResult.ceTask?.id, wait, sonarCloudClient, sonarQubeClient, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker, performanceConfig });
     aggregateBranchResults(branchResults, aggregatedStats);
   }
 

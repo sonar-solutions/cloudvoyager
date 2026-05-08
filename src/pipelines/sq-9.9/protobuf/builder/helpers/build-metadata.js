@@ -18,7 +18,7 @@ export function buildMetadata(ctx) {
     qprofilesPerLanguage: ctx.buildQProfiles(),
     branchName, branchType: 1, referenceBranchName: referenceBranch,
     scmRevisionId: ctx.data.metadata.scmRevisionId || randomBytes(20).toString('hex'),
-    projectVersion: '1.0.0',
+    projectVersion: ctx.sourceProjectVersion || '1.0.0',
     analyzedIndexedFileCountPerType: ctx.buildFileCountsByType(),
   };
 

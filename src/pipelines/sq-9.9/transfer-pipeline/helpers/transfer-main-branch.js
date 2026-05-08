@@ -4,7 +4,7 @@ import logger from '../../../../shared/utils/logger.js';
 
 // -------- Transfer Main Branch --------
 
-export async function transferMainBranch({ journal, sonarCloudMainBranch, sonarCloudClient, extractedData, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudRepos, ruleEnrichmentMap }) {
+export async function transferMainBranch({ journal, sonarCloudMainBranch, sonarCloudClient, sonarQubeClient, extractedData, sonarcloudConfig, sonarCloudProfiles, wait, sonarCloudRepos, ruleEnrichmentMap }) {
   const mainBranchCompleted = journal?.getBranchStatus(sonarCloudMainBranch) === 'completed';
 
   if (mainBranchCompleted) {
@@ -36,7 +36,7 @@ export async function transferMainBranch({ journal, sonarCloudMainBranch, sonarC
   const result = await transferBranch({
     extractedData, sonarcloudConfig, sonarCloudProfiles,
     branchName: sonarCloudMainBranch, referenceBranchName: sonarCloudMainBranch,
-    wait, sonarCloudClient, label: 'main', isMainBranch: true, sonarCloudRepos, ruleEnrichmentMap,
+    wait, sonarCloudClient, sonarQubeClient, label: 'main', isMainBranch: true, sonarCloudRepos, ruleEnrichmentMap,
   });
 
   if (journal) {
