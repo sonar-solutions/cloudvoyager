@@ -8,7 +8,7 @@ export async function fetchAndSyncIssues(opts) {
   const { sonarQubeClient, sonarCloudClient, projectKey,
     performanceConfig = {} } = opts;
 
-  const concurrency = performanceConfig?.issueSync?.concurrency || 5;
+  const concurrency = performanceConfig?.issueSync?.concurrency || 50;
 
   logger.info('Fetching SonarQube issues with comments...');
   const sqIssues = await sonarQubeClient.getIssuesWithComments();

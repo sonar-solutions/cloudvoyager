@@ -13,7 +13,7 @@ export { mapHotspotChangelogDiffToAction, extractHotspotTransitionsFromChangelog
 
 /** Sync hotspot statuses, comments, and source links from SQ to SC. */
 export async function syncHotspots(projectKey, sqHotspots, client, options = {}) {
-  const concurrency = options.concurrency || 3;
+  const concurrency = options.concurrency || 50;
   const stats = { matched: 0, statusChanged: 0, commented: 0, metadataSyncCommented: 0, sourceLinked: 0, failed: 0 };
 
   if (options.sqClient && options.sonarqubeProjectKey) {

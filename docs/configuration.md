@@ -233,8 +233,8 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
     "maxMemoryMB": 8192,
     "sourceExtraction": { "concurrency": 50 },
     "hotspotExtraction": { "concurrency": 50 },
-    "issueSync": { "concurrency": 20 },
-    "hotspotSync": { "concurrency": 20 },
+    "issueSync": { "concurrency": 50 },
+    "hotspotSync": { "concurrency": 50 },
     "projectMigration": { "concurrency": 8 }
   }
 }
@@ -247,8 +247,8 @@ Controls CPU, memory, and concurrency tuning. Add a `performance` section to any
 | `maxMemoryMB` | `8192` | Max heap size in MB. Set to `0` for Node.js default. The tool auto-restarts with the increased heap size when needed. |
 | `sourceExtraction.concurrency` | `50` | Max concurrent source file fetches from SonarQube Server (1–50) |
 | `hotspotExtraction.concurrency` | `50` | Max concurrent hotspot detail fetches from SonarQube Server (1–50) |
-| `issueSync.concurrency` | `20` | Max concurrent issue metadata sync operations to SonarQube Cloud (1–20) |
-| `hotspotSync.concurrency` | `20` | Max concurrent hotspot sync operations to SonarQube Cloud (1–20) |
+| `issueSync.concurrency` | `50` | Max concurrent issue metadata sync operations to SonarQube Cloud (1–100) |
+| `hotspotSync.concurrency` | `50` | Max concurrent hotspot sync operations to SonarQube Cloud (1–100) |
 | `projectMigration.concurrency` | `8` | Max concurrent project migrations (1–8) |
 
 **Auto-tune defaults:** When `autoTune` is enabled (or `--auto-tune` CLI flag is used), the following values are calculated based on your hardware:

@@ -9,7 +9,7 @@ import { syncHotspotComments } from './sync-hotspot-comments.js';
 // -------- Sync Hotspots from SonarQube to SonarCloud --------
 
 export async function syncHotspots(projectKey, sqHotspots, client, options = {}) {
-  const concurrency = options.concurrency || 3;
+  const concurrency = options.concurrency || 50;
   const stats = { matched: 0, statusChanged: 0, commented: 0, metadataSyncCommented: 0, sourceLinked: 0, failed: 0 };
 
   if (options.sqClient && options.sonarqubeProjectKey) {

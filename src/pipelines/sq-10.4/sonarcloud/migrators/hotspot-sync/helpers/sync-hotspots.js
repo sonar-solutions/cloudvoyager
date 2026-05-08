@@ -10,7 +10,7 @@ import { syncSingleHotspot } from './sync-single-hotspot.js';
 
 // Sync hotspot statuses, assignments, and comments from SonarQube to SonarCloud.
 export async function syncHotspots(projectKey, sqHotspots, client, options = {}) {
-  const concurrency = options.concurrency || 3;
+  const concurrency = options.concurrency || 50;
   const stats = createSyncStats();
 
   if (options.sqClient && options.sonarqubeProjectKey) {

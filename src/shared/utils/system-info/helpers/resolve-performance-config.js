@@ -5,7 +5,7 @@ export function resolvePerformanceConfig(perfConfig = {}) {
   const defaults = perfConfig.autoTune ? getAutoTuneDefaults() : {
     maxConcurrency: 64, maxMemoryMB: 8192,
     sourceExtraction: { concurrency: 50 }, hotspotExtraction: { concurrency: 50 },
-    issueSync: { concurrency: 20 }, hotspotSync: { concurrency: 20 },
+    issueSync: { concurrency: 50 }, hotspotSync: { concurrency: 50 },
     projectMigration: { concurrency: 8 }
   };
   return {

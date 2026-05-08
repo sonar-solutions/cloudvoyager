@@ -10,7 +10,7 @@ export async function fetchAndSyncHotspots(opts) {
     performanceConfig = {} } = opts;
 
   const extractConcurrency = performanceConfig?.hotspotExtraction?.concurrency || 10;
-  const syncConcurrency = performanceConfig?.hotspotSync?.concurrency || 3;
+  const syncConcurrency = performanceConfig?.hotspotSync?.concurrency || 50;
 
   logger.info('Extracting SonarQube hotspots with details...');
   const sqHotspots = await extractHotspots(sonarQubeClient, null, {
