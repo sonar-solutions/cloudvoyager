@@ -1,9 +1,11 @@
 # ☁️ 🐋 CloudVoyager
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Migrate your data from self-hosted SonarQube to SonarCloud — no re-scanning needed. This was done by reverse-engineering SonarScanner (scan report protobuf files) & then fully rebuilding everything from the ground up on Node.js.
+Migrate your data from self-hosted SonarQube Server to SonarQube Cloud — no re-scanning needed.
 
-CloudVoyager copies everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube into SonarCloud. It is available as both a CLI tool and a Desktop app with a guided wizard interface.
+CloudVoyager migrates everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube Server to SonarQube Cloud. It is available as both a CLI tool and a Desktop app with a guided wizard interface.
+
+CloudVoyager is compatible with all SonarQube Server versions starting from 9.9.x, i.e. 9.9.x, 2025.1.x, 2025.4.x, 2026.1.x and the latest version (2026.2 as of April 2026). Intermediate SonarQube version may work but this is not guaranteed.
 
 <!-- Updated: 2026-02-19 -->
 ## ✅ Quick Start (Recommended)
