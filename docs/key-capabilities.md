@@ -326,6 +326,7 @@ For each issue in SonarQube, the sync engine:
    - `ACCEPTED` → `accept`
    - `FALSE-POSITIVE` → `falsepositive`
    - `WONTFIX` → `wontfix`
+   - `IN_SANDBOX` (SonarQube 2025+) → no transition; the issue stays `OPEN` on SonarCloud because there is no equivalent state. See [Troubleshooting](./troubleshooting.md) for details.
 3. **Assigns** the issue to the corresponding user, using the `user-mappings.csv` when available:
    - If a SonarCloud Login is mapped in the CSV, uses the mapped login
    - If the user is excluded (`Include=no`), skips assignment

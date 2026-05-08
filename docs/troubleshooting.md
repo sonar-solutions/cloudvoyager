@@ -307,6 +307,15 @@ The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way
 
 If you'd prefer to skip quality profile migration entirely and use each language's default SonarCloud profile instead, use `--skip-quality-profile-sync`.
 
+<!-- <subsection-updated last-updated="2026-05-08T00:00:00Z" updated-by="Claude" /> -->
+## 🧪 Source Issues in `IN_SANDBOX` Are Migrated as `OPEN` (Issue #136)
+
+SonarQube 2025+ introduces an `IN_SANDBOX` issue status — used for issues raised by sandboxed AI rules that have not yet been promoted to the standard catalog. SonarCloud does not have an equivalent state, so these issues are migrated as `OPEN` on the destination.
+
+This is a known limitation, not a bug. There is no SonarCloud transition that maps to `IN_SANDBOX`, so the migrator leaves the migrated issue in its default `OPEN` state and the rest of the metadata sync (assignment, comments, tags) still applies. Once the underlying sandbox rule graduates and exists on both servers, you can re-evaluate the issues on SonarCloud.
+
+If you want to filter these out of the destination project, you can manually triage them post-migration on SonarCloud.
+
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📄 SonarQube API Pagination Limits
 
