@@ -15,7 +15,7 @@ export { mapChangelogDiffToTransition, extractTransitionsFromChangelog } from '.
 // -------- Sync Issues Orchestrator --------
 
 export async function syncIssues(projectKey, sqIssues, client, options = {}) {
-  const concurrency = options.concurrency || 5;
+  const concurrency = options.concurrency || 50;
   const sqClient = options.sqClient || null;
   const userMappings = options.userMappings || null;
   const stats = createEmptyStats();

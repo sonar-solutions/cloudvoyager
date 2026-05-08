@@ -15,7 +15,7 @@ import logger from '../../../../../../shared/utils/logger.js';
  * Pre-filters SQ issues to only those with manual changes for efficiency.
  */
 export async function syncIssues(projectKey, sqIssues, client, options = {}) {
-  const concurrency = options.concurrency || 5;
+  const concurrency = options.concurrency || 50;
   const sqClient = options.sqClient || null;
   const userMappings = options.userMappings || null;
   const stats = createSyncStats();

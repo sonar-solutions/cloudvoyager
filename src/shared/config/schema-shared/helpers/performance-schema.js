@@ -15,11 +15,11 @@ export const performanceSchema = {
     },
     issueSync: {
       type: 'object', additionalProperties: false,
-      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'Max concurrent issue metadata sync operations to SonarCloud' } }
+      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 100, default: 50, description: 'Max concurrent issue metadata sync operations to SonarCloud' } }
     },
     hotspotSync: {
       type: 'object', additionalProperties: false,
-      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'Max concurrent hotspot sync operations to SonarCloud' } }
+      properties: { concurrency: { type: 'integer', minimum: 1, maximum: 100, default: 50, description: 'Max concurrent hotspot sync operations to SonarCloud' } }
     },
     projectMigration: {
       type: 'object', additionalProperties: false,

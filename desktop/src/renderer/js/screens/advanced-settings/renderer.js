@@ -72,8 +72,8 @@ window.AdvancedSettingsScreen = {
           ${ConfigForm.numberField('perf-memory', 'Memory limit (MB)', perf.maxMemoryMB, { min: 0, max: 32768, hint: '0 = let the system decide' })}
           ${ConfigForm.numberField('perf-source', 'Source file extraction concurrency', perf.sourceExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent source file fetches from SonarQube' })}
           ${ConfigForm.numberField('perf-hotspot', 'Hotspot extraction concurrency', perf.hotspotExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot detail fetches from SonarQube' })}
-          ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
-          ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
           ${ConfigForm.numberField('perf-project', 'Project migration concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations' })}
           ${ConfigForm.numberField('perf-verify', 'Project verification concurrency', perf.projectVerification?.concurrency ?? 3, { min: 1, max: 16, hint: 'Max concurrent project verifications' })}
         </div>

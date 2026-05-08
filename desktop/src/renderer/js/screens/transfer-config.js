@@ -172,8 +172,8 @@ window.TransferConfigScreen = {
           ${ConfigForm.numberField('perf-memory', 'Max Memory (MB)', perf.maxMemoryMB, { min: 0, max: 32768, hint: 'Max heap size in MB. 0 = let the system decide. CLI flag: --max-memory' })}
           ${ConfigForm.numberField('perf-source', 'Source file extraction concurrency', perf.sourceExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent source file fetches from SonarQube' })}
           ${ConfigForm.numberField('perf-hotspot', 'Hotspot extraction concurrency', perf.hotspotExtraction?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot detail fetches from SonarQube' })}
-          ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
-          ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 20, { min: 1, max: 50, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-issue-sync', 'Issue sync concurrency', perf.issueSync?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent issue metadata sync operations to SonarCloud' })}
+          ${ConfigForm.numberField('perf-hotspot-sync', 'Hotspot sync concurrency', perf.hotspotSync?.concurrency ?? 50, { min: 1, max: 100, hint: 'Max concurrent hotspot sync operations to SonarCloud' })}
           ${ConfigForm.numberField('perf-project', 'Project Concurrency', perf.projectMigration?.concurrency ?? 8, { min: 1, max: 16, hint: 'Max concurrent project migrations. CLI flag: --project-concurrency' })}
           ${ConfigForm.numberField('perf-verify', 'Verification Concurrency', perf.projectVerification?.concurrency ?? 3, { min: 1, max: 16, hint: 'Max concurrent project verifications' })}
         </div>
@@ -206,8 +206,8 @@ window.TransferConfigScreen = {
     this.config.performance.maxMemoryMB = numVal('perf-memory', 8192);
     this.config.performance.sourceExtraction = { concurrency: numVal('perf-source', 50) };
     this.config.performance.hotspotExtraction = { concurrency: numVal('perf-hotspot', 50) };
-    this.config.performance.issueSync = { concurrency: numVal('perf-issue-sync', 20) };
-    this.config.performance.hotspotSync = { concurrency: numVal('perf-hotspot-sync', 20) };
+    this.config.performance.issueSync = { concurrency: numVal('perf-issue-sync', 50) };
+    this.config.performance.hotspotSync = { concurrency: numVal('perf-hotspot-sync', 50) };
     this.config.performance.projectMigration = { concurrency: numVal('perf-project', 8) };
     this.config.performance.projectVerification = { concurrency: numVal('perf-verify', 3) };
 
