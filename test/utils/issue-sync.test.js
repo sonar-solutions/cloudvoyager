@@ -162,26 +162,26 @@ test('hasManualChanges returns false when tags field is missing', t => {
 });
 
 // ============================================================================
-// hasManualChanges - Assignee detection
+// hasManualChanges - Assignee is NOT a sync trigger (Issue #158)
 // ============================================================================
 
-test('hasManualChanges returns true when issue has an assignee', t => {
-  const issue = { key: 'i1', assignee: 'alice' };
+test('hasManualChanges returns false when issue only has an assignee (assignee is not a sync trigger)', t => {
+  const issue = { key: 'i1', assignee: 'alice', comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges still detects manual changes when assignee is present alongside other signals', t => {
+  const issue = { key: 'i1', assignee: 'alice', comments: [], tags: ['custom-tag'] };
   t.true(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when assignee is null', t => {
+test('hasManualChanges returns false when assignee is null and nothing else qualifies', t => {
   const issue = { key: 'i1', assignee: null, comments: [], tags: [] };
   t.false(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when assignee is undefined', t => {
+test('hasManualChanges returns false when assignee is undefined and nothing else qualifies', t => {
   const issue = { key: 'i1', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
-test('hasManualChanges returns false when assignee is empty string', t => {
-  const issue = { key: 'i1', assignee: '', comments: [], tags: [] };
   t.false(hasManualChanges(issue, []));
 });
 
