@@ -30,14 +30,14 @@ export async function executeTransfer(opts) {
 
   checkShutdown(shutdownCheck);
 
-  const mainBranchResult = await transferMainBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName: sonarCloudMainBranch, wait, sonarCloudClient, journal, sonarCloudRepos, ruleEnrichmentMap });
+  const mainBranchResult = await transferMainBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName: sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, journal, sonarCloudRepos, ruleEnrichmentMap });
   const aggregatedStats = { issuesTransferred: mainBranchResult.stats.issuesTransferred || 0, hotspotsTransferred: mainBranchResult.stats.hotspotsTransferred || 0, componentsTransferred: mainBranchResult.stats.componentsTransferred || 0, sourcesTransferred: mainBranchResult.stats.sourcesTransferred || 0, linesOfCode: mainBranchResult.stats.linesOfCode || 0, branchesTransferred: [sonarCloudMainBranch] };
 
   if (isIncremental) { stateTracker.markBranchCompleted(sonarCloudMainBranch); await stateTracker.save(); }
   checkShutdown(shutdownCheck);
 
   if (syncAllBranches) {
-    await transferNonMainBranches({ extractedData, sonarcloudConfig, sonarCloudProfiles, mainBranchResult, sonarCloudMainBranch, wait, sonarCloudClient, extractor, journal, cache, stateTracker, isIncremental, shutdownCheck, excludeBranches, includeBranches, performanceConfig, aggregatedStats, sonarCloudRepos, ruleEnrichmentMap });
+    await transferNonMainBranches({ extractedData, sonarcloudConfig, sonarCloudProfiles, mainBranchResult, sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, extractor, journal, cache, stateTracker, isIncremental, shutdownCheck, excludeBranches, includeBranches, performanceConfig, aggregatedStats, sonarCloudRepos, ruleEnrichmentMap });
   }
 
   // -------- Phase 2: Metadata Sync --------

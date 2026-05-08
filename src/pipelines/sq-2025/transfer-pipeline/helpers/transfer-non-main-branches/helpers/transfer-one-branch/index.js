@@ -9,7 +9,7 @@ import logger from '../../../../../../../shared/utils/logger.js';
 export async function transferOneBranch(branch, opts) {
   const { shutdownCheck, isIncremental, stateTracker, journal, cache,
     extractor, extractedData, sonarcloudConfig, sonarCloudProfiles,
-    sonarCloudMainBranch, wait, sonarCloudClient,
+    sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient,
     sonarCloudRepos, ruleEnrichmentMap } = opts;
   const branchName = branch.name;
 
@@ -26,7 +26,7 @@ export async function transferOneBranch(branch, opts) {
     const branchResult = await transferBranch({
       extractedData: branchData, sonarcloudConfig, sonarCloudProfiles,
       branchName, referenceBranchName: sonarCloudMainBranch,
-      wait, sonarCloudClient, label: branchName,
+      wait, sonarCloudClient, sonarQubeClient, label: branchName,
       sonarCloudRepos, ruleEnrichmentMap,
     });
 

@@ -10,6 +10,7 @@ export function createProtobufBuilder(extractedData, scConfig = {}, scProfiles =
     referenceBranchName: options.referenceBranchName || null,
     sonarCloudRepos: options.sonarCloudRepos || new Set(),
     ruleEnrichmentMap: options.ruleEnrichmentMap || new Map(),
+    sourceProjectVersion: options.sourceProjectVersion || null,
   };
   bindBuilderMethods(ctx);
   return ctx;

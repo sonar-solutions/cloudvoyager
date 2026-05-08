@@ -19,7 +19,7 @@ export function buildMetadata(inst) {
     qprofilesPerLanguage: inst.buildQProfiles(),
     branchName, branchType: 1, referenceBranchName: referenceBranch,
     scmRevisionId: inst.data.metadata.scmRevisionId || randomBytes(20).toString('hex'),
-    projectVersion: '1.0.0',
+    projectVersion: inst.sourceProjectVersion || '1.0.0',
     analyzedIndexedFileCountPerType: inst.buildFileCountsByType(),
   };
 

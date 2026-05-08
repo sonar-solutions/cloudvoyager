@@ -5,11 +5,11 @@ import logger from '../../../../../../shared/utils/logger.js';
 // -------- Build and Encode --------
 
 /** Build protobuf messages and encode them. */
-export function buildProtobufMessages(data, scConfig, profiles, branch, refBranch, repos, enrichMap, label) {
+export function buildProtobufMessages(data, scConfig, profiles, branch, refBranch, repos, enrichMap, label, sourceProjectVersion) {
   logger.info(`[${label}] Building protobuf messages...`);
   const builder = new ProtobufBuilder(data, scConfig, profiles, {
     sonarCloudBranchName: branch, referenceBranchName: refBranch,
-    sonarCloudRepos: repos, ruleEnrichmentMap: enrichMap,
+    sonarCloudRepos: repos, ruleEnrichmentMap: enrichMap, sourceProjectVersion,
   });
   return builder.buildAll();
 }

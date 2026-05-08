@@ -11,7 +11,7 @@ import logger from '../../../../shared/utils/logger.js';
  * @param {object} opts - Transfer options
  * @returns {Promise<object>} { stats, ceTask }
  */
-export async function transferMainBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, wait, sonarCloudClient, journal, sonarCloudRepos, ruleEnrichmentMap }) {
+export async function transferMainBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, wait, sonarCloudClient, sonarQubeClient, journal, sonarCloudRepos, ruleEnrichmentMap }) {
   const mainBranchCompleted = journal?.getBranchStatus(branchName) === 'completed';
   const emptyStats = { issuesTransferred: 0, hotspotsTransferred: 0, componentsTransferred: 0, sourcesTransferred: 0, linesOfCode: 0 };
 
@@ -33,7 +33,7 @@ export async function transferMainBranch({ extractedData, sonarcloudConfig, sona
 
   const result = await transferBranch({
     extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
-    referenceBranchName: branchName, wait, sonarCloudClient, label: 'main',
+    referenceBranchName: branchName, wait, sonarCloudClient, sonarQubeClient, label: 'main',
     isMainBranch: true, sonarCloudRepos, ruleEnrichmentMap,
   });
 

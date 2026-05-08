@@ -4,7 +4,7 @@ import logger from '../../../../shared/utils/logger.js';
 
 // -------- Transfer Non-Main Branches --------
 
-export async function transferNonMainBranches({ extractedData, excludeBranches, includeBranches, sonarCloudMainBranch, mainBranchCeTaskId, wait, sonarCloudClient, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker, performanceConfig }) {
+export async function transferNonMainBranches({ extractedData, excludeBranches, includeBranches, sonarCloudMainBranch, mainBranchCeTaskId, wait, sonarCloudClient, sonarQubeClient, extractor, journal, cache, shutdownCheck, sonarcloudConfig, sonarCloudProfiles, sonarCloudRepos, ruleEnrichmentMap, isIncremental, stateTracker, performanceConfig }) {
   const allBranches = extractedData.project.branches || [];
   const nonMainBranches = allBranches.filter(b => {
     if (b.isMain) return false;
@@ -23,7 +23,7 @@ export async function transferNonMainBranches({ extractedData, excludeBranches, 
 
   return mapConcurrent(nonMainBranches, (branch) => transferOneBranch({
     branch, extractedData, extractor, journal, cache, shutdownCheck, sonarcloudConfig,
-    sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarCloudRepos,
+    sonarCloudProfiles, sonarCloudMainBranch, wait, sonarCloudClient, sonarQubeClient, sonarCloudRepos,
     ruleEnrichmentMap, isIncremental, stateTracker,
   }), { concurrency: performanceConfig?.maxConcurrency || 4, settled: true });
 }

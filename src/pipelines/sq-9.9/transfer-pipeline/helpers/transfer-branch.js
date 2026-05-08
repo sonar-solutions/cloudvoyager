@@ -4,23 +4,26 @@ import { uploadReport } from './upload-report.js';
 import { buildBranchResult } from './build-branch-result.js';
 import { transferBranchBatched } from './transfer-branch-batched.js';
 import { shouldBatch, backdateChangesets } from '../../../../shared/utils/batch-distributor.js';
+import { resolveSourceProjectVersion } from '../../../../shared/utils/source-version/resolve-source-project-version.js';
 
 // -------- Single Branch Transfer (build, encode, upload) --------
 
-export async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
+export async function transferBranch({ extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, wait, sonarCloudClient, sonarQubeClient, label, isMainBranch = false, sonarCloudRepos = new Set(), ruleEnrichmentMap = new Map() }) {
+  const sourceProjectVersion = await resolveSourceProjectVersion(sonarQubeClient, sonarQubeClient?.projectKey, isMainBranch ? null : branchName);
+
   if (shouldBatch(extractedData)) {
     const ceTask = await transferBranchBatched({
       extractedData, sonarcloudConfig, sonarCloudProfiles, branchName,
       referenceBranchName, sonarCloudClient, label, isMainBranch,
-      sonarCloudRepos, ruleEnrichmentMap,
+      sonarCloudRepos, ruleEnrichmentMap, sourceProjectVersion,
     });
     return buildBranchResult(extractedData, ceTask);
   }
 
   backdateChangesets(extractedData);
 
-  const messages = buildProtobufMessages(extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, label);
+  const messages = buildProtobufMessages(extractedData, sonarcloudConfig, sonarCloudProfiles, branchName, referenceBranchName, sonarCloudRepos, ruleEnrichmentMap, label, sourceProjectVersion);
   const encodedReport = await encodeReport(messages, label);
-  const ceTask = await uploadReport(encodedReport, sonarcloudConfig, sonarCloudClient, branchName, isMainBranch, wait, label);
+  const ceTask = await uploadReport(encodedReport, sonarcloudConfig, sonarCloudClient, branchName, isMainBranch, wait, label, sourceProjectVersion);
   return buildBranchResult(extractedData, ceTask);
 }

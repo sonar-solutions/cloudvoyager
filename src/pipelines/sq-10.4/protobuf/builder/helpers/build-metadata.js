@@ -17,7 +17,7 @@ export function buildMetadata(instance) {
     qprofilesPerLanguage: instance.buildQProfiles(),
     branchName, branchType: 1, referenceBranchName: referenceBranch,
     scmRevisionId: instance.data.metadata.scmRevisionId || instance.generateFakeCommitHash(),
-    projectVersion: '1.0.0',
+    projectVersion: instance.sourceProjectVersion || '1.0.0',
     analyzedIndexedFileCountPerType: instance.buildFileCountsByType(),
   };
   logger.debug(`Metadata built: projectKey=${metadata.projectKey}, branch=${metadata.branchName}, scmRevisionId=${metadata.scmRevisionId}`);

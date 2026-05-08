@@ -23,6 +23,7 @@ export function createProtobufBuilder(extractedData, sonarCloudConfig = {}, sona
     referenceBranchName: options.referenceBranchName || null,
     sonarCloudRepos: options.sonarCloudRepos || new Set(),
     ruleEnrichmentMap: options.ruleEnrichmentMap || new Map(),
+    sourceProjectVersion: options.sourceProjectVersion || null,
   };
 
   attachUtilityMethods(instance);
