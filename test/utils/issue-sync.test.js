@@ -6,12 +6,20 @@ import { applyManualChangesPreFilter } from '../../src/shared/utils/issue-sync/a
 
 test.afterEach(() => sinon.restore());
 
+// All issues that should pass the updateDate gate need creationDate ≠ updateDate.
+// withDates() adds those fields so tests can focus on the signal under test.
+const withDates = (issue) => ({
+  creationDate: '2024-01-01T00:00:00+0000',
+  updateDate: '2024-06-15T10:30:00+0000',
+  ...issue,
+});
+
 // ============================================================================
 // hasManualChanges - Changelog detection
 // ============================================================================
 
 test('hasManualChanges returns true when changelog has human-authored entry', t => {
-  const issue = { key: 'i1' };
+  const issue = withDates({ key: 'i1' });
   const changelog = [{ user: 'alice', diffs: [{ key: 'status' }] }];
   t.true(hasManualChanges(issue, changelog));
 });
@@ -63,18 +71,18 @@ test('hasManualChanges returns false for null changelog', t => {
 // ============================================================================
 
 test('hasManualChanges returns true when issue has non-migrated comment (markdown)', t => {
-  const issue = {
+  const issue = withDates({
     key: 'i1',
     comments: [{ markdown: 'This is a real user comment' }],
-  };
+  });
   t.true(hasManualChanges(issue, []));
 });
 
 test('hasManualChanges returns true when issue has non-migrated comment (htmlText)', t => {
-  const issue = {
+  const issue = withDates({
     key: 'i1',
     comments: [{ htmlText: 'Real comment' }],
-  };
+  });
   t.true(hasManualChanges(issue, []));
 });
 
@@ -90,13 +98,13 @@ test('hasManualChanges returns false when all comments are migrated', t => {
 });
 
 test('hasManualChanges returns true when mix of migrated and manual comments', t => {
-  const issue = {
+  const issue = withDates({
     key: 'i1',
     comments: [
       { markdown: '[Migrated from SonarQube] bob (2024-01-01): Fix this' },
       { markdown: 'I added this comment manually' },
     ],
-  };
+  });
   t.true(hasManualChanges(issue, []));
 });
 
@@ -147,7 +155,7 @@ test('hasManualChanges returns false when comments field is missing', t => {
 // ============================================================================
 
 test('hasManualChanges returns true when issue has tags', t => {
-  const issue = { key: 'i1', tags: ['security', 'bug'] };
+  const issue = withDates({ key: 'i1', tags: ['security', 'bug'] });
   t.true(hasManualChanges(issue, []));
 });
 
@@ -162,34 +170,34 @@ test('hasManualChanges returns false when tags field is missing', t => {
 });
 
 // ============================================================================
-// hasManualChanges - Assignee detection
+// hasManualChanges - Assignee is NOT a sync trigger (Issue #158)
 // ============================================================================
 
-test('hasManualChanges returns true when issue has an assignee', t => {
-  const issue = { key: 'i1', assignee: 'alice' };
+test('hasManualChanges returns false when issue only has an assignee (assignee is not a sync trigger)', t => {
+  const issue = { key: 'i1', assignee: 'alice', comments: [], tags: [] };
+  t.false(hasManualChanges(issue, []));
+});
+
+test('hasManualChanges still detects manual changes when assignee is present alongside other signals', t => {
+  const issue = withDates({ key: 'i1', assignee: 'alice', comments: [], tags: ['custom-tag'] });
   t.true(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when assignee is null', t => {
+test('hasManualChanges returns false when assignee is null and nothing else qualifies', t => {
   const issue = { key: 'i1', assignee: null, comments: [], tags: [] };
   t.false(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when assignee is undefined', t => {
+test('hasManualChanges returns false when assignee is undefined and nothing else qualifies', t => {
   const issue = { key: 'i1', comments: [], tags: [] };
   t.false(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when assignee is empty string', t => {
-  const issue = { key: 'i1', assignee: '', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
-});
-
 // ============================================================================
-// hasManualChanges - updateDate detection (catch-all safety net)
+// hasManualChanges - updateDate gate (must differ from creationDate)
 // ============================================================================
 
-test('hasManualChanges returns true when updateDate differs from creationDate', t => {
+test('hasManualChanges returns false when updateDate differs but no other signal is present', t => {
   const issue = {
     key: 'i1',
     creationDate: '2024-01-01T00:00:00+0000',
@@ -197,28 +205,39 @@ test('hasManualChanges returns true when updateDate differs from creationDate', 
     comments: [],
     tags: [],
   };
-  t.true(hasManualChanges(issue, []));
+  t.false(hasManualChanges(issue, []));
 });
 
-test('hasManualChanges returns false when updateDate equals creationDate', t => {
+test('hasManualChanges returns false when updateDate equals creationDate (gate blocks)', t => {
   const issue = {
     key: 'i1',
     creationDate: '2024-01-01T00:00:00+0000',
     updateDate: '2024-01-01T00:00:00+0000',
-    comments: [],
-    tags: [],
+    comments: [{ markdown: 'real comment' }],
+    tags: ['custom-tag'],
   };
-  t.false(hasManualChanges(issue, []));
+  // Even with comments AND tags, the gate blocks because creationDate == updateDate
+  t.false(hasManualChanges(issue, [{ user: 'alice', diffs: [{ key: 'status' }] }]));
 });
 
-test('hasManualChanges returns false when updateDate is missing', t => {
-  const issue = { key: 'i1', creationDate: '2024-01-01T00:00:00+0000', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
+test('hasManualChanges returns false when updateDate is missing (gate blocks)', t => {
+  const issue = {
+    key: 'i1',
+    creationDate: '2024-01-01T00:00:00+0000',
+    comments: [{ markdown: 'real comment' }],
+    tags: ['custom-tag'],
+  };
+  t.false(hasManualChanges(issue, [{ user: 'alice', diffs: [{ key: 'status' }] }]));
 });
 
-test('hasManualChanges returns false when creationDate is missing', t => {
-  const issue = { key: 'i1', updateDate: '2024-06-15T10:30:00+0000', comments: [], tags: [] };
-  t.false(hasManualChanges(issue, []));
+test('hasManualChanges returns false when creationDate is missing (gate blocks)', t => {
+  const issue = {
+    key: 'i1',
+    updateDate: '2024-06-15T10:30:00+0000',
+    comments: [{ markdown: 'real comment' }],
+    tags: ['custom-tag'],
+  };
+  t.false(hasManualChanges(issue, [{ user: 'alice', diffs: [{ key: 'status' }] }]));
 });
 
 // ============================================================================
@@ -231,13 +250,13 @@ test('hasManualChanges returns false for pristine issue (no changelog, no commen
 });
 
 test('hasManualChanges detects changelog even with empty comments and tags', t => {
-  const issue = { key: 'i1', comments: [], tags: [] };
+  const issue = withDates({ key: 'i1', comments: [], tags: [] });
   const changelog = [{ user: 'admin', diffs: [{ key: 'status' }] }];
   t.true(hasManualChanges(issue, changelog));
 });
 
 test('hasManualChanges detects tags even with empty changelog and comments', t => {
-  const issue = { key: 'i1', comments: [], tags: ['custom-tag'] };
+  const issue = withDates({ key: 'i1', comments: [], tags: ['custom-tag'] });
   t.true(hasManualChanges(issue, []));
 });
 
@@ -316,7 +335,12 @@ test('applyManualChangesPreFilter returns filtered issues and changelogMap', asy
       .onSecondCall().resolves([])
       .onThirdCall().resolves([{ user: 'bob', diffs: [] }]),
   };
-  const issues = [{ key: 'i1' }, { key: 'i2' }, { key: 'i3' }];
+  // i1 and i3 pass the gate (updateDate ≠ creationDate); i2 doesn't.
+  const issues = [
+    withDates({ key: 'i1' }),
+    { key: 'i2', creationDate: '2024-01-01T00:00:00+0000', updateDate: '2024-01-01T00:00:00+0000' },
+    withDates({ key: 'i3' }),
+  ];
   const stats = { filtered: 0 };
 
   const { issuesToSync, changelogMap } = await applyManualChangesPreFilter(issues, sqClient, stats, 5);
@@ -353,7 +377,8 @@ test('pre-filter reduces issues to only those with manual changes', t => {
   const totalIssues = 10000;
   const manualChangeRate = 0.02;
 
-  const issues = Array.from({ length: totalIssues }, (_, i) => ({
+  // All issues pass the updateDate gate; only the first 2% have a human changelog.
+  const issues = Array.from({ length: totalIssues }, (_, i) => withDates({
     key: `sq-${i}`,
     comments: [],
     tags: [],
@@ -380,7 +405,7 @@ test('pre-filter reduces issues to only those with manual changes', t => {
 test('pre-filter handles worst case where all issues have manual changes', t => {
   const totalIssues = 1000;
 
-  const issues = Array.from({ length: totalIssues }, (_, i) => ({
+  const issues = Array.from({ length: totalIssues }, (_, i) => withDates({
     key: `sq-${i}`,
     comments: [{ markdown: 'manual comment' }],
     tags: ['custom-tag'],
