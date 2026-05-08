@@ -1,5 +1,9 @@
 # Cloud Voyager - CLAUDE CODE CLI Directives
 
+## MANDATORY: Parallel Agent Swarms
+
+**You MUST use parallel agent swarms and subagents to parallelize your work.**
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
