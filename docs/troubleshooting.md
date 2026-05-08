@@ -18,7 +18,7 @@ After every `migrate` run (whether it succeeds, partially succeeds, or crashes),
 1. **Open `reports/migration-report.txt`** — it's structured top-down so you can quickly find problems:
 
    - **SUMMARY** — overall counts (succeeded / partial / failed)
-   - **SERVER-WIDE STEPS** — did extraction from SonarQube work?
+   - **SERVER-WIDE STEPS** — did extraction from SonarQube Server work?
    - **ORGANIZATION** — did org-level setup (groups, gates, profiles) work?
    - **FAILED / PARTIAL PROJECTS (DETAILED)** — step-by-step breakdown for every project that had issues, showing exactly which step failed and why
    - **ALL PROJECTS** — compact one-line-per-project list with failed step names
@@ -125,7 +125,7 @@ grep "SKIP\|skipping" migration.log
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Re-running after failures
 
-The migration can be re-run safely. Projects that already exist in SonarCloud will be updated (not duplicated). To fix specific failures:
+The migration can be re-run safely. Projects that already exist in SonarQube Cloud will be updated (not duplicated). To fix specific failures:
 
 - **Rate limit errors on hotspot sync** — re-run with `--skip-issue-metadata-sync` (issues already synced) and increase rate limit config
 - **Report upload failures** — check the specific error, fix the root cause, and re-run
@@ -156,10 +156,10 @@ If the checkpoint journal becomes corrupt (e.g., due to a system crash during a 
 ./cloudvoyager transfer -c config.json --verbose --force-restart
 ```
 
-### SonarQube Version Mismatch on Resume
+### SonarQube Server Version Mismatch on Resume
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-If you upgrade SonarQube between pause and resume, the tool warns about a version mismatch in the session fingerprint. By default, this is a warning only — the transfer continues. To enforce strict version matching:
+If you upgrade SonarQube Server between pause and resume, the tool warns about a version mismatch in the session fingerprint. By default, this is a warning only — the transfer continues. To enforce strict version matching:
 
 ```json
 {
@@ -176,7 +176,7 @@ With `strictResume: true`, a version mismatch will fail the transfer and require
 ### Source Code Changed Between Pause and Resume
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-If source code in SonarQube changes between pause and resume (e.g., new analysis uploaded), already-cached extraction phases will use stale data. Use `--force-fresh-extract` to re-extract all data while keeping the checkpoint journal:
+If source code in SonarQube Server changes between pause and resume (e.g., new analysis uploaded), already-cached extraction phases will use stale data. Use `--force-fresh-extract` to re-extract all data while keeping the checkpoint journal:
 
 ```bash
 ./cloudvoyager transfer -c config.json --verbose --force-fresh-extract
@@ -226,33 +226,33 @@ This only affects building the binary. Tests, linting, and `npm run build` work 
 ## 🔐 Authentication Errors
 - Verify your tokens have the correct permissions
 - Check that tokens haven't expired
-- Ensure the project key exists in SonarQube
-- Verify the organization key is correct in SonarCloud
+- Ensure the project key exists in SonarQube Server
+- Verify the organization key is correct in SonarQube Cloud
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## ⚠️ Generic "Issue whilst processing" Error
 
-This vague SonarCloud error can be caused by:
-- **Branch name mismatch** - SonarQube and SonarCloud have different main branch names. The tool handles this automatically via `getMainBranchName()`, but verify your SonarCloud project's branch configuration
+This vague SonarQube Cloud error can be caused by:
+- **Branch name mismatch** - SonarQube Server and SonarQube Cloud have different main branch names. The tool handles this automatically via `getMainBranchName()`, but verify your SonarQube Cloud project's branch configuration
 - **Line count mismatch** - Source file line counts don't match component metadata. The tool uses actual source content line counts to avoid this
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-## ❌ Report Rejected by SonarCloud
+## ❌ Report Rejected by SonarQube Cloud
 - **Empty ScmInfo** - Ensure `changesetIndexByLine` is populated for ADDED files (array of zeros, one per line)
-- **Issue gap field** - The `gap` field should not be included in issues (it's scanner-computed, not from SonarQube)
-- **Duplicate report** - SonarCloud rejects reports with the same `scm_revision_id`. Use a different commit or update the source project
+- **Issue gap field** - The `gap` field should not be included in issues (it's scanner-computed, not from SonarQube Server)
+- **Duplicate report** - SonarQube Cloud rejects reports with the same `scm_revision_id`. Use a different commit or update the source project
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔑 Project Key Conflicts
 
-SonarCloud requires globally unique project keys across all organizations. By default, CloudVoyager uses the **original SonarQube project key** when creating projects on SonarCloud. If the key is already taken by another SonarCloud organization, the tool automatically falls back to a prefixed key (`{org}_{key}`) and logs a warning.
+SonarQube Cloud requires globally unique project keys across all organizations. By default, CloudVoyager uses the **original SonarQube Server project key** when creating projects on SonarQube Cloud. If the key is already taken by another SonarQube Cloud organization, the tool automatically falls back to a prefixed key (`{org}_{key}`) and logs a warning.
 
 Key conflicts are reported in three places:
 - **Console logs** — a warning is logged immediately when a conflict is detected during migration
 - **Migration summary** — a "Project key conflicts" section at the end of the run lists all affected projects
 - **Migration report** — the `reports/migration-report.txt` includes a "PROJECT KEY CONFLICTS" section, and `reports/migration-report.json` includes a `projectKeyWarnings` array
 
-If you see key conflicts, the affected projects were still migrated successfully — they just use a different key than the original SonarQube key. You can rename them later via the SonarCloud API (`/api/projects/update_key`) if the conflicting key becomes available.
+If you see key conflicts, the affected projects were still migrated successfully — they just use a different key than the original SonarQube Server key. You can rename them later via the SonarQube Cloud API (`/api/projects/update_key`) if the conflicting key becomes available.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🌐 Connection Timeouts
@@ -263,7 +263,7 @@ If you see key conflicts, the affected projects were still migrated successfully
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚦 Rate Limiting (503 / 429 Errors)
 
-SonarCloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
+SonarQube Cloud may return 503 or 429 errors when too many API requests are made in a short period, especially during issue and hotspot sync on large projects.
 
 By default, CloudVoyager retries rate-limited requests up to 3 times with exponential backoff. You can tune this via the `rateLimit` section in your config file:
 
@@ -289,9 +289,9 @@ If you still encounter rate limit errors after all retries are exhausted, consid
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🏷️ Project Names Showing as Project Keys
 
-If projects in SonarCloud show the project key as the display name instead of the original human-readable name from SonarQube, the project was likely created by an older version of CloudVoyager. The current version automatically carries over the original project name from SonarQube when creating projects in SonarCloud.
+If projects in SonarQube Cloud show the project key as the display name instead of the original human-readable name from SonarQube Server, the project was likely created by an older version of CloudVoyager. The current version automatically carries over the original project name from SonarQube Server when creating projects in SonarQube Cloud.
 
-To fix already-migrated projects, you can rename them manually in SonarCloud via **Project Settings > General Settings > Project Name**, or delete and re-migrate the project.
+To fix already-migrated projects, you can rename them manually in SonarQube Cloud via **Project Settings > General Settings > Project Name**, or delete and re-migrate the project.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🚧 Quality Gate / Profile Permission Errors (400)
@@ -299,27 +299,27 @@ To fix already-migrated projects, you can rename them manually in SonarCloud via
 When migrating quality gates or profiles, permission APIs may return 400 errors for built-in gates/profiles. This is expected — built-in resources don't support custom permissions. The migrators handle this gracefully and skip these entries.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-## 📊 Issue Counts Differ Between SonarQube and SonarCloud
+## 📊 Issue Counts Differ Between SonarQube Server and SonarQube Cloud
 
-If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube and SonarCloud quality profiles.
+If you see different issue counts (Security, Reliability, Maintainability) after migration, this is usually caused by **different active rules** between the SonarQube Server and SonarQube Cloud quality profiles.
 
-The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way (SonarQube Migrated)") and assigns them to projects. However, some rules may not exist on SonarCloud (e.g., rules from third-party plugins). Check `quality-profiles/quality-profile-diff.json` in the output directory to see which rules are missing or added per language.
+The migrator now restores built-in profiles as custom profiles (e.g., "Sonar way (SonarQube Server Migrated)") and assigns them to projects. However, some rules may not exist on SonarQube Cloud (e.g., rules from third-party plugins). Check `quality-profiles/quality-profile-diff.json` in the output directory to see which rules are missing or added per language.
 
-If you'd prefer to skip quality profile migration entirely and use each language's default SonarCloud profile instead, use `--skip-quality-profile-sync`.
+If you'd prefer to skip quality profile migration entirely and use each language's default SonarQube Cloud profile instead, use `--skip-quality-profile-sync`.
 
 <!-- <subsection-updated last-updated="2026-05-08T00:00:00Z" updated-by="Claude" /> -->
 ## 🧪 Source Issues in `IN_SANDBOX` Are Migrated as `OPEN` (Issue #136)
 
-SonarQube 2025+ introduces an `IN_SANDBOX` issue status — used for issues raised by sandboxed AI rules that have not yet been promoted to the standard catalog. SonarCloud does not have an equivalent state, so these issues are migrated as `OPEN` on the destination.
+SonarQube Server 2025+ introduces an `IN_SANDBOX` issue status — used for issues raised by sandboxed AI rules that have not yet been promoted to the standard catalog. SonarQube Cloud does not have an equivalent state, so these issues are migrated as `OPEN` on the destination.
 
-This is a known limitation, not a bug. There is no SonarCloud transition that maps to `IN_SANDBOX`, so the migrator leaves the migrated issue in its default `OPEN` state and the rest of the metadata sync (assignment, comments, tags) still applies. Once the underlying sandbox rule graduates and exists on both servers, you can re-evaluate the issues on SonarCloud.
+This is a known limitation, not a bug. There is no SonarQube Cloud transition that maps to `IN_SANDBOX`, so the migrator leaves the migrated issue in its default `OPEN` state and the rest of the metadata sync (assignment, comments, tags) still applies. Once the underlying sandbox rule graduates and exists on both servers, you can re-evaluate the issues on SonarQube Cloud.
 
-If you want to filter these out of the destination project, you can manually triage them post-migration on SonarCloud.
+If you want to filter these out of the destination project, you can manually triage them post-migration on SonarQube Cloud.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-## 📄 SonarQube API Pagination Limits
+## 📄 SonarQube Server API Pagination Limits
 
-Some SonarQube APIs enforce a maximum page size of 100 (not 500):
+Some SonarQube Server APIs enforce a maximum page size of 100 (not 500):
 - `/api/permissions/groups`
 - `/api/project_tags/search`
 - `/api/qualityprofiles/search_users`
@@ -330,7 +330,7 @@ The extractors handle this automatically, but if you see pagination-related erro
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 🔤 Quality Gates Use Names, Not IDs
 
-The SonarQube quality gates API uses `name` for all operations (`/api/qualitygates/show`, `/api/qualitygates/select`), not `id`. If you see "not found" errors related to quality gates, check that you're using the gate name.
+The SonarQube Server quality gates API uses `name` for all operations (`/api/qualitygates/show`, `/api/qualitygates/select`), not `id`. If you see "not found" errors related to quality gates, check that you're using the gate name.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 💾 Out of Memory / Heap Allocation Errors
@@ -375,7 +375,7 @@ Or manually increase concurrency via CLI flags:
 
 For persistent config, add a `performance` section to your config file. See the [Configuration Reference](configuration.md#performance-settings) for all options.
 
-Keep `hotspotSync.concurrency` low (3–5) to avoid SonarCloud rate limits.
+Keep `hotspotSync.concurrency` low (3–5) to avoid SonarQube Cloud rate limits.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Large Reports
@@ -436,7 +436,7 @@ You can also sync just one type of metadata at a time:
 
 > **Import bug fixes (v1.3):** Earlier versions had missing imports in `issue-details.js`, `hotspot-details.js`, and `format-pdf/index.js` that could cause report generation to fail with `ReferenceError` or produce incomplete output. These have been fixed in v1.3. If you encountered report generation errors on a prior version, upgrade and re-run `verify`.
 
-After migration, use the `verify` command to generate a detailed pass/fail comparison of SonarQube vs SonarCloud data:
+After migration, use the `verify` command to generate a detailed pass/fail comparison of SonarQube Server vs SonarQube Cloud data:
 
 ```bash
 ./cloudvoyager verify -c migrate-config.json --verbose
@@ -456,7 +456,7 @@ The console also prints a summary with per-project breakdowns and overall pass/f
 
 | Status | Meaning |
 |--------|---------|
-| **pass** | SonarQube and SonarCloud data match |
+| **pass** | SonarQube Server and SonarQube Cloud data match |
 | **fail** | Differences detected that should have been migrated |
 | **warning** | Unsyncable differences (expected — see below) |
 | **skipped** | Check was skipped (e.g., project not found in SC) |
@@ -465,12 +465,12 @@ The console also prints a summary with per-project breakdowns and overall pass/f
 ### Issue assignment failures
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-If issue assignments are failing during migration, the most likely cause is a **login mismatch** between SonarQube and SonarCloud. SonarQube uses local logins (e.g., `john.doe`) while SonarCloud typically uses SSO/GitHub logins (e.g., `john-doe-github`).
+If issue assignments are failing during migration, the most likely cause is a **login mismatch** between SonarQube Server and SonarQube Cloud. SonarQube Server uses local logins (e.g., `john.doe`) while SonarQube Cloud typically uses SSO/GitHub logins (e.g., `john-doe-github`).
 
 **Fix:** Use the `user-mappings.csv` generated during `--dry-run` to map SQ logins to SC logins:
 
 1. Run `--dry-run` to generate `migration-output/mappings/user-mappings.csv`
-2. Fill in the `SonarCloud Login` column for each user
+2. Fill in the `SonarQube Cloud Login` column for each user
 3. Set `Include=no` for service accounts or users who should not have issues assigned
 4. Run the actual migration — mappings are applied automatically
 
@@ -481,7 +481,7 @@ See [Dry-Run CSV Reference — user-mappings.csv](dry-run-csv-reference.md#user-
 ### Unsyncable items (expected differences)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Some differences are expected because the SonarCloud API does not support syncing them:
+Some differences are expected because the SonarQube Cloud API does not support syncing them:
 
 | Item | Why it's unsyncable |
 |------|-------------------|
@@ -516,9 +516,9 @@ CloudVoyager uses a hierarchy of custom error classes (defined in `src/shared/ut
 |-------------|-----------|----------------|
 | **CloudVoyagerError** | 500 | Base class — all errors below extend this |
 | **ConfigurationError** | 400 | Invalid config file, missing required fields, schema validation failure |
-| **SonarQubeAPIError** | varies | SonarQube API returned an error (includes `endpoint` for debugging) |
-| **SonarCloudAPIError** | varies | SonarCloud API returned an error (includes `endpoint` for debugging) |
-| **AuthenticationError** | 401 | Invalid or expired token for SonarQube or SonarCloud |
+| **SonarQubeAPIError** | varies | SonarQube Server API returned an error (includes `endpoint` for debugging) |
+| **SonarCloudAPIError** | varies | SonarQube Cloud API returned an error (includes `endpoint` for debugging) |
+| **AuthenticationError** | 401 | Invalid or expired token for SonarQube Server or SonarQube Cloud |
 | **ProtobufEncodingError** | 500 | Failed to encode data into protobuf format (may include `data` payload) |
 | **StateError** | 500 | Corrupt state file, failed atomic write, or state inconsistency |
 | **ValidationError** | 400 | Data validation failure (includes `errors` array with details) |
@@ -547,8 +547,8 @@ When resuming from a checkpoint journal, the tool validates a session fingerprin
 
 | Field Changed | Behavior |
 |---------------|----------|
-| SonarQube version | **Warning** logged, resume continues |
-| SonarQube URL | **Warning** logged, resume continues |
+| SonarQube Server version | **Warning** logged, resume continues |
+| SonarQube Server URL | **Warning** logged, resume continues |
 | CloudVoyager version | **Warning** logged, resume continues |
 | Project key | **Throws StaleResumeError** — hard fail, requires `--force-restart` |
 
@@ -559,14 +559,14 @@ With `strictResume: true` in config, any fingerprint warning becomes a hard fail
 ## 🗃️ Extraction Cache TTL
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Extraction caches are stored as **gzipped JSON** files in the `cache/` directory. Files older than **7 days** (configurable via `cacheMaxAgeDays`) are automatically purged. Use `--force-fresh-extract` to discard all caches and re-extract from SonarQube.
+Extraction caches are stored as **gzipped JSON** files in the `cache/` directory. Files older than **7 days** (configurable via `cacheMaxAgeDays`) are automatically purged. Use `--force-fresh-extract` to discard all caches and re-extract from SonarQube Server.
 
 ---
 
 ## 🔄 Upload Deduplication on Resume
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-The checkpoint journal records successful CE task uploads per branch (task ID + timestamp). On resume, if a branch was already uploaded successfully, the upload is skipped. This prevents duplicate CE tasks in SonarCloud after a crash between upload and journal save.
+The checkpoint journal records successful CE task uploads per branch (task ID + timestamp). On resume, if a branch was already uploaded successfully, the upload is skipped. This prevents duplicate CE tasks in SonarQube Cloud after a crash between upload and journal save.
 
 ---
 
@@ -585,22 +585,22 @@ Between pipeline phases, the tool checks the shutdown flag and throws a `Gracefu
 ## 🔤 External Linter Issues Missing After Migration (SQ 2025+)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-SonarQube 2025+ stores external linter rules (Ruff, Pylint, ESLint, Checkstyle, etc.) with an `external_` prefix in the rule key (e.g., `external_ruff:D200`). If you see zero Ruff/Pylint/etc. issues in SonarCloud after migration, ensure you are running CloudVoyager v1.2.0+ which correctly handles this prefix. Older versions misclassify these as native issues, causing SonarCloud to silently drop them.
+SonarQube Server 2025+ stores external linter rules (Ruff, Pylint, ESLint, Checkstyle, etc.) with an `external_` prefix in the rule key (e.g., `external_ruff:D200`). If you see zero Ruff/Pylint/etc. issues in SonarQube Cloud after migration, ensure you are running CloudVoyager v1.2.0+ which correctly handles this prefix. Older versions misclassify these as native issues, causing SonarQube Cloud to silently drop them.
 
 ---
 
 ## 🔤 External Issue `cleanCodeAttribute` Must Be Enum
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-When migrating issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft), the tool creates external issues. A critical encoding detail:
+When migrating issues from SonarQube Server plugins not available in SonarQube Cloud (e.g., MuleSoft), the tool creates external issues. A critical encoding detail:
 
 - The `cleanCodeAttribute` field in the protobuf `AdHocRule` message must be encoded as a **protobuf enum (varint)**, not a string.
-- Despite the proto definition showing `optional string`, SonarCloud's CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
+- Despite the proto definition showing `optional string`, SonarQube Cloud's CE silently ignores external issues if `cleanCodeAttribute` is string-encoded.
 - Valid enum values: `CONVENTIONAL=1`, `FORMATTED=2`, `IDENTIFIABLE=3`, `CLEAR=4`, `COMPLETE=5`, `EFFICIENT=6`, `LOGICAL=7`, `DISTINCT=8`, `FOCUSED=9`, `MODULAR=10`, `TESTED=11`, `LAWFUL=12`, `RESPECTFUL=13`, `TRUSTWORTHY=14`.
 
 ---
 
-## 🕘 SonarQube 9.9 Issue Statuses
+## 🕘 SonarQube Server 9.9 Issue Statuses
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 SQ 9.9 LTS uses the legacy issue status model with only 5 statuses:
@@ -614,23 +614,23 @@ The modern statuses (`FALSE_POSITIVE`, `ACCEPTED`, `FIXED`) do **not** exist in 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📊 Projects with 10,000+ Issues
 
-SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
+SonarQube Server's `/api/issues/search` endpoint caps results at 10,000 due to an Elasticsearch hard limit.
 
-> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube by splitting the date range into windows that each stay under the 10K API limit. The **SCM date backdating** (`backdateChangesets`) preserves each issue's original SonarQube creation date in SonarCloud by writing per-line blame dates into the changeset protobuf. A safety split ensures no single calendar day exceeds 5K issues (50% margin under the 10K ES visualization cap). Together, these two features ensure that projects of any size are fully extracted from SonarQube and fully visible in SonarCloud with accurate historical creation dates.
+> **Note (v1.3+):** Large-project issue handling now has two complementary mechanisms. The **search slicer** handles retrieval of >10K issues from SonarQube Server by splitting the date range into windows that each stay under the 10K API limit. The **SCM date backdating** (`backdateChangesets`) preserves each issue's original SonarQube Server creation date in SonarQube Cloud by writing per-line blame dates into the changeset protobuf. A safety split ensures no single calendar day exceeds 5K issues (50% margin under the 10K ES visualization cap). Together, these two features ensure that projects of any size are fully extracted from SonarQube Server and fully visible in SonarQube Cloud with accurate historical creation dates.
 
 ### Error: `10001th result asked`
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-**Symptom:** Transfer or migration fails with `SonarQube API error (400): Can return only the first 10000 results. 10001th result asked.`
+**Symptom:** Transfer or migration fails with `SonarQube Server API error (400): Can return only the first 10000 results. 10001th result asked.`
 
 **Fix (v1.2.1+):** The date-range probe that triggered this error has been replaced with a fixed epoch (`2006-01-01` → now) range. No configuration needed — re-run the transfer or migration.
 
 ### Error: `Date cannot be parsed as either a date or date+time`
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-**Symptom:** Transfer fails with `SonarQube API error (400): Date '2007-09-08T21:21:02.125Z' cannot be parsed as either a date or date+time` when slicing activates.
+**Symptom:** Transfer fails with `SonarQube Server API error (400): Date '2007-09-08T21:21:02.125Z' cannot be parsed as either a date or date+time` when slicing activates.
 
-**Cause:** JavaScript's `toISOString()` produces milliseconds (`.125Z`). SonarQube's `createdAfter`/`createdBefore` API parameters require `+0000` format without milliseconds.
+**Cause:** JavaScript's `toISOString()` produces milliseconds (`.125Z`). SonarQube Server's `createdAfter`/`createdBefore` API parameters require `+0000` format without milliseconds.
 
 **Fix (v1.2.1+):** Date window boundaries now use `+0000` format. Re-run the transfer or migration.
 
@@ -639,22 +639,22 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000 due to an Elast
 
 The search slicer algorithm:
 1. Detects when total issues exceed 10K
-2. Divides the full SonarQube era into 12 equal-width time windows
+2. Divides the full SonarQube Server era into 12 equal-width time windows
 3. Recursively bisects any window that still exceeds 10K
-4. Stops bisecting only if a window cannot be split further (same-millisecond boundary — an unavoidable SonarQube API limitation for mass-import scenarios where all issues share one identical timestamp)
+4. Stops bisecting only if a window cannot be split further (same-millisecond boundary — an unavoidable SonarQube Server API limitation for mass-import scenarios where all issues share one identical timestamp)
 
-**Verification:** Run `./cloudvoyager verify -c migrate-config.json --only issue-metadata` to compare issue counts between SonarQube and SonarCloud.
+**Verification:** Run `./cloudvoyager verify -c migrate-config.json --only issue-metadata` to compare issue counts between SonarQube Server and SonarQube Cloud.
 
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ## 📦 Issue Creation Date Accuracy
 
-CloudVoyager preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report. This is automatic and transparent — no user configuration needed.
+CloudVoyager preserves each issue's original SonarQube Server creation date in SonarQube Cloud by rewriting SCM changeset blame dates in the protobuf report. This is automatic and transparent — no user configuration needed.
 
-> **How it works (v1.3.1+):** `backdateChangesets()` reads each issue's `creationDate` field from SonarQube and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range to determine its creation date, so per-line dating with "oldest wins" for overlapping lines preserves accurate dates. A safety split handles calendar days with >5K issues.
+> **How it works (v1.3.1+):** `backdateChangesets()` reads each issue's `creationDate` field from SonarQube Server and maps it to the issue's `textRange` lines in the file's changeset data. The CE takes MAX(date) across an issue's line range to determine its creation date, so per-line dating with "oldest wins" for overlapping lines preserves accurate dates. A safety split handles calendar days with >5K issues.
 
-### Issue creation dates don't match SonarQube
+### Issue creation dates don't match SonarQube Server
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 Check that the migration was run with v1.3.1+. Earlier versions used arbitrary 30-day-spaced batch dates instead of original creation dates. Re-transfer affected projects to get accurate dates.
@@ -662,12 +662,12 @@ Check that the migration was run with v1.3.1+. Earlier versions used arbitrary 3
 ### Issue counts look correct in the API but not in the UI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-SonarCloud's Elasticsearch caps visualization at 10K per date bucket. With accurate creation dates, issues are naturally distributed across their original dates. The safety split ensures no single day exceeds 5K issues. If you see this problem, verify the migration used v1.3.1+.
+SonarQube Cloud's Elasticsearch caps visualization at 10K per date bucket. With accurate creation dates, issues are naturally distributed across their original dates. The safety split ensures no single day exceeds 5K issues. If you see this problem, verify the migration used v1.3.1+.
 
 ### Warning: "N issues on DATE exceed 5K cap"
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-**Expected behavior.** This means a single calendar day had more than 5,000 issues with the same creation date. The safety split automatically sub-groups them into ≤5K batches with 1-day-spaced synthetic dates. The sub-groups will appear as separate adjacent dates in SonarCloud's creation date facet.
+**Expected behavior.** This means a single calendar day had more than 5,000 issues with the same creation date. The safety split automatically sub-groups them into ≤5K batches with 1-day-spaced synthetic dates. The sub-groups will appear as separate adjacent dates in SonarQube Cloud's creation date facet.
 
 ### Can I change the safety split threshold?
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -676,19 +676,19 @@ The threshold is hardcoded at 5,000 (50% safety margin under the 10K ES visualiz
 
 ---
 
-## 🔌 Third-Party Issues Not Appearing in SonarCloud
+## 🔌 Third-Party Issues Not Appearing in SonarQube Cloud
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-External (third-party) issues from SonarQube plugins not available in SonarCloud (e.g., MuleSoft, ABAP) may be silently dropped if the rule-repository detection fails.
+External (third-party) issues from SonarQube Server plugins not available in SonarQube Cloud (e.g., MuleSoft, ABAP) may be silently dropped if the rule-repository detection fails.
 
-**Symptom:** Issues from third-party plugins are missing in SonarCloud after migration, even though they exist in SonarQube.
+**Symptom:** Issues from third-party plugins are missing in SonarQube Cloud after migration, even though they exist in SonarQube Server.
 
 **Possible causes:**
-1. The SonarCloud `/api/rules/repositories` endpoint was unreachable during migration (network issue, token scope).
+1. The SonarQube Cloud `/api/rules/repositories` endpoint was unreachable during migration (network issue, token scope).
 2. The rule key does not contain a colon separator (malformed rule).
 3. The live repository set returned empty due to a transient API error.
 
-**Fix (v1.2+):** CloudVoyager now retries the repository API 3 times with exponential backoff and falls back to a built-in set of 43 known SonarCloud repositories. Rules without a colon are handled gracefully. If you migrated before v1.2, re-run the migration for affected projects.
+**Fix (v1.2+):** CloudVoyager now retries the repository API 3 times with exponential backoff and falls back to a built-in set of 43 known SonarQube Cloud repositories. Rules without a colon are handled gracefully. If you migrated before v1.2, re-run the migration for affected projects.
 
 **Debugging:** Enable `--verbose` and search the log for `FALLBACK_SONARCLOUD_REPOS` or `getRuleRepositories` to confirm whether the fallback was used.
 

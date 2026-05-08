@@ -2,7 +2,7 @@
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager is built on a carefully selected stack of battle-tested open-source technologies. Each technology was chosen to address specific requirements of the SonarQube-to-SonarCloud migration workflow.
+CloudVoyager is built on a carefully selected stack of battle-tested open-source technologies. Each technology was chosen to address specific requirements of the SonarQube Server-to-SonarQube Cloud migration workflow.
 
 ## 1. Node.js
 
@@ -49,12 +49,12 @@ This approach produces a distributable binary that does not require the end user
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-SonarCloud accepts scanner reports only in Protocol Buffer format. Protobuf was chosen because:
+SonarQube Cloud accepts scanner reports only in Protocol Buffer format. Protobuf was chosen because:
 
-- **SonarCloud API requirement** — The scanner report upload endpoint expects a binary-encoded Protobuf payload, not JSON
+- **SonarQube Cloud API requirement** — The scanner report upload endpoint expects a binary-encoded Protobuf payload, not JSON
 - **Compact binary encoding** — Protobuf messages are significantly smaller than equivalent JSON, reducing upload time for large codebases
 - **Strict schema enforcement** — The `.proto` schema definitions (`scanner-report.proto`) catch structural errors at build time rather than at upload time
-- **Language neutrality** — The same schema is used across all supported SonarQube versions (9.9, 10.0, 10.4, 2025.1)
+- **Language neutrality** — The same schema is used across all supported SonarQube Server versions (9.9, 10.0, 10.4, 2025.1)
 
 ### Protobuf Schema
 
@@ -151,7 +151,7 @@ src/commands/
   reset.js            — Reset migration state
   status.js           — Show migration status
   validate.js         — Validate configuration
-  test-connection.js — Test SonarQube/SonarCloud connectivity
+  test-connection.js — Test SonarQube Server/SonarQube Cloud connectivity
 ```
 
 ## 5. Ajv
@@ -249,7 +249,7 @@ npm run build:linux-arm64 # Linux ARM64
 CI/CD is implemented entirely in GitHub Actions because:
 
 - **Native to the repository** — No external CI service configuration required
-- **Matrix builds** — Test across Node.js versions, platforms, and SonarQube versions in parallel
+- **Matrix builds** — Test across Node.js versions, platforms, and SonarQube Server versions in parallel
 - **Artifact sharing** — `actions/cache` (not `actions/upload-artifact`) passes build artifacts between jobs
 - **Workflow composition** — Reusable workflows (`workflow_call`) allow `build.yml` to be composed into release pipelines
 - **Secrets management** — `SONARCLOUD_TOKEN` and `SONARQUBE_TOKEN` stored as repository secrets
@@ -263,7 +263,7 @@ CI/CD is implemented entirely in GitHub Actions because:
 | `unit-tests.yml` | Run AVA unit tests on every push |
 | `build.yml` | Build SEA binaries for all 6 platforms |
 | `build-desktop.yml` | Build Electron desktop app for all platforms |
-| `regression.yml` | End-to-end regression tests with real SonarQube/SonarCloud |
+| `regression.yml` | End-to-end regression tests with real SonarQube Server/SonarQube Cloud |
 | `release.yml` | Create GitHub releases with attached binaries |
 | `gh-release.yml` | Draft GitHub release notes |
 | `version-bump.yml` | Automated version bumping on main branch |
@@ -287,4 +287,4 @@ Each platform is built in a dedicated job:
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Regression workflows spin up real SonarQube and SonarCloud instances and run actual migration commands. The workflows use `actions/cache` to share state between jobs rather than artifact uploads, following the project's CI best practice of using cache for inter-job data transfer.
+Regression workflows spin up real SonarQube Server and SonarQube Cloud instances and run actual migration commands. The workflows use `actions/cache` to share state between jobs rather than artifact uploads, following the project's CI best practice of using cache for inter-job data transfer.

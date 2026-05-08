@@ -14,7 +14,7 @@
 |-------|-------|--------|
 | [#53](https://github.com/sonar-solutions/cloudvoyager/issues/53) | CloudVoyager can't handle projects with more than 10K issues | RESOLVED |
 | [#56](https://github.com/sonar-solutions/cloudvoyager/issues/56) | Third party issues not consistently migrated | RESOLVED |
-| [#66](https://github.com/sonar-solutions/cloudvoyager/issues/66) | Add SonarCloud public scanning | RESOLVED |
+| [#66](https://github.com/sonar-solutions/cloudvoyager/issues/66) | Add SonarQube Cloud public scanning | RESOLVED |
 | [#75](https://github.com/sonar-solutions/cloudvoyager/issues/75) | Modify GitHub workflow YAML to reference milestones | RESOLVED |
 
 ---
@@ -22,7 +22,7 @@
 ## Issue #53 — 10K+ Issues Search Slicing
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-**Problem:** SonarQube's `/api/issues/search` endpoint has a hard 10,000-result limit. Projects exceeding this silently lost data during migration.
+**Problem:** SonarQube Server's `/api/issues/search` endpoint has a hard 10,000-result limit. Projects exceeding this silently lost data during migration.
 
 **Solution:** Implemented a date-window search-slicing algorithm that automatically activates when results hit the 10K limit.
 
@@ -68,16 +68,16 @@
 ## Issue #56 — Third-Party Issue Migration Bug
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-**Problem:** When `getRuleRepositories()` failed to fetch the SonarCloud rules API, it returned an empty Set. This caused `isExternalIssue()` to return `false` for ALL issues, silently dropping third-party analyzer issues (ruff, pylint, Trivy, etc.) during migration.
+**Problem:** When `getRuleRepositories()` failed to fetch the SonarQube Cloud rules API, it returned an empty Set. This caused `isExternalIssue()` to return `false` for ALL issues, silently dropping third-party analyzer issues (ruff, pylint, Trivy, etc.) during migration.
 
-**Solution:** Added a fallback set of 43 known SonarCloud rule repositories, retry logic with exponential backoff on `getRuleRepositories()`, and edge-case guards in `isExternalIssue()`.
+**Solution:** Added a fallback set of 43 known SonarQube Cloud rule repositories, retry logic with exponential backoff on `getRuleRepositories()`, and edge-case guards in `isExternalIssue()`.
 
 ### Files Created
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |------|---------|
-| `src/shared/utils/fallback-repos/index.js` | Exports `FALLBACK_SONARCLOUD_REPOS` — Set of 43 known built-in SonarCloud rule repository keys |
+| `src/shared/utils/fallback-repos/index.js` | Exports `FALLBACK_SONARCLOUD_REPOS` — Set of 43 known built-in SonarQube Cloud rule repository keys |
 
 ### Files Modified
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -111,20 +111,20 @@
 
 ---
 
-## Issue #66 — SonarCloud Public Scanning
+## Issue #66 — SonarQube Cloud Public Scanning
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 **Problem:** No automated SAST, unit test coverage, or SCA scanning was configured for the repository.
 
-**Solution:** Added a standalone GitHub Actions workflow that runs SonarCloud analysis on every push to `main` and on pull requests.
+**Solution:** Added a standalone GitHub Actions workflow that runs SonarQube Cloud analysis on every push to `main` and on pull requests.
 
 ### Files Created
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 | File | Purpose |
 |------|---------|
-| `.github/workflows/sonarcloud.yml` | Fully automatic SonarCloud scanning workflow |
-| `sonar-project.properties` | SonarCloud project configuration |
+| `.github/workflows/sonarcloud.yml` | Fully automatic SonarQube Cloud scanning workflow |
+| `sonar-project.properties` | SonarQube Cloud project configuration |
 
 ### Verification
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -193,6 +193,6 @@ Requires the `SONAR_TOKEN` secret to be configured in the GitHub repository sett
 |-------|--------|--------|--------|
 | #53 — 10K+ Search Slicing | 7 | 7 | 0 |
 | #56 — Third-Party Issue Fix | 9 | 9 | 0 |
-| #66 — SonarCloud Scanning | 15 | 15 | 0 |
+| #66 — SonarQube Cloud Scanning | 15 | 15 | 0 |
 | #75 — Release Milestones | 8 | 8 | 0 |
 | **Total** | **39** | **39** | **0** |

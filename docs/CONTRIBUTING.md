@@ -8,17 +8,17 @@ This guide documents the architectural patterns and conventions of the CloudVoya
 ## Golden Rule: Pipeline Isolation
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Each supported SonarQube version range gets its own **complete, independent pipeline directory** under `src/pipelines/`. There are no runtime version checks within any pipeline -- each pipeline has its behavior hardcoded for its target version range.
+Each supported SonarQube Server version range gets its own **complete, independent pipeline directory** under `src/pipelines/`. There are no runtime version checks within any pipeline -- each pipeline has its behavior hardcoded for its target version range.
 
 ```
 src/pipelines/
-├── sq-9.9/     # SonarQube 9.9 LTS
-├── sq-10.0/    # SonarQube 10.0–10.3
-├── sq-10.4/    # SonarQube 10.4–10.8
-└── sq-2025/    # SonarQube 2025.1+
+├── sq-9.9/     # SonarQube Server 9.9 LTS
+├── sq-10.0/    # SonarQube Server 10.0–10.3
+├── sq-10.4/    # SonarQube Server 10.4–10.8
+└── sq-2025/    # SonarQube Server 2025.1+
 ```
 
-The **version router** (`src/version-router.js`) detects the SonarQube server version at runtime and dynamically imports the correct pipeline. This means:
+The **version router** (`src/version-router.js`) detects the SonarQube Server version at runtime and dynamically imports the correct pipeline. This means:
 
 - **Never add version-conditional logic inside a pipeline.** If behavior differs between versions, it belongs in a separate pipeline directory.
 - **Never import across pipeline boundaries.** Each pipeline is self-contained.
@@ -35,10 +35,10 @@ src/
 ├── version-router.js           # Detects SQ version, loads correct pipeline
 ├── commands/                   # CLI command handlers (transfer, migrate, sync-metadata, verify)
 ├── pipelines/                  # Version-specific pipeline implementations
-│   ├── sq-9.9/                 # SonarQube 9.9 LTS
-│   ├── sq-10.0/                # SonarQube 10.0–10.3
-│   ├── sq-10.4/                # SonarQube 10.4–10.8
-│   └── sq-2025/                # SonarQube 2025.1+
+│   ├── sq-9.9/                 # SonarQube Server 9.9 LTS
+│   ├── sq-10.0/                # SonarQube Server 10.0–10.3
+│   ├── sq-10.4/                # SonarQube Server 10.4–10.8
+│   └── sq-2025/                # SonarQube Server 2025.1+
 └── shared/                     # Version-independent shared code
     ├── config/                 # Configuration loading and validation (Ajv-based)
     ├── mapping/                # Organization mapping and CSV tools
@@ -54,7 +54,7 @@ Each pipeline directory (`src/pipelines/sq-{version}/`) contains a complete, sel
 sq-{version}/
 ├── transfer-pipeline.js           # Single-project transfer orchestrator
 ├── migrate-pipeline.js            # Full multi-org migration orchestrator
-├── sonarqube/                     # SonarQube integration
+├── sonarqube/                     # SonarQube Server integration
 │   ├── api-client.js               # HTTP client with pagination, auth, SCM revision
 │   ├── models.js                   # Data models and factory functions
 │   ├── api/                        # API method modules
@@ -79,8 +79,8 @@ sq-{version}/
 │   └── schema/                      # .proto definitions
 │       ├── constants.proto
 │       └── scanner-report.proto
-├── sonarcloud/                    # SonarCloud integration
-│   ├── api-client.js               # SonarCloud HTTP client (retry, throttle)
+├── sonarcloud/                    # SonarQube Cloud integration
+│   ├── api-client.js               # SonarQube Cloud HTTP client (retry, throttle)
 │   ├── uploader.js                 # Report packaging and CE submission
 │   ├── enterprise-client.js        # Enterprise API client
 │   ├── rule-enrichment.js          # Rule enrichment for Clean Code attributes
@@ -158,7 +158,7 @@ export async function getXxx(client, param) {
 ### 3. Migrator Pattern (`src/pipelines/sq-{version}/sonarcloud/migrators/`)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Transform extracted SonarQube data and apply it to SonarCloud:
+Transform extracted SonarQube Server data and apply it to SonarQube Cloud:
 
 ```js
 export async function migrateXxx(extractedData, scClient, options) {
@@ -191,8 +191,8 @@ Each pipeline has its own `SonarQubeClient` tailored to its version range:
 | Error Class | When to Use |
 |-------------|-------------|
 | `ConfigurationError` | Invalid config file or missing required fields |
-| `SonarQubeAPIError` | SonarQube API failures (include endpoint in constructor) |
-| `SonarCloudAPIError` | SonarCloud API failures (include endpoint in constructor) |
+| `SonarQubeAPIError` | SonarQube Server API failures (include endpoint in constructor) |
+| `SonarCloudAPIError` | SonarQube Cloud API failures (include endpoint in constructor) |
 | `AuthenticationError` | 401/403 responses (include service name) |
 | `ProtobufEncodingError` | Protobuf encoding failures |
 | `StateError` | State file I/O failures |
@@ -205,7 +205,7 @@ Each pipeline has its own `SonarQubeClient` tailored to its version range:
 ### 6. Pagination
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-All paginated SonarQube APIs use `getPaginated()`:
+All paginated SonarQube Server APIs use `getPaginated()`:
 
 ```js
 return await this.getPaginated('/api/xxx/search', { ps: 500 }, 'items');
@@ -213,7 +213,7 @@ return await this.getPaginated('/api/xxx/search', { ps: 500 }, 'items');
 
 **Rules:**
 - Default page size: 500
-- Override to `ps: 100` for permission-related APIs (SonarQube limitation)
+- Override to `ps: 100` for permission-related APIs (SonarQube Server limitation)
 - Handles both `data.paging.total` (10.x+) and `data.total` (9.x) response formats
 - Never implement manual pagination -- always use `getPaginated()`
 
@@ -251,7 +251,7 @@ sqIssues (100K) → fetchSqChangelogs() → hasManualChanges() filter → ~1-2K 
 
 An issue is considered to have **manual changes** if any of:
 1. Its changelog has at least one entry with a non-empty `user` field (human actor, not system)
-2. It has comments not prefixed with `[Migrated from SonarQube]` (manual, not auto-generated)
+2. It has comments not prefixed with `[Migrated from SonarQube Server]` (manual, not auto-generated)
 3. It has custom tags (`tags` array is non-empty)
 
 **Shared utilities:**
@@ -352,10 +352,10 @@ npm run lint      # ESLint
 
 ---
 
-## Adding New SonarQube Version Support
+## Adding New SonarQube Server Version Support
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-When a new SonarQube version introduces API changes:
+When a new SonarQube Server version introduces API changes:
 
 1. **Research** the API differences (check release notes, deprecation logs)
 2. **Create a new pipeline directory** under `src/pipelines/sq-{version}/` by copying the closest existing pipeline as a starting point

@@ -5,7 +5,7 @@ Migrate your data from self-hosted SonarQube Server to SonarQube Cloud — no re
 
 CloudVoyager migrates everything — projects, code issues, security hotspots, quality gates, quality profiles, permissions, and more — directly from SonarQube Server to SonarQube Cloud. It is available as both a CLI tool and a Desktop app with a guided wizard interface.
 
-CloudVoyager is compatible with all SonarQube Server versions starting from 9.9.x, i.e. 9.9.x, 2025.1.x, 2025.4.x, 2026.1.x and the latest version (2026.2 as of April 2026). Intermediate SonarQube version may work but this is not guaranteed.
+CloudVoyager is compatible with all SonarQube Server versions starting from 9.9.x, i.e. 9.9.x, 2025.1.x, 2025.4.x, 2026.1.x and the latest version (2026.2 as of April 2026). Intermediate SonarQube Server version may work but this is not guaranteed.
 
 <!-- Updated: 2026-02-19 -->
 ## ✅ Quick Start (Recommended)
@@ -15,9 +15,9 @@ CloudVoyager is compatible with all SonarQube Server versions starting from 9.9.
 
 | 🤔 Scenario | Click Below ⤵️ |
 |----------|-------|
-| Migrate **one project** from SonarQube to SonarCloud | [Single Project Migration](docs/scenario-single-project.md) |
-| Migrate **everything** from SonarQube to **one** SonarCloud org | [Full Migration — Single Org](docs/scenario-single-org.md) |
-| Migrate **everything** from SonarQube to **multiple** SonarCloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
+| Migrate **one project** from SonarQube Server to SonarQube Cloud | [Single Project Migration](docs/scenario-single-project.md) |
+| Migrate **everything** from SonarQube Server to **one** SonarQube Cloud org | [Full Migration — Single Org](docs/scenario-single-org.md) |
+| Migrate **everything** from SonarQube Server to **multiple** SonarQube Cloud orgs | [Full Migration — Multiple Orgs](docs/scenario-multi-org.md) |
 
 ## 🖥️ Desktop App (New!)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -65,7 +65,7 @@ See the [Desktop App Guide](docs/desktop-app.md) for setup instructions and a wa
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 1. Download the latest release of CloudVoyager from the [releases page](https://github.com/sonar-solutions/cloudvoyager/releases).
-2. Ensure that you have full admin access API tokens for your SonarQube server and your SonarCloud organization.
+2. Ensure that you have full admin access API tokens for your SonarQube Server and your SonarQube Cloud organization.
 3. Create the `migrate-config.json` file with the required information (see the [full migration docs](docs/scenario-single-org.md) for details).
 4. Run the following command in your terminal:
 ```bash
@@ -95,7 +95,7 @@ A **lock file** prevents concurrent runs against the same project, so you cannot
 # Discard checkpoint and start the migration from scratch
 ./cloudvoyager transfer -c config.json --force-restart
 
-# Re-extract data from SonarQube but keep other cached phases
+# Re-extract data from SonarQube Server but keep other cached phases
 ./cloudvoyager transfer -c config.json --force-fresh-extract
 
 # Clear a stale lock file (e.g. after a hard crash)
@@ -105,19 +105,19 @@ A **lock file** prevents concurrent runs against the same project, so you cannot
 See the [Configuration Reference](docs/configuration.md#checkpoint-settings) for checkpoint options (`transfer.checkpoint`).
 
 <!-- Updated: 2026-03-19 -->
-## 🔄 SonarQube Version Compatibility
+## 🔄 SonarQube Server Version Compatibility
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager ships **four fully independent pipelines** — one per SonarQube version range. At runtime, `version-router.js` calls `/api/system/status`, detects the server version, and dynamically loads the matching pipeline. No special configuration is needed.
+CloudVoyager ships **four fully independent pipelines** — one per SonarQube Server version range. At runtime, `version-router.js` calls `/api/system/status`, detects the server version, and dynamically loads the matching pipeline. No special configuration is needed.
 
-| SonarQube Version | Pipeline | Issue Search Param | MetricKeys | Clean Code Source | Groups API |
+| SonarQube Server Version | Pipeline | Issue Search Param | MetricKeys | Clean Code Source | Groups API |
 |-------------------|----------|-------------------|------------|-------------------|------------|
 | **9.9 LTS** | `sq-9.9` | `statuses` | Batched (15) | SC enrichment map | Standard |
 | **10.0 – 10.3** | `sq-10.0` | `statuses` | Batched (15) | Native from SQ | Standard |
 | **10.4 – 10.8** | `sq-10.4` | `issueStatuses` | Batched (15) | Native from SQ | Standard |
 | **2025.1+** | `sq-2025` | `issueStatuses` | No batching | Native from SQ | Web API V2 fallback |
 
-Each pipeline folder (`src/pipelines/sq-*`) contains its own SonarQube client, SonarCloud client, protobuf builder, and transfer/migrate logic — no runtime version checks or `if/else` branches.
+Each pipeline folder (`src/pipelines/sq-*`) contains its own SonarQube Server client, SonarQube Cloud client, protobuf builder, and transfer/migrate logic — no runtime version checks or `if/else` branches.
 
 See [Backward Compatibility](docs/backward-compatibility.md) for technical details on how version differences are handled.
 
@@ -154,7 +154,7 @@ Want to build and test CloudVoyager locally? See the [Local Development Guide](d
 | [Technical Details](docs/technical-details.md) | Protobuf encoding, measure types, concurrency model |
 | [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
 | [Dry-Run CSV Reference](docs/dry-run-csv-reference.md) | CSV schema documentation for the dry-run workflow (including user mapping) |
-| [Backward Compatibility](docs/backward-compatibility.md) | SonarQube version support (9.9 LTS through 2025.1+) |
+| [Backward Compatibility](docs/backward-compatibility.md) | SonarQube Server version support (9.9 LTS through 2025.1+) |
 | [Desktop App Guide](docs/desktop-app.md) | Installation, wizard walkthrough, and building from source |
 | [Verification](docs/verification.md) | Migration verification checks, pass/fail criteria, and report formats |
 | [Pseudocode Explanation](docs/pseudocode-explanation.md) | Every feature documented in pseudocode for technical review |

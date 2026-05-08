@@ -14,7 +14,7 @@ This document describes each feature of the CloudVoyager migration tool in pseud
 5. [Verification Pipeline](#5-verification-pipeline)
 6. [Data Extraction](#6-data-extraction)
 7. [Protobuf Building & Encoding](#7-protobuf-building--encoding)
-8. [Report Upload to SonarCloud](#8-report-upload-to-sonarcloud)
+8. [Report Upload to SonarQube Cloud](#8-report-upload-to-sonarcloud)
 9. [External Issues & Plugin Migration](#9-external-issues--plugin-migration)
 10. [Issue & Hotspot Metadata Sync](#10-issue--hotspot-metadata-sync)
 11. [Quality Gates Migration](#11-quality-gates-migration)
@@ -45,11 +45,11 @@ COMMAND: test
   INPUT: --config <path>, [--verbose]
   STEPS:
     1. Load config
-    2. Detect SonarQube version via version-router (GET /api/system/status)
+    2. Detect SonarQube Server version via version-router (GET /api/system/status)
     3. Load the correct pipeline for the detected version (sq-9.9, sq-10.0, sq-10.4, or sq-2025)
     4. Create SonarQubeClient from the selected pipeline
-    5. Create SonarCloud client
-    6. Test SonarCloud connection (GET /api/organizations/search)
+    5. Create SonarQube Cloud client
+    6. Test SonarQube Cloud connection (GET /api/organizations/search)
     7. Report success or failure for each
 
 COMMAND: status
@@ -90,7 +90,7 @@ COMMAND: verify
 ## 2. Transfer Pipeline
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Transfers a single SonarQube project to SonarCloud.
+Transfers a single SonarQube Server project to SonarQube Cloud.
 
 ```
 FUNCTION transferProject(sonarqubeConfig, sonarcloudConfig, transferConfig, performanceConfig, wait):
@@ -168,7 +168,7 @@ FUNCTION transferBranch(extractedData, branch, scConfig, scProfiles, scRepos, ..
   encoder.loadSchemas()
   encodedReport = encoder.encodeAll(messages)
 
-  // Step 3: Upload to SonarCloud
+  // Step 3: Upload to SonarQube Cloud
   uploader = new ReportUploader(scClient)
   ceTask = uploader.upload(encodedReport, metadata)
 
@@ -198,7 +198,7 @@ FUNCTION transferBranchBatched(extractedData, branch, scConfig, ...):
 ## 3. Migration Pipeline
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Migrates all projects across multiple SonarCloud organizations.
+Migrates all projects across multiple SonarQube Cloud organizations.
 
 ```
 FUNCTION migrateAll(sonarqubeConfig, sonarcloudOrgs, migrateConfig, transferConfig, ...):
@@ -335,7 +335,7 @@ COMMAND sync-metadata:
 ## 5. Verification Pipeline
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Compares SonarQube and SonarCloud data to verify migration completeness.
+Compares SonarQube Server and SonarQube Cloud data to verify migration completeness.
 
 ```
 FUNCTION verifyAll(sonarqubeConfig, sonarcloudOrgs, outputDir, onlyComponents, ...):
@@ -398,7 +398,7 @@ FUNCTION verifyAll(sonarqubeConfig, sonarcloudOrgs, outputDir, onlyComponents, .
 ## 6. Data Extraction
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Extracts all data from SonarQube for a single project.
+Extracts all data from SonarQube Server for a single project.
 
 ```
 FUNCTION DataExtractor.extractAll():
@@ -476,7 +476,7 @@ FUNCTION DataExtractor.extractBranch(branchName, mainData):
 ## 7. Protobuf Building & Encoding
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Transforms extracted data into SonarCloud's scanner report protobuf format.
+Transforms extracted data into SonarQube Cloud's scanner report protobuf format.
 
 ```
 CLASS ProtobufBuilder:
@@ -621,10 +621,10 @@ CLASS ProtobufEncoder:
 
 ---
 
-## 8. Report Upload to SonarCloud
+## 8. Report Upload to SonarQube Cloud
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Packages the encoded protobuf report and submits it to SonarCloud's Compute Engine.
+Packages the encoded protobuf report and submits it to SonarQube Cloud's Compute Engine.
 
 ```
 CLASS ReportUploader:
@@ -716,7 +716,7 @@ FUNCTION buildExternalIssues():
 
     // --- Resolve Clean Code Attribute ---
     //   CRITICAL: Must be a protobuf enum (varint int), NOT a string!
-    //   SonarCloud CE silently ignores external issues if string-encoded.
+    //   SonarQube Cloud CE silently ignores external issues if string-encoded.
     IF issue.cleanCodeAttribute:
       cleanCodeAttr = mapCleanCodeAttribute(issue.cleanCodeAttribute)
       // Maps: "CONVENTIONAL"->1, "FORMATTED"->2, ... "TRUSTWORTHY"->14
@@ -765,7 +765,7 @@ FUNCTION buildExternalIssues():
 
 
 FUNCTION buildRuleEnrichmentMap(scClient, scProfiles):
-  // For SQ < 10.0: fetch Clean Code taxonomy from SonarCloud
+  // For SQ < 10.0: fetch Clean Code taxonomy from SonarQube Cloud
   enrichmentMap = new Map()
 
   FOR EACH profile IN scProfiles:
@@ -784,7 +784,7 @@ FUNCTION buildRuleEnrichmentMap(scClient, scProfiles):
 ## 10. Issue & Hotspot Metadata Sync
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Syncs issue/hotspot statuses, assignments, comments, and tags from SonarQube to SonarCloud after scanner report upload.
+Syncs issue/hotspot statuses, assignments, comments, and tags from SonarQube Server to SonarQube Cloud after scanner report upload.
 
 ```
 FUNCTION syncIssues(projectKey, sqIssues, scClient, options):
@@ -834,8 +834,8 @@ FUNCTION syncIssues(projectKey, sqIssues, scClient, options):
     // 4e. Mark as metadata-synchronized
     scClient.setIssueTags(sc.key, [...existing, "metadata-synchronized"])
 
-    // 4f. Add source link back to SonarQube
-    scClient.addIssueComment(sc.key, "SonarQube Source: {sonarqubeUrl}/issues?id=...")
+    // 4f. Add source link back to SonarQube Server
+    scClient.addIssueComment(sc.key, "SonarQube Server Source: {sonarqubeUrl}/issues?id=...")
 
   RETURN { matched, transitioned, assigned, commented, tagged, failed }
 
@@ -860,7 +860,7 @@ FUNCTION syncHotspots(projectKey, sqHotspots, scClient, options):
       scClient.addHotspotComment(sc.key, formatComment(comment))
 
     // Source link
-    scClient.addHotspotComment(sc.key, "SonarQube Source: {url}")
+    scClient.addHotspotComment(sc.key, "SonarQube Server Source: {url}")
 
   RETURN { matched, statusChanged, commentAdded, failed }
 ```
@@ -931,10 +931,10 @@ FUNCTION migrateQualityProfiles(extractedProfiles, scClient):
   // --- Restore built-in profiles as custom (with renamed suffix) ---
   FOR EACH profile IN builtInProfiles:
     renamedXml = modifyBackupXml(profile.backupXml, {
-      name: profile.name + " (SonarQube Migrated)"
+      name: profile.name + " (SonarQube Server Migrated)"
     })
     scClient.restoreQualityProfile(renamedXml)
-    builtInProfileMapping.SET(profile.language, profile.name + " (SonarQube Migrated)")
+    builtInProfileMapping.SET(profile.language, profile.name + " (SonarQube Server Migrated)")
 
   // --- Set defaults ---
   FOR EACH profile IN customProfiles WHERE profile.isDefault:
@@ -1013,7 +1013,7 @@ FUNCTION migrateProjectPermissions(project, scClient):
 ## 14. Organization Mapping & CSV Generation
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Maps SonarQube projects to SonarCloud organizations and generates editable CSV files.
+Maps SonarQube Server projects to SonarQube Cloud organizations and generates editable CSV files.
 
 ```
 FUNCTION mapProjectsToOrganizations(allProjects, projectBindings, sonarcloudOrgs):
@@ -1088,7 +1088,7 @@ FUNCTION applyCsvOverrides(csvData, extractedData, resourceMappings, orgAssignme
 ## 15. Version Router and Pipeline Selection
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-Detects SonarQube version at runtime and loads the correct version-specific pipeline.
+Detects SonarQube Server version at runtime and loads the correct version-specific pipeline.
 
 ```
 FUNCTION detectAndRoute(sonarqubeConfig):

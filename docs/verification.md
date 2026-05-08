@@ -3,7 +3,7 @@
 
 <!-- Updated: Apr 21, 2026 -->
 
-After running a migration, use the `verify` command to compare your SonarQube instance against SonarCloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube or SonarCloud.
+After running a migration, use the `verify` command to compare your SonarQube Server instance against SonarQube Cloud and confirm that all data was transferred correctly. The verification pipeline is implemented in `src/shared/verification/verify-pipeline.js` and is entirely **read-only** — it does not modify any data on either SonarQube Server or SonarQube Cloud.
 
 ```bash
 # Verify everything
@@ -82,7 +82,7 @@ Compares quality profile **definitions** (not assignments — those are per-proj
 | What | How |
 |------|-----|
 | Profile existence | SQ profiles matched to SC by `language + name` |
-| Migration suffix | SC profiles named `"X (SonarQube Migrated)"` are treated as equivalent to SQ `"X"` |
+| Migration suffix | SC profiles named `"X (SonarQube Server Migrated)"` are treated as equivalent to SQ `"X"` |
 | Active rule count | Compared for **custom profiles only** |
 | Built-in profiles | Rule count differences **skipped** — platform versions have different rule sets |
 | Unsupported languages | Profiles for SQ-only languages (e.g., `mulesoft`) are **skipped** — SC doesn't have the language |
@@ -110,7 +110,7 @@ Compares group-level permissions at the organization level.
 | What | How |
 |------|-----|
 | Permission sets | For each SQ group, checks that all SQ permissions exist in SC |
-| SC-unsupported perms | `applicationcreator` and `portfoliocreator` are **excluded** — these are SonarQube Enterprise permissions that don't exist in SonarCloud |
+| SC-unsupported perms | `applicationcreator` and `portfoliocreator` are **excluded** — these are SonarQube Server Enterprise permissions that don't exist in SonarQube Cloud |
 | Extra SC permissions | Allowed (e.g., SC may auto-grant `scan`) |
 
 **Pass** if all SQ group permissions (minus unsupported ones) exist in SC.
@@ -166,7 +166,7 @@ The most detailed check. Compares all issues between SQ and SC.
 | **Status** | Normalized from `status + resolution` (OPEN, FIXED, FALSE-POSITIVE, WONTFIX) |
 | **Assignment** | Direct comparison of assignee |
 | **Status history** | Fetches changelogs from both SQ and SC, extracts status transitions, and verifies that all SQ transitions appear in SC in order. Issues with no status changes are skipped |
-| **Comments** | Counts SC comments containing `[Migrated from SonarQube]` marker; flags if fewer than SQ comment count |
+| **Comments** | Counts SC comments containing `[Migrated from SonarQube Server]` marker; flags if fewer than SQ comment count |
 | **Tags** | Only flags if SQ tags are **missing** from SC; SC adding extra tags (e.g., `type-dependent`) is expected |
 | **External issue tags** | **Skipped entirely** — SC external issues don't preserve tags |
 | **Rule not in SC** | If a rule has zero presence in SC (no matches at all), unmatched issues for that rule are **excluded** from the failure count — it's a platform difference, not a migration failure |
@@ -189,7 +189,7 @@ Compares security hotspots between SQ and SC.
 |------|-----|
 | **Matching** | Hotspots matched by `ruleKey + filePath + lineNumber` |
 | **Status** | Normalized — `REVIEWED:SAFE`, `REVIEWED:ACKNOWLEDGED`, `REVIEWED:FIXED`, or `TO_REVIEW` |
-| **Comments** | Fetches SC hotspot details and counts `[Migrated from SonarQube]` comments |
+| **Comments** | Fetches SC hotspot details and counts `[Migrated from SonarQube Server]` comments |
 | **Assignments** | Tracked as "unsyncable" (hotspot API doesn't support assignment sync) |
 | **Rule not in SC** | Same as issues — if a rule has zero presence in SC hotspots (e.g., reclassified from hotspot to issue, or rule unavailable), unmatched hotspots are **excluded** from the failure count |
 
@@ -227,7 +227,7 @@ Checks which quality profile is assigned per language.
 | What | How |
 |------|-----|
 | Profile assignment | Compared by language |
-| Migration suffix | `"Sonar way (SonarQube Migrated)"` treated as equivalent to `"Sonar way"` |
+| Migration suffix | `"Sonar way (SonarQube Server Migrated)"` treated as equivalent to `"Sonar way"` |
 | Unsupported languages | Languages not in SC (e.g., `mulesoft`) are **skipped** |
 
 **Pass** if all SC-supported language profiles match.
@@ -338,7 +338,7 @@ Each check produces one of these statuses:
 ## Platform Differences (Gotchas)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-These are known differences between SonarQube and SonarCloud that the verification system handles automatically. They are **not** migration failures.
+These are known differences between SonarQube Server and SonarQube Cloud that the verification system handles automatically. They are **not** migration failures.
 
 ### Rule Availability
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -358,14 +358,14 @@ When SQ has issues from plugins not available in SC (e.g., MuleSoft), the migrat
 
 | Platform | Rule key |
 |----------|----------|
-| SonarQube | `mulesoft:MS058` |
-| SonarCloud | `external_mulesoft:MS058` |
+| SonarQube Server | `mulesoft:MS058` |
+| SonarQube Cloud | `external_mulesoft:MS058` |
 
 The verifier normalizes rule keys by stripping the `external_` prefix before matching.
 
 **Important:** External issues in SC do **not** preserve tags from SQ. Tag comparison is skipped entirely for external issues.
 
-**Improved in v1.2:** External issue detection is now more reliable. If the SonarCloud `/api/rules/repositories` API is unreachable during migration, the tool falls back to a built-in set of 43 known repositories (with 3 retries and exponential backoff). Rules without a colon separator and empty repository prefixes are also handled gracefully. If verification shows missing external issues from a pre-v1.2 migration, re-run the migration for affected projects.
+**Improved in v1.2:** External issue detection is now more reliable. If the SonarQube Cloud `/api/rules/repositories` API is unreachable during migration, the tool falls back to a built-in set of 43 known repositories (with 3 retries and exponential backoff). Rules without a colon separator and empty repository prefixes are also handled gracefully. If verification shows missing external issues from a pre-v1.2 migration, re-run the migration for affected projects.
 
 ### Branch Naming
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -375,11 +375,11 @@ SQ and SC may have different default branch names (e.g., SQ uses `main`, SC uses
 ### Quality Profile Naming
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-The migration creates profiles with a `(SonarQube Migrated)` suffix to avoid colliding with SC's built-in profiles:
+The migration creates profiles with a `(SonarQube Server Migrated)` suffix to avoid colliding with SC's built-in profiles:
 
-| SonarQube | SonarCloud |
+| SonarQube Server | SonarQube Cloud |
 |-----------|------------|
-| `Sonar way` | `Sonar way (SonarQube Migrated)` |
+| `Sonar way` | `Sonar way (SonarQube Server Migrated)` |
 
 The verifier strips this suffix before comparing.
 
@@ -388,10 +388,10 @@ The verifier strips this suffix before comparing.
 
 Built-in quality gates ("Sonar way", "Sonar way for AI Code") and built-in profiles ("Sonar way" for each language) are managed by the platform. Their conditions and rule counts naturally differ between SQ and SC versions. The verifier skips detailed comparison for these.
 
-### SonarCloud-Unsupported Permissions
+### SonarQube Cloud-Unsupported Permissions
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-These SonarQube Enterprise permissions don't exist in SonarCloud and are excluded from comparison:
+These SonarQube Server Enterprise permissions don't exist in SonarQube Cloud and are excluded from comparison:
 
 - `applicationcreator` — create Applications (Enterprise feature)
 - `portfoliocreator` — create Portfolios (Enterprise feature)
@@ -414,9 +414,9 @@ SQ may have plugins that add languages not available in SC (e.g., MuleSoft's `mu
 ### Batch-Distributed Issues and Multiple Analysis Dates
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-When a branch has more than 5,000 issues, the migration uses **batch distribution** to split those issues into chunks of up to 5,000 and assigns each chunk a separate `analysis_date` (computed by stepping backwards one day per batch from the original analysis date). This means a single branch that had one analysis in SonarQube may appear in SonarCloud with issues spread across multiple `analysis_date` values.
+When a branch has more than 5,000 issues, the migration uses **batch distribution** to split those issues into chunks of up to 5,000 and assigns each chunk a separate `analysis_date` (computed by stepping backwards one day per batch from the original analysis date). This means a single branch that had one analysis in SonarQube Server may appear in SonarQube Cloud with issues spread across multiple `analysis_date` values.
 
-**This is expected behavior, not a verification failure.** The batch distribution is a migration-time strategy to stay within SonarCloud's import limits and does not affect the correctness of the migrated data.
+**This is expected behavior, not a verification failure.** The batch distribution is a migration-time strategy to stay within SonarQube Cloud's import limits and does not affect the correctness of the migrated data.
 
 The verification pipeline compares **total issue counts and attributes** (rule, file, line, status, comments, tags, etc.) across the entire branch — it does not compare per-date counts. As a result, batch distribution should never cause false verification failures. If verification reports an issue-count mismatch, the cause is not the batching itself but a genuine migration gap.
 
@@ -446,7 +446,7 @@ SQ and SC may classify the same rule with different types (BUG vs CODE_SMELL) or
 
 ---
 
-## SonarQube API Gotchas
+## SonarQube Server API Gotchas
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 These API quirks affect both migration and verification:

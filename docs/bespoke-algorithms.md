@@ -20,7 +20,7 @@ This document describes custom, non-trivial algorithms implemented from scratch 
 
 <!-- <section-updated last-updated="2026-01-01T00:00:00Z" updated-by="Claude" /> -->
 
-SonarQube's `/api/issues/search` endpoint caps results at 10,000 items per query. Projects with large issue counts require the response window to be sliced by creation date and results stitched together.
+SonarQube Server's `/api/issues/search` endpoint caps results at 10,000 items per query. Projects with large issue counts require the response window to be sliced by creation date and results stitched together.
 
 ### Algorithm
 
@@ -197,7 +197,7 @@ CloudVoyager checkpoints migration progress so a run can be resumed after any in
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> Each file's changeset protobuf has `changesets[]` (array of `{revision, author, date}`) and `changesetIndexByLine[]` (maps each line to a changeset index). The CE takes **MAX(date)** across an issue's `textRange.startLine..endLine` to determine its creation date.
 
-Without backdating, all issues in a migrated project would get the same creation date (the extraction timestamp). The goal is **1:1 accuracy** — each issue's creation date in SonarCloud should match its original `creationDate` from SonarQube. A 5K-per-day safety split handles rare cases where a single calendar day has >5K issues (SonarCloud's ES visualization cap is 10K per date bucket).
+Without backdating, all issues in a migrated project would get the same creation date (the extraction timestamp). The goal is **1:1 accuracy** — each issue's creation date in SonarQube Cloud should match its original `creationDate` from SonarQube Server. A 5K-per-day safety split handles rare cases where a single calendar day has >5K issues (SonarQube Cloud's ES visualization cap is 10K per date bucket).
 
 ### Algorithm
 
@@ -280,7 +280,7 @@ Legacy files (unchanged, no longer used by backdateChangesets):
 
 <!-- <section-updated last-updated="2026-01-01T00:00:00Z" updated-by="Claude" /> -->
 
-SonarCloud's Compute Engine accepts analysis reports encoded as protobuf-over-zip, matching the format produced by SonarScanner. CloudVoyager reconstructs this format without running an actual scan.
+SonarQube Cloud's Compute Engine accepts analysis reports encoded as protobuf-over-zip, matching the format produced by SonarScanner. CloudVoyager reconstructs this format without running an actual scan.
 
 ### Encoding Pipeline
 
@@ -297,4 +297,4 @@ The protobuf schemas were reverse-engineered from the SonarScanner source and ar
 ### Implementation
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
-`src/pipelines/<version>/sonarcloud/api/` — SonarCloud upload client
+`src/pipelines/<version>/sonarcloud/api/` — SonarQube Cloud upload client

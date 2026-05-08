@@ -10,7 +10,7 @@
 
 **Root causes identified and fixed:**
 
-1. **POST body format + Content-Type** — Settings were sent as URL query parameters (`/api/settings/set?key=...&values=...`) with a `null` body and `Content-Type: application/json` (from axios defaults). Changed to send parameters as a form-encoded POST body string with an explicit `Content-Type: application/x-www-form-urlencoded` header, which is the correct format for SonarQube/SonarCloud web API POST endpoints. The explicit header is required because the axios client's default `Content-Type: application/json` would not be overridden by auto-detection (axios uses `rewrite=false` for URLSearchParams).
+1. **POST body format + Content-Type** — Settings were sent as URL query parameters (`/api/settings/set?key=...&values=...`) with a `null` body and `Content-Type: application/json` (from axios defaults). Changed to send parameters as a form-encoded POST body string with an explicit `Content-Type: application/x-www-form-urlencoded` header, which is the correct format for SonarQube Server/SonarQube Cloud web API POST endpoints. The explicit header is required because the axios client's default `Content-Type: application/json` would not be overridden by auto-detection (axios uses `rewrite=false` for URLSearchParams).
 
 2. **Truthy check bug in `dispatchSettingToApi`** — Used `if (setting.value)` which is a JavaScript truthy check. This silently skipped settings with empty string values (`value: ""`). Changed to `if (setting.value !== undefined && setting.value !== null)` for correctness.
 
@@ -40,7 +40,7 @@
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to dramatically reduce wall-clock time for large projects (e.g., Angular Framework with 31,622 issues — from ~90 minutes to ~5-10 minutes).
 
-**Problem:** Issue sync was bottlenecked on SonarCloud API response times. A single Node.js process with `mapConcurrent` at concurrency=20 couldn't push past 20 concurrent HTTP requests, and the single event loop serialized callback processing.
+**Problem:** Issue sync was bottlenecked on SonarQube Cloud API response times. A single Node.js process with `mapConcurrent` at concurrency=20 couldn't push past 20 concurrent HTTP requests, and the single event loop serialized callback processing.
 
 **Solution:** For projects with ≥500 matched pairs, spawn N worker threads (default 20) using `worker_threads` with `eval: true` (SEA-compatible — no file system access needed). Each worker runs self-contained inline code using only Node.js built-in `https`/`http` modules, with an internal concurrency pool of 5 issues each. Total concurrent API calls: 20×5 = 100 (vs 20 previously).
 
@@ -60,7 +60,7 @@
 
 ## Accurate Issue Creation Date Backdating (2026-04-28)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to preserve each issue's original SonarQube creation date in SonarCloud. Verified 99.92% accuracy (26/31,641 mismatches on Angular Framework — all from issues sharing the same startLine).
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to preserve each issue's original SonarQube Server creation date in SonarQube Cloud. Verified 99.92% accuracy (26/31,641 mismatches on Angular Framework — all from issues sharing the same startLine).
 
 **Root cause found:** `resolveLineCount()` defaulted to 1 when the `lines` metric wasn't available, causing `changesetIndexByLine` arrays to be 1 element long. Per-line date indices beyond index 0 were silently dropped, so the CE assigned a single date per file. The fix extends the array to `max(existingLength, maxIssueLine)`.
 
@@ -85,9 +85,9 @@
 
 ## Regression Testing System — Phase 1 (2026-04-25)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for CloudVoyager. 5 bug-fix scenarios tested across all 4 SonarQube versions (9.9, 10.0, 10.4, 2025.1) = 20 matrix jobs.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for CloudVoyager. 5 bug-fix scenarios tested across all 4 SonarQube Server versions (9.9, 10.0, 10.4, 2025.1) = 20 matrix jobs.
 
-**Architecture:** Each CI job spins up an ephemeral SonarQube Enterprise Docker container with PostgreSQL. Test data is enriched with issue comments, status changes, and hotspot metadata via SQ API. CloudVoyager runs the migration to SonarCloud, then assertion scripts verify each previously-fixed bug hasn't regressed.
+**Architecture:** Each CI job spins up an ephemeral SonarQube Server Enterprise Docker container with PostgreSQL. Test data is enriched with issue comments, status changes, and hotspot metadata via SQ API. CloudVoyager runs the migration to SonarQube Cloud, then assertion scripts verify each previously-fixed bug hasn't regressed.
 
 **Phase 1 scenarios:**
 
@@ -99,7 +99,7 @@
 | `issue-sync-first-migration` | #91 | Issue sync triggers on first migration run |
 | `kill-and-continue` | #15, #57 | SIGTERM + resume produces no duplicates |
 
-**Security:** Sensitive workflows (regression tests + SonarCloud scanning) moved to private repo `sonar-solutions/cloudvoyager-ci`. Public repo has no access to SQ Enterprise license keys or SonarCloud tokens. Private repo syncs from public every 15 minutes.
+**Security:** Sensitive workflows (regression tests + SonarQube Cloud scanning) moved to private repo `sonar-solutions/cloudvoyager-ci`. Public repo has no access to SQ Enterprise license keys or SonarQube Cloud tokens. Private repo syncs from public every 15 minutes.
 
 **Code review:** 5 parallel AI review agents found 10 P1s, 8 P2s, 4 P3s — all fixed before commit.
 
@@ -111,9 +111,9 @@
 
 ## Bug Fix: Issue Migration Data Loss + SCM Date-Bucket Distribution (2026-04-23)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> and implemented SCM-based date-bucket distribution to work around SonarCloud's 10K Elasticsearch visualization cap.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> and implemented SCM-based date-bucket distribution to work around SonarQube Cloud's 10K Elasticsearch visualization cap.
 
-**Bug 1 — Batch distributor silently drops issues (critical):** The old batch distributor split large issue sets into separate 5K-batch analyses. SonarCloud's issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed. Only the last batch's issues survived. **Fix:** Disabled multi-analysis batching. All issues now upload in a single analysis.
+**Bug 1 — Batch distributor silently drops issues (critical):** The old batch distributor split large issue sets into separate 5K-batch analyses. SonarQube Cloud's issue tracker treats each analysis as a complete snapshot — issues from prior analyses not in the current one are closed. Only the last batch's issues survived. **Fix:** Disabled multi-analysis batching. All issues now upload in a single analysis.
 
 **Bug 2 — Missing IN_SANDBOX status in SQ 2025 pipeline:** The `issueStatuses` parameter was missing `IN_SANDBOX` (new in SQ 2025) and incorrectly included `CLOSED`. Fixed in both `issue-methods.js` and `issues-hotspots.js`.
 
@@ -143,7 +143,7 @@
 
 ## Design: Matrix-Based Regression Testing (2026-04-22)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube/SonarCloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> for comprehensive regression testing via GitHub Actions matrix strategy. Covers 19 matrix entries mapping to all fixed issues (PRIORITY bugs #53, #56, #70, #88, #89, #91, #94, #98 plus changelog fixes and non-PRIORITY issues). Phased rollout: 5 PRIORITY entries in Phase 1 (2 days), remaining 14 in Phase 2 (3 more days). Tests run against real SonarQube Server/SonarQube Cloud instances with `max-parallel: 4`. Includes test data health check, cleanup policy, and rate limiting mitigation. Design doc: `~/.gstack/projects/sonar-solutions-cloudvoyager/joshua.quek-main-design-20260422-184500.md`
 
 ---
 
@@ -155,7 +155,7 @@
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-On resume, the checkpoint extractor restores the cached `scmRevisionId` from the first run. If SonarCloud already processed a newer report (e.g. from a previous partial migration), the CE task fails with "a newer report has already been processed" and the entire project is marked failed. This is incorrect — the project already has analysis data on SonarCloud.
+On resume, the checkpoint extractor restores the cached `scmRevisionId` from the first run. If SonarQube Cloud already processed a newer report (e.g. from a previous partial migration), the CE task fails with "a newer report has already been processed" and the entire project is marked failed. This is incorrect — the project already has analysis data on SonarQube Cloud.
 
 **Fix:** In `waitForAnalysis()`, detect the "a newer report has already been processed" error message and treat it as a success (log a warning instead of throwing). Applied to all 4 pipelines.
 
@@ -189,7 +189,7 @@ Re-ran migration after fixes: **3/3 projects succeeded, 0 failed, 0 errors in er
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-`addHotspotComment()` sent `{ hotspot, text }` to `/api/hotspots/add_comment`, but SonarCloud expects the parameter name `comment`, not `text`. Every hotspot comment/source-link/metadata-marker call returned `400: The 'comment' parameter is missing`.
+`addHotspotComment()` sent `{ hotspot, text }` to `/api/hotspots/add_comment`, but SonarQube Cloud expects the parameter name `comment`, not `text`. Every hotspot comment/source-link/metadata-marker call returned `400: The 'comment' parameter is missing`.
 
 **Fix:** Changed `params: { hotspot, text }` to `params: { hotspot, comment: text }` in all 4 pipeline versions.
 
@@ -341,7 +341,7 @@ Previously, a fresh (non-resume) migration would `rm -rf` the entire `migration-
 
 ## Bug Fix: New Code Definitions Migration Fails with 400 Error (2026-04-22)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> the "New code definitions" migration step failed with `SonarCloud API error (400): Either 'value', 'values' or 'fieldValues' must be provided`.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> the "New code definitions" migration step failed with `SonarQube Cloud API error (400): Either 'value', 'values' or 'fieldValues' must be provided`.
 
 ### Root Cause
 
@@ -379,7 +379,7 @@ Changed the call to `client.setProjectSetting(setting.key, { value: setting.valu
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## Issue Batching: Distribute Large Issue Sets Across Multiple Dates (2026-04-20)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarCloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> per branch now automatically split into multiple scanner reports, each with a distinct `analysis_date`. This prevents SonarQube Cloud's Elasticsearch visualization limit (10K per date bucket) from hiding migrated issues.
 
 ### New Feature
 
@@ -433,7 +433,7 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-- **Root cause:** JavaScript's `Date.toISOString()` produces `2007-09-08T21:21:02.125Z` (includes milliseconds). SonarQube's `createdAfter`/`createdBefore` API parameters reject this format and require `2007-09-08T21:21:02+0000`.
+- **Root cause:** JavaScript's `Date.toISOString()` produces `2007-09-08T21:21:02.125Z` (includes milliseconds). SonarQube Server's `createdAfter`/`createdBefore` API parameters reject this format and require `2007-09-08T21:21:02+0000`.
 - **Fixed:** Added `format-sonarqube-date.js` helper that strips milliseconds and replaces `Z` with `+0000`. All date-window boundaries and midpoints now use this formatter.
 
 ### Bug 3 — Desktop app config validation failure (`/transfer must NOT have additional properties`)
@@ -449,7 +449,7 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a **Phase 2: Metadata Sync** that runs automatically after the scanner report upload completes.
 
-- **Added:** Issue metadata sync — replays full status history from SQ changelog, copies comments with attribution, adds `metadata-synchronized` tag, syncs assignments, and adds a `[SonarQube Source]` comment linking back to the original SQ issue URL.
+- **Added:** Issue metadata sync — replays full status history from SQ changelog, copies comments with attribution, adds `metadata-synchronized` tag, syncs assignments, and adds a `[SonarQube Server Source]` comment linking back to the original SQ issue URL.
 - **Added:** Hotspot metadata sync — syncs hotspot statuses, comments, and source links.
 - **Added:** `skipIssueMetadataSync` and `skipHotspotMetadataSync` options in transfer config to opt out.
 - **Impact:** All 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025) now include metadata sync. Previously, the `transfer` command only uploaded the scanner report, leaving all issues in default "Open" status with no comments, tags, or assignments.
@@ -458,11 +458,11 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 ## External Issue Prefix Fix (2026-03-27)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube 2025+.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> where **all external linter issues** (Ruff, Pylint, ESLint, Checkstyle, etc.) were silently dropped during migration from SonarQube Server 2025+.
 
-- **Root cause:** SonarQube 2025+ returns external linter rules with an `external_` prefix (e.g., `external_ruff:D200`). SonarCloud's `/api/rules/repositories` includes `external_ruff` as a known repo, causing `isExternalIssue()` to misclassify these as native issues. SC then dropped them because no native rule `external_ruff:D200` exists.
+- **Root cause:** SonarQube Server 2025+ returns external linter rules with an `external_` prefix (e.g., `external_ruff:D200`). SonarQube Cloud's `/api/rules/repositories` includes `external_ruff` as a known repo, causing `isExternalIssue()` to misclassify these as native issues. SC then dropped them because no native rule `external_ruff:D200` exists.
 - **Fixed:** `isExternalIssue()` now detects the `external_` prefix and always treats such rules as external — across all 4 pipeline versions (sq-9.9, sq-10.0, sq-10.4, sq-2025).
-- **Fixed:** External issue builders now strip the `external_` prefix from the engineId via a new shared `stripExternalPrefix()` utility, preventing a double `external_external_ruff:D200` prefix in SonarCloud.
+- **Fixed:** External issue builders now strip the `external_` prefix from the engineId via a new shared `stripExternalPrefix()` utility, preventing a double `external_external_ruff:D200` prefix in SonarQube Cloud.
 - **Fixed:** sq-2025 issue model now preserves `externalRuleEngine` from SQ API responses.
 - **Impact:** Affected up to 36 external linter types. Tested with `okorach-oss_sonar-tools` project (1,101 Ruff+Pylint issues previously dropped, now migrated correctly).
 
@@ -481,7 +481,7 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 ### Separate Unit Tests Workflow
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a standalone workflow, decoupled from both SonarCloud scanning and regression tests.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> a standalone workflow, decoupled from both SonarQube Cloud scanning and regression tests.
 
 - **New:** `.github/workflows/unit-tests.yml` — standalone unit test workflow triggered on push to `main`
 - **Changed:** `.github/workflows/sonarcloud.yml` — removed test coverage step; now only runs SAST/SCA scanning
@@ -502,9 +502,9 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> identified 83 issues. The following 10 high/medium severity bugs were fixed across 26 files.
 
-- **Fixed:** Org-level verification was comparing SonarCloud to itself (passing `scClient` as both args to `runOrgChecks`). Now correctly constructs a `SonarQubeClient` for the SQ side.
+- **Fixed:** Org-level verification was comparing SonarQube Cloud to itself (passing `scClient` as both args to `runOrgChecks`). Now correctly constructs a `SonarQubeClient` for the SQ side.
 - **Fixed:** Missing `await` on `syncIssueAssignment()` in sq-10.0 pipeline caused silent error swallowing and stats race conditions.
-- **Fixed:** `ACCEPTED` status mapped to invalid `'accept'` transition in sq-9.9 and sq-10.0 pipelines (SonarCloud only supports `wontfix`). Now matches sq-10.4/sq-2025 correct mapping.
+- **Fixed:** `ACCEPTED` status mapped to invalid `'accept'` transition in sq-9.9 and sq-10.0 pipelines (SonarQube Cloud only supports `wontfix`). Now matches sq-10.4/sq-2025 correct mapping.
 - **Fixed:** `ShutdownCoordinator` created but never passed to `handleMigrateAction` and `handleSyncMetadataAction`, preventing graceful cleanup on SIGINT.
 - **Fixed:** `build-match-key.js` used `||` instead of `??` for line numbers, treating `line: 0` (file-level issues) as falsy. Fixed in sq-9.9, sq-10.4, and sq-2025.
 - **Fixed:** `findDateRange` in search slicer had no null check — empty API results caused `NaN` timestamps and silent data loss.
@@ -523,7 +523,7 @@ All changes are in `desktop/src/renderer/js/components/migration-graph*.js`.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-SonarQube's `/api/issues/search` endpoint caps results at 10,000. Projects exceeding this limit now use date-window slicing to retrieve all issues.
+SonarQube Server's `/api/issues/search` endpoint caps results at 10,000. Projects exceeding this limit now use date-window slicing to retrieve all issues.
 
 - **New:** `src/shared/utils/search-slicer/` (5 files) — partitions the creation-date range into narrowing windows until each window returns fewer than 10K results
 - **New:** `probe-total.js` added to each pipeline's `api-client/helpers/` (sq-9.9, sq-10.0, sq-10.4, sq-2025) — probes the total issue count for a query
@@ -533,22 +533,22 @@ SonarQube's `/api/issues/search` endpoint caps results at 10,000. Projects excee
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-Fixed silent loss of external (third-party) issues when the SonarCloud rule-repositories API was unreachable.
+Fixed silent loss of external (third-party) issues when the SonarQube Cloud rule-repositories API was unreachable.
 
-- **New:** `src/shared/utils/fallback-repos/index.js` — built-in set of 43 known SonarCloud rule repositories used as a fallback
+- **New:** `src/shared/utils/fallback-repos/index.js` — built-in set of 43 known SonarQube Cloud rule repositories used as a fallback
 - **Fixed:** `isExternalIssue()` falls back to `FALLBACK_SONARCLOUD_REPOS` when the live repo set is empty; handles rules without colons and empty repo prefixes
 - **Fixed:** `getRuleRepositories()` retries the API call up to 3 times with exponential backoff (1 s, 2 s, 3 s) and returns the fallback set if all retries fail
 
 *(See the existing v1.1.9 entry below for per-file details.)*
 
-### SonarCloud Public Scanning (#66)
+### SonarQube Cloud Public Scanning (#66)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarCloud.
+Added automatic SAST/SCA scanning of the CloudVoyager repository via SonarQube Cloud.
 
 - **New:** `.github/workflows/sonarcloud.yml` — triggers on push to `main` and on pull requests
-- **New:** `sonar-project.properties` — SonarCloud project configuration (org, project key, sources, exclusions)
+- **New:** `sonar-project.properties` — SonarQube Cloud project configuration (org, project key, sources, exclusions)
 - **Requires:** `SONAR_TOKEN` secret configured in the GitHub repository
 
 ### Release Milestone References (#75)
@@ -613,7 +613,7 @@ Fixed 134 hook failures and 47 test failures caused by the refactored class wrap
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-Fixed a bug where external (third-party) issues were silently dropped during migration when the SonarCloud `/api/rules/repositories` endpoint was unreachable or returned an error.
+Fixed a bug where external (third-party) issues were silently dropped during migration when the SonarQube Cloud `/api/rules/repositories` endpoint was unreachable or returned an error.
 
 #### Root Cause
 
@@ -625,7 +625,7 @@ Fixed a bug where external (third-party) issues were silently dropped during mig
 #### Fix (applied across all 4 pipelines: sq-9.9, sq-10.0, sq-10.4, sq-2025)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
-- **`isExternalIssue`** — Falls back to `FALLBACK_SONARCLOUD_REPOS` (a built-in set of known SonarCloud rule repos) when the live repo set is empty. Also adds guards for rules without colons and empty repo prefixes.
+- **`isExternalIssue`** — Falls back to `FALLBACK_SONARCLOUD_REPOS` (a built-in set of known SonarQube Cloud rule repos) when the live repo set is empty. Also adds guards for rules without colons and empty repo prefixes.
 - **`buildExternalIssues`** — Removes the early-return that skipped processing; now logs a warning and continues with fallback data.
 - **`getRuleRepositories`** — Retries the API call up to 3 times with exponential backoff (1s, 2s, 3s). If all retries fail, returns `FALLBACK_SONARCLOUD_REPOS` instead of an empty set.
 
@@ -719,11 +719,11 @@ Added a comprehensive GitHub Actions regression testing workflow that runs all C
 
 ## [1.1.5] - 2026-03-25
 
-### Desktop App — SonarCloud Organization Validation
+### Desktop App — SonarQube Cloud Organization Validation
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-- **config-form.js** — Added `validateOrgs()` method that enforces at least one SonarCloud organization is present and all required fields (org key, token) are filled before allowing the user to proceed.
+- **config-form.js** — Added `validateOrgs()` method that enforces at least one SonarQube Cloud organization is present and all required fields (org key, token) are filled before allowing the user to proceed.
 - **migrate-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
 - **sync-metadata-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
 - **verify-config.js** — Org step Next button now calls `ConfigForm.validateOrgs()` before advancing.
@@ -750,7 +750,7 @@ Refactored project migration into modular components and added new capabilities 
 - **ce-submitter.js** — Extracted CE submission with robust retry mechanism: submit → timeout fallback to `/api/ce/activity` polling (5 checks) → re-submit → poll again → fail with descriptive error.
 
 #### Issue Status Mapping
-- **issue-status-mapper.js** — Extracted issue status transition mapping from changelog diffs. Maps SonarQube status changes (CONFIRMED, REOPENED, RESOLVED, CLOSED, ACCEPTED, FALSE-POSITIVE, WONTFIX) to SonarCloud transitions. Handles SQ 10.4+ where WONTFIX/FALSE-POSITIVE appear as direct status values.
+- **issue-status-mapper.js** — Extracted issue status transition mapping from changelog diffs. Maps SonarQube Server status changes (CONFIRMED, REOPENED, RESOLVED, CLOSED, ACCEPTED, FALSE-POSITIVE, WONTFIX) to SonarQube Cloud transitions. Handles SQ 10.4+ where WONTFIX/FALSE-POSITIVE appear as direct status values.
 
 #### Checkpoint-Aware Extraction
 - **checkpoint-extractor.js** — Extracted checkpoint-aware data extraction with journal + cache support. Implements 13-phase extraction pipeline (project metadata, metrics, components, source files, rules, issues, hotspots, measures, sources, duplications, changesets, symbols, syntax highlighting) with per-phase caching and resume capability. Also supports branch-specific extraction.
@@ -819,12 +819,12 @@ Full codebase review performed across all 322 source files (4 version-specific p
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-Refactored the entire codebase from a flat structure with a single `VersionAwareSonarQubeClient` to a **pipeline-per-version** architecture. Each supported SonarQube version range now has its own fully independent pipeline directory containing all version-specific code.
+Refactored the entire codebase from a flat structure with a single `VersionAwareSonarQubeClient` to a **pipeline-per-version** architecture. Each supported SonarQube Server version range now has its own fully independent pipeline directory containing all version-specific code.
 
 #### Architecture Change
 - Moved all version-specific code from flat `src/` directories into `src/pipelines/sq-{version}/` directories (sq-9.9, sq-10.0, sq-10.4, sq-2025)
 - Moved all version-independent shared code into `src/shared/` (config, mapping, reports, state, utils, verification)
-- Added `src/version-router.js` to detect SonarQube version and dynamically load the correct pipeline
+- Added `src/version-router.js` to detect SonarQube Server version and dynamically load the correct pipeline
 - Removed `VersionAwareSonarQubeClient` — each pipeline now has its own `SonarQubeClient` with version-specific behavior hardcoded
 - No runtime version checks exist within any pipeline — all version differences are resolved by the pipeline selection
 
@@ -896,17 +896,17 @@ Refactored the entire codebase from a flat structure with a single `VersionAware
 
 ## [1.1.1] - 2026-03-12
 
-### Bug Fix: SonarCloud Issue Sync Failure (FALSE_POSITIVE Status Parameter)
+### Bug Fix: SonarQube Cloud Issue Sync Failure (FALSE_POSITIVE Status Parameter)
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 Projects were being marked as **partial** because the "Sync issues" step failed for every project with:
 > `Value of parameter 'statuses' (FALSE_POSITIVE) must be one of: [OPEN, CONFIRMED, REOPENED, RESOLVED, CLOSED]`
 
-The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITIVE`, `ACCEPTED`, and `FIXED` appended to the `statuses` parameter. SonarCloud does not accept these values — `FALSE_POSITIVE` and `WONTFIX` are *resolutions* in SonarCloud (issues appear as `RESOLVED` with a `resolution` field), while `ACCEPTED` and `FIXED` are SonarQube 10.4+ statuses that SonarCloud's API does not support. The fix restricts the SonarCloud issue search to `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED` only, which correctly captures all issues including false positives.
+The SonarQube Cloud `/api/issues/search` endpoint was being called with `FALSE_POSITIVE`, `ACCEPTED`, and `FIXED` appended to the `statuses` parameter. SonarQube Cloud does not accept these values — `FALSE_POSITIVE` and `WONTFIX` are *resolutions* in SonarQube Cloud (issues appear as `RESOLVED` with a `resolution` field), while `ACCEPTED` and `FIXED` are SonarQube Server 10.4+ statuses that SonarQube Cloud's API does not support. The fix restricts the SonarQube Cloud issue search to `OPEN,CONFIRMED,REOPENED,RESOLVED,CLOSED` only, which correctly captures all issues including false positives.
 
 #### Files Modified
-- **Fixed:** `src/sonarcloud/api/issues.js` — removed invalid SonarCloud statuses from `ALL_STATUSES` constant
+- **Fixed:** `src/sonarcloud/api/issues.js` — removed invalid SonarQube Cloud statuses from `ALL_STATUSES` constant
 
 #### Documentation Fixes
 - **Fixed:** `docs/key-capabilities.md` — issue transition mapping had `FALSE-POSITIVE → wontfix` (incorrect); corrected to `FALSE-POSITIVE → falsepositive`; added missing `REOPENED → reopen`, `OPEN → unconfirm`, and `CLOSED → resolve` transitions
@@ -925,7 +925,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 - Added a **write-ahead checkpoint journal** that tracks phase-by-phase progress for both `transfer` and `migrate` commands, enabling true pause/resume across all migration workflows
 - Interrupted migrations (CTRL+C, crashes, network failures) can now be resumed from the exact point of interruption — no re-processing of completed work
-- The journal stores a session fingerprint (SonarQube version, URL, project key) and validates it on resume, warning on version mismatches
+- The journal stores a session fingerprint (SonarQube Server version, URL, project key) and validates it on resume, warning on version mismatches
 
 #### Graceful Shutdown (SIGINT/SIGTERM)
 
@@ -983,7 +983,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - `transfer.checkpoint.enabled` — Enable/disable checkpoint journal (default: `true`)
 - `transfer.checkpoint.cacheExtractions` — Enable/disable extraction caching (default: `true`)
 - `transfer.checkpoint.cacheMaxAgeDays` — Max age of cache files in days (default: `7`)
-- `transfer.checkpoint.strictResume` — Fail on SonarQube version mismatch when resuming (default: `false`)
+- `transfer.checkpoint.strictResume` — Fail on SonarQube Server version mismatch when resuming (default: `false`)
 
 #### Enhanced Commands
 
@@ -1020,9 +1020,9 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### New Feature: User Mapping
-- Added `user-mappings.csv` to the dry-run CSV workflow, enabling SonarQube-to-SonarCloud user login mapping
-- During `--dry-run`, CloudVoyager now collects all unique issue assignees across all projects using lightweight facet queries and enriches them with display names and emails from the SonarQube user API
-- Users can fill in the `SonarCloud Login` column to map SQ logins to SC logins, or set `Include=no` to skip assignment for specific users (e.g., service accounts)
+- Added `user-mappings.csv` to the dry-run CSV workflow, enabling SonarQube Server-to-SonarQube Cloud user login mapping
+- During `--dry-run`, CloudVoyager now collects all unique issue assignees across all projects using lightweight facet queries and enriches them with display names and emails from the SonarQube Server user API
+- Users can fill in the `SonarQube Cloud Login` column to map SQ logins to SC logins, or set `Include=no` to skip assignment for specific users (e.g., service accounts)
 - During the actual migration, the user mapping CSV is automatically loaded and applied to issue assignments
 
 #### Issue Assignment Improvements
@@ -1045,18 +1045,18 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 ---
 
-### 2026-03-09 — SonarQube 9.9 & 2025.1 Backward Compatibility
+### 2026-03-09 — SonarQube Server 9.9 & 2025.1 Backward Compatibility
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
-#### New: Version-Aware SonarQube Client
-- Added `VersionAwareSonarQubeClient` subclass (`src/sonarqube/version-aware-client.js`) that auto-detects the SonarQube server version and adapts API calls accordingly
+#### New: Version-Aware SonarQube Server Client
+- Added `VersionAwareSonarQubeClient` subclass (`src/sonarqube/version-aware-client.js`) that auto-detects the SonarQube Server version and adapts API calls accordingly
 - All backward-compatibility logic is **isolated** in the subclass — the base `SonarQubeClient` and all API modules remain untouched
 - Version is detected once on connection and cached for the lifetime of the client
 
 #### Version-Aware Issue Fetching
-- **SonarQube < 10.4**: Uses legacy `statuses` parameter with combined pre-10.4 and 10.4+ status values
-- **SonarQube >= 10.4 / 2025.1**: Uses modern `issueStatuses` parameter, avoiding deprecation warnings and future breakage
+- **SonarQube Server < 10.4**: Uses legacy `statuses` parameter with combined pre-10.4 and 10.4+ status values
+- **SonarQube Server >= 10.4 / 2025.1**: Uses modern `issueStatuses` parameter, avoiding deprecation warnings and future breakage
 - Falls back to legacy behavior when version is unknown (safe default)
 
 #### Defensive API Wrappers
@@ -1072,7 +1072,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 #### Documentation
 - Created `CONTRIBUTING.md` with comprehensive guide to all codebase patterns and conventions (extractor, API module, migrator, client, isolation, error handling, pagination, concurrency, testing)
 - Updated `docs/backward-compatibility.md` with version-aware client architecture, issue status parameter differences, and expanded version support table
-- Added SonarQube version compatibility section to `README.md` with support matrix
+- Added SonarQube Server version compatibility section to `README.md` with support matrix
 - Added `sonarqubeCompatibility` metadata and version keywords to `package.json`
 - Updated documentation table in `README.md` with backward compatibility and contributing links
 
@@ -1084,11 +1084,11 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 #### Enhancement: `verify` Command
 - Added **status history (changelog) verification** to the issue metadata checker
-- Fetches changelogs from both SonarQube and SonarCloud via `/api/issues/changelog`
+- Fetches changelogs from both SonarQube Server and SonarQube Cloud via `/api/issues/changelog`
 - Extracts status transitions from each changelog and compares them in order
 - Flags issues where SQ transitions are missing from SC as `statusHistoryMismatches`
 - Issues with no status changes (never transitioned) are skipped
-- Added `getIssueChangelog` to the SonarCloud API client
+- Added `getIssueChangelog` to the SonarQube Cloud API client
 - Updated Markdown, PDF, and console reports to include status history mismatch details
 - Updated verification documentation with new check description and pass/fail criteria
 
@@ -1099,8 +1099,8 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### New Feature: `verify` Command
-- Added a `verify` command that exhaustively compares SonarQube and SonarCloud data to confirm migration completeness
-- Performs read-only checks — no data is modified in either SonarQube or SonarCloud
+- Added a `verify` command that exhaustively compares SonarQube Server and SonarQube Cloud data to confirm migration completeness
+- Performs read-only checks — no data is modified in either SonarQube Server or SonarQube Cloud
 - Reuses the existing migration config file (no new config schema needed)
 - Supports the same `--only` component filtering as the `migrate` command
 
@@ -1146,7 +1146,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Enterprise Portfolio API (V2)
-- Migrated portfolio management to SonarCloud's V2 Enterprise API for creating and managing portfolios
+- Migrated portfolio management to SonarQube Cloud's V2 Enterprise API for creating and managing portfolios
 - Added `src/sonarcloud/enterprise-client.js` for V2 API interactions
 
 #### Configuration
@@ -1179,7 +1179,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Enhanced documentation and reports for migration process, including new transfer scenarios and improved output paths
 
 #### Testing
-- Added unit tests for SonarQube models, state management, transfer pipeline, concurrency utilities, error handling, and logging
+- Added unit tests for SonarQube Server models, state management, transfer pipeline, concurrency utilities, error handling, and logging
 
 #### Documentation
 - Added local development guide for building and running CloudVoyager from source with step-by-step instructions
@@ -1196,12 +1196,12 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Enables stakeholders to review migration outcomes at a glance
 
 #### Quality Profile Diff Reports
-- Added side-by-side comparison of active rules per language between SonarQube and SonarCloud
+- Added side-by-side comparison of active rules per language between SonarQube Server and SonarQube Cloud
 - Identifies rule discrepancies after profile migration, so teams can verify policy parity before go-live
 
 #### New Code Period Migration
-- Migrates "new code" period definitions (used for quality gate evaluations) to SonarCloud via the settings API
-- Supports all SonarQube new code period types with automatic mapping to SonarCloud equivalents
+- Migrates "new code" period definitions (used for quality gate evaluations) to SonarQube Cloud via the settings API
+- Supports all SonarQube Server new code period types with automatic mapping to SonarQube Cloud equivalents
 
 #### Auto-Tune Performance
 - Added `--auto-tune` flag that detects available CPU cores and RAM to automatically configure concurrency and memory limits
@@ -1209,10 +1209,10 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Automatic process respawn with increased heap size when memory limits are configured
 
 #### CLI Enhancements
-- Added `--wait` flag to block until SonarCloud finishes analyzing the uploaded report, useful for CI/CD pipelines
-- Branch name is now resolved from SonarCloud (not SonarQube) to avoid mismatches in multi-branch setups
+- Added `--wait` flag to block until SonarQube Cloud finishes analyzing the uploaded report, useful for CI/CD pipelines
+- Branch name is now resolved from SonarQube Cloud (not SonarQube Server) to avoid mismatches in multi-branch setups
 
-#### SonarCloud Integration Improvements
+#### SonarQube Cloud Integration Improvements
 - Added project key availability check to detect naming conflicts before migration begins
 - Improved duplicate report prevention via SCM revision tracking
 
@@ -1237,10 +1237,10 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Full Migration Pipeline (`migrate` command)
-- **Issue metadata sync** — migrates issue statuses, assignments, comments, and tags from SonarQube to SonarCloud
+- **Issue metadata sync** — migrates issue statuses, assignments, comments, and tags from SonarQube Server to SonarQube Cloud
 - **Hotspot metadata sync** — migrates security hotspot statuses and review comments
 - **Permissions migration** — transfers global permissions, project-level permissions, and permission templates
-- **Portfolio migration** — recreates portfolios in SonarCloud while preserving project associations
+- **Portfolio migration** — recreates portfolios in SonarQube Cloud while preserving project associations
 - **Project settings migration** — migrates tags, links, DevOps bindings, and project-level configuration
 - **Quality gates migration** — transfers gate definitions, conditions, project assignments, and access permissions
 - **Quality profiles migration** — uses backup/restore to transfer profiles via XML; built-in profiles are migrated as custom copies with inheritance chains and permissions preserved
@@ -1252,7 +1252,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Generates detailed migration reports with per-organization and per-project summaries
 
 #### Rate Limiting
-- Added configurable rate limiting for SonarCloud API write requests with exponential backoff on 503/429 responses
+- Added configurable rate limiting for SonarQube Cloud API write requests with exponential backoff on 503/429 responses
 - Prevents API throttling during large-scale migrations
 
 #### Concurrency and Performance Tuning
@@ -1266,7 +1266,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Added LICENSE file for open-source compliance
 - Created scenario-based migration guides:
   - **Single project** — migrate one specific project
-  - **Single organization** — migrate all projects to one SonarCloud organization
+  - **Single organization** — migrate all projects to one SonarQube Cloud organization
 - Removed outdated usage guide (content consolidated into scenario documents)
 
 ---
@@ -1276,7 +1276,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 
 #### Data Extraction Engine
-- Built the core extraction engine that pulls all relevant data from SonarQube via its REST API:
+- Built the core extraction engine that pulls all relevant data from SonarQube Server via its REST API:
   - Project metadata, branches, and quality gate associations
   - Issues with full pagination support and incremental sync capability
   - Measures and metrics at both project and component level
@@ -1288,7 +1288,7 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 
 #### CLI Interface
 - Commander-based CLI with four core commands:
-  - `transfer` — extract from SonarQube, build protobuf report, upload to SonarCloud
+  - `transfer` — extract from SonarQube Server, build protobuf report, upload to SonarQube Cloud
   - `validate` — validate configuration file before running
   - `status` — view current sync state and transfer history
   - `reset` — clear sync state to force a full re-transfer
@@ -1296,13 +1296,13 @@ The SonarCloud `/api/issues/search` endpoint was being called with `FALSE_POSITI
 - Tokens can be provided via environment variables (`SONARQUBE_TOKEN`, `SONARCLOUD_TOKEN`) to avoid storing secrets in config files
 
 #### Protobuf Report Builder
-- Transforms extracted SonarQube data into protobuf-encoded scanner reports matching SonarCloud's internal Compute Engine format
+- Transforms extracted SonarQube Server data into protobuf-encoded scanner reports matching SonarQube Cloud's internal Compute Engine format
 - Uses a flat component structure (no directory hierarchy) with line counts derived from source files
 - Maintains component reference mapping to preserve relationships between files, issues, and measures
 
 #### Configuration System
 - JSON-based configuration with schema validation
-- Supports SonarQube source settings, SonarCloud target settings, and transfer options (mode, batch size, state file)
+- Supports SonarQube Server source settings, SonarQube Cloud target settings, and transfer options (mode, batch size, state file)
 - Environment variable overrides for sensitive tokens
 
 #### State Management

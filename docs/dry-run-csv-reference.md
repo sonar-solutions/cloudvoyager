@@ -13,16 +13,16 @@ The `--dry-run` flag generates 9 exhaustive CSV files in `migration-output/mappi
 
 ```
 1. cloudvoyager migrate -c config.json --dry-run
-   -> Extracts all data from SonarQube
+   -> Extracts all data from SonarQube Server
    -> Generates exhaustive CSVs in migration-output/mappings/
    -> Prints summary + instructions
-   -> Stops (no SonarCloud changes)
+   -> Stops (no SonarQube Cloud changes)
 
 2. Review and edit CSVs (set Include=no to exclude resources)
 
 3. cloudvoyager migrate -c config.json
    -> Detects existing CSVs, reads them into memory BEFORE wiping output dir
-   -> Re-extracts from SonarQube, applies CSV overrides
+   -> Re-extracts from SonarQube Server, applies CSV overrides
    -> Migrates using filtered data
 
 4. If interrupted, re-run the same command to resume from the last checkpoint.
@@ -53,7 +53,7 @@ Every CSV has an `Include` column as the first field. Values are case-insensitiv
 | 6 | `portfolio-mappings.csv` | Portfolios and member projects (parent/child) | Include |
 | 7 | `template-mappings.csv` | Permission templates and assignments (parent/child) | Include |
 | 8 | `global-permissions.csv` | Group-level permission assignments | Include |
-| 9 | `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping | Include, SonarCloud Login |
+| 9 | `user-mappings.csv` | SonarQube Server-to-SonarQube Cloud user login mapping | Include, SonarQube Cloud Login |
 
 ---
 
@@ -65,10 +65,10 @@ One row per branch per project. The main branch is listed first for each project
 | Column | Editable | Description |
 |--------|----------|-------------|
 | Include | Yes | Set to `no` to exclude this branch. Setting `no` on the main branch excludes the **entire project** |
-| Project Key | Read-only | SonarQube project key |
+| Project Key | Read-only | SonarQube Server project key |
 | Project Name | Read-only | Project display name |
 | Branch | Read-only | Branch name (main branch listed first) |
-| Target Organization | Read-only | SonarCloud organization key |
+| Target Organization | Read-only | SonarQube Cloud organization key |
 | ALM Platform | Read-only | DevOps binding (github, gitlab, etc.) |
 | Repository | Read-only | Repository identifier |
 | Monorepo | Read-only | Whether project is part of a monorepo |
@@ -95,7 +95,7 @@ One row per organization binding group.
 | Column | Editable | Description |
 |--------|----------|-------------|
 | Include | Yes | Set to `no` to exclude |
-| Target Organization | Read-only | SonarCloud organization key |
+| Target Organization | Read-only | SonarQube Cloud organization key |
 | Binding Group | Read-only | DevOps binding group identifier |
 | ALM Platform | Read-only | DevOps platform |
 | Projects Count | Read-only | Number of projects in this group |
@@ -112,7 +112,7 @@ One row per group.
 | Description | Read-only | Group description |
 | Members Count | Read-only | Number of members |
 | Is Default | Read-only | Whether this is a default group |
-| Target Organization | Read-only | Target SonarCloud organization |
+| Target Organization | Read-only | Target SonarQube Cloud organization |
 
 ### profile-mappings.csv
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -128,12 +128,12 @@ One row per quality profile.
 | Is Built-In | Read-only | Whether this is a built-in profile |
 | Parent | Read-only | Parent profile name (if inherited) |
 | Active Rules | Read-only | Number of active rules |
-| Target Organization | Read-only | Target SonarCloud organization |
+| Target Organization | Read-only | Target SonarQube Cloud organization |
 
 ### gate-mappings.csv
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-One row per quality gate. Conditions are always migrated as-is from SonarQube — they cannot be modified via the CSV.
+One row per quality gate. Conditions are always migrated as-is from SonarQube Server — they cannot be modified via the CSV.
 
 | Column | Editable | Description |
 |--------|----------|-------------|
@@ -142,7 +142,7 @@ One row per quality gate. Conditions are always migrated as-is from SonarQube �
 | Is Default | Read-only | Whether this is the default gate |
 | Is Built-In | Read-only | Whether this is a built-in gate |
 | Conditions Count | Read-only | Number of conditions on this gate |
-| Target Organization | Read-only | Target SonarCloud organization |
+| Target Organization | Read-only | Target SonarQube Cloud organization |
 
 **Example:**
 ```csv
@@ -168,7 +168,7 @@ Uses a **parent/child row pattern**. Portfolio header rows have empty member fie
 | Visibility | Read-only | *(header row only)* Portfolio visibility |
 | Member Project Key | Read-only | *(member row)* Project key |
 | Member Project Name | Read-only | *(member row)* Project name |
-| Target Organization | Read-only | Target SonarCloud organization |
+| Target Organization | Read-only | Target SonarQube Cloud organization |
 
 ### template-mappings.csv (Parent/Child Pattern)
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -183,7 +183,7 @@ Uses a **parent/child row pattern**. Template header rows have empty permission 
 | Key Pattern | Read-only | *(header row only)* Project key pattern regex |
 | Permission Key | Read-only | *(permission row)* Permission key (e.g., `admin`, `codeviewer`) |
 | Group Name | Read-only | *(permission row)* Group that has this permission |
-| Target Organization | Read-only | Target SonarCloud organization |
+| Target Organization | Read-only | Target SonarQube Cloud organization |
 
 ### global-permissions.csv
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -199,20 +199,20 @@ One row per group+permission combination.
 ### user-mappings.csv
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-One row per unique SonarQube issue assignee, sorted by issue count (descending). This CSV enables mapping SonarQube usernames to SonarCloud logins, which typically differ because SonarCloud uses SSO/GitHub authentication.
+One row per unique SonarQube Server issue assignee, sorted by issue count (descending). This CSV enables mapping SonarQube Server usernames to SonarQube Cloud logins, which typically differ because SonarQube Cloud uses SSO/GitHub authentication.
 
 | Column | Editable | Description |
 |--------|----------|-------------|
 | Include | Yes | Set to `no` to skip assignment for this user entirely |
-| SonarQube Login | Read-only | Username/login from SonarQube |
-| SonarCloud Login | **Yes** | Fill in the corresponding SonarCloud login for this user |
-| Display Name | Read-only | User's display name from SonarQube (for identification) |
-| Email | Read-only | User's email from SonarQube (for identification) |
+| SonarQube Server Login | Read-only | Username/login from SonarQube Server |
+| SonarQube Cloud Login | **Yes** | Fill in the corresponding SonarQube Cloud login for this user |
+| Display Name | Read-only | User's display name from SonarQube Server (for identification) |
+| Email | Read-only | User's email from SonarQube Server (for identification) |
 | Issue Count | Read-only | Total number of issues assigned to this user across all projects |
 
 **Example:**
 ```csv
-Include,SonarQube Login,SonarCloud Login,Display Name,Email,Issue Count
+Include,SonarQube Server Login,SonarQube Cloud Login,Display Name,Email,Issue Count
 yes,john.doe,john-doe-github,John Doe,john@example.com,42
 yes,jane.smith,jsmith,Jane Smith,jane@example.com,15
 no,service-account,,Service Account,,3
@@ -220,10 +220,10 @@ yes,dev.user,,Dev User,dev@example.com,1
 ```
 
 In this example:
-- `john.doe` will be mapped to `john-doe-github` in SonarCloud
-- `jane.smith` will be mapped to `jsmith` in SonarCloud
+- `john.doe` will be mapped to `john-doe-github` in SonarQube Cloud
+- `jane.smith` will be mapped to `jsmith` in SonarQube Cloud
 - `service-account` is excluded — its issues will not be assigned to anyone
-- `dev.user` has no SonarCloud Login filled in — assignment will be attempted with the original SQ login `dev.user` (current default behavior)
+- `dev.user` has no SonarQube Cloud Login filled in — assignment will be attempted with the original SQ login `dev.user` (current default behavior)
 
 **Note:** The Display Name and Email columns are provided to help identify users — they are not used during migration.
 
@@ -252,9 +252,9 @@ In `group-mappings.csv`, set `Include` to `no` for the group row.
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 In `template-mappings.csv`, set `Include` to `no` on the specific permission row (not the template header).
 
-### Map a SonarQube user to a SonarCloud user
+### Map a SonarQube Server user to a SonarQube Cloud user
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
-In `user-mappings.csv`, fill in the `SonarCloud Login` column with the user's SonarCloud login (e.g., their GitHub username).
+In `user-mappings.csv`, fill in the `SonarQube Cloud Login` column with the user's SonarQube Cloud login (e.g., their GitHub username).
 
 ### Skip assignment for a service account
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -274,7 +274,7 @@ The shared `csv-entity-filters.js` module (`src/shared/mapping/csv-entity-filter
 
 - CSVs are RFC 4180 compliant. Fields containing commas, quotes, or newlines are properly quoted.
 - Running `--dry-run` again will regenerate fresh CSVs, overwriting any edits.
-- If CSV references entities that no longer exist in SonarQube (e.g., a project was deleted between dry-run and full run), a warning is logged and the reference is skipped.
+- If CSV references entities that no longer exist in SonarQube Server (e.g., a project was deleted between dry-run and full run), a warning is logged and the reference is skipped.
 - Gate names, project keys, and group names are matched **case-sensitively**.
 - If a migration is interrupted mid-run, re-running the same command resumes from the last checkpoint. Already-migrated projects and resources are skipped.
 

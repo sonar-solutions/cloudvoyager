@@ -9,9 +9,9 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [The Core Innovation: Reverse-Engineered Scanner Protocol](#2-the-core-innovation-reverse-engineered-scanner-protocol)
-3. [Exhaustive SonarQube Data Extraction](#3-exhaustive-sonarqube-data-extraction)
+3. [Exhaustive SonarQube Server Data Extraction](#3-exhaustive-sonarqube-data-extraction)
 4. [Protobuf Report Encoding Engine](#4-protobuf-report-encoding-engine)
-5. [SonarCloud Integration and Upload](#5-sonarcloud-integration-and-upload)
+5. [SonarQube Cloud Integration and Upload](#5-sonarcloud-integration-and-upload)
 6. [Full Organization Migration Pipeline](#6-full-organization-migration-pipeline)
 7. [Issue and Hotspot Metadata Synchronization](#7-issue-and-hotspot-metadata-synchronization)
 8. [Quality Profile and Quality Gate Migration](#8-quality-profile-and-quality-gate-migration)
@@ -40,9 +40,9 @@
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## 1. Executive Summary
 
-CloudVoyager is a CLI tool that migrates complete SonarQube installations to SonarCloud **without requiring a single line of code to be re-scanned**. It achieves this by reverse-engineering SonarScanner's internal protobuf report protocol and rebuilding the entire data pipeline from the ground up in Node.js.
+CloudVoyager is a CLI tool that migrates complete SonarQube Server installations to SonarQube Cloud **without requiring a single line of code to be re-scanned**. It achieves this by reverse-engineering SonarScanner's internal protobuf report protocol and rebuilding the entire data pipeline from the ground up in Node.js.
 
-Where existing migration approaches require re-running CI/CD scanners against every project (a process that can take days or weeks across large portfolios), CloudVoyager extracts all data directly from SonarQube's API and repackages it into the exact binary format that SonarCloud's Compute Engine expects. The result is a migration that preserves code issues, security hotspots, measures, quality gates, quality profiles, permissions, and project metadata — all in a fraction of the time.
+Where existing migration approaches require re-running CI/CD scanners against every project (a process that can take days or weeks across large portfolios), CloudVoyager extracts all data directly from SonarQube Server's API and repackages it into the exact binary format that SonarQube Cloud's Compute Engine expects. The result is a migration that preserves code issues, security hotspots, measures, quality gates, quality profiles, permissions, and project metadata — all in a fraction of the time.
 
 **Key metrics from production use:**
 - 29 out of 29 projects migrated successfully in a single run (~16 minutes)
@@ -58,7 +58,7 @@ Where existing migration approaches require re-running CI/CD scanners against ev
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### The Problem
 
-SonarCloud's ingestion pipeline is not designed for external data import. It accepts data exclusively through a proprietary protobuf-based scanner report format, submitted to an internal Compute Engine (CE) endpoint. This format is undocumented for external consumers. There is no official migration path from SonarQube to SonarCloud that preserves historical data without re-scanning.
+SonarQube Cloud's ingestion pipeline is not designed for external data import. It accepts data exclusively through a proprietary protobuf-based scanner report format, submitted to an internal Compute Engine (CE) endpoint. This format is undocumented for external consumers. There is no official migration path from SonarQube Server to SonarQube Cloud that preserves historical data without re-scanning.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### The Approach
@@ -70,20 +70,20 @@ CloudVoyager reverse-engineered the scanner report protocol by:
 3. **Identifying encoding conventions** — Discovering that the report uses two distinct encoding styles:
    - **Single-message encoding** for metadata, components, and changesets (one protobuf message per file)
    - **Length-delimited streaming** for issues, measures, and active rules (multiple messages concatenated with varint length prefixes)
-4. **Mapping the ZIP archive structure** — Reconstructing the exact file naming conventions (`metadata.pb`, `component-{ref}.pb`, `issues-{ref}.pb`, `measures-{ref}.pb`, `source-{ref}.txt`, `activerules.pb`, `changesets-{ref}.pb`, `context-props.pb`) expected by SonarCloud's CE endpoint.
+4. **Mapping the ZIP archive structure** — Reconstructing the exact file naming conventions (`metadata.pb`, `component-{ref}.pb`, `issues-{ref}.pb`, `measures-{ref}.pb`, `source-{ref}.txt`, `activerules.pb`, `changesets-{ref}.pb`, `context-props.pb`) expected by SonarQube Cloud's CE endpoint.
 5. **Rebuilding the pipeline in Node.js** — Implementing the entire encode-and-submit pipeline using `protobufjs`, with the proto schemas inlined directly into the bundle so no external schema files are needed at runtime.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Why This Matters
 
-This is a novel capability. No other tool reconstructs SonarScanner's internal binary protocol to inject data into SonarCloud. The approach bypasses the need for source code access entirely — CloudVoyager needs only API-level access to SonarQube to produce a report that SonarCloud treats as a legitimate scanner submission.
+This is a novel capability. No other tool reconstructs SonarScanner's internal binary protocol to inject data into SonarQube Cloud. The approach bypasses the need for source code access entirely — CloudVoyager needs only API-level access to SonarQube Server to produce a report that SonarQube Cloud treats as a legitimate scanner submission.
 
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
-## 3. Exhaustive SonarQube Data Extraction
+## 3. Exhaustive SonarQube Server Data Extraction
 
-CloudVoyager includes **24 specialized extractor modules** covering every category of data available through SonarQube's REST API. The extraction system is designed to be both exhaustive and resilient — server-wide extraction continues even if individual items fail.
+CloudVoyager includes **24 specialized extractor modules** covering every category of data available through SonarQube Server's REST API. The extraction system is designed to be both exhaustive and resilient — server-wide extraction continues even if individual items fail.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Code and Analysis Data
@@ -129,7 +129,7 @@ CloudVoyager includes **24 specialized extractor modules** covering every catego
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Pagination Handling
 
-The SonarQube API client handles pagination transparently via a `getPaginated` method that auto-fetches all pages and concatenates results. Different endpoints enforce different page size limits (some cap at 100 instead of 500), and each extractor handles this automatically.
+The SonarQube Server API client handles pagination transparently via a `getPaginated` method that auto-fetches all pages and concatenates results. Different endpoints enforce different page size limits (some cap at 100 instead of 500), and each extractor handles this automatically.
 
 ---
 
@@ -141,7 +141,7 @@ The SonarQube API client handles pagination transparently via a `getPaginated` m
 
 CloudVoyager uses a **builder-encoder** architecture that separates message construction from binary serialization:
 
-1. **Builder phase** (`builder.js`, `build-components.js`, `build-issues.js`, `build-measures.js`) — Transforms extracted SonarQube data into structured JavaScript objects matching the protobuf schema. Manages component reference mapping (sequential integer IDs) to maintain relationships between files, issues, and measures.
+1. **Builder phase** (`builder.js`, `build-components.js`, `build-issues.js`, `build-measures.js`) — Transforms extracted SonarQube Server data into structured JavaScript objects matching the protobuf schema. Manages component reference mapping (sequential integer IDs) to maintain relationships between files, issues, and measures.
 
 2. **Encoder phase** (`encoder.js`) — Takes the built messages and serializes them to binary protobuf format using `protobufjs`. Handles both single-message and length-delimited encoding styles.
 
@@ -165,7 +165,7 @@ The `.proto` schema files are loaded as inline text at build time (via esbuild's
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Flat Component Model
 
-Components use a flat structure where all files are direct children of the project root (no intermediate directory components). Line counts are derived from actual source file content rather than SonarQube's measures API, ensuring accuracy.
+Components use a flat structure where all files are direct children of the project root (no intermediate directory components). Line counts are derived from actual source file content rather than SonarQube Server's measures API, ensuring accuracy.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Measure Type Intelligence
@@ -183,7 +183,7 @@ Active rules are filtered to only include languages actually used in the project
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
-## 5. SonarCloud Integration and Upload
+## 5. SonarQube Cloud Integration and Upload
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Report Packaging
@@ -205,7 +205,7 @@ scanner-report.zip
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Compute Engine Submission
 
-The report is submitted to SonarCloud's CE endpoint as a multipart form upload with:
+The report is submitted to SonarQube Cloud's CE endpoint as a multipart form upload with:
 - The ZIP archive as the report payload
 - Project key and organization context
 - Optional analysis parameters
@@ -213,20 +213,20 @@ The report is submitted to SonarCloud's CE endpoint as a multipart form upload w
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Duplicate Detection via SCM Revision
 
-Each report includes an `scm_revision_id` (git commit hash) in its metadata. SonarCloud uses this to detect and reject duplicate submissions, preventing accidental data duplication across multiple migration runs.
+Each report includes an `scm_revision_id` (git commit hash) in its metadata. SonarQube Cloud uses this to detect and reject duplicate submissions, preventing accidental data duplication across multiple migration runs.
 
 ### Accurate Issue Creation Date Preservation
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> in SonarCloud. `backdateChangesets()` reads each issue's `creationDate` and maps it to per-line SCM blame dates in the changeset protobuf. The CE takes MAX(date) across an issue's `textRange` lines, so "oldest wins" for overlapping lines ensures accurate creation dates. A safety split handles calendar days with >5K issues (sub-groups with 1-day-spaced synthetic dates, no file splitting). This produces a realistic historical distribution in SonarCloud's creation date facet matching the original SonarQube project history, instead of arbitrary batch-spaced clusters.
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> in SonarQube Cloud. `backdateChangesets()` reads each issue's `creationDate` and maps it to per-line SCM blame dates in the changeset protobuf. The CE takes MAX(date) across an issue's `textRange` lines, so "oldest wins" for overlapping lines ensures accurate creation dates. A safety split handles calendar days with >5K issues (sub-groups with 1-day-spaced synthetic dates, no file splitting). This produces a realistic historical distribution in SonarQube Cloud's creation date facet matching the original SonarQube Server project history, instead of arbitrary batch-spaced clusters.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Branch Name Resolution
 
-The tool resolves the main branch name from SonarCloud (not SonarQube) to avoid mismatches where SonarQube uses "main" but SonarCloud expects "master" or vice versa.
+The tool resolves the main branch name from SonarQube Cloud (not SonarQube Server) to avoid mismatches where SonarQube Server uses "main" but SonarQube Cloud expects "master" or vice versa.
 
 ### Multi-Branch Support
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> by default (`syncAllBranches: true`), with the main branch always transferred first (SonarCloud's CE requires the main branch report before non-main branches can be submitted). Branch selection can be controlled through:
+<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> by default (`syncAllBranches: true`), with the main branch always transferred first (SonarQube Cloud's CE requires the main branch report before non-main branches can be submitted). Branch selection can be controlled through:
 
 - **Exclude list** (`excludeBranches` in config) — skip specific branches by name
 - **Include list** (`includeBranches` in config) — only transfer listed branches
@@ -238,14 +238,14 @@ Completed branches are tracked in the state file, so interrupted transfers skip 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Analysis Wait Mode
 
-The `--wait` flag causes the tool to poll SonarCloud's CE task queue until the uploaded report has been fully analyzed. This is useful for CI/CD integration or sequential migration workflows where downstream steps depend on analysis completion.
+The `--wait` flag causes the tool to poll SonarQube Cloud's CE task queue until the uploaded report has been fully analyzed. This is useful for CI/CD integration or sequential migration workflows where downstream steps depend on analysis completion.
 
 ---
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## 6. Full Organization Migration Pipeline
 
-The `migrate` command orchestrates a comprehensive, multi-stage pipeline that transfers an entire SonarQube installation — not just code, but all organizational configuration.
+The `migrate` command orchestrates a comprehensive, multi-stage pipeline that transfers an entire SonarQube Server installation — not just code, but all organizational configuration.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Pipeline Stages
@@ -255,7 +255,7 @@ The `migrate` command orchestrates a comprehensive, multi-stage pipeline that tr
    ↓
 2. Output Directory Initialization
    ↓
-3. SonarQube Connection Verification
+3. SonarQube Server Connection Verification
    ↓
 4. Full Project Discovery
    ↓
@@ -299,10 +299,10 @@ Server-wide extraction wraps each item in a non-fatal handler. If extracting qua
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Dry-Run Mode
 
-The `--dry-run` flag executes all extraction and mapping steps but stops before making any changes to SonarCloud. This allows teams to:
+The `--dry-run` flag executes all extraction and mapping steps but stops before making any changes to SonarQube Cloud. This allows teams to:
 - Review the generated organization mapping CSVs
-- Map SonarQube users to SonarCloud users via `user-mappings.csv` (since logins typically differ between SQ and SC)
-- Validate that all SonarQube data is accessible
+- Map SonarQube Server users to SonarQube Cloud users via `user-mappings.csv` (since logins typically differ between SQ and SC)
+- Validate that all SonarQube Server data is accessible
 - Verify project key resolution without side effects
 
 ---
@@ -310,15 +310,15 @@ The `--dry-run` flag executes all extraction and mapping steps but stops before 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## 7. Issue and Hotspot Metadata Synchronization
 
-After uploading the scanner report (which creates issues in SonarCloud with default "Open" status), CloudVoyager synchronizes the full lifecycle metadata from SonarQube.
+After uploading the scanner report (which creates issues in SonarQube Cloud with default "Open" status), CloudVoyager synchronizes the full lifecycle metadata from SonarQube Server.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Issue Sync
 
-For each issue in SonarQube, the sync engine:
+For each issue in SonarQube Server, the sync engine:
 
-1. **Matches** the corresponding SonarCloud issue by composite key: `rule + component + line number`
-2. **Transitions** the status using SonarCloud's workflow API:
+1. **Matches** the corresponding SonarQube Cloud issue by composite key: `rule + component + line number`
+2. **Transitions** the status using SonarQube Cloud's workflow API:
    - `CONFIRMED` → `confirm`
    - `REOPENED` → `reopen`
    - `OPEN` → `unconfirm`
@@ -326,15 +326,15 @@ For each issue in SonarQube, the sync engine:
    - `ACCEPTED` → `accept`
    - `FALSE-POSITIVE` → `falsepositive`
    - `WONTFIX` → `wontfix`
-   - `IN_SANDBOX` (SonarQube 2025+) → no transition; the issue stays `OPEN` on SonarCloud because there is no equivalent state. See [Troubleshooting](./troubleshooting.md) for details.
+   - `IN_SANDBOX` (SonarQube Server 2025+) → no transition; the issue stays `OPEN` on SonarQube Cloud because there is no equivalent state. See [Troubleshooting](./troubleshooting.md) for details.
 3. **Assigns** the issue to the corresponding user, using the `user-mappings.csv` when available:
-   - If a SonarCloud Login is mapped in the CSV, uses the mapped login
+   - If a SonarQube Cloud Login is mapped in the CSV, uses the mapped login
    - If the user is excluded (`Include=no`), skips assignment
-   - Otherwise, falls back to the original SonarQube login
-4. **Copies comments** from SonarQube to SonarCloud
-5. **Sets tags** to match the SonarQube tags
+   - Otherwise, falls back to the original SonarQube Server login
+4. **Copies comments** from SonarQube Server to SonarQube Cloud
+5. **Sets tags** to match the SonarQube Server tags
 
-When multiple SonarCloud issues match the same composite key, the engine uses a first-unmatched-candidate strategy to avoid double-assignment.
+When multiple SonarQube Cloud issues match the same composite key, the engine uses a first-unmatched-candidate strategy to avoid double-assignment.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Hotspot Sync
@@ -363,18 +363,18 @@ The operation is **idempotent** — running it multiple times will not duplicate
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Quality Profile Migration
 
-Quality profiles are migrated using SonarQube's **backup/restore XML format**, which preserves:
+Quality profiles are migrated using SonarQube Server's **backup/restore XML format**, which preserves:
 - All rule activations and deactivations
 - Severity overrides
 - Rule parameter values
 - Language-specific configurations
 
-**Built-in profile handling** is a noteworthy engineering detail. SonarCloud's built-in profiles (e.g., "Sonar way") cannot be overwritten. CloudVoyager handles this by:
-1. Extracting the built-in profile's backup XML from SonarQube
-2. Restoring it as a **custom profile** with a `(SonarQube Migrated)` suffix
+**Built-in profile handling** is a noteworthy engineering detail. SonarQube Cloud's built-in profiles (e.g., "Sonar way") cannot be overwritten. CloudVoyager handles this by:
+1. Extracting the built-in profile's backup XML from SonarQube Server
+2. Restoring it as a **custom profile** with a `(SonarQube Server Migrated)` suffix
 3. Automatically assigning the migrated custom profile to each project
 
-This ensures that the exact same rules are active in SonarCloud as they were in SonarQube, even when the built-in profiles have diverged between versions.
+This ensures that the exact same rules are active in SonarQube Cloud as they were in SonarQube Server, even when the built-in profiles have diverged between versions.
 
 **Inheritance chains** are preserved by restoring profiles in dependency order — parent profiles are restored before their children.
 
@@ -382,15 +382,15 @@ This ensures that the exact same rules are active in SonarCloud as they were in 
 ### Quality Profile Diff Reports
 
 After migration, a side-by-side comparison report is generated per language:
-- **Missing rules**: Active in SonarQube but not available in SonarCloud (may cause fewer issues to be detected)
-- **Added rules**: Available in SonarCloud but not in SonarQube (may create new issues)
+- **Missing rules**: Active in SonarQube Server but not available in SonarQube Cloud (may cause fewer issues to be detected)
+- **Added rules**: Available in SonarQube Cloud but not in SonarQube Server (may create new issues)
 
 This enables teams to review rule parity before going live.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Quality Gate Migration
 
-Quality gates are created with their full condition definitions (metric, operator, error threshold). Gate permissions are migrated for custom gates, and project assignments are applied per the organization mapping. Built-in gates are skipped since SonarCloud provides its own defaults.
+Quality gates are created with their full condition definitions (metric, operator, error threshold). Gate permissions are migrated for custom gates, and project assignments are applied per the organization mapping. Built-in gates are skipped since SonarQube Cloud provides its own defaults.
 
 ---
 
@@ -400,7 +400,7 @@ Quality gates are created with their full condition definitions (metric, operato
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Group Migration
 
-User groups are extracted from SonarQube and recreated in each target SonarCloud organization with matching names and descriptions.
+User groups are extracted from SonarQube Server and recreated in each target SonarQube Cloud organization with matching names and descriptions.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Permission Migration
@@ -414,7 +414,7 @@ Three levels of permissions are migrated:
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Portfolio Migration
 
-Portfolios are recreated in SonarCloud with their project associations preserved, maintaining the organizational hierarchy for executive-level views.
+Portfolios are recreated in SonarQube Cloud with their project associations preserved, maintaining the organizational hierarchy for executive-level views.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Project Configuration Migration
@@ -434,19 +434,19 @@ Per-project settings that are migrated include:
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Intelligent Project-to-Organization Mapping
 
-For enterprises migrating to multiple SonarCloud organizations, CloudVoyager automatically maps projects to target organizations based on their **DevOps platform bindings**:
+For enterprises migrating to multiple SonarQube Cloud organizations, CloudVoyager automatically maps projects to target organizations based on their **DevOps platform bindings**:
 
 1. Projects are grouped by their ALM binding (e.g., GitHub organization, GitLab group, Azure DevOps team)
-2. Each binding group is matched to the corresponding target SonarCloud organization
+2. Each binding group is matched to the corresponding target SonarQube Cloud organization
 3. Unbound projects fall back to the first configured organization
 4. The mapping is exported as CSV for human review before execution
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Project Key Resolution
 
-SonarCloud requires globally unique project keys across all organizations. CloudVoyager handles this with a smart fallback strategy:
+SonarQube Cloud requires globally unique project keys across all organizations. CloudVoyager handles this with a smart fallback strategy:
 
-1. Attempt to use the original SonarQube project key
+1. Attempt to use the original SonarQube Server project key
 2. If the key is already taken by another organization, fall back to `{org}_{key}`
 3. If the key is already owned by the target organization (from a previous run), reuse it
 4. All key conflicts are logged and reported in the migration summary
@@ -466,7 +466,7 @@ The mapping module generates **9 structured CSV files** for human review and edi
 | `portfolio-mappings.csv` | Portfolio definitions and project associations |
 | `template-mappings.csv` | Permission template definitions and group assignments |
 | `global-permissions.csv` | Organization-wide permission assignments |
-| `user-mappings.csv` | SonarQube-to-SonarCloud user login mapping |
+| `user-mappings.csv` | SonarQube Server-to-SonarQube Cloud user login mapping |
 
 Each CSV includes an `Include` column — setting it to `no` excludes that item from migration. Users edit these CSVs between a `--dry-run` and the actual migration run.
 
@@ -496,7 +496,7 @@ Different operations have different optimal concurrency levels, reflecting API r
 | Source file extraction | 10 | I/O-bound, benefits from parallelism |
 | Hotspot detail fetching | 10 | Many small requests |
 | Issue metadata sync | 5 | Write operations, moderate rate limits |
-| Hotspot metadata sync | 3 | Aggressive SonarCloud rate limiting |
+| Hotspot metadata sync | 3 | Aggressive SonarQube Cloud rate limiting |
 | Project migration | 1 | Heavy per-project workload |
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
@@ -660,7 +660,7 @@ An earlier architecture used **worker threads** for protobuf encoding. This was 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Two-Layer Rate Limiting Strategy
 
-The SonarCloud API client implements a configurable two-layer approach:
+The SonarQube Cloud API client implements a configurable two-layer approach:
 
 **Layer 1: Exponential Backoff Retry**
 - Triggers on HTTP 503 (Service Unavailable) and 429 (Too Many Requests) responses
@@ -777,7 +777,7 @@ CloudVoyager's checkpoint system enables true pause/resume for all migration com
 - **Concurrent run prevention**: Lock file with PID and hostname prevents two instances from corrupting state
 - **Stale lock detection**: Dead-process locks are auto-released; cross-machine locks require `--force-unlock`
 - **Upload deduplication**: Before re-uploading after a crash, checks CE activity to prevent duplicate tasks
-- **Session fingerprint validation**: Warns (or blocks with `strictResume`) on SonarQube version changes between runs
+- **Session fingerprint validation**: Warns (or blocks with `strictResume`) on SonarQube Server version changes between runs
 - **Atomic state writes**: Write-to-temp + fsync + rename prevents corruption from mid-write crashes
 
 ### CLI Flags
@@ -829,9 +829,9 @@ Reports include:
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Quality Profile Diff Report
 
-A specialized JSON report (`quality-profile-diff.json`) compares active rules per language between SonarQube source profiles and SonarCloud target profiles, identifying:
-- **Missing rules**: Rules active in SonarQube but not available on SonarCloud
-- **Added rules**: Rules on SonarCloud not present in SonarQube
+A specialized JSON report (`quality-profile-diff.json`) compares active rules per language between SonarQube Server source profiles and SonarQube Cloud target profiles, identifying:
+- **Missing rules**: Rules active in SonarQube Server but not available on SonarQube Cloud
+- **Added rules**: Rules on SonarQube Cloud not present in SonarQube Server
 
 ---
 
@@ -891,8 +891,8 @@ Performance and rate-limit schemas are shared across all configuration types, en
 ### Operational Safeguards
 
 - **`validate`** — Always run before migration to catch config issues early
-- **`test`** — Verify connectivity to both SonarQube and SonarCloud before committing to a long migration
-- **`--dry-run`** — Execute extraction and mapping without writing to SonarCloud
+- **`test`** — Verify connectivity to both SonarQube Server and SonarQube Cloud before committing to a long migration
+- **`--dry-run`** — Execute extraction and mapping without writing to SonarQube Cloud
 - **`--verbose`** — Debug-level logging for troubleshooting
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
@@ -953,14 +953,14 @@ API client errors include specific diagnostics based on the underlying network e
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ## 22. Migration Verification Pipeline
 
-After migration, CloudVoyager can **verify** that all data was transferred correctly by exhaustively comparing SonarQube and SonarCloud. The `verify` command performs read-only checks and generates a detailed pass/fail report.
+After migration, CloudVoyager can **verify** that all data was transferred correctly by exhaustively comparing SonarQube Server and SonarQube Cloud. The `verify` command performs read-only checks and generates a detailed pass/fail report.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### What Gets Verified
 
 | Category | Checks |
 |----------|--------|
-| **Issues** | Count parity, status matching (False Positive, Accepted, Won't Fix, Confirmed, Resolved, Reopened, Open), status history (changelog transition sequence verification), assignments, comments (`[Migrated from SonarQube]` prefix detection), custom tags |
+| **Issues** | Count parity, status matching (False Positive, Accepted, Won't Fix, Confirmed, Resolved, Reopened, Open), status history (changelog transition sequence verification), assignments, comments (`[Migrated from SonarQube Server]` prefix detection), custom tags |
 | **Hotspots** | Count parity, status matching (Safe, Acknowledged, Fixed, To Review), comments |
 | **Branches** | All SQ branches exist in SC |
 | **Measures** | 18 key metrics (ncloc, complexity, violations, coverage, etc.) |
@@ -1014,8 +1014,8 @@ This ensures the verification is comparing exactly the same pairs that were sync
 | Total source lines | ~40,000+ (CLI) + ~2,000 (Desktop) |
 | Source files | 322 JS files (CLI) + 24 files (Desktop) |
 | Version-specific pipelines | 4 (sq-9.9, sq-10.0, sq-10.4, sq-2025) — 66 JS files each |
-| SonarQube extractor modules | 24 |
-| SonarCloud migrator modules | 9 |
+| SonarQube Server extractor modules | 24 |
+| SonarQube Cloud migrator modules | 9 |
 | CLI commands | 9 |
 | Report output formats | 6 (JSON, MD, TXT, PDF x3 types) |
 | Supported binary platforms | 6 (all via Node.js SEA) |
@@ -1033,7 +1033,7 @@ This ensures the verification is comparing exactly the same pairs that were sync
 | Zero-dependency concurrency | Avoid bloat; the custom implementation is ~80 lines and covers all use cases |
 | Dual packaging backends (SEA + Bun) | Node.js SEA for stability (default), Bun compile as experimental alternative for faster builds |
 | Inline proto schemas | Eliminate runtime file I/O dependencies for standalone binary compatibility |
-| Issue batching (5K per date bucket) | Splits large issue sets across multiple scanner reports with backdated `analysis_date` values to stay under SonarCloud's ES 10K visualization limit |
+| Issue batching (5K per date bucket) | Splits large issue sets across multiple scanner reports with backdated `analysis_date` values to stay under SonarQube Cloud's ES 10K visualization limit |
 | Builder-encoder separation | Clean architecture; business logic in builders, serialization in encoder |
 | Non-fatal extraction | Maximize migration completeness even when individual items fail |
 | Settled-mode concurrency | Partial success is better than total failure for large-scale operations |
@@ -1046,8 +1046,8 @@ This ensures the verification is comparing exactly the same pairs that were sync
 1. **No existing tool does this.** CloudVoyager is the first to reverse-engineer SonarScanner's protobuf protocol and reconstruct it programmatically.
 2. **Zero source code access required.** The migration operates entirely at the API level — no repository cloning, no build systems, no CI/CD integration needed.
 3. **Complete fidelity.** Issues, hotspots, measures, quality gates, quality profiles, permissions, groups, templates, portfolios, settings, tags, links, bindings, and new code periods are all preserved.
-4. **Handles projects with 10,000+ issues.** SonarQube caps `/api/issues/search` at 10K results; CloudVoyager automatically detects this and uses date-window bisection (search slicing) to retrieve every issue without data loss. On the upload side, issues are batched into groups of 5,000 with distinct `analysis_date` values to stay under SonarCloud's Elasticsearch visualization limit.
-5. **Robust external issue detection.** Third-party plugin issues are reliably detected even when the SonarCloud rule-repository API is unreachable, using a built-in fallback set of 43 known repositories with retry and exponential backoff.
+4. **Handles projects with 10,000+ issues.** SonarQube Server caps `/api/issues/search` at 10K results; CloudVoyager automatically detects this and uses date-window bisection (search slicing) to retrieve every issue without data loss. On the upload side, issues are batched into groups of 5,000 with distinct `analysis_date` values to stay under SonarQube Cloud's Elasticsearch visualization limit.
+5. **Robust external issue detection.** Third-party plugin issues are reliably detected even when the SonarQube Cloud rule-repository API is unreachable, using a built-in fallback set of 43 known repositories with retry and exponential backoff.
 6. **Production-proven at scale.** Successfully migrated 29 projects with 16,000+ issues in a single automated run.
 7. **Single binary, zero dependencies.** Distributed as a standalone executable — no runtime, no package manager, no setup.
 8. **Fast.** 29 projects, 53 quality profiles, and all organizational configuration migrated in under 16 minutes.
@@ -1094,7 +1094,7 @@ Phase 1 returns a context object consumed by Phase 2, enabling clean separation 
 | `transfer-branch.js` | Single-branch build→encode→upload pipeline (protobuf build, encode, upload via CE submitter) |
 | `ce-submitter.js` | CE submission with retry (submit → timeout → activity polling → re-submit → fail) |
 | `report-packager.js` | Scanner report ZIP creation (all protobuf file types + source text + context-props) |
-| `issue-status-mapper.js` | SonarQube→SonarCloud issue status transition mapping with changelog replay and fallback modes |
+| `issue-status-mapper.js` | SonarQube Server→SonarQube Cloud issue status transition mapping with changelog replay and fallback modes |
 | `checkpoint-extractor.js` | 13-phase checkpoint-aware extraction with journal/cache (project metadata through syntax highlighting) |
 
 ### CSV Entity Filtering
@@ -1138,7 +1138,7 @@ Features: monotonic progress (never goes backward), ETA calculation from recent 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### The Problem
 
-SonarCloud's Elasticsearch-backed UI has a visualization limit that hides issues when more than 10,000 exist in a single date bucket. For large projects migrated in a single scanner report, this means a significant portion of issues become invisible in the SonarCloud interface despite being successfully ingested.
+SonarQube Cloud's Elasticsearch-backed UI has a visualization limit that hides issues when more than 10,000 exist in a single date bucket. For large projects migrated in a single scanner report, this means a significant portion of issues become invisible in the SonarQube Cloud interface despite being successfully ingested.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### The Solution
@@ -1182,12 +1182,12 @@ Components and active rules are retained in all batches so that issues can be re
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Deduplication Prevention
 
-Each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')`. This prevents SonarCloud's Compute Engine from rejecting batches as duplicate submissions, since CE uses the SCM revision to detect re-uploads.
+Each batch receives a unique `scmRevisionId` generated via `randomBytes(20).toString('hex')`. This prevents SonarQube Cloud's Compute Engine from rejecting batches as duplicate submissions, since CE uses the SCM revision to detect re-uploads.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Submission Order
 
-Batches are submitted oldest-first (lowest `batchIndex` first). Each batch waits for its CE task to complete before the next batch is submitted, ensuring SonarCloud processes them in chronological order. The batching is transparent to the caller — `transferBranch` automatically detects when batching is needed and routes accordingly.
+Batches are submitted oldest-first (lowest `batchIndex` first). Each batch waits for its CE task to complete before the next batch is submitted, ensuring SonarQube Cloud processes them in chronological order. The batching is transparent to the caller — `transferBranch` automatically detects when batching is needed and routes accordingly.
 
 ---
 

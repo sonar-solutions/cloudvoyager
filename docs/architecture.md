@@ -7,7 +7,7 @@
 ## 📁 Project Structure
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
+CloudVoyager uses a **pipeline-per-version** architecture. Each supported SonarQube Server version range has its own self-contained pipeline, while shared (version-independent) code lives in `src/shared/`.
 
 ```
 src/
@@ -19,10 +19,10 @@ src/
 │   ├── sync-metadata.js               # Standalone metadata sync command
 │   └── verify.js                      # Migration verification command
 ├── pipelines/                        # Version-specific pipeline implementations
-│   ├── sq-9.9/                        # SonarQube 9.9 LTS
-│   ├── sq-10.0/                       # SonarQube 10.0–10.3
-│   ├── sq-10.4/                       # SonarQube 10.4–10.8
-│   └── sq-2025/                       # SonarQube 2025.1+
+│   ├── sq-9.9/                        # SonarQube Server 9.9 LTS
+│   ├── sq-10.0/                       # SonarQube Server 10.0–10.3
+│   ├── sq-10.4/                       # SonarQube Server 10.4–10.8
+│   └── sq-2025/                       # SonarQube Server 2025.1+
 └── shared/                           # Version-independent shared code
     ├── config/                        # Configuration loading and validation
     │   ├── loader.js                   # Config loading (Ajv + ajv-formats) for transfer commands
@@ -67,7 +67,7 @@ src/
     │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
     │   ├── progress.js                 # Checkpoint progress display and ETA
     │   ├── prompt.js                   # Interactive user prompts (confirmation dialogs)
-    │   ├── version.js                  # SonarQube version parsing and comparison
+    │   ├── version.js                  # SonarQube Server version parsing and comparison
     │   ├── portfolio-skip.js           # handleMissingEnterpriseKey — graceful portfolio skip when enterprise key absent
     │   ├── search-slicer/             # Date-window slicing for 10K+ issue retrieval (SQ & SC)
     │   │   ├── index.js                # fetchWithSlicing orchestrator
@@ -90,7 +90,7 @@ src/
     │   │   ├── apply-pre-filter.js     # Applies hasManualChanges pre-filter; sets stats.filtered
     │   │   └── wait-for-sc-indexing.js # Retries SC fetch until analysis is indexed (Issue #91)
     │   └── fallback-repos/
-    │       └── index.js                # 44 known SonarCloud rule repositories (fallback set)
+    │       └── index.js                # 44 known SonarQube Cloud rule repositories (fallback set)
     └── verification/                  # Migration verification
         ├── verify-pipeline.js          # Verification orchestrator (read-only comparison)
         ├── checkers/                   # Per-check verification modules
@@ -141,7 +141,7 @@ sq-{version}/
 │   ├── index.js                       # Full multi-org migration orchestrator
 │   └── helpers/                       # 10 helper files
 │
-├── sonarqube/                        # SonarQube integration
+├── sonarqube/                        # SonarQube Server integration
 │   ├── api-client.js                  # Re-export → api-client/index.js
 │   ├── api-client/
 │   │   ├── index.js                    # HTTP client (factory function: createSonarQubeClient)
@@ -194,7 +194,7 @@ sq-{version}/
 │       ├── scanner-report.proto
 │       └── constants.proto
 │
-├── sonarcloud/                       # SonarCloud integration
+├── sonarcloud/                       # SonarQube Cloud integration
 │   ├── api-client.js                  # Re-export → api-client/index.js (factory: createSonarCloudClient)
 │   ├── api-client/
 │   │   ├── index.js
@@ -207,7 +207,7 @@ sq-{version}/
 │   ├── enterprise-client/
 │   │   ├── index.js
 │   │   └── helpers/                    # 4 helper files
-│   ├── rule-enrichment.js             # Rule enrichment from SonarCloud (sq-9.9 uses this)
+│   ├── rule-enrichment.js             # Rule enrichment from SonarQube Cloud (sq-9.9 uses this)
 │   ├── api/
 │   │   ├── hotspots.js                 # Hotspot API methods (<50 lines)
 │   │   ├── issues.js                   # Re-export → issues/helpers/ (3 helpers)
@@ -256,7 +256,7 @@ sq-{version}/
 ### Shared Utilities — SCM Date Backdating
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-The **batch-distributor** (`src/shared/utils/batch-distributor/`) preserves each issue's original SonarQube creation date in SonarCloud by rewriting SCM changeset blame dates in the protobuf report.
+The **batch-distributor** (`src/shared/utils/batch-distributor/`) preserves each issue's original SonarQube Server creation date in SonarQube Cloud by rewriting SCM changeset blame dates in the protobuf report.
 
 The primary function is `backdateChangesets(extractedData)`, which:
 
@@ -277,18 +277,18 @@ Legacy helpers (`computeBatchPlan`, `computeBatchDate`, `createBatchExtractedDat
 ## 🔄 Version Routing
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-`version-router.js` detects the SonarQube server version and dynamically imports the correct pipeline:
+`version-router.js` detects the SonarQube Server version and dynamically imports the correct pipeline:
 
 1. Makes a lightweight `GET /api/system/status` call to get the server version
 2. Maps the version to a pipeline: `sq-9.9`, `sq-10.0`, `sq-10.4`, or `sq-2025`
 3. Dynamically imports `transfer-pipeline.js` and `migrate-pipeline.js` from the selected pipeline
 4. Returns the pipeline functions to the calling command
 
-No runtime version checks exist within any pipeline — each pipeline has its behavior hardcoded for its target SonarQube version range.
+No runtime version checks exist within any pipeline — each pipeline has its behavior hardcoded for its target SonarQube Server version range.
 
 | SQ Version | Pipeline | Key Differences |
 |------------|----------|-----------------|
-| 9.9 LTS | sq-9.9 | Legacy `statuses` param, Clean Code enriched from SonarCloud |
+| 9.9 LTS | sq-9.9 | Legacy `statuses` param, Clean Code enriched from SonarQube Cloud |
 | 10.0–10.3 | sq-10.0 | Legacy `statuses` param, native Clean Code |
 | 10.4–10.8 | sq-10.4 | Modern `issueStatuses` param |
 | 2025.1+ | sq-2025 | Modern `issueStatuses` param, Web API V2 with fallbacks |
@@ -318,12 +318,12 @@ Uses `pipelines/sq-{version}/transfer-pipeline.js` (selected by version-router):
 2. **Initialize state** — load previous state for incremental transfers
 3. **Acquire lock file** — prevent concurrent runs on the same project
 4. **Initialize checkpoint journal** — load or create checkpoint for pause/resume
-5. **Test connections** — verify SonarQube and SonarCloud connectivity
-6. **Extract data** — extract project data from SonarQube (issues, sources, measures, rules, hotspots, etc.) — 10+ extraction phases
+5. **Test connections** — verify SonarQube Server and SonarQube Cloud connectivity
+6. **Extract data** — extract project data from SonarQube Server (issues, sources, measures, rules, hotspots, etc.) — 10+ extraction phases
 7. **Build messages** — transform extracted data into protobuf message structures (including external issues + ad-hoc rules for unsupported plugins)
 8. **Encode** — encode messages to binary protobuf format
 9. **Package** — create ZIP archive (metadata.pb, component-N.pb, issues-N.pb, externalissues-N.pb, adhocrules.pb, measures-N.pb, duplications-N.pb, source-N.txt, activerules.pb, changesets-N.pb)
-10. **Upload** — submit scanner report ZIP to SonarCloud CE endpoint
+10. **Upload** — submit scanner report ZIP to SonarQube Cloud CE endpoint
 11. **Metadata sync** — sync issue statuses, comments, assignments, and tags from SQ to SC; sync hotspot statuses, comments, and source links (skippable via `skipIssueMetadataSync` / `skipHotspotMetadataSync`)
 12. **Release lock** — release the advisory lock file
 13. **Update state** — record successful transfer in state file
@@ -348,7 +348,7 @@ Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
    - Compare quality profiles and write diff report (`quality-profiles/quality-profile-diff.json`)
    - Create permission templates
    - For each project (11 steps):
-     - Resolve project key (use original SonarQube key; fall back to `{org}_{key}` if taken globally)
+     - Resolve project key (use original SonarQube Server key; fall back to `{org}_{key}` if taken globally)
      - Upload scanner report (via transfer pipeline)
      - Sync issue statuses, assignments, comments, tags
      - Sync hotspot statuses and comments
@@ -368,8 +368,8 @@ On resume, completed organizations and projects are skipped based on the migrati
 
 Uses `shared/verification/verify-pipeline.js`:
 
-1. **Connect to SonarQube** — verify connectivity
-2. **Fetch project list** — get all projects from SonarQube
+1. **Connect to SonarQube Server** — verify connectivity
+2. **Fetch project list** — get all projects from SonarQube Server
 3. **Build org mappings** — map projects to target orgs (same logic as `migrate`)
 4. **For each target organization:**
    - Verify quality gates (existence + conditions)
@@ -378,7 +378,7 @@ Uses `shared/verification/verify-pipeline.js`:
    - Verify global permissions
    - Verify permission templates
    - For each project:
-     - Verify project exists in SonarCloud
+     - Verify project exists in SonarQube Cloud
      - Verify branches (SQ vs SC)
      - Verify issues (matched by rule+file+line; compare statuses, status history via changelog, assignments, comments, tags)
      - Verify hotspots (matched by rule+file+line; compare statuses, comments)
@@ -386,7 +386,7 @@ Uses `shared/verification/verify-pipeline.js`:
      - Verify quality gate and profile assignments
      - Verify project settings, tags, links, new code periods, DevOps bindings
      - Verify project permissions
-5. **Portfolio check** — reference-only verification (always skipped; requires Enterprise API access that is not available). SonarQube portfolios are listed in the report for manual reference but no SonarCloud comparison is performed.
+5. **Portfolio check** — reference-only verification (always skipped; requires Enterprise API access that is not available). SonarQube Server portfolios are listed in the report for manual reference but no SonarQube Cloud comparison is performed.
 6. **Generate reports** — JSON, Markdown, PDF, and console summary
 
 <!-- Updated: Mar 25, 2026 -->
@@ -394,7 +394,7 @@ Uses `shared/verification/verify-pipeline.js`:
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
 - **Extractor Pattern** — specialized modules for each data type with consistent interface
-- **Migrator Pattern** — specialized modules for each SonarCloud migration target
+- **Migrator Pattern** — specialized modules for each SonarQube Cloud migration target
 - **Client-Service Pattern** — API clients handle HTTP, services handle business logic
 - **Builder Pattern** — ProtobufBuilder constructs complex message structures
 - **State Pattern** — StateTracker manages transfer state for incremental sync
@@ -408,7 +408,7 @@ Uses `shared/verification/verify-pipeline.js`:
   - Server-wide extraction steps run via `Promise.all` (quality gates, profiles, groups, permissions, templates, portfolios, server info, webhooks)
   - Org-wide resource migration uses two-batch parallelism: batch 1 (independent: groups, gates, profiles, templates) then batch 2 (dependent: global permissions, profile comparison)
   - Project-level steps run in parallel where possible (issue + hotspot sync concurrent, config steps concurrent, gate/profile/permission assignment concurrent)
-- **Shared Throttler Pattern** — SonarCloud API clients within an org share a single POST throttler (`sharedThrottler`) to enforce `minRequestInterval` across all concurrent project migrations, preventing rate limit violations
+- **Shared Throttler Pattern** — SonarQube Cloud API clients within an org share a single POST throttler (`sharedThrottler`) to enforce `minRequestInterval` across all concurrent project migrations, preventing rate limit violations
 
 <!-- Updated: Mar 25, 2026 -->
 ## ⚡ Concurrency and Performance
@@ -502,10 +502,10 @@ setup ────────┤                     ├─ sync-metadata (4 pa
 - **Integration Tests:** 30 parallel jobs testing every CLI flag combination via matrix strategy (`fail-fast: false`). Config files generated at runtime from GitHub Secrets.
 - **Summary:** Gate job that only passes when all 30 integration tests pass
 
-### SonarCloud Analysis
+### SonarQube Cloud Analysis
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-A standalone `SonarCloud Analysis` workflow (`sonarcloud.yml`) runs SAST and SCA scanning on every push to `main`. It does **not** run unit tests or ingest coverage — those are handled by the separate Unit Tests workflow.
+A standalone `SonarQube Cloud Analysis` workflow (`sonarcloud.yml`) runs SAST and SCA scanning on every push to `main`. It does **not** run unit tests or ingest coverage — those are handled by the separate Unit Tests workflow.
 
 ### Auto Version Bump
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
@@ -531,7 +531,7 @@ The `Build and Release` workflow (`release.yml`) builds binaries for 6 platforms
 | File | Purpose |
 |---|---|
 | `unit-tests.yml` | Standalone unit tests (push to main only) |
-| `sonarcloud.yml` | SAST/SCA scanning via SonarCloud |
+| `sonarcloud.yml` | SAST/SCA scanning via SonarQube Cloud |
 | `version-bump.yml` | Auto-bump version from PR milestone on merge |
 | `release.yml` | Orchestrator — install, build, desktop build, release |
 | `regression.yml` | Regression orchestrator — triggers, stage sequencing |
