@@ -15,7 +15,7 @@ export async function migrateOneProjectCore({ project, scProjectKey, org, gateMa
   const projectStart = Date.now();
   const projectResult = { projectKey: project.key, scProjectKey, status: 'success', steps: [], errors: [] };
   const projectSqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key });
-  const projectScClient = new SonarCloudClient({ url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig, sharedThrottler: ctx.sharedThrottler || null });
+  const projectScClient = new SonarCloudClient({ url: org.url || 'https://sonarcloud.io', token: org.token, tokens: org.tokens, organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig, sharedThrottler: ctx.sharedThrottler || null });
 
   const mj = ctx.migrationJournal || null;
   const isStepDone = (step) => mj && mj.isProjectStepCompleted(org?.key, project.key, step, STEP_ORDER);

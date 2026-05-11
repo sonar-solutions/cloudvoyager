@@ -14,6 +14,19 @@ const MIGRATED_COMMENT_PREFIX = '[Migrated from SonarQube]';
  * @param {Array}  changelog - Pre-fetched changelog entries for this issue
  * @returns {boolean}
  */
+/**
+ * Cheap pre-check using only fields already on the issue object (no API calls).
+ * Returns true if the issue shows any signal of manual change.
+ */
+export function hasCheapManualSignal(issue) {
+  if (hasNonOpenStatus(issue)) return true;
+  if (hasManualComments(issue)) return true;
+  if (hasCustomTags(issue)) return true;
+  if (hasAssignee(issue)) return true;
+  if (wasUpdatedAfterCreation(issue)) return true;
+  return false;
+}
+
 export function hasManualChanges(issue, changelog) {
   if (hasHumanChangelog(changelog)) return true;
   if (hasManualComments(issue)) return true;
@@ -44,7 +57,17 @@ function hasAssignee(issue) {
   return Boolean(issue.assignee);
 }
 
+function hasNonOpenStatus(issue) {
+  if (issue.issueStatus && issue.issueStatus !== 'OPEN') return true;
+  if (issue.status && issue.status !== 'OPEN') return true;
+  if (issue.resolution) return true;
+  return false;
+}
+
 function wasUpdatedAfterCreation(issue) {
   if (!issue.updateDate || !issue.creationDate) return false;
-  return issue.updateDate !== issue.creationDate;
+  const created = new Date(issue.creationDate).getTime();
+  const updated = new Date(issue.updateDate).getTime();
+  if (isNaN(created) || isNaN(updated)) return false;
+  return updated > created;
 }

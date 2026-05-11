@@ -6,10 +6,15 @@ export async function mapConcurrent(items, fn, { concurrency = 8, settled = fals
   let completed = 0;
   let aborted = false;
 
+  function claimIndex() {
+    if (nextIndex >= items.length) return -1;
+    return nextIndex++;
+  }
+
   async function worker() {
-    while (nextIndex < items.length && !aborted) {
-      const index = nextIndex++;
-      if (index >= items.length) break;
+    while (!aborted) {
+      const index = claimIndex();
+      if (index === -1) break;
       try {
         const result = await fn(items[index], index);
         completed++;

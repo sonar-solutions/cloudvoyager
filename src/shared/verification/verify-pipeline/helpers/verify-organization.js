@@ -16,7 +16,7 @@ export async function verifyOrganization(params) {
   logger.info('========================================');
 
   const scClient = new SonarCloudClient({
-    url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, rateLimit: rateLimitConfig,
+    url: org.url || 'https://sonarcloud.io', token: org.token, tokens: org.tokens, organization: org.key, rateLimit: rateLimitConfig,
   });
   try { await scClient.testConnection(); } catch (error) {
     logger.error(`Failed to connect to SC org ${org.key}: ${error.message}`);

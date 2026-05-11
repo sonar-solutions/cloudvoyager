@@ -20,7 +20,7 @@ export async function migrateOneOrganizationCore(assignment, extractedData, reso
   const migrationJournal = ctx.migrationJournal || null;
   if (migrationJournal) await migrationJournal.ensureOrg(org.key);
 
-  const scClient = new SonarCloudClient({ url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, rateLimit: ctx.rateLimitConfig });
+  const scClient = new SonarCloudClient({ url: org.url || 'https://sonarcloud.io', token: org.token, tokens: org.tokens, organization: org.key, rateLimit: ctx.rateLimitConfig });
   try { await scClient.testConnection(); orgResult.steps.push({ step: 'Connect to SonarCloud', status: 'success' }); }
   catch (error) { orgResult.steps.push({ step: 'Connect to SonarCloud', status: 'failed', error: error.message }); logger.error(`Failed to connect to SC org ${org.key}: ${error.message}`); return null; }
 

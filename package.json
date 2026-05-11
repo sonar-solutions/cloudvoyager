@@ -75,7 +75,12 @@
   ],
   "sonarqubeCompatibility": {
     "minimum": "9.9",
-    "tested": ["9.9", "10.4", "10.8", "2025.1"],
+    "tested": [
+      "9.9",
+      "10.4",
+      "10.8",
+      "2025.1"
+    ],
     "notes": "Auto-detects server version and adapts API calls. See docs/backward-compatibility.md"
   },
   "author": "",
@@ -84,7 +89,7 @@
     "adm-zip": "^0.5.16",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
-    "axios": "^1.6.0",
+    "axios": "^1.16.0",
     "commander": "^12.0.0",
     "form-data": "^4.0.0",
     "pdfmake": "^0.3.4",

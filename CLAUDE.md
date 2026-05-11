@@ -48,8 +48,23 @@ Using gstack skills: After install, skills like /qa, /ship, /review, /investigat
 and /browse are available. Use /browse for all web browsing.
 Use ~/.claude/skills/gstack/... for gstack file paths (the global path).
 
+## Shell Commands — Use Bash
+
+**Shell commands like `grep`, `find`, `ls`, `cat`, `sed`, etc. must be run through the Bash tool.**
+
+Never try to invoke them as standalone tools. For example:
+- ✅ `Bash: grep -rl "hotspot" --include="*.ts" .`
+- ❌ `grep "hotspot" file.ts` (not a tool, will fail)
+
 ## Design System
 Always read DESIGN.md before making any visual or UI decisions.
 All font choices, colors, spacing, and aesthetic direction are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that doesn't match DESIGN.md.
+
+## Skills
+
+### Image Analysis (Mandatory)
+- Use the `analyze-image` skill whenever the user shares an image URL, uploads an image, or references an image file path.
+- This skill is auto-triggered via the `UserPromptSubmit` hook: `~/.claude/hooks/analyze-image-on-url.sh`
+- It uses MiniMax Vision AI (if API key configured) or Swift OCR (fallback) to analyze images.

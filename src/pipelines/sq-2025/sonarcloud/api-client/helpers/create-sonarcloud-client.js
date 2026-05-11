@@ -21,11 +21,29 @@ export function createSonarCloudClient(config) {
     _lastPostTime: 0,
   };
 
-  const client = createAxiosClient(baseURL, config.token, rl, config.sharedThrottler || null, state);
+  // Support both single token (string) and multiple tokens (string[])
+  const tokens = config.tokens
+    ? config.tokens
+    : config.token
+      ? [config.token]
+      : [config.scToken].filter(Boolean);
+
+  const client = createAxiosClient({
+    baseURL,
+    token: tokens,
+    rateLimit: rl,
+    sharedThrottler: config.sharedThrottler || null,
+    state,
+  });
 
   const inst = {
-    baseURL, token: config.token, organization: config.organization,
-    projectKey: config.projectKey, client, _sharedThrottler: config.sharedThrottler || null,
+    baseURL,
+    token: tokens[0],
+    tokens: tokens.length > 1 ? tokens : null,
+    organization: config.organization,
+    projectKey: config.projectKey,
+    client,
+    _sharedThrottler: config.sharedThrottler || null,
     testConnection: () => testConnection(client, config.organization),
     projectExists: () => projectExists(client, config.projectKey, config.organization),
     isProjectKeyTakenGlobally: (pk) => isProjectKeyTakenGlobally(client, pk),
