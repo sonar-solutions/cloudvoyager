@@ -9,7 +9,7 @@ export async function verifySingleProject(params) {
   logger.info(`\n--- Project ${idx + 1}/${total}: ${project.key} ---`);
 
   const scClient = new SonarCloudClient({
-    url: org.url || 'https://sonarcloud.io', token: org.token, organization: org.key, rateLimit: rateLimitConfig,
+    url: org.url || 'https://sonarcloud.io', token: org.token, tokens: org.tokens, organization: org.key, rateLimit: rateLimitConfig,
   });
 
   // Resolve SC project key
@@ -30,7 +30,7 @@ export async function verifySingleProject(params) {
     url: sonarqubeConfig.url, token: sonarqubeConfig.token, projectKey: project.key,
   });
   const projectScClient = new SonarCloudClient({
-    url: org.url || 'https://sonarcloud.io', token: org.token,
+    url: org.url || 'https://sonarcloud.io', token: org.token, tokens: org.tokens,
     organization: org.key, projectKey: scProjectKey, rateLimit: rateLimitConfig,
   });
 

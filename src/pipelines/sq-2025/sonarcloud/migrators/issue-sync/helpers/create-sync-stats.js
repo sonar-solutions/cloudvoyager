@@ -5,6 +5,7 @@ export function createSyncStats() {
   return {
     filtered: 0,
     matched: 0,
+    duplicateDropped: 0,
     transitioned: 0,
     assigned: 0,
     assignmentFailed: 0,
@@ -16,5 +17,6 @@ export function createSyncStats() {
     metadataSyncTagged: 0,
     sourceLinked: 0,
     failed: 0,
+    apiErrors: 0,
   };
 }
