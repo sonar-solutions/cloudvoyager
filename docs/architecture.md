@@ -342,11 +342,11 @@ Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
 4. **Initialize migration journal** — load or create journal tracking per-org and per-project progress
 5. **For each target organization:**
    - Create groups
-   - Set global permissions
+   - Grant all global permissions to Members group
    - Create quality gates
    - Restore quality profiles (custom via backup XML, built-in as renamed custom profiles)
    - Compare quality profiles and write diff report (`quality-profiles/quality-profile-diff.json`)
-   - Create permission templates
+   - Skip permission templates (grant-all mode)
    - For each project (11 steps):
      - Resolve project key (use original SonarQube Server key; fall back to `{org}_{key}` if taken globally)
      - Upload scanner report (via transfer pipeline)
@@ -356,7 +356,7 @@ Uses `pipelines/sq-{version}/migrate-pipeline.js` (selected by version-router):
      - Set DevOps binding
      - Assign quality gate
      - Assign migrated built-in quality profiles
-     - Set project-level permissions
+     - Grant all project permissions to Members group
    - Create portfolios and assign projects
 6. **Generate reports** — write migration reports (JSON, Markdown, PDF)
 
@@ -375,8 +375,8 @@ Uses `shared/verification/verify-pipeline.js`:
    - Verify quality gates (existence + conditions)
    - Verify quality profiles (existence + rule counts)
    - Verify groups
-   - Verify global permissions
-   - Verify permission templates
+   - Verify global permissions (grant-all: Members has all permissions)
+   - Verify permission templates (skipped in grant-all mode)
    - For each project:
      - Verify project exists in SonarQube Cloud
      - Verify branches (SQ vs SC)
@@ -406,7 +406,7 @@ Uses `shared/verification/verify-pipeline.js`:
   - Branch transfers run concurrently via `mapConcurrent` (bounded by `maxConcurrency`)
   - Organization migrations run concurrently (one task per org)
   - Server-wide extraction steps run via `Promise.all` (quality gates, profiles, groups, permissions, templates, portfolios, server info, webhooks)
-  - Org-wide resource migration uses two-batch parallelism: batch 1 (independent: groups, gates, profiles, templates) then batch 2 (dependent: global permissions, profile comparison)
+  - Org-wide resource migration uses two-batch parallelism: batch 1 (independent: groups, gates, profiles) then batch 2 (dependent: global permissions via grant-all, profile comparison)
   - Project-level steps run in parallel where possible (issue + hotspot sync concurrent, config steps concurrent, gate/profile/permission assignment concurrent)
 - **Shared Throttler Pattern** — SonarQube Cloud API clients within an org share a single POST throttler (`sharedThrottler`) to enforce `minRequestInterval` across all concurrent project migrations, preventing rate limit violations
 

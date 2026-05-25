@@ -1,4 +1,3 @@
-import { extractProjectPermissions } from '../../../sonarqube/extractors/permissions.js';
 import { assignQualityGatesToProjects } from '../../../sonarcloud/migrators/quality-gates.js';
 import { migrateProjectPermissions } from '../../../sonarcloud/migrators/permissions.js';
 import logger from '../../../../../shared/utils/logger.js';
@@ -37,8 +36,7 @@ export async function migrateGateProfilePerms(project, scProjectKey, projectSqCl
     (async () => {
       if (shouldRun('permissions')) {
         await guard('Project permissions', 'project_permissions', async () => {
-          const perms = await extractProjectPermissions(projectSqClient, project.key);
-          await migrateProjectPermissions(scProjectKey, perms, projectScClient);
+          await migrateProjectPermissions(scProjectKey, [], projectScClient);
         });
       } else if (onlyComponents) {
         projectResult.steps.push({ step: 'Project permissions', status: 'skipped', detail: 'Not included in --only', durationMs: 0 });

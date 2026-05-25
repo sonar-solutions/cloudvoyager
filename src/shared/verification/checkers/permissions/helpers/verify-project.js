@@ -1,29 +1,31 @@
-// -------- Verify Project Permissions --------
+// -------- Verify Project Permissions (Grant-All Mode) --------
 
 import logger from '../../../../utils/logger.js';
 import { buildPermissionMap } from './build-permission-map.js';
+import { TARGET_PERMISSION_GROUP, ALL_PROJECT_PERMISSIONS } from '../../../../utils/permission-constants.js';
 
-/** Verify project-level permissions for a project. */
 export async function verifyProjectPermissions(sqClient, scClient, sqProjectKey, scProjectKey) {
   const result = { status: 'pass', mismatches: [], details: [] };
 
-  let sqGroups, scGroups;
-  try { sqGroups = await sqClient.getProjectPermissions(sqProjectKey); } catch (e) { logger.debug(`Failed to get SQ project permissions: ${e.message}`); sqGroups = []; }
-  try { scGroups = await scClient.getProjectPermissions(scProjectKey); } catch (e) { logger.debug(`Failed to get SC project permissions: ${e.message}`); scGroups = []; }
+  let scGroups;
+  try { scGroups = await scClient.getProjectPermissions(scProjectKey); }
+  catch (e) { logger.debug(`Failed to get SC project permissions: ${e.message}`); scGroups = []; }
 
   const scPermMap = buildPermissionMap(scGroups);
-  for (const sqGroup of sqGroups) {
-    const sqPerms = (sqGroup.permissions || []).sort();
-    if (sqPerms.length === 0) continue;
-    const scPerms = (scPermMap.get(sqGroup.name) || []).sort();
-    const missing = sqPerms.filter(p => !scPerms.includes(p));
-    if (missing.length > 0) result.mismatches.push({ group: sqGroup.name, missingPermissions: missing });
-    result.details.push({
-      group: sqGroup.name, sqPermissions: sqPerms, scPermissions: scPerms,
-      status: missing.length === 0 ? 'pass' : 'fail',
-    });
+  const scPerms = (scPermMap.get(TARGET_PERMISSION_GROUP) || []).sort();
+  const missing = ALL_PROJECT_PERMISSIONS.filter(p => !scPerms.includes(p));
+
+  result.details.push({
+    group: TARGET_PERMISSION_GROUP,
+    expectedPermissions: ALL_PROJECT_PERMISSIONS,
+    scPermissions: scPerms,
+    status: missing.length === 0 ? 'pass' : 'fail',
+  });
+
+  if (missing.length > 0) {
+    result.status = 'fail';
+    result.mismatches.push({ group: TARGET_PERMISSION_GROUP, missingPermissions: missing });
   }
 
-  if (result.mismatches.length > 0) result.status = 'fail';
   return result;
 }

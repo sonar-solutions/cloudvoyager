@@ -1,16 +1,7 @@
-import logger from '../../../../../../shared/utils/logger.js';
+import { grantProjectPermissions } from '../../../../../../shared/utils/permission-grants.js';
 
-// -------- Migrate Project-Level Group Permissions --------
+// -------- Grant All Project Permissions --------
 
-export async function migrateProjectPermissions(projectKey, projectPermissions, client) {
-  logger.debug(`Migrating project permissions for ${projectKey}: ${projectPermissions.length} groups`);
-  for (const group of projectPermissions) {
-    for (const permission of group.permissions) {
-      try {
-        await client.addProjectGroupPermission(group.name, projectKey, permission);
-      } catch (error) {
-        logger.debug(`Failed to add ${permission} for group ${group.name} on ${projectKey}: ${error.message}`);
-      }
-    }
-  }
+export async function migrateProjectPermissions(projectKey, _projectPermissions, client) {
+  await grantProjectPermissions(projectKey, client);
 }

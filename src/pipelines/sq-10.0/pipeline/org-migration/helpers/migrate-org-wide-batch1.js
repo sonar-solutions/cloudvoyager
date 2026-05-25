@@ -2,7 +2,6 @@ import logger from '../../../../../shared/utils/logger.js';
 import { migrateQualityGates } from '../../../sonarcloud/migrators/quality-gates.js';
 import { migrateQualityProfiles } from '../../../sonarcloud/migrators/quality-profiles.js';
 import { migrateGroups } from '../../../sonarcloud/migrators/groups.js';
-import { migratePermissionTemplates } from '../../../sonarcloud/migrators/permissions.js';
 import { runOrgStep } from './run-org-step.js';
 
 // -------- Batch 1: Independent Org-Wide Steps --------
@@ -33,8 +32,8 @@ export async function runBatch1(extractedData, scClient, orgResult, results, ctx
       return `${mr.profileMapping.size} restored (${builtInProfileMapping.size} built-in migrated)`;
     }),
     shouldRun('permission-templates') ? runOrgStep(orgResult, 'Create permission templates', async () => {
-      logger.info('Creating permission templates...');
-      await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
+      logger.info('Skipping permission template migration (all permissions granted to Members)');
+      return 'Skipped (grant-all mode)';
     }) : null,
   ].filter(Boolean));
   return { gateMapping, builtInProfileMapping };

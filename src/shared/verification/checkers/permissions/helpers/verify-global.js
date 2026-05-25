@@ -1,29 +1,30 @@
-// -------- Verify Global Permissions --------
+// -------- Verify Global Permissions (Grant-All Mode) --------
 
 import logger from '../../../../utils/logger.js';
 import { buildPermissionMap } from './build-permission-map.js';
+import { TARGET_PERMISSION_GROUP, ALL_GLOBAL_PERMISSIONS } from '../../../../utils/permission-constants.js';
 
-const SC_UNSUPPORTED_PERMISSIONS = new Set(['applicationcreator', 'portfoliocreator']);
-
-/** Verify global permissions between SonarQube and SonarCloud. */
 export async function verifyGlobalPermissions(sqClient, scClient) {
   const result = { status: 'pass', mismatches: [], details: [] };
-  const sqGroups = await sqClient.getGlobalPermissions();
-  const scGroups = await scClient.getGlobalPermissions();
+  let scGroups;
+  try { scGroups = await scClient.getGlobalPermissions(); }
+  catch (e) { logger.debug(`Failed to get SC global permissions: ${e.message}`); scGroups = []; }
   const scPermMap = buildPermissionMap(scGroups);
+  const scPerms = (scPermMap.get(TARGET_PERMISSION_GROUP) || []).sort();
+  const missing = ALL_GLOBAL_PERMISSIONS.filter(p => !scPerms.includes(p));
 
-  for (const sqGroup of sqGroups) {
-    const sqPerms = (sqGroup.permissions || []).filter(p => !SC_UNSUPPORTED_PERMISSIONS.has(p)).sort();
-    const scPerms = (scPermMap.get(sqGroup.name) || []).sort();
-    const missing = sqPerms.filter(p => !scPerms.includes(p));
-    if (missing.length > 0) result.mismatches.push({ group: sqGroup.name, missingPermissions: missing });
-    result.details.push({
-      group: sqGroup.name, sqPermissions: sqPerms, scPermissions: scPerms,
-      status: missing.length === 0 ? 'pass' : 'fail',
-    });
+  result.details.push({
+    group: TARGET_PERMISSION_GROUP,
+    expectedPermissions: ALL_GLOBAL_PERMISSIONS,
+    scPermissions: scPerms,
+    status: missing.length === 0 ? 'pass' : 'fail',
+  });
+
+  if (missing.length > 0) {
+    result.status = 'fail';
+    result.mismatches.push({ group: TARGET_PERMISSION_GROUP, missingPermissions: missing });
   }
 
-  if (result.mismatches.length > 0) result.status = 'fail';
-  logger.info(`Global permission verification: ${result.mismatches.length} groups with missing permissions`);
+  logger.info(`Global permission verification (grant-all): ${missing.length === 0 ? 'pass' : `${missing.length} missing`}`);
   return result;
 }
