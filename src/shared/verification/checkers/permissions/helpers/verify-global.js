@@ -6,7 +6,9 @@ import { TARGET_PERMISSION_GROUP, ALL_GLOBAL_PERMISSIONS } from '../../../../uti
 
 export async function verifyGlobalPermissions(sqClient, scClient) {
   const result = { status: 'pass', mismatches: [], details: [] };
-  const scGroups = await scClient.getGlobalPermissions();
+  let scGroups;
+  try { scGroups = await scClient.getGlobalPermissions(); }
+  catch (e) { logger.debug(`Failed to get SC global permissions: ${e.message}`); scGroups = []; }
   const scPermMap = buildPermissionMap(scGroups);
   const scPerms = (scPermMap.get(TARGET_PERMISSION_GROUP) || []).sort();
   const missing = ALL_GLOBAL_PERMISSIONS.filter(p => !scPerms.includes(p));
