@@ -4,7 +4,7 @@ import { migrateQualityGates } from '../../../sonarcloud/migrators/quality-gates
 import { migrateQualityProfiles } from '../../../sonarcloud/migrators/quality-profiles.js';
 import { generateQualityProfileDiff } from '../../../sonarcloud/migrators/quality-profile-diff.js';
 import { migrateGroups } from '../../../sonarcloud/migrators/groups.js';
-import { migrateGlobalPermissions, migratePermissionTemplates } from '../../../sonarcloud/migrators/permissions.js';
+import { migrateGlobalPermissions } from '../../../sonarcloud/migrators/permissions.js';
 import { runOrgStep } from './run-org-step.js';
 import { pushSkippedSteps } from './migrate-org-wide-skips.js';
 
@@ -31,7 +31,7 @@ export async function migrateOrgWideResources(extractedData, scClient, sqClient,
       return `${r.profileMapping.size} restored (${builtInProfileMapping.size} built-in)`;
     }),
     shouldRun('permission-templates') ? runOrgStep(orgResult, 'Create permission templates', async () => {
-      await migratePermissionTemplates(extractedData.permissionTemplates, scClient);
+      return 'Skipped (grant-all mode)';
     }) : null,
   ].filter(Boolean));
 

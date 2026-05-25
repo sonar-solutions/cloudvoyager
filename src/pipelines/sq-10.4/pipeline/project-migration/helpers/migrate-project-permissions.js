@@ -1,4 +1,3 @@
-import { extractProjectPermissions } from '../../../sonarqube/extractors/permissions.js';
 import { migrateProjectPermissions } from '../../../sonarcloud/migrators/permissions.js';
 
 // -------- Main Logic --------
@@ -12,7 +11,6 @@ export async function migrateProjectPermissionsStep(scProjectKey, projectSqClien
     return;
   }
   await runGuardedStep('Project permissions', 'project_permissions', async () => {
-    const perms = await extractProjectPermissions(projectSqClient, projectSqClient.projectKey);
-    await migrateProjectPermissions(scProjectKey, perms, projectScClient);
+    await migrateProjectPermissions(scProjectKey, [], projectScClient);
   });
 }

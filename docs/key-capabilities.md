@@ -394,22 +394,22 @@ Quality gates are created with their full condition definitions (metric, operato
 
 ---
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-25T00:00:00Z" updated-by="Claude" />
 ## 9. Permissions, Groups, and Governance Migration
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
+<!-- <subsection-updated last-updated="2026-05-25T00:00:00Z" updated-by="Claude" />
 ### Group Migration
 
 User groups are extracted from SonarQube Server and recreated in each target SonarQube Cloud organization with matching names and descriptions.
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
-### Permission Migration
+<!-- <subsection-updated last-updated="2026-05-25T00:00:00Z" updated-by="Claude" />
+### Permission Migration (Grant-All Mode)
 
-Three levels of permissions are migrated:
+Permissions are granted broadly to the `Members` group (all authenticated org members) rather than replicating the exact group-permission structure from SonarQube. This avoids edge cases where SonarQube groups or users do not exist in SonarCloud.
 
-1. **Global Permissions** — Organization-wide permissions assigned to groups (e.g., admin, quality gate admin, quality profile admin)
-2. **Project-Level Permissions** — Per-project group permissions (e.g., codeviewer, issueadmin, securityhotspotadmin)
-3. **Permission Templates** — Reusable permission templates with group assignments, set as defaults where applicable
+1. **Global Permissions** — All organization-wide permissions (`admin`, `gateadmin`, `profileadmin`, `scan`, `provisioning`) are granted to the `Members` group
+2. **Project-Level Permissions** — All project permissions (`admin`, `codeviewer`, `issueadmin`, `securityhotspotadmin`, `scan`, `user`) are granted to the `Members` group on each migrated project
+3. **Permission Templates** — Skipped (redundant with grant-all approach); customers can configure templates post-migration if needed
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" />
 ### Portfolio Migration

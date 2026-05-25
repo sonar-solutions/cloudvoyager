@@ -1,17 +1,17 @@
 import logger from '../../../../../../shared/utils/logger.js';
+import { TARGET_PERMISSION_GROUP, ALL_GLOBAL_PERMISSIONS } from '../../../../../../shared/utils/permission-constants.js';
 
-// -------- Migrate Organization-Level Group Permissions --------
+// -------- Grant All Global Permissions --------
 
 export async function migrateGlobalPermissions(globalPermissions, client) {
-  logger.info(`Migrating global permissions for ${globalPermissions.length} groups`);
-  for (const group of globalPermissions) {
-    for (const permission of group.permissions) {
-      try {
-        await client.addGroupPermission(group.name, permission);
-        logger.debug(`Added ${permission} to group ${group.name}`);
-      } catch (error) {
-        logger.debug(`Failed to add ${permission} to group ${group.name}: ${error.message}`);
-      }
+  logger.info(`Granting all global permissions to group "${TARGET_PERMISSION_GROUP}"`);
+
+  for (const permission of ALL_GLOBAL_PERMISSIONS) {
+    try {
+      await client.addGroupPermission(TARGET_PERMISSION_GROUP, permission);
+      logger.debug(`Granted global "${permission}" to "${TARGET_PERMISSION_GROUP}"`);
+    } catch (error) {
+      logger.warn(`Failed to grant global "${permission}" to "${TARGET_PERMISSION_GROUP}": ${error.message}`);
     }
   }
 }
