@@ -7,9 +7,15 @@ yarn.lock
 *.state.json
 
 # Config files with credentials
+# NOTE: `*.config.json` only matches a literal `.config.json` suffix, NOT the
+# `config-<name>.json` convention used for per-project migration configs
+# (config-angular.json, config-eslint-mapping.json, config-sonar-tools-transfer.json).
+# `config-*.json` below closes that gap. Example templates are re-included.
 config.json
 *.config.json
+config-*.json
 !config.example.json
+!*.example.json
 
 # Logs
 logs/
@@ -74,3 +80,4 @@ dist/desktop/
 
 sonar-local-scan.sh
 *.backup
+*.bak
