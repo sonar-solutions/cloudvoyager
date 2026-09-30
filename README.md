@@ -1,3 +1,6 @@
+# REPO ARCHIVED
+Please use our official in-beta [Sonar Migration Tool](https://github.com/SonarSource/sonar-migration-tool) here! https://github.com/SonarSource/sonar-migration-tool . All features are currently being actively moved to that official tool.
+
 # ☁️ 🐋 CloudVoyager
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
