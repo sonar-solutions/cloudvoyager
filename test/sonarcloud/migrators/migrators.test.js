@@ -2255,7 +2255,8 @@ test('syncIssues applies a single transition derived from current SQ status, ign
     ])
   };
   const sqIssues = [
-    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED' }
+    { key: 'sq-i1', rule: 'js:S1001', component: 'proj:src/a.js', line: 10, status: 'REOPENED',
+      creationDate: '2024-01-01T00:00:00+0000', updateDate: '2024-06-15T10:30:00+0000' }
   ];
 
   const stats = await syncIssues('proj', sqIssues, client, { concurrency: 1, sqClient });
