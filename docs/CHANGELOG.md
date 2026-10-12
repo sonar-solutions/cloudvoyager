@@ -1,12 +1,126 @@
 # Changelog
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> to CloudVoyager are documented in this file. Entries are ordered with the most recent changes first.
+<!-- <subsection-updated last-updated="2026-05-12T00:00:00Z" updated-by="Claude" /> to CloudVoyager are documented in this file. Entries are ordered with the most recent changes first.
+
+---
+
+## Fix: Multi-Token Auth Failure in Migrate Pipeline (2026-05-12)
+
+Fixed authentication failure ("Invalid credentials") when using multi-token (`tokens` array) config in the `migrate` command. The bug was introduced in the Multi-Token SonarCloud API Pooling release (2026-05-09) — org-level connections worked, but per-project transfer pipeline calls failed because two `upload-scanner-report.js` files did not pass `tokens: org.tokens` through to the transfer pipeline's `sonarcloudConfig`.
+
+**Root cause:** When the config uses `tokens: [...]` instead of `token: "..."`, the org object has `org.tokens` but `org.token` is `undefined`. The `SonarCloudClient` factory resolves `config.tokens → config.token → config.scToken` — so when only `token: undefined` was passed (without `tokens`), the client ended up with zero valid tokens, causing every API call to fail with a 401.
+
+**Why org-level `testConnection` passed:** `migrateOneOrganizationCore` already included `tokens: org.tokens` when constructing the `SonarCloudClient` for org-level operations (quality gates, profiles, permissions). The bug only affected the separate `SonarCloudClient` constructed inside `upload-scanner-report.js` for the transfer pipeline.
+
+**Fixes applied:**
+
+1. **`upload-scanner-report.js` (project-migration pipeline)** — Added `tokens: org.tokens` to the `sonarcloudConfig` object passed to `transferProject`.
+
+2. **`upload-scanner-report.js` (project-core-migrator pipeline)** — Same fix applied.
+
+3. **`apply-migrate-env-overrides.js`** — Added `SONARCLOUD_TOKENS` env var support for the migrate config loader (was only supported in the transfer config loader). Supports JSON array (`["t1","t2"]`) and comma-separated (`t1,t2`) formats.
+
+**Files changed:**
+- `src/pipelines/sq-2025/pipeline/project-migration/helpers/migrate-one-project-core/helpers/upload-scanner-report.js`
+- `src/pipelines/sq-2025/pipeline/project-core-migrator/helpers/upload-scanner-report.js`
+- `src/shared/config/loader-migrate/helpers/apply-migrate-env-overrides.js`
+
+**Regression test:** Full migration against SC-staging (5 projects, 404,872 LoC, 19,133 issues, 151 hotspots). All 5 projects succeeded with 0 failed steps, 0 sync failures. Upload scanner report step — previously failing on all projects — passed cleanly.
+
+---
+
+## Issue Sync Algorithm Fixes (Issue #90) (2026-05-11)
+
+Six bugs fixed in the issue sync pipeline, improving correctness, performance, and observability.
+
+### Bug 1 — Race condition in `mapConcurrent`
+
+Replaced the `nextIndex++` pattern with an explicit `claimIndex()` function that returns `-1` when the work queue is exhausted. Eliminates the redundant double bounds-check and makes the index-claiming intent unambiguous. Same fix applied to the `mapConcurrentWorker` inside worker threads.
+
+- `src/shared/utils/concurrency/helpers/map-concurrent.js`
+
+### Bug 2 — Out-of-order progress in worker threads
+
+Workers previously reported running totals (`completed: 50, 100, 150…`), requiring the main thread to compute deltas. Workers now report `delta` (increment since last report) directly. The main thread simply accumulates — no more `_lastReported` tracking that could go negative if messages arrived out of order.
+
+- `src/shared/utils/concurrency/helpers/parallel-issue-sync.js` (worker code + main thread)
+
+### Bug 3 — Worker path skips changelog replay
+
+The parallel worker path (≥500 matched issues) used `getFallbackTransition` for a single transition from the current SQ status. The sequential path replayed the full ordered changelog via `extractTransitionsFromChangelog` + `mapChangelogDiffToTransition`. Workers now receive serialized changelog entries via `workerData` and replay the full transition sequence before falling back.
+
+- `src/shared/utils/concurrency/helpers/parallel-issue-sync.js` (worker code + `parallelSyncIssues`)
+- `src/pipelines/sq-2025/sonarcloud/migrators/issue-sync/index.js` (passes `changelogMap` to `parallelSyncIssues`)
+
+### Bug 4 — Unbounded changelog prefetch before filter
+
+`applyManualChangesPreFilter` fetched changelogs for every SQ issue before filtering. A 10,000-issue project with 100 manually-changed issues wasted 9,900 API calls. Now uses a two-phase approach:
+
+1. **Phase 1 (cheap):** Runs field-only checks — `issueStatus !== 'OPEN'`, `resolution` set, `assignee`, `tags`, `comments`, `updateDate > creationDate` — using data already on the issue object. Issues passing any check are immediately classified as manual.
+2. **Phase 2 (API):** Fetches changelogs only for issues that failed all cheap checks, then applies `hasHumanChangelog`.
+
+New export `hasCheapManualSignal(issue)` in `has-manual-changes.js`.
+
+- `src/shared/utils/issue-sync/has-manual-changes.js` (added `hasCheapManualSignal`, `hasNonOpenStatus`)
+- `src/shared/utils/issue-sync/apply-pre-filter.js` (two-phase filter-then-fetch)
+
+### Bug 5 — One-to-one match silently drops duplicates
+
+When two SQ issues shared the same `rule|filePath|line` match key, only the first was matched — the second was silently dropped. Now logs a warning per duplicate and increments `stats.duplicateDropped`, which appears in the sync summary.
+
+- `src/pipelines/sq-2025/sonarcloud/migrators/issue-sync/helpers/match-issues.js` (duplicate detection + warning)
+- `src/pipelines/sq-2025/sonarcloud/migrators/issue-sync/helpers/create-sync-stats.js` (added `duplicateDropped`, `apiErrors`)
+- `src/pipelines/sq-2025/sonarcloud/migrators/issue-sync/index.js` (passes `stats` to `matchIssues`, shows duplicates in summary)
+
+### Bug 6 — Date string equality check
+
+`wasUpdatedAfterCreation` compared `issue.updateDate !== issue.creationDate` as raw strings. Dates in different timezone formats (e.g., `+0000` vs `+0800`) representing the same moment were incorrectly flagged as different. Now parses both dates to Unix milliseconds via `new Date().getTime()` and compares numerically, with `isNaN` guards.
+
+- `src/shared/utils/issue-sync/has-manual-changes.js`
+
+---
+
+## Multi-Token SonarCloud API Pooling (2026-05-09)
+
+Added support for multiple SonarQube Cloud API tokens per organization to distribute API request load across N tokens, increasing effective concurrency and providing more headroom against SC rate limits.
+
+**Config change:** Organizations in `migrate-config.json` can now specify `tokens` (array) in addition to `token` (single). If both are provided, `tokens` takes precedence:
+
+```json
+{
+  "organizations": [
+    {
+      "key": "my-org",
+      "tokens": ["token_1", "token_2", "token_3"],
+      "url": "https://sonarcloud.io"
+    }
+  ]
+}
+```
+
+**Environment variable:** `SONARCLOUD_TOKENS` supports JSON array format (`["token1","token2"]`) or comma-separated format (`token1,token2`).
+
+**Token rotation:** Uses random selection per request (not round-robin) to minimize the risk of consecutive requests hitting the same token. With N tokens, the probability of hitting the same token twice in a row is 1/N.
+
+**Files changed:**
+- `src/shared/utils/token-pool/index.js` — `TokenPool` class for token distribution
+- `src/shared/config/schema-migrate/helpers/migrate-sonarcloud-schema.js` — Added `tokens` array to org schema
+- `src/shared/config/schema/helpers/transfer-sonarcloud-schema.js` — Added `tokens` array, `token` no longer required
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/create-axios-client/index.js` — Token rotation interceptor
+- `src/pipelines/sq-2025/sonarcloud/api-client/helpers/create-sonarcloud-client.js` — Accepts `tokens` or `token`
+- `src/shared/config/loader/helpers/apply-environment-overrides.js` — Added `SONARCLOUD_TOKENS` env var support
+- `src/pipelines/sq-2025/pipeline/org-migration/helpers/migrate-one-org-core/index.js` — Passes `org.tokens` to `SonarCloudClient`
+- `src/pipelines/sq-2025/pipeline/project-core-migrator/helpers/migrate-one-project-core.js` — Passes `org.tokens` to `SonarCloudClient`
+- `src/pipelines/sq-2025/pipeline/project-migration/helpers/migrate-one-project-core/index.js` — Passes `org.tokens` to `SonarCloudClient`
+- `src/shared/verification/verify-pipeline/helpers/verify-single-project.js` — Passes `org.tokens` to `SonarCloudClient`
+- `src/shared/verification/verify-pipeline/helpers/verify-organization.js` — Passes `org.tokens` to `SonarCloudClient`
+- `src/commands/test-connection/index.js` — Auto-detects migrate vs transfer config format
 
 ---
 
 ## Fix: Project Settings Migration (Issue #95) (2026-04-29)
 
-<!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> (e.g., `sonar.exclusions`, `sonar.coverage.exclusions`) not being migrated from SonarQube Server to SonarQube Cloud.
+<!-- <subsection-updated last-updated="2026-05-09T00:00:00Z" updated-by="Claude" /> (e.g., `sonar.exclusions`, `sonar.coverage.exclusions`) not being migrated from SonarQube Server to SonarQube Cloud.
 
 **Root causes identified and fixed:**
 

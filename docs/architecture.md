@@ -1,7 +1,7 @@
 # 🏗️ Architecture
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 
-<!-- Last updated: Apr 21, 2026 -->
+<!-- Last updated: May 9, 2026 -->
 
 <!-- Updated: Apr 21, 2026 -->
 ## 📁 Project Structure
@@ -63,6 +63,7 @@ src/
     │   ├── logger.js                   # Winston-based logging
     │   ├── errors.js                   # Custom error classes (11 error classes extending CloudVoyagerError)
     │   ├── concurrency.js              # Concurrency primitives (limiter, mapConcurrent, progress, parallelSyncIssues)
+    │   ├── token-pool/                # Round-robin token pool for multi-token SC API support
     │   ├── system-info.js              # System info detection (CPU, memory) and auto-tune
     │   ├── shutdown.js                 # Graceful SIGINT/SIGTERM shutdown coordinator
     │   ├── progress.js                 # Checkpoint progress display and ETA
@@ -423,7 +424,10 @@ CloudVoyager uses a zero-dependency concurrency layer (`src/shared/utils/concurr
 
 Extractors and migrators use `mapConcurrent` to parallelize HTTP calls (source file fetching, hotspot detail fetching, issue/hotspot sync). Each version-specific `migrate-pipeline.js` resolves performance config and passes concurrency settings to all operations.
 
-- **`parallelSyncIssues(matchedPairs, ...)`** — For large issue sets (≥500 pairs), spawns `worker_threads` with `eval: true` (SEA-compatible) to run 20 workers × 5 concurrency each = 100 concurrent API calls. Falls back to `mapConcurrent` for smaller sets.
+- **`parallelSyncIssues(matchedPairs, ...)`** — For large issue sets (≥500 pairs), spawns `worker_threads` with `eval: true` (SEA-compatible) to run 20 workers × 5 concurrency each = 100 concurrent API calls. Falls back to `mapConcurrent` for smaller sets. Workers receive serialized `changelogMap` entries and replay the full ordered changelog for status transitions (matching the sequential path), falling back to `getFallbackTransition` only when no changelog is available. Progress is reported as deltas to avoid out-of-order accumulation issues.
+- **Two-phase issue pre-filter** — `applyManualChangesPreFilter` runs cheap field-only checks first (`issueStatus`, `resolution`, `assignee`, `tags`, `comments`, `updateDate`) before fetching changelogs. Only issues that fail all cheap checks trigger a changelog API call, dramatically reducing API usage on large projects.
+- **Issue matching with duplicate detection** — `matchIssues` builds a lookup by `rule|filePath|line` and matches SQ→SC issues 1:1. When duplicate SQ issues share a match key, the collision is logged as a warning and tracked in `stats.duplicateDropped`.
+- **Multi-token SonarCloud API pooling** — When an organization specifies multiple `tokens` in the config, the `SonarCloudClient` uses random token selection per request via an axios interceptor. This distributes load across N tokens, increasing effective concurrency and providing more headroom against SonarCloud rate limits. Token resolution chain in `createSonarCloudClient`: `config.tokens` (array) → `config.token` (string, wrapped to `[token]`) → `config.scToken` (legacy fallback). All call sites that create a `SonarCloudClient` must pass both `token` and `tokens` from the org config to ensure multi-token support works end-to-end — including the transfer pipeline's `sonarcloudConfig` in `upload-scanner-report.js`.
 
 <!-- Updated: Mar 25, 2026 -->
 ## 📦 Build and Packaging

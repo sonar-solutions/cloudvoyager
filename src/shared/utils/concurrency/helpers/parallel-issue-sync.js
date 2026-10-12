@@ -10,7 +10,7 @@ const { parentPort, workerData } = require('worker_threads');
 const https = require('https');
 const http = require('http');
 
-const { chunk, scConfig, sqConfig, userMappings, concurrencyPerWorker } = workerData;
+const { chunk, scConfig, sqConfig, userMappings, concurrencyPerWorker, changelogEntries } = workerData;
 
 function makePost(baseURL, token, path, params) {
   return new Promise((resolve, reject) => {
@@ -74,8 +74,55 @@ function getFallbackTransition(sqIssue) {
   }
 }
 
+function mapChangelogDiffToTransition(diffs) {
+  const statusDiff = diffs.find(d => d.key === 'status');
+  const resolutionDiff = diffs.find(d => d.key === 'resolution');
+  const newStatus = statusDiff && statusDiff.newValue;
+  const newResolution = resolutionDiff && resolutionDiff.newValue;
+  if (!newStatus) return null;
+  if (newResolution === 'FALSE-POSITIVE' || newStatus === 'FALSE-POSITIVE') return 'falsepositive';
+  if (newResolution === 'WONTFIX' || newStatus === 'WONTFIX') return 'wontfix';
+  switch (newStatus) {
+    case 'CONFIRMED': return 'confirm';
+    case 'REOPENED': return 'reopen';
+    case 'OPEN': return 'unconfirm';
+    case 'RESOLVED': return 'resolve';
+    case 'CLOSED': return 'resolve';
+    case 'ACCEPTED': return 'wontfix';
+    default: return null;
+  }
+}
+
+function extractTransitionsFromChangelog(changelog) {
+  const transitions = [];
+  for (const entry of changelog) {
+    const diffs = entry.diffs || [];
+    const hasStatusChange = diffs.some(d => d.key === 'status');
+    if (!hasStatusChange) continue;
+    const transition = mapChangelogDiffToTransition(diffs);
+    if (transition) transitions.push(transition);
+  }
+  return transitions;
+}
+
+const changelogMap = new Map(changelogEntries || []);
+
 async function syncIssueStatus(scIssue, sqIssue) {
   if (scIssue.status === sqIssue.status) return false;
+
+  const changelog = changelogMap.get(sqIssue.key);
+  if (changelog && changelog.length > 0) {
+    const transitions = extractTransitionsFromChangelog(changelog);
+    if (transitions.length > 0) {
+      let applied = false;
+      for (const t of transitions) {
+        try { await scPost('/api/issues/do_transition', { issue: scIssue.key, transition: t }); applied = true; }
+        catch { /* transition may not be valid for current state */ }
+      }
+      return applied;
+    }
+  }
+
   const t = getFallbackTransition(sqIssue);
   if (!t) return false;
   try { await scPost('/api/issues/do_transition', { issue: scIssue.key, transition: t }); return true; }
@@ -149,13 +196,18 @@ async function syncOneIssue(pair, userMappingsMap, stats) {
 }
 
 async function mapConcurrentWorker(items, fn, concurrency) {
-  let idx = 0;
+  let nextIdx = 0;
+  function claimIndex() {
+    if (nextIdx >= items.length) return -1;
+    return nextIdx++;
+  }
   const workers = [];
   for (let i = 0; i < concurrency; i++) {
     workers.push((async () => {
-      while (idx < items.length) {
-        const current = idx++;
-        if (current < items.length) await fn(items[current]);
+      while (true) {
+        const current = claimIndex();
+        if (current === -1) break;
+        await fn(items[current]);
       }
     })());
   }
@@ -171,11 +223,16 @@ async function run() {
 
   const userMappingsMap = new Map(userMappings || []);
   let completed = 0;
+  let lastReported = 0;
 
   await mapConcurrentWorker(chunk, async (pair) => {
     await syncOneIssue(pair, userMappingsMap, stats);
     completed++;
-    if (completed % 50 === 0) parentPort.postMessage({ type: 'progress', completed });
+    if (completed - lastReported >= 50) {
+      const delta = completed - lastReported;
+      lastReported = completed;
+      parentPort.postMessage({ type: 'progress', delta });
+    }
   }, concurrencyPerWorker);
 
   parentPort.postMessage({ type: 'done', stats });
@@ -186,7 +243,7 @@ run().catch((err) => {
 });
 `;
 
-export async function parallelSyncIssues(matchedPairs, scConfig, sqConfig, userMappings, options = {}) {
+export async function parallelSyncIssues(matchedPairs, scConfig, sqConfig, userMappings, options = {}, changelogMap = new Map()) {
   const workerCount = options.workerCount || 20;
   const concurrencyPerWorker = options.concurrencyPerWorker || 5;
   const totalPairs = matchedPairs.length;
@@ -199,6 +256,15 @@ export async function parallelSyncIssues(matchedPairs, scConfig, sqConfig, userM
 
   let totalCompleted = 0;
   const workerPromises = chunks.map((chunk, i) => {
+    // Serialize only the changelog entries relevant to this chunk
+    const chunkChangelogEntries = [];
+    for (const pair of chunk) {
+      const key = pair.sqIssue.key;
+      if (changelogMap.has(key)) {
+        chunkChangelogEntries.push([key, changelogMap.get(key)]);
+      }
+    }
+
     return new Promise((resolve, reject) => {
       const worker = new Worker(WORKER_CODE, {
         eval: true,
@@ -208,13 +274,13 @@ export async function parallelSyncIssues(matchedPairs, scConfig, sqConfig, userM
           sqConfig,
           userMappings: serializedUserMappings,
           concurrencyPerWorker,
+          changelogEntries: chunkChangelogEntries,
         },
       });
 
       worker.on('message', (msg) => {
         if (msg.type === 'progress') {
-          totalCompleted += msg.completed - (worker._lastReported || 0);
-          worker._lastReported = msg.completed;
+          totalCompleted += msg.delta;
           onProgress(totalCompleted);
         } else if (msg.type === 'done') {
           resolve(msg.stats);

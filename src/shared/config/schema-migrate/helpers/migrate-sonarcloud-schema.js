@@ -12,10 +12,11 @@ export const migrateSonarcloudSchema = {
     organizations: {
       type: 'array', minItems: 1,
       items: {
-        type: 'object', required: ['key', 'token'],
+        type: 'object', required: ['key'],
         properties: {
           key: { type: 'string', minLength: 1, description: 'SonarCloud organization key' },
-          token: { type: 'string', minLength: 1, description: 'SonarCloud API token' },
+          token: { type: 'string', minLength: 1, description: 'SonarCloud API token (single)' },
+          tokens: { type: 'array', items: { type: 'string', minLength: 1 }, minItems: 1, description: 'SonarCloud API tokens (multiple — spreads API load across N tokens)' },
           url: { type: 'string', format: 'uri', default: 'https://sonarcloud.io', description: 'SonarCloud server URL' }
         },
         additionalProperties: false

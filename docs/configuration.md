@@ -1,6 +1,6 @@
 # ⚙️ Configuration
 
-<!-- Last updated: Apr 21, 2026 -->
+<!-- Last updated: May 9, 2026 -->
 
 CloudVoyager supports two configuration formats depending on the command you're using.
 
@@ -76,7 +76,7 @@ Performs a full migration from a SonarQube Server to one or more SonarQube Cloud
       },
       {
         "key": "org-two",
-        "token": "sonarcloud_token_for_org_two",
+        "tokens": ["token1", "token2", "token3"],
         "url": "https://sonarcloud.io"
       }
     ]
@@ -147,9 +147,31 @@ Used by `migrate`, `sync-metadata`. Instead of a single org, you provide an arra
 | Option | Required | Description |
 |--------|----------|-------------|
 | `organizations[].key` | Yes | SonarQube Cloud organization key |
-| `organizations[].token` | Yes | SonarQube Cloud API token for this org |
+| `organizations[].token` | No | SonarQube Cloud API token for this org (single). Use `tokens` instead for multiple tokens. |
+| `organizations[].tokens` | No | SonarQube Cloud API tokens for this org (array, multiple). Takes precedence over `token` if both are provided. |
 | `organizations[].url` | No | SonarQube Cloud server URL. Use `https://sonarcloud.io` (EU, default) or `https://sonarqube.us` (US). In the Desktop app an EU/US radio button sets this automatically. |
 | `enterprise.key` | Optional | SonarQube Cloud enterprise key. Required only for portfolio migration via V2 API. If absent, portfolio migration is gracefully skipped and the migration continues normally. |
+
+<!-- <subsection-updated last-updated="2026-05-09T00:00:00Z" updated-by="Claude" /> -->
+### Multi-Token API Support
+
+Organizations can specify multiple SonarQube Cloud API tokens to distribute API request load across N tokens, increasing effective concurrency and providing more headroom against SC rate limits.
+
+```json
+{
+  "organizations": [
+    {
+      "key": "my-org",
+      "tokens": ["token_1", "token_2", "token_3"],
+      "url": "https://sonarcloud.io"
+    }
+  ]
+}
+```
+
+If both `token` and `tokens` are provided, `tokens` takes precedence. The tool uses random token selection per request (not round-robin) to minimize the risk of consecutive requests hitting the same token and triggering a burst limit.
+
+**Note:** SonarCloud's rate limit scope (per-token, per-IP, or per-organization) is undocumented. Providing multiple tokens acts as a hedge — if limits are per-token, N tokens give N× the request budget.
 
 <!-- <subsection-updated last-updated="2026-05-07T02:15:00Z" updated-by="Claude" /> -->
 ### Transfer Settings
@@ -337,6 +359,7 @@ Multiple components can be combined: `--only scan-data,quality-gates,permissions
 |----------|-------------|
 | `SONARQUBE_TOKEN` | Override SonarQube Server token from config |
 | `SONARCLOUD_TOKEN` | Override SonarQube Cloud token from config |
+| `SONARCLOUD_TOKENS` | Override SonarQube Cloud tokens from config (JSON array or comma-separated). Works with both `transfer` and `migrate` commands. Example: `["token1","token2"]` or `token1,token2` |
 | `SONARQUBE_URL` | Override SonarQube Server URL from config |
 | `SONARCLOUD_URL` | Override SonarQube Cloud URL from config |
 | `LOG_LEVEL` | Set logging level (`debug`, `info`, `warn`, `error`) |

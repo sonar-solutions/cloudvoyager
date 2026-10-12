@@ -1,6 +1,8 @@
 // -------- Test Connection Command --------
 
+import { readFile } from 'node:fs/promises';
 import { loadConfig } from '../../shared/config/loader.js';
+import { loadMigrateConfig } from '../../shared/config/loader-migrate.js';
 import { detectAndRoute } from '../../version-router.js';
 import logger from '../../shared/utils/logger.js';
 
@@ -14,7 +16,15 @@ export function registerTestCommand(program) {
       try {
         if (options.verbose) logger.level = 'debug';
         logger.info('Testing connections...');
-        const config = await loadConfig(options.config);
+
+        // Pre-inspect the raw config to determine which loader to use
+        const rawContent = await readFile(options.config, 'utf-8');
+        const rawConfig = JSON.parse(rawContent);
+        const isMigrateConfig = rawConfig.sonarcloud && Array.isArray(rawConfig.sonarcloud.organizations);
+
+        const config = isMigrateConfig
+          ? await loadMigrateConfig(options.config)
+          : await loadConfig(options.config);
 
         const { pipelineId, parsedVersion } = await detectAndRoute(config.sonarqube);
         logger.info(`SonarQube version: ${parsedVersion.raw} → pipeline: ${pipelineId}`);
@@ -33,7 +43,20 @@ export function registerTestCommand(program) {
         logger.info('SonarQube connection successful');
 
         logger.info('Testing SonarCloud connection...');
-        const sonarCloudClient = new SonarCloudClient({ ...config.sonarcloud, rateLimit: config.rateLimit });
+        // Support both transfer (single-org) and migrate (multi-org) config formats
+        const scConfig = config.sonarcloud.organizations
+          ? {  // migrate-config.json format: extract first org
+              url: config.sonarcloud.organizations[0].url || 'https://sonarcloud.io',
+              token: config.sonarcloud.organizations[0].token,
+              tokens: config.sonarcloud.organizations[0].tokens,
+              organization: config.sonarcloud.organizations[0].key,
+              rateLimit: config.rateLimit,
+            }
+          : {  // transfer-config.json format: use directly
+              ...config.sonarcloud,
+              rateLimit: config.rateLimit,
+            };
+        const sonarCloudClient = new SonarCloudClient(scConfig);
         await sonarCloudClient.testConnection();
         logger.info('SonarCloud connection successful');
         logger.info('All connections tested successfully!');

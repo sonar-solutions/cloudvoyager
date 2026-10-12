@@ -48,7 +48,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
   }
   logger.info(`Found ${scIssues.length} SC issues, matching against ${issuesToSync.length} SQ issues`);
 
-  const matchedPairs = matchIssues(issuesToSync, scIssues);
+  const matchedPairs = matchIssues(issuesToSync, scIssues, stats);
   stats.matched = matchedPairs.length;
 
   if (matchedPairs.length === 0) {
@@ -64,7 +64,7 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
       const resolvedBaseURL = await resolveSourceBaseURL(sqClient);
       sqClientConfig = { baseURL: resolvedBaseURL, token: sqClient.token, projectKey: sqClient.projectKey };
     }
-    const mergedStats = await parallelSyncIssues(matchedPairs, scConfig, sqClientConfig, userMappings);
+    const mergedStats = await parallelSyncIssues(matchedPairs, scConfig, sqClientConfig, userMappings, {}, changelogMap);
     Object.assign(stats, mergedStats);
   } else {
     logger.info(`Syncing ${matchedPairs.length} issues with concurrency=${concurrency}`);
@@ -82,8 +82,9 @@ export async function syncIssues(projectKey, sqIssues, client, options = {}) {
 /** Log the final sync summary. */
 function logSyncSummary(stats) {
   const filtered = stats.filtered > 0 ? `${stats.filtered} filtered, ` : '';
+  const dupes = stats.duplicateDropped > 0 ? `, ${stats.duplicateDropped} duplicate-dropped` : '';
   const mapped = stats.assignmentMapped > 0 ? `, ${stats.assignmentMapped} mapped` : '';
   const skipped = stats.assignmentSkipped > 0 ? `, ${stats.assignmentSkipped} assignment-skipped` : '';
   const apiErr = stats.apiErrors > 0 ? `, ${stats.apiErrors} api-errors` : '';
-  logger.info(`Issue sync: ${filtered}${stats.matched} matched, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mapped}, ${stats.assignmentFailed} assignment-failed${skipped}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed${apiErr}`);
+  logger.info(`Issue sync: ${filtered}${stats.matched} matched${dupes}, ${stats.transitioned} transitioned, ${stats.assigned} assigned${mapped}, ${stats.assignmentFailed} assignment-failed${skipped}, ${stats.commented} comments, ${stats.tagged} tagged, ${stats.metadataSyncTagged} metadata-sync-tagged, ${stats.sourceLinked} source-linked, ${stats.failed} failed${apiErr}`);
 }

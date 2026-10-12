@@ -17,8 +17,12 @@ export async function migrateOneProjectCore(args) {
 
   const projectSqClient = new SonarQubeClient({ url: ctx.sonarqubeConfig.url, token: ctx.sonarqubeConfig.token, projectKey: project.key });
   const projectScClient = new SonarCloudClient({
-    url: org.url || 'https://sonarcloud.io', token: org.token,
-    organization: org.key, projectKey: scProjectKey, rateLimit: ctx.rateLimitConfig,
+    url: org.url || 'https://sonarcloud.io',
+    token: org.token,
+    tokens: org.tokens,
+    organization: org.key,
+    projectKey: scProjectKey,
+    rateLimit: ctx.rateLimitConfig,
     sharedThrottler: ctx.sharedThrottler || null,
   });
 
